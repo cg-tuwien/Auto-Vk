@@ -75,7 +75,664 @@ namespace ak
 
 		// TODO: Descriptors?!
 	}
-#pragma endregion 
+#pragma endregion
+
+#pragma region vk_utils
+	bool is_srgb_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> srgbFormats = {
+			vk::Format::eR8Srgb,
+			vk::Format::eR8G8Srgb,
+			vk::Format::eR8G8B8Srgb,
+			vk::Format::eB8G8R8Srgb,
+			vk::Format::eR8G8B8A8Srgb,
+			vk::Format::eB8G8R8A8Srgb,
+			vk::Format::eA8B8G8R8SrgbPack32
+		};
+		auto it = std::find(std::begin(srgbFormats), std::end(srgbFormats), pImageFormat);
+		return it != srgbFormats.end();
+	}
+
+	bool is_uint8_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
+		// TODO: sRGB-formats are assumed to be uint8-formats (not signed int8-formats) => is that true?
+		static std::set<vk::Format> uint8Formats = {
+			vk::Format::eR8Unorm,
+			vk::Format::eR8Uscaled,
+			vk::Format::eR8Uint,
+			vk::Format::eR8Srgb,
+			vk::Format::eR8G8Unorm,
+			vk::Format::eR8G8Uscaled,
+			vk::Format::eR8G8Uint,
+			vk::Format::eR8G8Srgb,
+			vk::Format::eR8G8B8Unorm,
+			vk::Format::eR8G8B8Uscaled,
+			vk::Format::eR8G8B8Uint,
+			vk::Format::eR8G8B8Srgb,
+			vk::Format::eB8G8R8Unorm,
+			vk::Format::eB8G8R8Uscaled,
+			vk::Format::eB8G8R8Uint,
+			vk::Format::eB8G8R8Srgb,
+			vk::Format::eR8G8B8A8Unorm,
+			vk::Format::eR8G8B8A8Uscaled,
+			vk::Format::eR8G8B8A8Uint,
+			vk::Format::eR8G8B8A8Srgb,
+			vk::Format::eB8G8R8A8Unorm,
+			vk::Format::eB8G8R8A8Uscaled,
+			vk::Format::eB8G8R8A8Uint,
+			vk::Format::eB8G8R8A8Srgb,
+			vk::Format::eA8B8G8R8UnormPack32,
+			vk::Format::eA8B8G8R8UscaledPack32,
+			vk::Format::eA8B8G8R8UintPack32,
+			vk::Format::eA8B8G8R8SrgbPack32
+		};
+		auto it = std::find(std::begin(uint8Formats), std::end(uint8Formats), pImageFormat);
+		return it != uint8Formats.end();
+	}
+
+	bool is_int8_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> int8Formats = {
+			vk::Format::eR8Snorm,
+			vk::Format::eR8Sscaled,
+			vk::Format::eR8Sint,
+			vk::Format::eR8G8Snorm,
+			vk::Format::eR8G8Sscaled,
+			vk::Format::eR8G8Sint,
+			vk::Format::eR8G8B8Snorm,
+			vk::Format::eR8G8B8Sscaled,
+			vk::Format::eR8G8B8Sint,
+			vk::Format::eB8G8R8Snorm,
+			vk::Format::eB8G8R8Sscaled,
+			vk::Format::eB8G8R8Sint,
+			vk::Format::eR8G8B8A8Snorm,
+			vk::Format::eR8G8B8A8Sscaled,
+			vk::Format::eR8G8B8A8Sint,
+			vk::Format::eB8G8R8A8Snorm,
+			vk::Format::eB8G8R8A8Sscaled,
+			vk::Format::eB8G8R8A8Sint,
+			vk::Format::eA8B8G8R8SnormPack32,
+			vk::Format::eA8B8G8R8SscaledPack32,
+			vk::Format::eA8B8G8R8SintPack32,
+		};
+		auto it = std::find(std::begin(int8Formats), std::end(int8Formats), pImageFormat);
+		return it != int8Formats.end();
+	}
+
+	bool is_uint16_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> uint16Formats = {
+			vk::Format::eR16Unorm,
+			vk::Format::eR16Uscaled,
+			vk::Format::eR16Uint,
+			vk::Format::eR16G16Unorm,
+			vk::Format::eR16G16Uscaled,
+			vk::Format::eR16G16Uint,
+			vk::Format::eR16G16B16Unorm,
+			vk::Format::eR16G16B16Uscaled,
+			vk::Format::eR16G16B16Uint,
+			vk::Format::eR16G16B16A16Unorm,
+			vk::Format::eR16G16B16A16Uscaled,
+			vk::Format::eR16G16B16A16Uint
+		};
+		auto it = std::find(std::begin(uint16Formats), std::end(uint16Formats), pImageFormat);
+		return it != uint16Formats.end();
+	}
+
+	bool is_int16_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> int16Formats = {
+			vk::Format::eR16Snorm,
+			vk::Format::eR16Sscaled,
+			vk::Format::eR16Sint,
+			vk::Format::eR16G16Snorm,
+			vk::Format::eR16G16Sscaled,
+			vk::Format::eR16G16Sint,
+			vk::Format::eR16G16B16Snorm,
+			vk::Format::eR16G16B16Sscaled,
+			vk::Format::eR16G16B16Sint,
+			vk::Format::eR16G16B16A16Snorm,
+			vk::Format::eR16G16B16A16Sscaled,
+			vk::Format::eR16G16B16A16Sint
+		};
+		auto it = std::find(std::begin(int16Formats), std::end(int16Formats), pImageFormat);
+		return it != int16Formats.end();
+	}
+
+	bool is_uint32_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> uint32Format = { 
+			vk::Format::eR32Uint,
+			vk::Format::eR32G32Uint,
+			vk::Format::eR32G32B32Uint,
+			vk::Format::eR32G32B32A32Uint
+		};
+		auto it = std::find(std::begin(uint32Format), std::end(uint32Format), pImageFormat);
+		return it != uint32Format.end();
+	}
+
+	bool is_int32_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> int32Format = {
+			vk::Format::eR32Sint,
+			vk::Format::eR32G32Sint,
+			vk::Format::eR32G32B32Sint,
+			vk::Format::eR32G32B32A32Sint
+		};
+		auto it = std::find(std::begin(int32Format), std::end(int32Format), pImageFormat);
+		return it != int32Format.end();
+	}
+
+	bool is_float_format(const vk::Format& pImageFormat)
+	{
+		return is_float16_format(pImageFormat) || is_float32_format(pImageFormat) || is_float64_format(pImageFormat);
+	}
+
+	bool is_float16_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> float16Formats = {
+			vk::Format::eR16Sfloat,
+			vk::Format::eR16G16Sfloat,
+			vk::Format::eR16G16B16Sfloat,
+			vk::Format::eR16G16B16A16Sfloat
+		};
+		auto it = std::find(std::begin(float16Formats), std::end(float16Formats), pImageFormat);
+		return it != float16Formats.end();
+	}
+
+	bool is_float32_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> float32Formats = {
+			vk::Format::eR32Sfloat,
+			vk::Format::eR32G32Sfloat,
+			vk::Format::eR32G32B32Sfloat,
+			vk::Format::eR32G32B32A32Sfloat
+		};
+		auto it = std::find(std::begin(float32Formats), std::end(float32Formats), pImageFormat);
+		return it != float32Formats.end();
+	}
+
+	bool is_float64_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> float64Formats = {
+			vk::Format::eR64Sfloat,
+			vk::Format::eR64G64Sfloat,
+			vk::Format::eR64G64B64Sfloat,
+			vk::Format::eR64G64B64A64Sfloat
+		};
+		auto it = std::find(std::begin(float64Formats), std::end(float64Formats), pImageFormat);
+		return it != float64Formats.end();
+	}
+
+	bool is_rgb_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> rgbFormats = {
+			vk::Format::eR5G6B5UnormPack16,
+			vk::Format::eR8G8B8Unorm,
+			vk::Format::eR8G8B8Snorm,
+			vk::Format::eR8G8B8Uscaled,
+			vk::Format::eR8G8B8Sscaled,
+			vk::Format::eR8G8B8Uint,
+			vk::Format::eR8G8B8Sint,
+			vk::Format::eR8G8B8Srgb,
+			vk::Format::eR16G16B16Unorm,
+			vk::Format::eR16G16B16Snorm,
+			vk::Format::eR16G16B16Uscaled,
+			vk::Format::eR16G16B16Sscaled,
+			vk::Format::eR16G16B16Uint,
+			vk::Format::eR16G16B16Sint,
+			vk::Format::eR16G16B16Sfloat,
+			vk::Format::eR32G32B32Uint,
+			vk::Format::eR32G32B32Sint,
+			vk::Format::eR32G32B32Sfloat,
+			vk::Format::eR64G64B64Uint,
+			vk::Format::eR64G64B64Sint,
+			vk::Format::eR64G64B64Sfloat,
+
+		};
+		auto it = std::find(std::begin(rgbFormats), std::end(rgbFormats), pImageFormat);
+		return it != rgbFormats.end();
+	}
+
+	bool is_rgba_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> rgbaFormats = {
+			vk::Format::eR4G4B4A4UnormPack16,
+			vk::Format::eR5G5B5A1UnormPack16,
+			vk::Format::eR8G8B8A8Unorm,
+			vk::Format::eR8G8B8A8Snorm,
+			vk::Format::eR8G8B8A8Uscaled,
+			vk::Format::eR8G8B8A8Sscaled,
+			vk::Format::eR8G8B8A8Uint,
+			vk::Format::eR8G8B8A8Sint,
+			vk::Format::eR8G8B8A8Srgb,
+			vk::Format::eR16G16B16A16Unorm,
+			vk::Format::eR16G16B16A16Snorm,
+			vk::Format::eR16G16B16A16Uscaled,
+			vk::Format::eR16G16B16A16Sscaled,
+			vk::Format::eR16G16B16A16Uint,
+			vk::Format::eR16G16B16A16Sint,
+			vk::Format::eR16G16B16A16Sfloat,
+			vk::Format::eR32G32B32A32Uint,
+			vk::Format::eR32G32B32A32Sint,
+			vk::Format::eR32G32B32A32Sfloat,
+			vk::Format::eR64G64B64A64Uint,
+			vk::Format::eR64G64B64A64Sint,
+			vk::Format::eR64G64B64A64Sfloat,
+		};
+		auto it = std::find(std::begin(rgbaFormats), std::end(rgbaFormats), pImageFormat);
+		return it != rgbaFormats.end();
+	}
+
+	bool is_argb_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> argbFormats = {
+			vk::Format::eA1R5G5B5UnormPack16,
+			vk::Format::eA2R10G10B10UnormPack32,
+			vk::Format::eA2R10G10B10SnormPack32,
+			vk::Format::eA2R10G10B10UscaledPack32,
+			vk::Format::eA2R10G10B10SscaledPack32,
+			vk::Format::eA2R10G10B10UintPack32,
+			vk::Format::eA2R10G10B10SintPack32,
+		};
+		auto it = std::find(std::begin(argbFormats), std::end(argbFormats), pImageFormat);
+		return it != argbFormats.end();
+	}
+
+	bool is_bgr_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> bgrFormats = {
+			vk::Format::eB5G6R5UnormPack16,
+			vk::Format::eB8G8R8Unorm,
+			vk::Format::eB8G8R8Snorm,
+			vk::Format::eB8G8R8Uscaled,
+			vk::Format::eB8G8R8Sscaled,
+			vk::Format::eB8G8R8Uint,
+			vk::Format::eB8G8R8Sint,
+			vk::Format::eB8G8R8Srgb,
+			vk::Format::eB10G11R11UfloatPack32,
+		};
+		auto it = std::find(std::begin(bgrFormats), std::end(bgrFormats), pImageFormat);
+		return it != bgrFormats.end();
+	}
+
+	bool is_bgra_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> bgraFormats = {
+			vk::Format::eB4G4R4A4UnormPack16,
+			vk::Format::eB5G5R5A1UnormPack16,
+			vk::Format::eR8G8B8A8Unorm,
+			vk::Format::eR8G8B8A8Snorm,
+			vk::Format::eR8G8B8A8Uscaled,
+			vk::Format::eR8G8B8A8Sscaled,
+			vk::Format::eR8G8B8A8Uint,
+			vk::Format::eR8G8B8A8Sint,
+			vk::Format::eR8G8B8A8Srgb,
+			vk::Format::eB8G8R8A8Unorm,
+			vk::Format::eB8G8R8A8Snorm,
+			vk::Format::eB8G8R8A8Uscaled,
+			vk::Format::eB8G8R8A8Sscaled,
+			vk::Format::eB8G8R8A8Uint,
+			vk::Format::eB8G8R8A8Sint,
+			vk::Format::eB8G8R8A8Srgb,
+		};
+		auto it = std::find(std::begin(bgraFormats), std::end(bgraFormats), pImageFormat);
+		return it != bgraFormats.end();
+	}
+
+	bool is_abgr_format(const vk::Format& pImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> abgrFormats = {
+			vk::Format::eA8B8G8R8UnormPack32,
+			vk::Format::eA8B8G8R8SnormPack32,
+			vk::Format::eA8B8G8R8UscaledPack32,
+			vk::Format::eA8B8G8R8SscaledPack32,
+			vk::Format::eA8B8G8R8UintPack32,
+			vk::Format::eA8B8G8R8SintPack32,
+			vk::Format::eA8B8G8R8SrgbPack32,
+			vk::Format::eA2B10G10R10UnormPack32,
+			vk::Format::eA2B10G10R10SnormPack32,
+			vk::Format::eA2B10G10R10UscaledPack32,
+			vk::Format::eA2B10G10R10SscaledPack32,
+			vk::Format::eA2B10G10R10UintPack32,
+			vk::Format::eA2B10G10R10SintPack32,
+		};
+		auto it = std::find(std::begin(abgrFormats), std::end(abgrFormats), pImageFormat);
+		return it != abgrFormats.end();
+	}
+
+	bool has_stencil_component(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> stencilFormats = {
+			vk::Format::eD16UnormS8Uint,
+			vk::Format::eD32SfloatS8Uint,
+			vk::Format::eD24UnormS8Uint,
+		};
+		auto it = std::find(std::begin(stencilFormats), std::end(stencilFormats), pImageFormat);
+		return it != stencilFormats.end();
+	}
+
+	bool is_depth_format(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> depthFormats = {
+			vk::Format::eD16Unorm,
+			vk::Format::eD16UnormS8Uint,
+			vk::Format::eD24UnormS8Uint,
+			vk::Format::eD32Sfloat,
+			vk::Format::eD32SfloatS8Uint,
+		};
+		auto it = std::find(std::begin(depthFormats), std::end(depthFormats), pImageFormat);
+		return it != depthFormats.end();
+	}
+
+	bool is_1component_format(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> singleCompFormats = {
+			vk::Format::eR8Srgb,
+			vk::Format::eR8Unorm,
+			vk::Format::eR8Uscaled,
+			vk::Format::eR8Uint,
+			vk::Format::eR8Srgb,
+			vk::Format::eR8Snorm,
+			vk::Format::eR8Sscaled,
+			vk::Format::eR8Sint,
+			vk::Format::eR16Unorm,
+			vk::Format::eR16Uscaled,
+			vk::Format::eR16Uint,
+			vk::Format::eR16Snorm,
+			vk::Format::eR16Sscaled,
+			vk::Format::eR16Sint,
+			vk::Format::eR32Uint,
+			vk::Format::eR32Sint,
+			vk::Format::eR16Sfloat,
+			vk::Format::eR32Sfloat,
+			vk::Format::eR64Sfloat,
+		};
+		auto it = std::find(std::begin(singleCompFormats), std::end(singleCompFormats), pImageFormat);
+		return it != singleCompFormats.end();
+	}
+
+	bool is_2component_format(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> twoComponentFormats = {
+			vk::Format::eR8G8Srgb,
+			vk::Format::eR8G8Unorm,
+			vk::Format::eR8G8Uscaled,
+			vk::Format::eR8G8Uint,
+			vk::Format::eR8G8Srgb,
+			vk::Format::eR8G8Snorm,
+			vk::Format::eR8G8Sscaled,
+			vk::Format::eR8G8Sint,
+			vk::Format::eR16G16Unorm,
+			vk::Format::eR16G16Uscaled,
+			vk::Format::eR16G16Uint,
+			vk::Format::eR16G16Snorm,
+			vk::Format::eR16G16Sscaled,
+			vk::Format::eR16G16Sint,
+			vk::Format::eR32G32Uint,
+			vk::Format::eR32G32Sint,
+			vk::Format::eR16G16Sfloat,
+			vk::Format::eR32G32Sfloat,
+			vk::Format::eR64G64Sfloat,
+		};
+		auto it = std::find(std::begin(twoComponentFormats), std::end(twoComponentFormats), pImageFormat);
+		return it != twoComponentFormats.end();
+	}
+
+	bool is_3component_format(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> threeCompFormat = {
+			vk::Format::eR8G8B8Srgb,
+			vk::Format::eB8G8R8Srgb,
+			vk::Format::eR5G6B5UnormPack16,
+			vk::Format::eR8G8B8Unorm,
+			vk::Format::eR8G8B8Snorm,
+			vk::Format::eR8G8B8Uscaled,
+			vk::Format::eR8G8B8Sscaled,
+			vk::Format::eR8G8B8Uint,
+			vk::Format::eR8G8B8Sint,
+			vk::Format::eR8G8B8Srgb,
+			vk::Format::eR16G16B16Unorm,
+			vk::Format::eR16G16B16Snorm,
+			vk::Format::eR16G16B16Uscaled,
+			vk::Format::eR16G16B16Sscaled,
+			vk::Format::eR16G16B16Uint,
+			vk::Format::eR16G16B16Sint,
+			vk::Format::eR16G16B16Sfloat,
+			vk::Format::eR32G32B32Uint,
+			vk::Format::eR32G32B32Sint,
+			vk::Format::eR32G32B32Sfloat,
+			vk::Format::eR64G64B64Uint,
+			vk::Format::eR64G64B64Sint,
+			vk::Format::eR64G64B64Sfloat,
+			vk::Format::eB5G6R5UnormPack16,
+			vk::Format::eB8G8R8Unorm,
+			vk::Format::eB8G8R8Snorm,
+			vk::Format::eB8G8R8Uscaled,
+			vk::Format::eB8G8R8Sscaled,
+			vk::Format::eB8G8R8Uint,
+			vk::Format::eB8G8R8Sint,
+			vk::Format::eB8G8R8Srgb,
+			vk::Format::eB10G11R11UfloatPack32,
+		};
+		auto it = std::find(std::begin(threeCompFormat), std::end(threeCompFormat), pImageFormat);
+		return it != threeCompFormat.end();
+	}
+
+	bool is_4component_format(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> fourCompFormats = {
+			vk::Format::eR8G8B8A8Srgb,
+			vk::Format::eB8G8R8A8Srgb,
+			vk::Format::eA8B8G8R8SrgbPack32,
+			vk::Format::eR4G4B4A4UnormPack16,
+			vk::Format::eR5G5B5A1UnormPack16,
+			vk::Format::eR8G8B8A8Unorm,
+			vk::Format::eR8G8B8A8Snorm,
+			vk::Format::eR8G8B8A8Uscaled,
+			vk::Format::eR8G8B8A8Sscaled,
+			vk::Format::eR8G8B8A8Uint,
+			vk::Format::eR8G8B8A8Sint,
+			vk::Format::eR8G8B8A8Srgb,
+			vk::Format::eR16G16B16A16Unorm,
+			vk::Format::eR16G16B16A16Snorm,
+			vk::Format::eR16G16B16A16Uscaled,
+			vk::Format::eR16G16B16A16Sscaled,
+			vk::Format::eR16G16B16A16Uint,
+			vk::Format::eR16G16B16A16Sint,
+			vk::Format::eR16G16B16A16Sfloat,
+			vk::Format::eR32G32B32A32Uint,
+			vk::Format::eR32G32B32A32Sint,
+			vk::Format::eR32G32B32A32Sfloat,
+			vk::Format::eR64G64B64A64Uint,
+			vk::Format::eR64G64B64A64Sint,
+			vk::Format::eR64G64B64A64Sfloat,
+			vk::Format::eA1R5G5B5UnormPack16,
+			vk::Format::eA2R10G10B10UnormPack32,
+			vk::Format::eA2R10G10B10SnormPack32,
+			vk::Format::eA2R10G10B10UscaledPack32,
+			vk::Format::eA2R10G10B10SscaledPack32,
+			vk::Format::eA2R10G10B10UintPack32,
+			vk::Format::eA2R10G10B10SintPack32,
+			vk::Format::eB4G4R4A4UnormPack16,
+			vk::Format::eB5G5R5A1UnormPack16,
+			vk::Format::eR8G8B8A8Unorm,
+			vk::Format::eR8G8B8A8Snorm,
+			vk::Format::eR8G8B8A8Uscaled,
+			vk::Format::eR8G8B8A8Sscaled,
+			vk::Format::eR8G8B8A8Uint,
+			vk::Format::eR8G8B8A8Sint,
+			vk::Format::eR8G8B8A8Srgb,
+			vk::Format::eB8G8R8A8Unorm,
+			vk::Format::eB8G8R8A8Snorm,
+			vk::Format::eB8G8R8A8Uscaled,
+			vk::Format::eB8G8R8A8Sscaled,
+			vk::Format::eB8G8R8A8Uint,
+			vk::Format::eB8G8R8A8Sint,
+			vk::Format::eB8G8R8A8Srgb,
+			vk::Format::eA8B8G8R8UnormPack32,
+			vk::Format::eA8B8G8R8SnormPack32,
+			vk::Format::eA8B8G8R8UscaledPack32,
+			vk::Format::eA8B8G8R8SscaledPack32,
+			vk::Format::eA8B8G8R8UintPack32,
+			vk::Format::eA8B8G8R8SintPack32,
+			vk::Format::eA8B8G8R8SrgbPack32,
+			vk::Format::eA2B10G10R10UnormPack32,
+			vk::Format::eA2B10G10R10SnormPack32,
+			vk::Format::eA2B10G10R10UscaledPack32,
+			vk::Format::eA2B10G10R10SscaledPack32,
+			vk::Format::eA2B10G10R10UintPack32,
+			vk::Format::eA2B10G10R10SintPack32,
+		};
+		auto it = std::find(std::begin(fourCompFormats), std::end(fourCompFormats), pImageFormat);
+		return it != fourCompFormats.end();
+	}
+
+	bool is_unorm_format(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> unormFormats = {
+			vk::Format::eR8Unorm,
+			vk::Format::eR8G8Unorm,
+			vk::Format::eR8G8B8Unorm,
+			vk::Format::eB8G8R8Unorm,
+			vk::Format::eR8G8B8A8Unorm,
+			vk::Format::eB8G8R8A8Unorm,
+			vk::Format::eA8B8G8R8UnormPack32,
+			vk::Format::eR16Unorm,
+			vk::Format::eR16G16Unorm,
+			vk::Format::eR16G16B16Unorm,
+			vk::Format::eR16G16B16A16Unorm
+		};
+		auto it = std::find(std::begin(unormFormats), std::end(unormFormats), pImageFormat);
+		return it != unormFormats.end();
+	}
+	
+	bool is_snorm_format(const vk::Format& pImageFormat)
+	{
+		static std::set<vk::Format> snormFormats = {
+			vk::Format::eR8Snorm,
+			vk::Format::eR8G8Snorm,
+			vk::Format::eR8G8B8Snorm,
+			vk::Format::eB8G8R8Snorm,
+			vk::Format::eR8G8B8A8Snorm,
+			vk::Format::eB8G8R8A8Snorm,
+			vk::Format::eA8B8G8R8SnormPack32,
+			vk::Format::eR16Snorm,
+			vk::Format::eR16G16Snorm,
+			vk::Format::eR16G16B16Snorm,
+			vk::Format::eR16G16B16A16Snorm
+		};
+		auto it = std::find(std::begin(snormFormats), std::end(snormFormats), pImageFormat);
+		return it != snormFormats.end();
+	}
+	
+	bool is_norm_format(const vk::Format& pImageFormat)
+	{
+		return is_unorm_format(pImageFormat) || is_snorm_format(pImageFormat) || is_srgb_format(pImageFormat);
+	}
+
+	std::tuple<vk::ImageUsageFlags, vk::ImageLayout, vk::ImageTiling, vk::ImageCreateFlags> determine_usage_layout_tiling_flags_based_on_image_usage(ak::image_usage aImageUsageFlags)
+	{
+		vk::ImageUsageFlags imageUsage{};
+
+		bool isReadOnly = ak::has_flag(aImageUsageFlags, ak::image_usage::read_only);
+		ak::image_usage cleanedUpUsageFlagsForReadOnly = exclude(aImageUsageFlags, ak::image_usage::transfer_source | ak::image_usage::transfer_destination | ak::image_usage::sampled | ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected); // TODO: To be verified, it's just a guess.
+
+		auto targetLayout = isReadOnly ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eGeneral; // General Layout or Shader Read Only Layout is the default
+		auto imageTiling = vk::ImageTiling::eOptimal; // Optimal is the default
+		vk::ImageCreateFlags imageCreateFlags{};
+
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::transfer_source)) {
+			imageUsage |= vk::ImageUsageFlagBits::eTransferSrc;
+			ak::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected | ak::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
+			if (ak::image_usage::transfer_source == cleanedUpUsageFlags) {
+				targetLayout = vk::ImageLayout::eTransferSrcOptimal;
+			}
+			else {
+				targetLayout = vk::ImageLayout::eGeneral;
+			}
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::transfer_destination)) {
+			imageUsage |= vk::ImageUsageFlagBits::eTransferDst;
+			ak::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected | ak::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
+			if (ak::image_usage::transfer_destination == cleanedUpUsageFlags) {
+				targetLayout = vk::ImageLayout::eTransferDstOptimal;
+			}
+			else {
+				targetLayout = vk::ImageLayout::eGeneral;
+			}
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::sampled)) {
+			imageUsage |= vk::ImageUsageFlagBits::eSampled;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::color_attachment)) {
+			imageUsage |= vk::ImageUsageFlagBits::eColorAttachment;
+			targetLayout = vk::ImageLayout::eColorAttachmentOptimal;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::depth_stencil_attachment)) {
+			imageUsage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+			if (isReadOnly && ak::image_usage::depth_stencil_attachment == cleanedUpUsageFlagsForReadOnly) {
+				targetLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+			}
+			else {
+				targetLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+			}
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::input_attachment)) {
+			imageUsage |= vk::ImageUsageFlagBits::eInputAttachment;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shading_rate_image)) {
+			imageUsage |= vk::ImageUsageFlagBits::eShadingRateImageNV;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::presentable)) {
+			targetLayout = vk::ImageLayout::ePresentSrcKHR; // TODO: This probably needs some further action(s) => implement that further action(s)
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shared_presentable)) {
+			targetLayout = vk::ImageLayout::eSharedPresentKHR; // TODO: This probably needs some further action(s) => implement that further action(s)
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::tiling_optimal)) {
+			imageTiling = vk::ImageTiling::eOptimal;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::tiling_linear)) {
+			imageTiling = vk::ImageTiling::eLinear;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::sparse_memory_binding)) {
+			imageCreateFlags |= vk::ImageCreateFlagBits::eSparseBinding;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::cube_compatible)) {
+			imageCreateFlags |= vk::ImageCreateFlagBits::eCubeCompatible;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::is_protected)) {
+			imageCreateFlags |= vk::ImageCreateFlagBits::eProtected;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::mutable_format)) {
+			imageCreateFlags |= vk::ImageCreateFlagBits::eMutableFormat;
+		}
+		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shader_storage)) { 
+			imageUsage |= vk::ImageUsageFlagBits::eStorage;	
+			// Can not be Shader Read Only Layout
+			targetLayout = vk::ImageLayout::eGeneral; // TODO: Verify that this should always be in general layout!
+		}
+
+		return std::make_tuple(imageUsage, targetLayout, imageTiling, imageCreateFlags);
+	}
+#pragma endregion
 
 #pragma region ak_error definitions
 	runtime_error::runtime_error (const std::string& what_arg) : std::runtime_error(what_arg)
@@ -218,7 +875,7 @@ namespace ak
 			auto& indexBuffer = std::get<std::reference_wrapper<const ak::index_buffer_t>>(tpl).get();
 			
 			if (vertexBuffer.meta_data().member_descriptions().size() == 0) {
-				throw ak::runtime_error("cgb::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
+				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
 			}
 			// Find member representing the positions, and...
 			auto posMember = std::find_if(
@@ -229,7 +886,7 @@ namespace ak
 				});
 			// ... perform 2nd check:
 			if (posMember == std::end(vertexBuffer.meta_data().member_descriptions())) {
-				throw ak::runtime_error("cgb::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
+				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
 			}
 	
 			accStructureGeometries.emplace_back()
@@ -391,10 +1048,10 @@ namespace ak
 		}
 		else {
 			if (aBufferToOwn->meta_data().member_descriptions().size() == 0) {
-				throw ak::runtime_error("No _ViewFormat passed and cgb::uniform_texel_buffer contains no member descriptions");
+				throw ak::runtime_error("No _ViewFormat passed and ak::uniform_texel_buffer contains no member descriptions");
 			}
 			if (aBufferToOwn->meta_data().member_descriptions().size() > 1) {
-				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in cgb::uniform_texel_buffer. The view will likely be corrupted.");
+				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
 			}
 			format = aBufferToOwn->meta_data().member_descriptions().front().mFormat;
 		}
@@ -413,10 +1070,10 @@ namespace ak
 		}
 		else {
 			if (aBufferToOwn->meta_data().member_descriptions().size() == 0) {
-				throw ak::runtime_error("No aViewFormat passed and cgb::storage_texel_buffer contains no member descriptions");
+				throw ak::runtime_error("No aViewFormat passed and ak::storage_texel_buffer contains no member descriptions");
 			}
 			if (aBufferToOwn->meta_data().member_descriptions().size() > 1) {
-				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in cgb::storage_texel_buffer. The view will likely be corrupted.");
+				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in ak::storage_texel_buffer. The view will likely be corrupted.");
 			}
 			format = aBufferToOwn->meta_data().member_descriptions().front().mFormat;
 		}
@@ -464,7 +1121,7 @@ namespace ak
 		buffers.reserve(aCount);
 		std::transform(std::begin(tmp), std::end(tmp),
 			std::back_inserter(buffers),
-			// ...transform them into `cgb::command_buffer_t` objects:
+			// ...transform them into `ak::command_buffer_t` objects:
 			[lUsageFlags = aUsageFlags](auto& vkCb) -> owning_resource<command_buffer_t> {
 				command_buffer_t result;
 				result.mBeginInfo = vk::CommandBufferBeginInfo()
@@ -1263,7 +1920,7 @@ namespace ak
 
 	void descriptor_set::link_to_handle_and_pool(vk::DescriptorSet aHandle, std::shared_ptr<descriptor_pool> aPool)
 	{
-		mDescriptorSet = std::move(aHandle);
+		mDescriptorSet = aHandle;
 		for (auto& w : mOrderedDescriptorDataWrites) {
 			w.setDstSet(handle());
 		}
@@ -1352,686 +2009,740 @@ namespace ak
 		return cachedSets;
 	}
 #pragma endregion
-	
-	bool is_srgb_format(const vk::Format& pImageFormat)
+
+#pragma region fence definitions
+	fence_t::~fence_t()
 	{
-		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> srgbFormats = {
-			vk::Format::eR8Srgb,
-			vk::Format::eR8G8Srgb,
-			vk::Format::eR8G8B8Srgb,
-			vk::Format::eB8G8R8Srgb,
-			vk::Format::eR8G8B8A8Srgb,
-			vk::Format::eB8G8R8A8Srgb,
-			vk::Format::eA8B8G8R8SrgbPack32
-		};
-		auto it = std::find(std::begin(srgbFormats), std::end(srgbFormats), pImageFormat);
-		return it != srgbFormats.end();
+		if (mCustomDeleter.has_value() && *mCustomDeleter) {
+			// If there is a custom deleter => call it now
+			(*mCustomDeleter)();
+			mCustomDeleter.reset();
+		}
+		// Destroy the dependant instance before destroying myself
+		// ^ This is ensured by the order of the members
+		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
 	}
 
-	bool is_uint8_format(const vk::Format& pImageFormat)
+	fence_t& fence_t::set_designated_queue(device_queue& _Queue)
 	{
-		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
-		// TODO: sRGB-formats are assumed to be uint8-formats (not signed int8-formats) => is that true?
-		static std::set<vk::Format> uint8Formats = {
-			vk::Format::eR8Unorm,
-			vk::Format::eR8Uscaled,
-			vk::Format::eR8Uint,
-			vk::Format::eR8Srgb,
-			vk::Format::eR8G8Unorm,
-			vk::Format::eR8G8Uscaled,
-			vk::Format::eR8G8Uint,
-			vk::Format::eR8G8Srgb,
-			vk::Format::eR8G8B8Unorm,
-			vk::Format::eR8G8B8Uscaled,
-			vk::Format::eR8G8B8Uint,
-			vk::Format::eR8G8B8Srgb,
-			vk::Format::eB8G8R8Unorm,
-			vk::Format::eB8G8R8Uscaled,
-			vk::Format::eB8G8R8Uint,
-			vk::Format::eB8G8R8Srgb,
-			vk::Format::eR8G8B8A8Unorm,
-			vk::Format::eR8G8B8A8Uscaled,
-			vk::Format::eR8G8B8A8Uint,
-			vk::Format::eR8G8B8A8Srgb,
-			vk::Format::eB8G8R8A8Unorm,
-			vk::Format::eB8G8R8A8Uscaled,
-			vk::Format::eB8G8R8A8Uint,
-			vk::Format::eB8G8R8A8Srgb,
-			vk::Format::eA8B8G8R8UnormPack32,
-			vk::Format::eA8B8G8R8UscaledPack32,
-			vk::Format::eA8B8G8R8UintPack32,
-			vk::Format::eA8B8G8R8SrgbPack32
-		};
-		auto it = std::find(std::begin(uint8Formats), std::end(uint8Formats), pImageFormat);
-		return it != uint8Formats.end();
+		mQueue = &_Queue;
+		return *this;
 	}
 
-	bool is_int8_format(const vk::Format& pImageFormat)
+	void fence_t::wait_until_signalled() const
 	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> int8Formats = {
-			vk::Format::eR8Snorm,
-			vk::Format::eR8Sscaled,
-			vk::Format::eR8Sint,
-			vk::Format::eR8G8Snorm,
-			vk::Format::eR8G8Sscaled,
-			vk::Format::eR8G8Sint,
-			vk::Format::eR8G8B8Snorm,
-			vk::Format::eR8G8B8Sscaled,
-			vk::Format::eR8G8B8Sint,
-			vk::Format::eB8G8R8Snorm,
-			vk::Format::eB8G8R8Sscaled,
-			vk::Format::eB8G8R8Sint,
-			vk::Format::eR8G8B8A8Snorm,
-			vk::Format::eR8G8B8A8Sscaled,
-			vk::Format::eR8G8B8A8Sint,
-			vk::Format::eB8G8R8A8Snorm,
-			vk::Format::eB8G8R8A8Sscaled,
-			vk::Format::eB8G8R8A8Sint,
-			vk::Format::eA8B8G8R8SnormPack32,
-			vk::Format::eA8B8G8R8SscaledPack32,
-			vk::Format::eA8B8G8R8SintPack32,
-		};
-		auto it = std::find(std::begin(int8Formats), std::end(int8Formats), pImageFormat);
-		return it != int8Formats.end();
+		// ReSharper disable once CppExpressionWithoutSideEffects
+		mFence.getOwner().waitForFences(1u, handle_ptr(), VK_TRUE, UINT64_MAX);
 	}
 
-	bool is_uint16_format(const vk::Format& pImageFormat)
+	void fence_t::reset()
 	{
-		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> uint16Formats = {
-			vk::Format::eR16Unorm,
-			vk::Format::eR16Uscaled,
-			vk::Format::eR16Uint,
-			vk::Format::eR16G16Unorm,
-			vk::Format::eR16G16Uscaled,
-			vk::Format::eR16G16Uint,
-			vk::Format::eR16G16B16Unorm,
-			vk::Format::eR16G16B16Uscaled,
-			vk::Format::eR16G16B16Uint,
-			vk::Format::eR16G16B16A16Unorm,
-			vk::Format::eR16G16B16A16Uscaled,
-			vk::Format::eR16G16B16A16Uint
-		};
-		auto it = std::find(std::begin(uint16Formats), std::end(uint16Formats), pImageFormat);
-		return it != uint16Formats.end();
+		// ReSharper disable once CppExpressionWithoutSideEffects
+		mFence.getOwner().resetFences(1u, handle_ptr());
+		if (mCustomDeleter.has_value() && *mCustomDeleter) {
+			// If there is a custom deleter => call it now
+			(*mCustomDeleter)();
+			mCustomDeleter.reset();
+		}
 	}
 
-	bool is_int16_format(const vk::Format& pImageFormat)
+	ak::owning_resource<fence_t> root::create_fence(bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
 	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> int16Formats = {
-			vk::Format::eR16Snorm,
-			vk::Format::eR16Sscaled,
-			vk::Format::eR16Sint,
-			vk::Format::eR16G16Snorm,
-			vk::Format::eR16G16Sscaled,
-			vk::Format::eR16G16Sint,
-			vk::Format::eR16G16B16Snorm,
-			vk::Format::eR16G16B16Sscaled,
-			vk::Format::eR16G16B16Sint,
-			vk::Format::eR16G16B16A16Snorm,
-			vk::Format::eR16G16B16A16Sscaled,
-			vk::Format::eR16G16B16A16Sint
-		};
-		auto it = std::find(std::begin(int16Formats), std::end(int16Formats), pImageFormat);
-		return it != int16Formats.end();
+		fence_t result;
+		result.mCreateInfo = vk::FenceCreateInfo()
+			.setFlags(aCreateInSignalledState 
+						? vk::FenceCreateFlagBits::eSignaled
+						: vk::FenceCreateFlags() 
+			);
+
+		// Maybe alter the config?
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		result.mFence = device().createFenceUnique(result.mCreateInfo);
+		return result;
+	}
+#pragma endregion
+
+#pragma framebuffer definitions
+	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<image_view>& aImageViews)
+	{
+		if (aAttachments.size() != aImageViews.size()) {
+			throw ak::runtime_error("Incomplete config for framebuffer creation: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
+		}
+		auto n = aAttachments.size();
+		for (size_t i = 0; i < n; ++i) {
+			auto& a = aAttachments[i];
+			auto& v = aImageViews[i];
+			if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
+				AK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "]");
+			}
+			// TODO: Maybe further checks?
+			if (!a.mImageUsageHintBefore.has_value() && !a.mImageUsageHintAfter.has_value()) {
+				a.mImageUsageHintAfter = a.mImageUsageHintBefore = v->get_image().usage_config();
+			}
+		}
 	}
 
-	bool is_uint32_format(const vk::Format& pImageFormat)
+	owning_resource<framebuffer_t> root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
-		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> uint32Format = { 
-			vk::Format::eR32Uint,
-			vk::Format::eR32G32Uint,
-			vk::Format::eR32G32B32Uint,
-			vk::Format::eR32G32B32A32Uint
-		};
-		auto it = std::find(std::begin(uint32Format), std::end(uint32Format), pImageFormat);
-		return it != uint32Format.end();
+		framebuffer_t result;
+		result.mRenderpass = std::move(aRenderpass);
+		result.mImageViews = std::move(aImageViews);
+
+		std::vector<vk::ImageView> imageViewHandles;
+		for (const auto& iv : result.mImageViews) {
+			imageViewHandles.push_back(iv->handle());
+		}
+
+		result.mCreateInfo = vk::FramebufferCreateInfo{}
+			.setRenderPass(result.mRenderpass->handle())
+			.setAttachmentCount(static_cast<uint32_t>(imageViewHandles.size()))
+			.setPAttachments(imageViewHandles.data())
+			.setWidth(aWidth)
+			.setHeight(aHeight)
+			// TODO: Support multiple layers of image arrays!
+			.setLayers(1u); // number of layers in image arrays [6]
+
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		result.mFramebuffer = device().createFramebufferUnique(result.mCreateInfo);
+
+		// Set the right layouts for the images:
+		const auto n = result.mImageViews.size();
+		const auto& attDescs = result.mRenderpass->attachment_descriptions();
+		for (size_t i = 0; i < n; ++i) {
+			result.mImageViews[i]->get_image().transition_to_layout(attDescs[i].initialLayout);
+		}
+		
+		return result;
 	}
 
-	bool is_int32_format(const vk::Format& pImageFormat)
+	owning_resource<framebuffer_t> root::create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> int32Format = {
-			vk::Format::eR32Sint,
-			vk::Format::eR32G32Sint,
-			vk::Format::eR32G32B32Sint,
-			vk::Format::eR32G32B32A32Sint
-		};
-		auto it = std::find(std::begin(int32Format), std::end(int32Format), pImageFormat);
-		return it != int32Format.end();
+		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
+		return create_framebuffer(
+			renderpass_t::create(std::move(aAttachments)),
+			std::move(aImageViews),
+			aWidth, aHeight,
+			std::move(aAlterConfigBeforeCreation)
+		);
 	}
 
-	bool is_float_format(const vk::Format& pImageFormat)
+	owning_resource<framebuffer_t> root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
-		return is_float16_format(pImageFormat) || is_float32_format(pImageFormat) || is_float64_format(pImageFormat);
+		assert(!aImageViews.empty());
+		auto extent = aImageViews.front()->get_image().config().extent;
+		return create_framebuffer(std::move(aRenderpass), std::move(aImageViews), extent.width, extent.height, std::move(aAlterConfigBeforeCreation));
 	}
 
-	bool is_float16_format(const vk::Format& pImageFormat)
+	owning_resource<framebuffer_t> root::create_framebuffer(std::vector<ak::attachment> aAttachments, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> float16Formats = {
-			vk::Format::eR16Sfloat,
-			vk::Format::eR16G16Sfloat,
-			vk::Format::eR16G16B16Sfloat,
-			vk::Format::eR16G16B16A16Sfloat
-		};
-		auto it = std::find(std::begin(float16Formats), std::end(float16Formats), pImageFormat);
-		return it != float16Formats.end();
+		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
+		return create_framebuffer(
+			std::move(renderpass_t::create(std::move(aAttachments))),
+			std::move(aImageViews),
+			std::move(aAlterConfigBeforeCreation)
+		);
 	}
 
-	bool is_float32_format(const vk::Format& pImageFormat)
+	std::optional<command_buffer> framebuffer_t::initialize_attachments(sync aSync)
 	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> float32Formats = {
-			vk::Format::eR32Sfloat,
-			vk::Format::eR32G32Sfloat,
-			vk::Format::eR32G32B32Sfloat,
-			vk::Format::eR32G32B32A32Sfloat
-		};
-		auto it = std::find(std::begin(float32Formats), std::end(float32Formats), pImageFormat);
-		return it != float32Formats.end();
+		aSync.establish_barrier_before_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
+		
+		const int n = mImageViews.size();
+		assert (n == mRenderpass->attachment_descriptions().size());
+		for (size_t i = 0; i < n; ++i) {
+			mImageViews[i]->get_image().transition_to_layout(mRenderpass->attachment_descriptions()[i].finalLayout, sync::auxiliary_with_barriers(aSync, {}, {}));
+		}
+
+		aSync.establish_barrier_after_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
+		return aSync.submit_and_sync();
 	}
+#pragma endregion
 
-	bool is_float64_format(const vk::Format& pImageFormat)
+#pragma region geometry instance definitions
+	geometry_instance::geometry_instance(const bottom_level_acceleration_structure_t& aBlas)
+		: mTransform{ { 1.0f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f, 0.0f, 0.0f,   0.0f, 0.0f, 1.0f, 0.0f } }
+		, mInstanceCustomIndex{ 0 }
+		, mMask{ 0xff }
+		, mInstanceOffset{ 0 }
+		, mFlags{ vk::GeometryInstanceFlagsKHR() }
+		, mAccelerationStructureDeviceHandle{ aBlas.device_address() }		
+	{ }
+
+	geometry_instance& geometry_instance::set_transform(VkTransformMatrixKHR aTransformationMatrix)
 	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> float64Formats = {
-			vk::Format::eR64Sfloat,
-			vk::Format::eR64G64Sfloat,
-			vk::Format::eR64G64B64Sfloat,
-			vk::Format::eR64G64B64A64Sfloat
-		};
-		auto it = std::find(std::begin(float64Formats), std::end(float64Formats), pImageFormat);
-		return it != float64Formats.end();
-	}
-
-	bool is_rgb_format(const vk::Format& pImageFormat)
-	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> rgbFormats = {
-			vk::Format::eR5G6B5UnormPack16,
-			vk::Format::eR8G8B8Unorm,
-			vk::Format::eR8G8B8Snorm,
-			vk::Format::eR8G8B8Uscaled,
-			vk::Format::eR8G8B8Sscaled,
-			vk::Format::eR8G8B8Uint,
-			vk::Format::eR8G8B8Sint,
-			vk::Format::eR8G8B8Srgb,
-			vk::Format::eR16G16B16Unorm,
-			vk::Format::eR16G16B16Snorm,
-			vk::Format::eR16G16B16Uscaled,
-			vk::Format::eR16G16B16Sscaled,
-			vk::Format::eR16G16B16Uint,
-			vk::Format::eR16G16B16Sint,
-			vk::Format::eR16G16B16Sfloat,
-			vk::Format::eR32G32B32Uint,
-			vk::Format::eR32G32B32Sint,
-			vk::Format::eR32G32B32Sfloat,
-			vk::Format::eR64G64B64Uint,
-			vk::Format::eR64G64B64Sint,
-			vk::Format::eR64G64B64Sfloat,
-
-		};
-		auto it = std::find(std::begin(rgbFormats), std::end(rgbFormats), pImageFormat);
-		return it != rgbFormats.end();
-	}
-
-	bool is_rgba_format(const vk::Format& pImageFormat)
-	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> rgbaFormats = {
-			vk::Format::eR4G4B4A4UnormPack16,
-			vk::Format::eR5G5B5A1UnormPack16,
-			vk::Format::eR8G8B8A8Unorm,
-			vk::Format::eR8G8B8A8Snorm,
-			vk::Format::eR8G8B8A8Uscaled,
-			vk::Format::eR8G8B8A8Sscaled,
-			vk::Format::eR8G8B8A8Uint,
-			vk::Format::eR8G8B8A8Sint,
-			vk::Format::eR8G8B8A8Srgb,
-			vk::Format::eR16G16B16A16Unorm,
-			vk::Format::eR16G16B16A16Snorm,
-			vk::Format::eR16G16B16A16Uscaled,
-			vk::Format::eR16G16B16A16Sscaled,
-			vk::Format::eR16G16B16A16Uint,
-			vk::Format::eR16G16B16A16Sint,
-			vk::Format::eR16G16B16A16Sfloat,
-			vk::Format::eR32G32B32A32Uint,
-			vk::Format::eR32G32B32A32Sint,
-			vk::Format::eR32G32B32A32Sfloat,
-			vk::Format::eR64G64B64A64Uint,
-			vk::Format::eR64G64B64A64Sint,
-			vk::Format::eR64G64B64A64Sfloat,
-		};
-		auto it = std::find(std::begin(rgbaFormats), std::end(rgbaFormats), pImageFormat);
-		return it != rgbaFormats.end();
-	}
-
-	bool is_argb_format(const vk::Format& pImageFormat)
-	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> argbFormats = {
-			vk::Format::eA1R5G5B5UnormPack16,
-			vk::Format::eA2R10G10B10UnormPack32,
-			vk::Format::eA2R10G10B10SnormPack32,
-			vk::Format::eA2R10G10B10UscaledPack32,
-			vk::Format::eA2R10G10B10SscaledPack32,
-			vk::Format::eA2R10G10B10UintPack32,
-			vk::Format::eA2R10G10B10SintPack32,
-		};
-		auto it = std::find(std::begin(argbFormats), std::end(argbFormats), pImageFormat);
-		return it != argbFormats.end();
-	}
-
-	bool is_bgr_format(const vk::Format& pImageFormat)
-	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> bgrFormats = {
-			vk::Format::eB5G6R5UnormPack16,
-			vk::Format::eB8G8R8Unorm,
-			vk::Format::eB8G8R8Snorm,
-			vk::Format::eB8G8R8Uscaled,
-			vk::Format::eB8G8R8Sscaled,
-			vk::Format::eB8G8R8Uint,
-			vk::Format::eB8G8R8Sint,
-			vk::Format::eB8G8R8Srgb,
-			vk::Format::eB10G11R11UfloatPack32,
-		};
-		auto it = std::find(std::begin(bgrFormats), std::end(bgrFormats), pImageFormat);
-		return it != bgrFormats.end();
-	}
-
-	bool is_bgra_format(const vk::Format& pImageFormat)
-	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> bgraFormats = {
-			vk::Format::eB4G4R4A4UnormPack16,
-			vk::Format::eB5G5R5A1UnormPack16,
-			vk::Format::eR8G8B8A8Unorm,
-			vk::Format::eR8G8B8A8Snorm,
-			vk::Format::eR8G8B8A8Uscaled,
-			vk::Format::eR8G8B8A8Sscaled,
-			vk::Format::eR8G8B8A8Uint,
-			vk::Format::eR8G8B8A8Sint,
-			vk::Format::eR8G8B8A8Srgb,
-			vk::Format::eB8G8R8A8Unorm,
-			vk::Format::eB8G8R8A8Snorm,
-			vk::Format::eB8G8R8A8Uscaled,
-			vk::Format::eB8G8R8A8Sscaled,
-			vk::Format::eB8G8R8A8Uint,
-			vk::Format::eB8G8R8A8Sint,
-			vk::Format::eB8G8R8A8Srgb,
-		};
-		auto it = std::find(std::begin(bgraFormats), std::end(bgraFormats), pImageFormat);
-		return it != bgraFormats.end();
-	}
-
-	bool is_abgr_format(const vk::Format& pImageFormat)
-	{
-		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
-		static std::set<vk::Format> abgrFormats = {
-			vk::Format::eA8B8G8R8UnormPack32,
-			vk::Format::eA8B8G8R8SnormPack32,
-			vk::Format::eA8B8G8R8UscaledPack32,
-			vk::Format::eA8B8G8R8SscaledPack32,
-			vk::Format::eA8B8G8R8UintPack32,
-			vk::Format::eA8B8G8R8SintPack32,
-			vk::Format::eA8B8G8R8SrgbPack32,
-			vk::Format::eA2B10G10R10UnormPack32,
-			vk::Format::eA2B10G10R10SnormPack32,
-			vk::Format::eA2B10G10R10UscaledPack32,
-			vk::Format::eA2B10G10R10SscaledPack32,
-			vk::Format::eA2B10G10R10UintPack32,
-			vk::Format::eA2B10G10R10SintPack32,
-		};
-		auto it = std::find(std::begin(abgrFormats), std::end(abgrFormats), pImageFormat);
-		return it != abgrFormats.end();
-	}
-
-	bool has_stencil_component(const vk::Format& pImageFormat)
-	{
-		static std::set<vk::Format> stencilFormats = {
-			vk::Format::eD16UnormS8Uint,
-			vk::Format::eD32SfloatS8Uint,
-			vk::Format::eD24UnormS8Uint,
-		};
-		auto it = std::find(std::begin(stencilFormats), std::end(stencilFormats), pImageFormat);
-		return it != stencilFormats.end();
-	}
-
-	bool is_depth_format(const vk::Format& pImageFormat)
-	{
-		static std::set<vk::Format> depthFormats = {
-			vk::Format::eD16Unorm,
-			vk::Format::eD16UnormS8Uint,
-			vk::Format::eD24UnormS8Uint,
-			vk::Format::eD32Sfloat,
-			vk::Format::eD32SfloatS8Uint,
-		};
-		auto it = std::find(std::begin(depthFormats), std::end(depthFormats), pImageFormat);
-		return it != depthFormats.end();
-	}
-
-	bool is_1component_format(const vk::Format& pImageFormat)
-	{
-		static std::set<vk::Format> singleCompFormats = {
-			vk::Format::eR8Srgb,
-			vk::Format::eR8Unorm,
-			vk::Format::eR8Uscaled,
-			vk::Format::eR8Uint,
-			vk::Format::eR8Srgb,
-			vk::Format::eR8Snorm,
-			vk::Format::eR8Sscaled,
-			vk::Format::eR8Sint,
-			vk::Format::eR16Unorm,
-			vk::Format::eR16Uscaled,
-			vk::Format::eR16Uint,
-			vk::Format::eR16Snorm,
-			vk::Format::eR16Sscaled,
-			vk::Format::eR16Sint,
-			vk::Format::eR32Uint,
-			vk::Format::eR32Sint,
-			vk::Format::eR16Sfloat,
-			vk::Format::eR32Sfloat,
-			vk::Format::eR64Sfloat,
-		};
-		auto it = std::find(std::begin(singleCompFormats), std::end(singleCompFormats), pImageFormat);
-		return it != singleCompFormats.end();
-	}
-
-	bool is_2component_format(const vk::Format& pImageFormat)
-	{
-		static std::set<vk::Format> twoComponentFormats = {
-			vk::Format::eR8G8Srgb,
-			vk::Format::eR8G8Unorm,
-			vk::Format::eR8G8Uscaled,
-			vk::Format::eR8G8Uint,
-			vk::Format::eR8G8Srgb,
-			vk::Format::eR8G8Snorm,
-			vk::Format::eR8G8Sscaled,
-			vk::Format::eR8G8Sint,
-			vk::Format::eR16G16Unorm,
-			vk::Format::eR16G16Uscaled,
-			vk::Format::eR16G16Uint,
-			vk::Format::eR16G16Snorm,
-			vk::Format::eR16G16Sscaled,
-			vk::Format::eR16G16Sint,
-			vk::Format::eR32G32Uint,
-			vk::Format::eR32G32Sint,
-			vk::Format::eR16G16Sfloat,
-			vk::Format::eR32G32Sfloat,
-			vk::Format::eR64G64Sfloat,
-		};
-		auto it = std::find(std::begin(twoComponentFormats), std::end(twoComponentFormats), pImageFormat);
-		return it != twoComponentFormats.end();
-	}
-
-	bool is_3component_format(const vk::Format& pImageFormat)
-	{
-		static std::set<vk::Format> threeCompFormat = {
-			vk::Format::eR8G8B8Srgb,
-			vk::Format::eB8G8R8Srgb,
-			vk::Format::eR5G6B5UnormPack16,
-			vk::Format::eR8G8B8Unorm,
-			vk::Format::eR8G8B8Snorm,
-			vk::Format::eR8G8B8Uscaled,
-			vk::Format::eR8G8B8Sscaled,
-			vk::Format::eR8G8B8Uint,
-			vk::Format::eR8G8B8Sint,
-			vk::Format::eR8G8B8Srgb,
-			vk::Format::eR16G16B16Unorm,
-			vk::Format::eR16G16B16Snorm,
-			vk::Format::eR16G16B16Uscaled,
-			vk::Format::eR16G16B16Sscaled,
-			vk::Format::eR16G16B16Uint,
-			vk::Format::eR16G16B16Sint,
-			vk::Format::eR16G16B16Sfloat,
-			vk::Format::eR32G32B32Uint,
-			vk::Format::eR32G32B32Sint,
-			vk::Format::eR32G32B32Sfloat,
-			vk::Format::eR64G64B64Uint,
-			vk::Format::eR64G64B64Sint,
-			vk::Format::eR64G64B64Sfloat,
-			vk::Format::eB5G6R5UnormPack16,
-			vk::Format::eB8G8R8Unorm,
-			vk::Format::eB8G8R8Snorm,
-			vk::Format::eB8G8R8Uscaled,
-			vk::Format::eB8G8R8Sscaled,
-			vk::Format::eB8G8R8Uint,
-			vk::Format::eB8G8R8Sint,
-			vk::Format::eB8G8R8Srgb,
-			vk::Format::eB10G11R11UfloatPack32,
-		};
-		auto it = std::find(std::begin(threeCompFormat), std::end(threeCompFormat), pImageFormat);
-		return it != threeCompFormat.end();
-	}
-
-	bool is_4component_format(const vk::Format& pImageFormat)
-	{
-		static std::set<vk::Format> fourCompFormats = {
-			vk::Format::eR8G8B8A8Srgb,
-			vk::Format::eB8G8R8A8Srgb,
-			vk::Format::eA8B8G8R8SrgbPack32,
-			vk::Format::eR4G4B4A4UnormPack16,
-			vk::Format::eR5G5B5A1UnormPack16,
-			vk::Format::eR8G8B8A8Unorm,
-			vk::Format::eR8G8B8A8Snorm,
-			vk::Format::eR8G8B8A8Uscaled,
-			vk::Format::eR8G8B8A8Sscaled,
-			vk::Format::eR8G8B8A8Uint,
-			vk::Format::eR8G8B8A8Sint,
-			vk::Format::eR8G8B8A8Srgb,
-			vk::Format::eR16G16B16A16Unorm,
-			vk::Format::eR16G16B16A16Snorm,
-			vk::Format::eR16G16B16A16Uscaled,
-			vk::Format::eR16G16B16A16Sscaled,
-			vk::Format::eR16G16B16A16Uint,
-			vk::Format::eR16G16B16A16Sint,
-			vk::Format::eR16G16B16A16Sfloat,
-			vk::Format::eR32G32B32A32Uint,
-			vk::Format::eR32G32B32A32Sint,
-			vk::Format::eR32G32B32A32Sfloat,
-			vk::Format::eR64G64B64A64Uint,
-			vk::Format::eR64G64B64A64Sint,
-			vk::Format::eR64G64B64A64Sfloat,
-			vk::Format::eA1R5G5B5UnormPack16,
-			vk::Format::eA2R10G10B10UnormPack32,
-			vk::Format::eA2R10G10B10SnormPack32,
-			vk::Format::eA2R10G10B10UscaledPack32,
-			vk::Format::eA2R10G10B10SscaledPack32,
-			vk::Format::eA2R10G10B10UintPack32,
-			vk::Format::eA2R10G10B10SintPack32,
-			vk::Format::eB4G4R4A4UnormPack16,
-			vk::Format::eB5G5R5A1UnormPack16,
-			vk::Format::eR8G8B8A8Unorm,
-			vk::Format::eR8G8B8A8Snorm,
-			vk::Format::eR8G8B8A8Uscaled,
-			vk::Format::eR8G8B8A8Sscaled,
-			vk::Format::eR8G8B8A8Uint,
-			vk::Format::eR8G8B8A8Sint,
-			vk::Format::eR8G8B8A8Srgb,
-			vk::Format::eB8G8R8A8Unorm,
-			vk::Format::eB8G8R8A8Snorm,
-			vk::Format::eB8G8R8A8Uscaled,
-			vk::Format::eB8G8R8A8Sscaled,
-			vk::Format::eB8G8R8A8Uint,
-			vk::Format::eB8G8R8A8Sint,
-			vk::Format::eB8G8R8A8Srgb,
-			vk::Format::eA8B8G8R8UnormPack32,
-			vk::Format::eA8B8G8R8SnormPack32,
-			vk::Format::eA8B8G8R8UscaledPack32,
-			vk::Format::eA8B8G8R8SscaledPack32,
-			vk::Format::eA8B8G8R8UintPack32,
-			vk::Format::eA8B8G8R8SintPack32,
-			vk::Format::eA8B8G8R8SrgbPack32,
-			vk::Format::eA2B10G10R10UnormPack32,
-			vk::Format::eA2B10G10R10SnormPack32,
-			vk::Format::eA2B10G10R10UscaledPack32,
-			vk::Format::eA2B10G10R10SscaledPack32,
-			vk::Format::eA2B10G10R10UintPack32,
-			vk::Format::eA2B10G10R10SintPack32,
-		};
-		auto it = std::find(std::begin(fourCompFormats), std::end(fourCompFormats), pImageFormat);
-		return it != fourCompFormats.end();
-	}
-
-	bool is_unorm_format(const vk::Format& pImageFormat)
-	{
-		static std::set<vk::Format> unormFormats = {
-			vk::Format::eR8Unorm,
-			vk::Format::eR8G8Unorm,
-			vk::Format::eR8G8B8Unorm,
-			vk::Format::eB8G8R8Unorm,
-			vk::Format::eR8G8B8A8Unorm,
-			vk::Format::eB8G8R8A8Unorm,
-			vk::Format::eA8B8G8R8UnormPack32,
-			vk::Format::eR16Unorm,
-			vk::Format::eR16G16Unorm,
-			vk::Format::eR16G16B16Unorm,
-			vk::Format::eR16G16B16A16Unorm
-		};
-		auto it = std::find(std::begin(unormFormats), std::end(unormFormats), pImageFormat);
-		return it != unormFormats.end();
+		mTransform = aTransformationMatrix;
+		return *this;
 	}
 	
-	bool is_snorm_format(const vk::Format& pImageFormat)
+	geometry_instance& geometry_instance::set_transform(std::array<float, 12> aTransformationMatrix)
 	{
-		static std::set<vk::Format> snormFormats = {
-			vk::Format::eR8Snorm,
-			vk::Format::eR8G8Snorm,
-			vk::Format::eR8G8B8Snorm,
-			vk::Format::eB8G8R8Snorm,
-			vk::Format::eR8G8B8A8Snorm,
-			vk::Format::eB8G8R8A8Snorm,
-			vk::Format::eA8B8G8R8SnormPack32,
-			vk::Format::eR16Snorm,
-			vk::Format::eR16G16Snorm,
-			vk::Format::eR16G16B16Snorm,
-			vk::Format::eR16G16B16A16Snorm
-		};
-		auto it = std::find(std::begin(snormFormats), std::end(snormFormats), pImageFormat);
-		return it != snormFormats.end();
+		// transpose it along the way:
+		mTransform.matrix[0][0] = aTransformationMatrix[0];
+		mTransform.matrix[0][1] = aTransformationMatrix[1];
+		mTransform.matrix[0][2] = aTransformationMatrix[2];
+		mTransform.matrix[0][3] = aTransformationMatrix[3];
+		mTransform.matrix[1][0] = aTransformationMatrix[4];
+		mTransform.matrix[1][1] = aTransformationMatrix[5];
+		mTransform.matrix[1][2] = aTransformationMatrix[6];
+		mTransform.matrix[1][3] = aTransformationMatrix[7];
+		mTransform.matrix[2][0] = aTransformationMatrix[8];
+		mTransform.matrix[2][1] = aTransformationMatrix[9];
+		mTransform.matrix[2][2] = aTransformationMatrix[10];
+		mTransform.matrix[2][3] = aTransformationMatrix[11];
+		// TODO: Which order ^ or v ?
+		mTransform.matrix[0][0] = aTransformationMatrix[0];
+		mTransform.matrix[0][1] = aTransformationMatrix[3];
+		mTransform.matrix[0][2] = aTransformationMatrix[6];
+		mTransform.matrix[0][3] = aTransformationMatrix[9];
+		mTransform.matrix[1][0] = aTransformationMatrix[1];
+		mTransform.matrix[1][1] = aTransformationMatrix[4];
+		mTransform.matrix[1][2] = aTransformationMatrix[7];
+		mTransform.matrix[1][3] = aTransformationMatrix[10];
+		mTransform.matrix[2][0] = aTransformationMatrix[2];
+		mTransform.matrix[2][1] = aTransformationMatrix[5];
+		mTransform.matrix[2][2] = aTransformationMatrix[8];
+		mTransform.matrix[2][3] = aTransformationMatrix[11];
+		return *this;
 	}
 	
-	bool is_norm_format(const vk::Format& pImageFormat)
+	geometry_instance& geometry_instance::set_transform(std::array<float, 16> aTransformationMatrix)
 	{
-		return is_unorm_format(pImageFormat) || is_snorm_format(pImageFormat) || is_srgb_format(pImageFormat);
+		// transpose it along the way:
+		mTransform.matrix[0][0] = aTransformationMatrix[0];
+		mTransform.matrix[0][1] = aTransformationMatrix[1];
+		mTransform.matrix[0][2] = aTransformationMatrix[2];
+		mTransform.matrix[0][3] = aTransformationMatrix[3];
+		mTransform.matrix[1][0] = aTransformationMatrix[4];
+		mTransform.matrix[1][1] = aTransformationMatrix[5];
+		mTransform.matrix[1][2] = aTransformationMatrix[6];
+		mTransform.matrix[1][3] = aTransformationMatrix[7];
+		mTransform.matrix[2][0] = aTransformationMatrix[8];
+		mTransform.matrix[2][1] = aTransformationMatrix[9];
+		mTransform.matrix[2][2] = aTransformationMatrix[10];
+		mTransform.matrix[2][3] = aTransformationMatrix[11];
+		// TODO: Which order ^ or v ?
+		mTransform.matrix[0][0] = aTransformationMatrix[0];
+		mTransform.matrix[0][1] = aTransformationMatrix[3];
+		mTransform.matrix[0][2] = aTransformationMatrix[6];
+		mTransform.matrix[0][3] = aTransformationMatrix[9];
+		mTransform.matrix[1][0] = aTransformationMatrix[1];
+		mTransform.matrix[1][1] = aTransformationMatrix[4];
+		mTransform.matrix[1][2] = aTransformationMatrix[7];
+		mTransform.matrix[1][3] = aTransformationMatrix[10];
+		mTransform.matrix[2][0] = aTransformationMatrix[2];
+		mTransform.matrix[2][1] = aTransformationMatrix[5];
+		mTransform.matrix[2][2] = aTransformationMatrix[8];
+		mTransform.matrix[2][3] = aTransformationMatrix[11];
+		// TODO: ...or is it one of the following??
+		mTransform.matrix[0][0] = aTransformationMatrix[0];
+		mTransform.matrix[0][1] = aTransformationMatrix[4];
+		mTransform.matrix[0][2] = aTransformationMatrix[8];
+		mTransform.matrix[0][3] = aTransformationMatrix[12];
+		mTransform.matrix[1][0] = aTransformationMatrix[1];
+		mTransform.matrix[1][1] = aTransformationMatrix[5];
+		mTransform.matrix[1][2] = aTransformationMatrix[9];
+		mTransform.matrix[1][3] = aTransformationMatrix[13];
+		mTransform.matrix[2][0] = aTransformationMatrix[2];
+		mTransform.matrix[2][1] = aTransformationMatrix[6];
+		mTransform.matrix[2][2] = aTransformationMatrix[10];
+		mTransform.matrix[2][3] = aTransformationMatrix[14];
+		return *this;
 	}
 
-	std::tuple<vk::ImageUsageFlags, vk::ImageLayout, vk::ImageTiling, vk::ImageCreateFlags> determine_usage_layout_tiling_flags_based_on_image_usage(ak::image_usage aImageUsageFlags)
+	geometry_instance& geometry_instance::set_custom_index(uint32_t aCustomIndex)
 	{
-		vk::ImageUsageFlags imageUsage{};
-
-		bool isReadOnly = ak::has_flag(aImageUsageFlags, ak::image_usage::read_only);
-		ak::image_usage cleanedUpUsageFlagsForReadOnly = exclude(aImageUsageFlags, ak::image_usage::transfer_source | ak::image_usage::transfer_destination | ak::image_usage::sampled | ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected); // TODO: To be verified, it's just a guess.
-
-		auto targetLayout = isReadOnly ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eGeneral; // General Layout or Shader Read Only Layout is the default
-		auto imageTiling = vk::ImageTiling::eOptimal; // Optimal is the default
-		vk::ImageCreateFlags imageCreateFlags{};
-
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::transfer_source)) {
-			imageUsage |= vk::ImageUsageFlagBits::eTransferSrc;
-			ak::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected | ak::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
-			if (ak::image_usage::transfer_source == cleanedUpUsageFlags) {
-				targetLayout = vk::ImageLayout::eTransferSrcOptimal;
-			}
-			else {
-				targetLayout = vk::ImageLayout::eGeneral;
-			}
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::transfer_destination)) {
-			imageUsage |= vk::ImageUsageFlagBits::eTransferDst;
-			ak::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected | ak::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
-			if (ak::image_usage::transfer_destination == cleanedUpUsageFlags) {
-				targetLayout = vk::ImageLayout::eTransferDstOptimal;
-			}
-			else {
-				targetLayout = vk::ImageLayout::eGeneral;
-			}
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::sampled)) {
-			imageUsage |= vk::ImageUsageFlagBits::eSampled;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::color_attachment)) {
-			imageUsage |= vk::ImageUsageFlagBits::eColorAttachment;
-			targetLayout = vk::ImageLayout::eColorAttachmentOptimal;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::depth_stencil_attachment)) {
-			imageUsage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-			if (isReadOnly && ak::image_usage::depth_stencil_attachment == cleanedUpUsageFlagsForReadOnly) {
-				targetLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-			}
-			else {
-				targetLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-			}
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::input_attachment)) {
-			imageUsage |= vk::ImageUsageFlagBits::eInputAttachment;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shading_rate_image)) {
-			imageUsage |= vk::ImageUsageFlagBits::eShadingRateImageNV;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::presentable)) {
-			targetLayout = vk::ImageLayout::ePresentSrcKHR; // TODO: This probably needs some further action(s) => implement that further action(s)
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shared_presentable)) {
-			targetLayout = vk::ImageLayout::eSharedPresentKHR; // TODO: This probably needs some further action(s) => implement that further action(s)
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::tiling_optimal)) {
-			imageTiling = vk::ImageTiling::eOptimal;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::tiling_linear)) {
-			imageTiling = vk::ImageTiling::eLinear;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::sparse_memory_binding)) {
-			imageCreateFlags |= vk::ImageCreateFlagBits::eSparseBinding;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::cube_compatible)) {
-			imageCreateFlags |= vk::ImageCreateFlagBits::eCubeCompatible;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::is_protected)) {
-			imageCreateFlags |= vk::ImageCreateFlagBits::eProtected;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::mutable_format)) {
-			imageCreateFlags |= vk::ImageCreateFlagBits::eMutableFormat;
-		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shader_storage)) { 
-			imageUsage |= vk::ImageUsageFlagBits::eStorage;	
-			// Can not be Shader Read Only Layout
-			targetLayout = vk::ImageLayout::eGeneral; // TODO: Verify that this should always be in general layout!
-		}
-
-		return std::make_tuple(imageUsage, targetLayout, imageTiling, imageCreateFlags);
+		mInstanceCustomIndex = aCustomIndex;
+		return *this;
 	}
 
-	vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info)
+	geometry_instance& geometry_instance::set_mask(uint32_t aMask)
 	{
-		switch (info.imageType)
+		mMask = aMask;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::set_instance_offset(size_t aOffset)
+	{
+		mInstanceOffset = aOffset;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::set_flags(vk::GeometryInstanceFlagsKHR aFlags)
+	{
+		mFlags = aFlags;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::add_flags(vk::GeometryInstanceFlagsKHR aFlags)
+	{
+		mFlags |= aFlags;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::disable_culling()
+	{
+		mFlags |= vk::GeometryInstanceFlagBitsKHR::eTriangleCullDisable;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::define_front_faces_to_be_counter_clockwise()
+	{
+		mFlags |= vk::GeometryInstanceFlagBitsKHR::eTriangleFrontCounterclockwise;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::force_opaque()
+	{
+		mFlags |= vk::GeometryInstanceFlagBitsKHR::eForceOpaque;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::force_non_opaque()
+	{
+		mFlags |= vk::GeometryInstanceFlagBitsKHR::eForceNoOpaque;
+		return *this;
+	}
+
+	geometry_instance& geometry_instance::reset_flags()
+	{
+		mFlags = vk::GeometryInstanceFlagsKHR();
+		return *this;
+	}
+
+	VkAccelerationStructureInstanceKHR convert_for_gpu_usage(const geometry_instance& aGeomInst)
+	{
+		VkAccelerationStructureInstanceKHR element;
+		//auto matrix = glm::transpose(aGeomInst.mTransform);
+		//memcpy(&element.transform, glm::value_ptr(matrix), sizeof(element.transform));
+		element.transform = aGeomInst.mTransform;
+		element.instanceCustomIndex = aGeomInst.mInstanceCustomIndex;
+		element.mask = aGeomInst.mMask;
+		element.instanceShaderBindingTableRecordOffset = aGeomInst.mInstanceOffset;
+		element.flags = static_cast<uint32_t>(aGeomInst.mFlags);
+		element.accelerationStructureReference = aGeomInst.mAccelerationStructureDeviceHandle;
+		return element;
+	}
+
+	std::vector<VkAccelerationStructureInstanceKHR> convert_for_gpu_usage(const std::vector<geometry_instance>& aGeomInstances)
+	{
+		if (aGeomInstances.size() == 0) {
+			AK_LOG_WARNING("Empty vector of geometry instances");
+		}
+
+		std::vector<VkAccelerationStructureInstanceKHR> instancesGpu;
+		instancesGpu.reserve(aGeomInstances.size());
+		for (auto& data : aGeomInstances) {
+			instancesGpu.emplace_back(convert_for_gpu_usage(data));			
+		}
+		return instancesGpu;
+	}
+#pragma endregion
+
+#pragma region graphics pipeline definitions
+	owning_resource<graphics_pipeline_t> root::create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		using namespace cpplinq;
+		using namespace cfg;
+
+		graphics_pipeline_t result;
+
+		// 0. Own the renderpass
 		{
-		case vk::ImageType::e1D:
-			if (info.arrayLayers > 1) {
-				return vk::ImageViewType::e1DArray;
-			}
-			else {
-				return vk::ImageViewType::e1D;
-			}
-		case vk::ImageType::e2D:
-			if (info.arrayLayers > 1) {
-				return vk::ImageViewType::e2DArray;
-			}
-			else {
-				return vk::ImageViewType::e2D;
-			}
-		case vk::ImageType::e3D:
-			return vk::ImageViewType::e3D;
+			assert(aConfig.mRenderPassSubpass.has_value());
+			auto [rp, sp] = std::move(aConfig.mRenderPassSubpass.value());
+			result.mRenderPass = std::move(rp);
+			result.mSubpassIndex = sp;
 		}
-		throw new ak::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
-	}
 
+		// 1. Compile the array of vertex input binding descriptions
+		{ 
+			// Select DISTINCT bindings:
+			auto bindings = from(aConfig.mInputBindingLocations)
+				>> select([](const input_binding_location_data& _BindingData) { return _BindingData.mGeneralData; })
+				>> distinct() // see what I did there
+				>> orderby([](const input_binding_general_data& _GeneralData) { return _GeneralData.mBinding; })
+				>> to_vector();
+			result.mVertexInputBindingDescriptions.reserve(bindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+
+			for (auto& bindingData : bindings) {
+
+				const auto numRecordsWithSameBinding = std::count_if(std::begin(bindings), std::end(bindings), 
+					[bindingId = bindingData.mBinding](const input_binding_general_data& _GeneralData) {
+						return _GeneralData.mBinding == bindingId;
+					});
+				if (1 != numRecordsWithSameBinding) {
+					throw ak::runtime_error("The input binding #" + std::to_string(bindingData.mBinding) + " is defined in different ways. Make sure to define it uniformly across different bindings/attribute descriptions!");
+				}
+
+				result.mVertexInputBindingDescriptions.push_back(vk::VertexInputBindingDescription()
+					// The following parameters are guaranteed to be the same. We have checked this.
+					.setBinding(bindingData.mBinding)
+					.setStride(static_cast<uint32_t>(bindingData.mStride))
+					.setInputRate(to_vk_vertex_input_rate(bindingData.mKind))
+					// Don't need the location here
+				);
+			}
+		}
+
+		// 2. Compile the array of vertex input attribute descriptions
+		//  They will reference the bindings created in step 1.
+		result.mVertexInputAttributeDescriptions.reserve(aConfig.mInputBindingLocations.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+		for (auto& attribData : aConfig.mInputBindingLocations) {
+			result.mVertexInputAttributeDescriptions.push_back(vk::VertexInputAttributeDescription()
+				.setBinding(attribData.mGeneralData.mBinding)
+				.setLocation(attribData.mMemberMetaData.mLocation)
+				.setFormat(attribData.mMemberMetaData.mFormat)
+				.setOffset(static_cast<uint32_t>(attribData.mMemberMetaData.mOffset))
+			);
+		}
+
+		// 3. With the data from 1. and 2., create the complete vertex input info struct, passed to the pipeline creation
+		result.mPipelineVertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
+			.setVertexBindingDescriptionCount(static_cast<uint32_t>(result.mVertexInputBindingDescriptions.size()))
+			.setPVertexBindingDescriptions(result.mVertexInputBindingDescriptions.data())
+			.setVertexAttributeDescriptionCount(static_cast<uint32_t>(result.mVertexInputAttributeDescriptions.size()))
+			.setPVertexAttributeDescriptions(result.mVertexInputAttributeDescriptions.data());
+
+		// 4. Set how the data (from steps 1.-3.) is to be interpreted (e.g. triangles, points, lists, patches, etc.)
+		result.mInputAssemblyStateCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
+			.setTopology(to_vk_primitive_topology(aConfig.mPrimitiveTopology))
+			.setPrimitiveRestartEnable(VK_FALSE);
+
+		// 5. Compile and store the shaders:
+		result.mShaders.reserve(aConfig.mShaderInfos.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+		result.mShaderStageCreateInfos.reserve(aConfig.mShaderInfos.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+		for (auto& shaderInfo : aConfig.mShaderInfos) {
+			// 5.0 Sanity check
+			if (result.mShaders.end() != std::find_if(std::begin(result.mShaders), std::end(result.mShaders), [&shaderInfo](const shader& existing) { return existing.info().mShaderType == shaderInfo.mShaderType; })) {
+				throw ak::runtime_error("There's already a " + vk::to_string(to_vk_shader_stages(shaderInfo.mShaderType)) + "-type shader contained in this graphics pipeline. Can not add another one of the same type.");
+			}
+			// 5.1 Compile the shader
+			result.mShaders.push_back(shader::create(shaderInfo));
+			assert(result.mShaders.back().has_been_built());
+			// 5.2 Combine
+			result.mShaderStageCreateInfos.push_back(vk::PipelineShaderStageCreateInfo{}
+				.setStage(to_vk_shader_stage(result.mShaders.back().info().mShaderType))
+				.setModule(result.mShaders.back().handle())
+				.setPName(result.mShaders.back().info().mEntryPoint.c_str())
+			);
+		}
+
+		// 6. Viewport configuration
+		{
+			// 6.1 Viewport and depth configuration(s):
+			result.mViewports.reserve(aConfig.mViewportDepthConfig.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+			result.mScissors.reserve(aConfig.mViewportDepthConfig.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+			for (auto& vp : aConfig.mViewportDepthConfig) {
+				result.mViewports.push_back(vk::Viewport{}
+					.setX(vp.x())
+					.setY(vp.y())
+					.setWidth(vp.width())
+					.setHeight(vp.height())
+					.setMinDepth(vp.min_depth())
+					.setMaxDepth(vp.max_depth())
+				);
+				// 6.2 Skip scissors for now
+				// TODO: Implement scissors support properly
+				result.mScissors.push_back(vk::Rect2D{}
+					.setOffset({static_cast<int32_t>(vp.x()), static_cast<int32_t>(vp.y())})
+					.setExtent({static_cast<uint32_t>(vp.width()), static_cast<uint32_t>(vp.height())})
+				);
+			}
+			// 6.3 Add everything together
+			result.mViewportStateCreateInfo = vk::PipelineViewportStateCreateInfo{}
+				.setViewportCount(static_cast<uint32_t>(result.mViewports.size()))
+				.setPViewports(result.mViewports.data())
+				.setScissorCount(static_cast<uint32_t>(result.mScissors.size()))
+				.setPScissors(result.mScissors.data());
+		}
+
+		// 7. Rasterization state
+		result.mRasterizationStateCreateInfo =  vk::PipelineRasterizationStateCreateInfo{}
+			// Various, but important settings:
+			.setRasterizerDiscardEnable(to_vk_bool(aConfig.mRasterizerGeometryMode == rasterizer_geometry_mode::discard_geometry))
+			.setPolygonMode(to_vk_polygon_mode(aConfig.mPolygonDrawingModeAndConfig.drawing_mode()))
+			.setLineWidth(aConfig.mPolygonDrawingModeAndConfig.line_width())
+			.setCullMode(to_vk_cull_mode(aConfig.mCullingMode))
+			.setFrontFace(to_vk_front_face(aConfig.mFrontFaceWindingOrder.winding_order_of_front_faces()))
+			// Depth-related settings:
+			.setDepthClampEnable(to_vk_bool(aConfig.mDepthClampBiasConfig.is_clamp_to_frustum_enabled()))
+			.setDepthBiasEnable(to_vk_bool(aConfig.mDepthClampBiasConfig.is_depth_bias_enabled()))
+			.setDepthBiasConstantFactor(aConfig.mDepthClampBiasConfig.bias_constant_factor())
+			.setDepthBiasClamp(aConfig.mDepthClampBiasConfig.bias_clamp_value())
+			.setDepthBiasSlopeFactor(aConfig.mDepthClampBiasConfig.bias_slope_factor());
+
+		// 8. Depth-stencil config
+		result.mDepthStencilConfig = vk::PipelineDepthStencilStateCreateInfo{}
+			.setDepthTestEnable(to_vk_bool(aConfig.mDepthTestConfig.is_enabled()))
+			.setDepthCompareOp(to_vk_compare_op(aConfig.mDepthTestConfig.depth_compare_operation()))
+			.setDepthWriteEnable(to_vk_bool(aConfig.mDepthWriteConfig.is_enabled()))
+			.setDepthBoundsTestEnable(to_vk_bool(aConfig.mDepthBoundsConfig.is_enabled()))
+			.setMinDepthBounds(aConfig.mDepthBoundsConfig.min_bounds())
+			.setMaxDepthBounds(aConfig.mDepthBoundsConfig.max_bounds())
+			.setStencilTestEnable(VK_FALSE);
+
+		// TODO: Add better support for stencil testing (better abstraction!)
+		if (aConfig.mStencilTest.has_value() && aConfig.mStencilTest.value().mEnabled) {
+			result.mDepthStencilConfig
+				.setStencilTestEnable(VK_TRUE)
+				.setFront(aConfig.mStencilTest.value().mFrontStencilTestActions)
+				.setBack(aConfig.mStencilTest.value().mBackStencilTestActions);
+		}
+
+		// 9. Color Blending
+		{ 
+			// Do we have an "universal" color blending config? That means, one that is not assigned to a specific color target attachment id.
+			auto universalConfig = from(aConfig.mColorBlendingPerAttachment)
+				>> where([](const color_blending_config& config) { return !config.mTargetAttachment.has_value(); })
+				>> to_vector();
+
+			if (universalConfig.size() > 1) {
+				throw ak::runtime_error("Ambiguous 'universal' color blending configurations. Either provide only one 'universal' "
+					"config (which is not attached to a specific color target) or assign them to specific color target attachment ids.");
+			}
+
+			// Iterate over all color target attachments and set a color blending config
+			if (result.subpass_id() >= result.mRenderPass->attachment_descriptions().size()) {
+				throw ak::runtime_error("There are fewer subpasses in the renderpass (" + std::to_string(result.mRenderPass->attachment_descriptions().size()) + ") as the subpass index indicates (" + std::to_string(result.subpass_id()) + "). I.e. subpass index is out of bounds.");
+			}
+			const auto n = result.mRenderPass->color_attachments_for_subpass(result.subpass_id()).size(); /////////////////// TODO: (doublecheck or) FIX this section (after renderpass refactoring)
+			result.mBlendingConfigsForColorAttachments.reserve(n); // Important! Otherwise the vector might realloc and .data() will become invalid!
+			for (size_t i = 0; i < n; ++i) {
+				// Do we have a specific blending config for color attachment i?
+				auto configForI = from(aConfig.mColorBlendingPerAttachment)
+					>> where([i](const color_blending_config& config) { return config.mTargetAttachment.has_value() && config.mTargetAttachment.value() == i; })
+					>> to_vector();
+				if (configForI.size() > 1) {
+					throw ak::runtime_error("Ambiguous color blending configuration for color attachment at index #" + std::to_string(i) + ". Provide only one config per color attachment!");
+				}
+				// Determine which color blending to use for this attachment:
+				color_blending_config toUse = configForI.size() == 1 ? configForI[0] : color_blending_config::disable();
+				result.mBlendingConfigsForColorAttachments.push_back(vk::PipelineColorBlendAttachmentState()
+					.setColorWriteMask(to_vk_color_components(toUse.affected_color_channels()))
+					.setBlendEnable(to_vk_bool(toUse.is_blending_enabled())) // If blendEnable is set to VK_FALSE, then the new color from the fragment shader is passed through unmodified. [4]
+					.setSrcColorBlendFactor(to_vk_blend_factor(toUse.color_source_factor())) 
+					.setDstColorBlendFactor(to_vk_blend_factor(toUse.color_destination_factor()))
+					.setColorBlendOp(to_vk_blend_operation(toUse.color_operation()))
+					.setSrcAlphaBlendFactor(to_vk_blend_factor(toUse.alpha_source_factor()))
+					.setDstAlphaBlendFactor(to_vk_blend_factor(toUse.alpha_destination_factor()))
+					.setAlphaBlendOp(to_vk_blend_operation(toUse.alpha_operation()))
+				);
+			}
+
+			// General blending settings and reference to the array of color attachment blending configs
+			result.mColorBlendStateCreateInfo = vk::PipelineColorBlendStateCreateInfo()
+				.setLogicOpEnable(to_vk_bool(aConfig.mColorBlendingSettings.is_logic_operation_enabled())) // If you want to use the second method of blending (bitwise combination), then you should set logicOpEnable to VK_TRUE. The bitwise operation can then be specified in the logicOp field. [4]
+				.setLogicOp(to_vk_logic_operation(aConfig.mColorBlendingSettings.logic_operation())) 
+				.setAttachmentCount(static_cast<uint32_t>(result.mBlendingConfigsForColorAttachments.size()))
+				.setPAttachments(result.mBlendingConfigsForColorAttachments.data())
+				.setBlendConstants(aConfig.mColorBlendingSettings.blend_constants());
+		}
+
+		// 10. Multisample state
+		// TODO: Can the settings be inferred from the renderpass' color attachments (as they are right now)? If they can't, how to handle this situation? 
+		{ /////////////////// TODO: FIX this section (after renderpass refactoring)
+			vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
+
+			// See what is configured in the render pass
+			auto colorAttConfigs = from ((*result.mRenderPass).color_attachments_for_subpass(result.subpass_id()))
+				>> where ([](const vk::AttachmentReference& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+				// The color_attachments() contain indices of the actual attachment_descriptions() => select the latter!
+				>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; })
+				>> to_vector();
+
+			for (const vk::AttachmentDescription& config: colorAttConfigs) {
+				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
+				numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
+			}
+
+#if defined(_DEBUG) 
+			for (const vk::AttachmentDescription& config: colorAttConfigs) {
+				if (config.samples != numSamples) {
+					AK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
+				}
+			}
+#endif
+			
+			if (vk::SampleCountFlagBits::e1 == numSamples) {
+				auto depthAttConfigs = from ((*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id()))
+					>> where ([](const vk::AttachmentReference& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+					>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; })
+					>> to_vector();
+
+				for (const vk::AttachmentDescription& config: depthAttConfigs) {
+					typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
+					numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
+				}
+
+#if defined(_DEBUG) 
+					for (const vk::AttachmentDescription& config: depthAttConfigs) {
+						if (config.samples != numSamples) {
+							AK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
+						}
+					}
+#endif
+
+#if defined(_DEBUG) 
+					for (const vk::AttachmentDescription& config: colorAttConfigs) {
+						if (config.samples != numSamples) {
+							AK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
+						}
+					}
+#endif
+			}
+			
+			// Evaluate and set the PER SAMPLE shading configuration:
+			auto perSample = aConfig.mPerSampleShading.value_or(per_sample_shading_config{ false, 1.0f });
+			
+			result.mMultisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
+				.setRasterizationSamples(numSamples)
+				.setSampleShadingEnable(perSample.mPerSampleShadingEnabled ? VK_TRUE : VK_FALSE) // enable/disable Sample Shading
+				.setMinSampleShading(perSample.mMinFractionOfSamplesShaded) // specifies a minimum fraction of sample shading if sampleShadingEnable is set to VK_TRUE.
+				.setPSampleMask(nullptr) // If pSampleMask is NULL, it is treated as if the mask has all bits enabled, i.e. no coverage is removed from fragments. See https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#fragops-samplemask
+				.setAlphaToCoverageEnable(VK_FALSE) // controls whether a temporary coverage value is generated based on the alpha component of the fragment’s first color output as specified in the Multisample Coverage section.
+				.setAlphaToOneEnable(VK_FALSE); // controls whether the alpha component of the fragment’s first color output is replaced with one as described in Multisample Coverage.
+			// TODO: That is probably not enough for every case. Further customization options should be added!
+		}
+
+		// 11. Dynamic state
+		{
+			// Don't need to pre-alloc the storage for this one
+
+			// Check for viewport dynamic state
+			for (const auto& vpdc : aConfig.mViewportDepthConfig) {
+				if (vpdc.is_dynamic_viewport_enabled())	{
+					result.mDynamicStateEntries.push_back(vk::DynamicState::eViewport);
+				}
+			}
+			// Check for scissor dynamic state
+			for (const auto& vpdc : aConfig.mViewportDepthConfig) {
+				if (vpdc.is_dynamic_scissor_enabled())	{
+					result.mDynamicStateEntries.push_back(vk::DynamicState::eScissor);
+				}
+			}
+			// Check for dynamic line width
+			if (aConfig.mPolygonDrawingModeAndConfig.dynamic_line_width()) {
+				result.mDynamicStateEntries.push_back(vk::DynamicState::eLineWidth);
+			}
+			// Check for dynamic depth bias
+			if (aConfig.mDepthClampBiasConfig.is_dynamic_depth_bias_enabled()) {
+				result.mDynamicStateEntries.push_back(vk::DynamicState::eDepthBias);
+			}
+			// Check for dynamic depth bounds
+			if (aConfig.mDepthBoundsConfig.is_dynamic_depth_bounds_enabled()) {
+				result.mDynamicStateEntries.push_back(vk::DynamicState::eDepthBounds);
+			}
+			// Check for dynamic stencil values // TODO: make them configurable separately
+			if (aConfig.mStencilTest.has_value() && aConfig.mStencilTest.value().is_dynamic_enabled()) {
+				result.mDynamicStateEntries.push_back(vk::DynamicState::eStencilCompareMask);
+				result.mDynamicStateEntries.push_back(vk::DynamicState::eStencilReference);
+				result.mDynamicStateEntries.push_back(vk::DynamicState::eStencilWriteMask);
+			}
+			// TODO: Support further dynamic states
+
+			result.mDynamicStateCreateInfo = vk::PipelineDynamicStateCreateInfo{}
+				.setDynamicStateCount(static_cast<uint32_t>(result.mDynamicStateEntries.size()))
+				.setPDynamicStates(result.mDynamicStateEntries.data());
+		}
+
+		// 12. Flags
+		// TODO: Support all flags (only one of the flags is handled at the moment)
+		result.mPipelineCreateFlags = {};
+		if ((aConfig.mPipelineSettings & pipeline_settings::disable_optimization) == pipeline_settings::disable_optimization) {
+			result.mPipelineCreateFlags |= vk::PipelineCreateFlagBits::eDisableOptimization;
+		}
+
+		// 13. Patch Control Points for Tessellation
+		if (aConfig.mTessellationPatchControlPoints.has_value()) {
+			result.mPipelineTessellationStateCreateInfo = vk::PipelineTessellationStateCreateInfo{}
+				.setPatchControlPoints(aConfig.mTessellationPatchControlPoints.value().mPatchControlPoints);
+		}
+
+		// 14. Compile the PIPELINE LAYOUT data and create-info
+		// Get the descriptor set layouts
+		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
+		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		// Gather the push constant data
+		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
+			result.mPushConstantRanges.push_back(vk::PushConstantRange{}
+				.setStageFlags(to_vk_shader_stages(pcBinding.mShaderStages))
+				.setOffset(static_cast<uint32_t>(pcBinding.mOffset))
+				.setSize(static_cast<uint32_t>(pcBinding.mSize))
+			);
+			// TODO: Push Constants need a prettier interface
+		}
+		// These uniform values (Anm.: passed to shaders) need to be specified during pipeline creation by creating a VkPipelineLayout object. [4]
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size())) 
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		// 15. Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		// Create the PIPELINE LAYOUT
+		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
+		assert(nullptr != result.layout_handle());
+
+		assert (aConfig.mRenderPassSubpass.has_value());
+		// Create the PIPELINE, a.k.a. putting it all together:
+		auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
+			// 0. Render Pass
+			.setRenderPass((*result.mRenderPass).handle())
+			.setSubpass(result.mSubpassIndex)
+			// 1., 2., and 3.
+			.setPVertexInputState(&result.mPipelineVertexInputStateCreateInfo)
+			// 4.
+			.setPInputAssemblyState(&result.mInputAssemblyStateCreateInfo)
+			// 5.
+			.setStageCount(static_cast<uint32_t>(result.mShaderStageCreateInfos.size()))
+			.setPStages(result.mShaderStageCreateInfos.data())
+			// 6.
+			.setPViewportState(&result.mViewportStateCreateInfo)
+			// 7.
+			.setPRasterizationState(&result.mRasterizationStateCreateInfo)
+			// 8.
+			.setPDepthStencilState(&result.mDepthStencilConfig)
+			// 9.
+			.setPColorBlendState(&result.mColorBlendStateCreateInfo)
+			// 10.
+			.setPMultisampleState(&result.mMultisampleStateCreateInfo)
+			// 11.
+			.setPDynamicState(result.mDynamicStateEntries.size() == 0 ? nullptr : &result.mDynamicStateCreateInfo) // Optional
+			// 12.
+			.setFlags(result.mPipelineCreateFlags)
+			// LAYOUT:
+			.setLayout(result.layout_handle())
+			// Base pipeline:
+			.setBasePipelineHandle(nullptr) // Optional
+			.setBasePipelineIndex(-1); // Optional
+
+		// 13.
+		if (result.mPipelineTessellationStateCreateInfo.has_value()) {
+			pipelineInfo.setPTessellationState(&result.mPipelineTessellationStateCreateInfo.value());
+		}
+
+		// TODO: Shouldn't the config be altered HERE, after the pipelineInfo has been compiled?!
+		
+		result.mPipeline = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+		return result;
+	}
+#pragma endregion
+	
+#pragma region image definitions
 	image_t::image_t(const image_t& aOther)
 	{
 		if (std::holds_alternative<vk::Image>(aOther.mImage)) {
@@ -2219,126 +2930,122 @@ namespace ak
 		};
 	}
 
+	std::optional<command_buffer> image_t::transition_to_layout(std::optional<vk::ImageLayout> aTargetLayout, sync aSyncHandler)
+	{
+		const auto curLayout = current_layout();
+		const auto trgLayout = aTargetLayout.value_or(target_layout());
+		mTargetLayout = trgLayout;
 
-	//std::optional<command_buffer> image_t::transition_to_layout(std::optional<vk::ImageLayout> aTargetLayout, sync aSyncHandler)
-	//{
-	//	const auto curLayout = current_layout();
-	//	const auto trgLayout = aTargetLayout.value_or(target_layout());
-	//	mTargetLayout = trgLayout;
+		if (curLayout == trgLayout) {
+			return {}; // done (:
+		}
+		if (vk::ImageLayout::eUndefined == trgLayout || vk::ImageLayout::ePreinitialized == trgLayout) {
+			AK_LOG_VERBOSE("Won't transition into layout " + vk::to_string(trgLayout));
+			return {}; // Won't do it!
+		}
+		
+		// Not done => perform a transition via an image memory barrier inside a command buffer
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		aSyncHandler.establish_barrier_before_the_operation(
+			pipeline_stage::transfer,	// Just use the transfer stage to create an execution dependency chain
+			read_memory_access{memory_access::transfer_read_access}
+		);
 
-	//	if (curLayout == trgLayout) {
-	//		return {}; // done (:
-	//	}
-	//	if (vk::ImageLayout::eUndefined == trgLayout || vk::ImageLayout::ePreinitialized == trgLayout) {
-	//		LOG_VERBOSE(fmt::format("Won't transition into layout {}.", to_string(trgLayout)));
-	//		return {}; // Won't do it!
-	//	}
-	//	
-	//	aSyncHandler.set_queue_hint(cgb::context().transfer_queue());
+		// An image's layout is tranformed by the means of an image memory barrier:
+		commandBuffer.establish_image_memory_barrier(*this,
+			pipeline_stage::transfer, pipeline_stage::transfer,				// Execution dependency chain
+			std::optional<memory_access>{}, std::optional<memory_access>{}	// There should be no need to make any memory available or visible... the image should be available already (see above)
+		); // establish_image_memory_barrier ^ will set the mCurrentLayout to mTargetLayout
 
-	//	// Not done => perform a transition via an image memory barrier inside a command buffer
-	//	auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-	//	aSyncHandler.establish_barrier_before_the_operation(
-	//		pipeline_stage::transfer,	// Just use the transfer stage to create an execution dependency chain
-	//		read_memory_access{memory_access::transfer_read_access}
-	//	);
-
-	//	// An image's layout is tranformed by the means of an image memory barrier:
-	//	commandBuffer.establish_image_memory_barrier(*this,
-	//		pipeline_stage::transfer, pipeline_stage::transfer,				// Execution dependency chain
-	//		std::optional<memory_access>{}, std::optional<memory_access>{}	// There should be no need to make any memory available or visible... the image should be available already (see above)
-	//	); // establish_image_memory_barrier ^ will set the mCurrentLayout to mTargetLayout
-
-	//	aSyncHandler.establish_barrier_after_the_operation(
-	//		pipeline_stage::transfer,	// The end of the execution dependency chain
-	//		write_memory_access{memory_access::transfer_write_access}
-	//	);
-	//	return aSyncHandler.submit_and_sync();
-	//}
+		aSyncHandler.establish_barrier_after_the_operation(
+			pipeline_stage::transfer,	// The end of the execution dependency chain
+			write_memory_access{memory_access::transfer_write_access}
+		);
+		return aSyncHandler.submit_and_sync();
+	}
 
 
-	//std::optional<command_buffer> image_t::generate_mip_maps(sync aSyncHandler)
-	//{
-	//	if (config().mipLevels <= 1u) {
-	//		return {};
-	//	}
+	std::optional<command_buffer> image_t::generate_mip_maps(sync aSyncHandler)
+	{
+		if (config().mipLevels <= 1u) {
+			return {};
+		}
 
-	//	aSyncHandler.set_queue_hint(cgb::context().transfer_queue());
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{ memory_access::transfer_read_access }); // Make memory visible
 
-	//	auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-	//	aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{ memory_access::transfer_read_access }); // Make memory visible
+		const auto originalLayout = current_layout();
+		const auto targetLayout = target_layout();
+		auto w = static_cast<int32_t>(width());
+		auto h = static_cast<int32_t>(height());
 
-	//	const auto originalLayout = current_layout();
-	//	const auto targetLayout = target_layout();
-	//	auto w = static_cast<int32_t>(width());
-	//	auto h = static_cast<int32_t>(height());
+		std::array layoutTransitions = { // during the loop, we'll use 1 or 2 of these
+			vk::ImageMemoryBarrier{
+				{}, {}, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
+				originalLayout, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 0u, 1u, 0u, 1u }},
+			vk::ImageMemoryBarrier{
+				{}, vk::AccessFlagBits::eTransferWrite, // This is the first mip-level we're going to write to
+				originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 1u, 1u, 0u, 1u }},
+			vk::ImageMemoryBarrier{} // To be used in loop
+		};
 
-	//	std::array layoutTransitions = { // during the loop, we'll use 1 or 2 of these
-	//		vk::ImageMemoryBarrier{
-	//			{}, {}, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
-	//			originalLayout, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 0u, 1u, 0u, 1u }},
-	//		vk::ImageMemoryBarrier{
-	//			{}, vk::AccessFlagBits::eTransferWrite, // This is the first mip-level we're going to write to
-	//			originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 1u, 1u, 0u, 1u }},
-	//		vk::ImageMemoryBarrier{} // To be used in loop
-	//	};
+		commandBuffer.handle().pipelineBarrier(
+			vk::PipelineStageFlagBits::eTransfer,
+			vk::PipelineStageFlagBits::eTransfer, // Can we also use bottom of pipe here??
+			vk::DependencyFlags{},
+			0u, nullptr,
+			0u, nullptr,
+			2u /* initially, only 2 required */, layoutTransitions.data()
+		);
 
-	//	commandBuffer.handle().pipelineBarrier(
-	//		vk::PipelineStageFlagBits::eTransfer,
-	//		vk::PipelineStageFlagBits::eTransfer, // Can we also use bottom of pipe here??
-	//		vk::DependencyFlags{},
-	//		0u, nullptr,
-	//		0u, nullptr,
-	//		2u /* initially, only 2 required */, layoutTransitions.data()
-	//	);
+		for (uint32_t i = 1u; i < config().mipLevels; ++i) {
 
-	//	for (uint32_t i = 1u; i < config().mipLevels; ++i) {
+			commandBuffer.handle().blitImage(
+				handle(), vk::ImageLayout::eTransferSrcOptimal,
+				handle(), vk::ImageLayout::eTransferDstOptimal,
+				{ vk::ImageBlit{
+					vk::ImageSubresourceLayers{ mAspectFlags, i-1, 0u, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w      , h      , 1 } },
+					vk::ImageSubresourceLayers{ mAspectFlags, i  , 0u, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w > 1 ? w / 2 : 1, h > 1 ? h / 2 : 1, 1 } }
+				  }
+				},
+				vk::Filter::eLinear
+			);
 
-	//		commandBuffer.handle().blitImage(
-	//			handle(), vk::ImageLayout::eTransferSrcOptimal,
-	//			handle(), vk::ImageLayout::eTransferDstOptimal,
-	//			{ vk::ImageBlit{
-	//				vk::ImageSubresourceLayers{ mAspectFlags, i-1, 0u, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w      , h      , 1 } },
-	//				vk::ImageSubresourceLayers{ mAspectFlags, i  , 0u, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w > 1 ? w / 2 : 1, h > 1 ? h / 2 : 1, 1 } }
-	//			  }
-	//			},
-	//			vk::Filter::eLinear
-	//		);
+			// mip-level  i-1  is done:
+			layoutTransitions[0] = vk::ImageMemoryBarrier{
+				{}, {}, // Blit Read -> Done
+				vk::ImageLayout::eTransferSrcOptimal, targetLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i-1, 1u, 0u, 1u }};
+			// mip-level   i   has been transfer destination, but is going to be transfer source:
+			layoutTransitions[1] = vk::ImageMemoryBarrier{
+				vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead, // Blit Write -> Blit Read
+				vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i, 1u, 0u, 1u }};
+			// mip-level  i+1  is entering the game:
+			layoutTransitions[2] = vk::ImageMemoryBarrier{
+				{}, vk::AccessFlagBits::eTransferWrite, // make visible to Blit Write
+				originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i+1, 1u, 0u, 1u }};
 
-	//		// mip-level  i-1  is done:
-	//		layoutTransitions[0] = vk::ImageMemoryBarrier{
-	//			{}, {}, // Blit Read -> Done
-	//			vk::ImageLayout::eTransferSrcOptimal, targetLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i-1, 1u, 0u, 1u }};
-	//		// mip-level   i   has been transfer destination, but is going to be transfer source:
-	//		layoutTransitions[1] = vk::ImageMemoryBarrier{
-	//			vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead, // Blit Write -> Blit Read
-	//			vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i, 1u, 0u, 1u }};
-	//		// mip-level  i+1  is entering the game:
-	//		layoutTransitions[2] = vk::ImageMemoryBarrier{
-	//			{}, vk::AccessFlagBits::eTransferWrite, // make visible to Blit Write
-	//			originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i+1, 1u, 0u, 1u }};
+			uint32_t numBarriersRequired = std::min(3u, config().mipLevels - i + 1);
+			if (config().mipLevels - 1 == i) {
+				layoutTransitions[1].newLayout = targetLayout; // Last one => done
+			}
+			
+			commandBuffer.handle().pipelineBarrier(
+				vk::PipelineStageFlagBits::eTransfer,
+				vk::PipelineStageFlagBits::eTransfer, // Dependency from previous BLIT to subsequent BLIT
+				vk::DependencyFlags{},
+				0u, nullptr,
+				0u, nullptr,
+				numBarriersRequired, layoutTransitions.data()
+			);
 
-	//		uint32_t numBarriersRequired = std::min(3u, config().mipLevels - i + 1);
-	//		if (config().mipLevels - 1 == i) {
-	//			layoutTransitions[1].newLayout = targetLayout; // Last one => done
-	//		}
-	//		
-	//		commandBuffer.handle().pipelineBarrier(
-	//			vk::PipelineStageFlagBits::eTransfer,
-	//			vk::PipelineStageFlagBits::eTransfer, // Dependency from previous BLIT to subsequent BLIT
-	//			vk::DependencyFlags{},
-	//			0u, nullptr,
-	//			0u, nullptr,
-	//			numBarriersRequired, layoutTransitions.data()
-	//		);
-
-	//		w = w > 1 ? w / 2 : 1;
-	//		h = h > 1 ? h / 2 : 1;
-	//	}
-	//	
-	//	aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{ memory_access::transfer_write_access });
-	//	return aSyncHandler.submit_and_sync();
-	//}
+			w = w > 1 ? w / 2 : 1;
+			h = h > 1 ? h / 2 : 1;
+		}
+		
+		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{ memory_access::transfer_write_access });
+		return aSyncHandler.submit_and_sync();
+	}
+#pragma endregion
 
 	owning_resource<image_view_t> root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
@@ -2613,5 +3320,554 @@ namespace ak
 		return result;
 	}
 	
+#pragma region vulkan helper functions
+	vk::IndexType to_vk_index_type(size_t aSize)
+	{
+		if (aSize == sizeof(uint16_t)) {
+			return vk::IndexType::eUint16;
+		}
+		if (aSize == sizeof(uint32_t)) {
+			return vk::IndexType::eUint32;
+		}
+		AK_LOG_ERROR("The given size[" + std::to_string(aSize) + "] does not correspond to a valid vk::IndexType");
+		return vk::IndexType::eNoneKHR;
+	}
 
+	vk::Bool32 to_vk_bool(bool value)
+	{
+		return value ? VK_TRUE : VK_FALSE;
+	}
+
+	vk::ShaderStageFlagBits to_vk_shader_stage(shader_type aType)
+	{
+		switch (aType) {
+		case ak::shader_type::vertex:
+			return vk::ShaderStageFlagBits::eVertex;
+		case ak::shader_type::tessellation_control:
+			return vk::ShaderStageFlagBits::eTessellationControl;
+		case ak::shader_type::tessellation_evaluation:
+			return vk::ShaderStageFlagBits::eTessellationEvaluation;
+		case ak::shader_type::geometry:
+			return vk::ShaderStageFlagBits::eGeometry;
+		case ak::shader_type::fragment:
+			return vk::ShaderStageFlagBits::eFragment;
+		case ak::shader_type::compute:
+			return vk::ShaderStageFlagBits::eCompute;
+		case ak::shader_type::ray_generation:
+			return vk::ShaderStageFlagBits::eRaygenKHR;
+		case ak::shader_type::any_hit:
+			return vk::ShaderStageFlagBits::eAnyHitKHR;
+		case ak::shader_type::closest_hit:
+			return vk::ShaderStageFlagBits::eClosestHitKHR;
+		case ak::shader_type::miss:
+			return vk::ShaderStageFlagBits::eMissKHR;
+		case ak::shader_type::intersection:
+			return vk::ShaderStageFlagBits::eIntersectionKHR;
+		case ak::shader_type::callable:
+			return vk::ShaderStageFlagBits::eCallableKHR;
+		case ak::shader_type::task:
+			return vk::ShaderStageFlagBits::eTaskNV;
+		case ak::shader_type::mesh:
+			return vk::ShaderStageFlagBits::eMeshNV;
+		default:
+			throw ak::runtime_error("Invalid shader_type");
+		}
+	}
+
+	vk::ShaderStageFlags to_vk_shader_stages(shader_type aType)
+	{
+		vk::ShaderStageFlags result;
+		if ((aType & ak::shader_type::vertex) == ak::shader_type::vertex) {
+			result |= vk::ShaderStageFlagBits::eVertex;
+		}
+		if ((aType & ak::shader_type::tessellation_control) == ak::shader_type::tessellation_control) {
+			result |= vk::ShaderStageFlagBits::eTessellationControl;
+		}
+		if ((aType & ak::shader_type::tessellation_evaluation) == ak::shader_type::tessellation_evaluation) {
+			result |= vk::ShaderStageFlagBits::eTessellationEvaluation;
+		}
+		if ((aType & ak::shader_type::geometry) == ak::shader_type::geometry) {
+			result |= vk::ShaderStageFlagBits::eGeometry;
+		}
+		if ((aType & ak::shader_type::fragment) == ak::shader_type::fragment) {
+			result |= vk::ShaderStageFlagBits::eFragment;
+		}
+		if ((aType & ak::shader_type::compute) == ak::shader_type::compute) {
+			result |= vk::ShaderStageFlagBits::eCompute;
+		}
+		if ((aType & ak::shader_type::ray_generation) == ak::shader_type::ray_generation) {
+			result |= vk::ShaderStageFlagBits::eRaygenKHR;
+		}
+		if ((aType & ak::shader_type::any_hit) == ak::shader_type::any_hit) {
+			result |= vk::ShaderStageFlagBits::eAnyHitKHR;
+		}
+		if ((aType & ak::shader_type::closest_hit) == ak::shader_type::closest_hit) {
+			result |= vk::ShaderStageFlagBits::eClosestHitKHR;
+		}
+		if ((aType & ak::shader_type::miss) == ak::shader_type::miss) {
+			result |= vk::ShaderStageFlagBits::eMissKHR;
+		}
+		if ((aType & ak::shader_type::intersection) == ak::shader_type::intersection) {
+			result |= vk::ShaderStageFlagBits::eIntersectionKHR;
+		}
+		if ((aType & ak::shader_type::callable) == ak::shader_type::callable) {
+			result |= vk::ShaderStageFlagBits::eCallableKHR;
+		}
+		if ((aType & ak::shader_type::task) == ak::shader_type::task) {
+			result |= vk::ShaderStageFlagBits::eTaskNV;
+		}
+		if ((aType & ak::shader_type::mesh) == ak::shader_type::mesh) {
+			result |= vk::ShaderStageFlagBits::eMeshNV;
+		}
+		return result;
+	}
+
+	vk::VertexInputRate to_vk_vertex_input_rate(input_binding_general_data::kind aValue)
+	{
+		switch (aValue) {
+		case input_binding_general_data::kind::instance:
+			return vk::VertexInputRate::eInstance;
+		case input_binding_general_data::kind::vertex:
+			return vk::VertexInputRate::eVertex;
+		default:
+			throw std::invalid_argument("Invalid vertex input rate");
+		}
+	}
+
+	vk::PrimitiveTopology to_vk_primitive_topology(cfg::primitive_topology aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case primitive_topology::points:
+			return vk::PrimitiveTopology::ePointList;
+		case primitive_topology::lines: 
+			return vk::PrimitiveTopology::eLineList;
+		case primitive_topology::line_strip:
+			return vk::PrimitiveTopology::eLineStrip;
+		case primitive_topology::triangles: 
+			return vk::PrimitiveTopology::eTriangleList;
+		case primitive_topology::triangle_strip:
+			return vk::PrimitiveTopology::eTriangleStrip;
+		case primitive_topology::triangle_fan: 
+			return vk::PrimitiveTopology::eTriangleFan;
+		case primitive_topology::lines_with_adjacency:
+			return vk::PrimitiveTopology::eLineListWithAdjacency;
+		case primitive_topology::line_strip_with_adjacency: 
+			return vk::PrimitiveTopology::eLineStripWithAdjacency;
+		case primitive_topology::triangles_with_adjacency: 
+			return vk::PrimitiveTopology::eTriangleListWithAdjacency;
+		case primitive_topology::triangle_strip_with_adjacency: 
+			return vk::PrimitiveTopology::eTriangleStripWithAdjacency;
+		case primitive_topology::patches: 
+			return vk::PrimitiveTopology::ePatchList;
+		default:
+			throw std::invalid_argument("Invalid primitive topology");
+		}
+	}
+
+	vk::PolygonMode to_vk_polygon_mode(cfg::polygon_drawing_mode aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case polygon_drawing_mode::fill: 
+			return vk::PolygonMode::eFill;
+		case polygon_drawing_mode::line:
+			return vk::PolygonMode::eLine;
+		case polygon_drawing_mode::point:
+			return vk::PolygonMode::ePoint;
+		default:
+			throw std::invalid_argument("Invalid polygon drawing mode.");
+		}
+	}
+
+	vk::CullModeFlags to_vk_cull_mode(cfg::culling_mode aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case culling_mode::disabled:
+			return vk::CullModeFlagBits::eNone;
+		case culling_mode::cull_front_faces:
+			return vk::CullModeFlagBits::eFront;
+		case culling_mode::cull_back_faces:
+			return vk::CullModeFlagBits::eBack;
+		case culling_mode::cull_front_and_back_faces:
+			return vk::CullModeFlagBits::eFrontAndBack;
+		default:
+			throw std::invalid_argument("Invalid culling mode.");
+		}
+	}
+
+	vk::FrontFace to_vk_front_face(cfg::winding_order aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case winding_order::counter_clockwise:
+			return vk::FrontFace::eCounterClockwise;
+		case winding_order::clockwise:
+			return vk::FrontFace::eClockwise;
+		default:
+			throw std::invalid_argument("Invalid front face winding order.");
+		}
+	}
+
+	vk::CompareOp to_vk_compare_op(cfg::compare_operation aValue)
+	{
+		using namespace cfg;
+		
+		switch(aValue) {
+		case compare_operation::never:
+			return vk::CompareOp::eNever;
+		case compare_operation::less: 
+			return vk::CompareOp::eLess;
+		case compare_operation::equal: 
+			return vk::CompareOp::eEqual;
+		case compare_operation::less_or_equal: 
+			return vk::CompareOp::eLessOrEqual;
+		case compare_operation::greater: 
+			return vk::CompareOp::eGreater;
+		case compare_operation::not_equal: 
+			return vk::CompareOp::eNotEqual;
+		case compare_operation::greater_or_equal: 
+			return vk::CompareOp::eGreaterOrEqual;
+		case compare_operation::always: 
+			return vk::CompareOp::eAlways;
+		default:
+			throw std::invalid_argument("Invalid compare operation.");
+		}
+	}
+
+	vk::ColorComponentFlags to_vk_color_components(cfg::color_channel aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue)	{
+		case color_channel::none:
+			return vk::ColorComponentFlags{};
+		case color_channel::red:
+			return vk::ColorComponentFlagBits::eR;
+		case color_channel::green:
+			return vk::ColorComponentFlagBits::eG;
+		case color_channel::blue:
+			return vk::ColorComponentFlagBits::eB;
+		case color_channel::alpha:
+			return vk::ColorComponentFlagBits::eA;
+		case color_channel::rg:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG;
+		case color_channel::rgb:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB;
+		case color_channel::rgba:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+		default:
+			throw std::invalid_argument("Invalid color channel value.");
+		}
+	}
+
+	vk::BlendFactor to_vk_blend_factor(cfg::blending_factor aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case blending_factor::zero:
+			return vk::BlendFactor::eZero;
+		case blending_factor::one: 
+			return vk::BlendFactor::eOne;
+		case blending_factor::source_color: 
+			return vk::BlendFactor::eSrcColor;
+		case blending_factor::one_minus_source_color: 
+			return vk::BlendFactor::eOneMinusSrcColor;
+		case blending_factor::destination_color: 
+			return vk::BlendFactor::eDstColor;
+		case blending_factor::one_minus_destination_color: 
+			return vk::BlendFactor::eOneMinusDstColor;
+		case blending_factor::source_alpha: 
+			return vk::BlendFactor::eSrcAlpha;
+		case blending_factor::one_minus_source_alpha: 
+			return vk::BlendFactor::eOneMinusSrcAlpha;
+		case blending_factor::destination_alpha: 
+			return vk::BlendFactor::eDstAlpha;
+		case blending_factor::one_minus_destination_alpha:
+			return vk::BlendFactor::eOneMinusDstAlpha;
+		case blending_factor::constant_color: 
+			return vk::BlendFactor::eConstantColor;
+		case blending_factor::one_minus_constant_color: 
+			return vk::BlendFactor::eOneMinusConstantColor;
+		case blending_factor::constant_alpha: 
+			return vk::BlendFactor::eConstantAlpha;
+		case blending_factor::one_minus_constant_alpha: 
+			return vk::BlendFactor::eOneMinusConstantAlpha;
+		case blending_factor::source_alpha_saturate: 
+			return vk::BlendFactor::eSrcAlphaSaturate;
+		default:
+			throw std::invalid_argument("Invalid blend factor value.");
+		}
+	}
+
+	vk::BlendOp to_vk_blend_operation(cfg::color_blending_operation aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue)
+		{
+		case color_blending_operation::add: 
+			return vk::BlendOp::eAdd;
+		case color_blending_operation::subtract: 
+			return vk::BlendOp::eSubtract;
+		case color_blending_operation::reverse_subtract: 
+			return vk::BlendOp::eReverseSubtract;
+		case color_blending_operation::min: 
+			return vk::BlendOp::eMin;
+		case color_blending_operation::max: 
+			return vk::BlendOp::eMax;
+		default:
+			throw std::invalid_argument("Invalid color blending operation.");
+		}
+	}
+
+	vk::LogicOp to_vk_logic_operation(cfg::blending_logic_operation aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue)
+		{
+		case blending_logic_operation::op_clear:
+			return vk::LogicOp::eClear;
+		case blending_logic_operation::op_and: 
+			return vk::LogicOp::eAnd;
+		case blending_logic_operation::op_and_reverse: 
+			return vk::LogicOp::eAndReverse;
+		case blending_logic_operation::op_copy: 
+			return vk::LogicOp::eCopy;
+		case blending_logic_operation::op_and_inverted: 
+			return vk::LogicOp::eAndInverted;
+		case blending_logic_operation::no_op: 
+			return vk::LogicOp::eNoOp;
+		case blending_logic_operation::op_xor: 
+			return vk::LogicOp::eXor;
+		case blending_logic_operation::op_or: 
+			return vk::LogicOp::eOr;
+		case blending_logic_operation::op_nor: 
+			return vk::LogicOp::eNor;
+		case blending_logic_operation::op_equivalent: 
+			return vk::LogicOp::eEquivalent;
+		case blending_logic_operation::op_invert: 
+			return vk::LogicOp::eInvert;
+		case blending_logic_operation::op_or_reverse: 
+			return vk::LogicOp::eOrReverse;
+		case blending_logic_operation::op_copy_inverted: 
+			return vk::LogicOp::eCopyInverted;
+		case blending_logic_operation::op_or_inverted: 
+			return vk::LogicOp::eOrInverted;
+		case blending_logic_operation::op_nand: 
+			return vk::LogicOp::eNand;
+		case blending_logic_operation::op_set: 
+			return vk::LogicOp::eSet;
+		default: 
+			throw std::invalid_argument("Invalid blending logic operation.");
+		}
+	}
+
+	vk::AttachmentLoadOp to_vk_load_op(on_load aValue)
+	{
+		switch (aValue) {
+		case on_load::dont_care:
+			return vk::AttachmentLoadOp::eDontCare;
+		case on_load::clear: 
+			return vk::AttachmentLoadOp::eClear;
+		case on_load::load: 
+			return vk::AttachmentLoadOp::eLoad;
+		default:
+			throw std::invalid_argument("Invalid attachment load operation.");
+		}
+	}
+
+	vk::AttachmentStoreOp to_vk_store_op(on_store aValue)
+	{
+		switch (aValue) {
+		case on_store::dont_care:
+			return vk::AttachmentStoreOp::eDontCare;
+		case on_store::store:
+		case on_store::store_in_presentable_format:
+			return vk::AttachmentStoreOp::eStore;
+		default:
+			throw std::invalid_argument("Invalid attachment store operation.");
+		}
+	}
+
+	vk::PipelineStageFlags to_vk_pipeline_stage_flags(ak::pipeline_stage aValue)
+	{
+		vk::PipelineStageFlags result;
+		// TODO: This might be a bit expensive. Is there a different possible solution to this?
+		if (ak::is_included(aValue, ak::pipeline_stage::top_of_pipe					)) { result |= vk::PipelineStageFlagBits::eTopOfPipe					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::draw_indirect					)) { result |= vk::PipelineStageFlagBits::eDrawIndirect					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::vertex_input					)) { result |= vk::PipelineStageFlagBits::eVertexInput					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::vertex_shader					)) { result |= vk::PipelineStageFlagBits::eVertexShader					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_control_shader	)) { result |= vk::PipelineStageFlagBits::eTessellationControlShader	; }
+		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_evaluation_shader)) { result |= vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
+		if (ak::is_included(aValue, ak::pipeline_stage::geometry_shader				)) { result |= vk::PipelineStageFlagBits::eGeometryShader				; }
+		if (ak::is_included(aValue, ak::pipeline_stage::fragment_shader				)) { result |= vk::PipelineStageFlagBits::eFragmentShader				; }
+		if (ak::is_included(aValue, ak::pipeline_stage::early_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::late_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eLateFragmentTests			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::color_attachment_output		)) { result |= vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
+		if (ak::is_included(aValue, ak::pipeline_stage::compute_shader				)) { result |= vk::PipelineStageFlagBits::eComputeShader				; }
+		if (ak::is_included(aValue, ak::pipeline_stage::transfer						)) { result |= vk::PipelineStageFlagBits::eTransfer						; }
+		if (ak::is_included(aValue, ak::pipeline_stage::bottom_of_pipe				)) { result |= vk::PipelineStageFlagBits::eBottomOfPipe					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::host							)) { result |= vk::PipelineStageFlagBits::eHost							; }
+		if (ak::is_included(aValue, ak::pipeline_stage::all_graphics			)) { result |= vk::PipelineStageFlagBits::eAllGraphics					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::all_commands					)) { result |= vk::PipelineStageFlagBits::eAllCommands					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::transform_feedback			)) { result |= vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::conditional_rendering			)) { result |= vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
+#if VK_HEADER_VERSION >= 135
+		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
+#else 
+		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
+#endif
+		if (ak::is_included(aValue, ak::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
+		if (ak::is_included(aValue, ak::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
+		return result;
+	}
+	
+	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<ak::pipeline_stage> aValue)
+	{
+		if (aValue.has_value()) {
+			return to_vk_pipeline_stage_flags(aValue.value());
+		}
+		return vk::PipelineStageFlags{};
+	}
+
+	vk::AccessFlags to_vk_access_flags(ak::memory_access aValue)
+	{
+		vk::AccessFlags result;
+		// TODO: This might be a bit expensive. Is there a different possible solution to this?
+		if (ak::is_included(aValue, ak::memory_access::indirect_command_data_read_access			)) { result |= vk::AccessFlagBits::eIndirectCommandRead; }
+		if (ak::is_included(aValue, ak::memory_access::index_buffer_read_access					)) { result |= vk::AccessFlagBits::eIndexRead; }
+		if (ak::is_included(aValue, ak::memory_access::vertex_buffer_read_access					)) { result |= vk::AccessFlagBits::eVertexAttributeRead; }
+		if (ak::is_included(aValue, ak::memory_access::uniform_buffer_read_access					)) { result |= vk::AccessFlagBits::eUniformRead; }
+		if (ak::is_included(aValue, ak::memory_access::input_attachment_read_access				)) { result |= vk::AccessFlagBits::eInputAttachmentRead; }
+		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_read_access		)) { result |= vk::AccessFlagBits::eShaderRead; }
+		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_write_access		)) { result |= vk::AccessFlagBits::eShaderWrite; }
+		if (ak::is_included(aValue, ak::memory_access::color_attachment_read_access				)) { result |= vk::AccessFlagBits::eColorAttachmentRead; }
+		if (ak::is_included(aValue, ak::memory_access::color_attachment_write_access				)) { result |= vk::AccessFlagBits::eColorAttachmentWrite; }
+		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_read_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentRead; }
+		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_write_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; }
+		if (ak::is_included(aValue, ak::memory_access::transfer_read_access						)) { result |= vk::AccessFlagBits::eTransferRead; }
+		if (ak::is_included(aValue, ak::memory_access::transfer_write_access						)) { result |= vk::AccessFlagBits::eTransferWrite; }
+		if (ak::is_included(aValue, ak::memory_access::host_read_access							)) { result |= vk::AccessFlagBits::eHostRead; }
+		if (ak::is_included(aValue, ak::memory_access::host_write_access							)) { result |= vk::AccessFlagBits::eHostWrite; }
+		if (ak::is_included(aValue, ak::memory_access::any_read_access							)) { result |= vk::AccessFlagBits::eMemoryRead; }
+		if (ak::is_included(aValue, ak::memory_access::any_write_access					 		)) { result |= vk::AccessFlagBits::eMemoryWrite; }
+		if (ak::is_included(aValue, ak::memory_access::transform_feedback_write_access			)) { result |= vk::AccessFlagBits::eTransformFeedbackWriteEXT; }
+		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_read_access		)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterReadEXT; }
+		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_write_access	)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterWriteEXT; }
+		if (ak::is_included(aValue, ak::memory_access::conditional_rendering_predicate_read_access)) { result |= vk::AccessFlagBits::eConditionalRenderingReadEXT; }
+#if VK_HEADER_VERSION >= 135
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
+#else
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
+#endif
+		if (ak::is_included(aValue, ak::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
+		if (ak::is_included(aValue, ak::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
+		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
+		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
+		if (ak::is_included(aValue, ak::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
+
+		return result;
+	}
+
+	vk::AccessFlags to_vk_access_flags(std::optional<ak::memory_access> aValue)
+	{
+		if (aValue.has_value()) {
+			return to_vk_access_flags(aValue.value());
+		}
+		return vk::AccessFlags{};
+	}
+
+	ak::memory_access to_memory_access(ak::read_memory_access aValue)
+	{
+		return static_cast<ak::memory_access>(aValue);
+	}
+	
+	std::optional<ak::memory_access> to_memory_access(std::optional<ak::read_memory_access> aValue)
+	{
+		if (aValue.has_value()) {
+			return to_memory_access(aValue.value());
+		}
+		return {};
+	}
+	
+	ak::memory_access to_memory_access(ak::write_memory_access aValue)
+	{
+		return static_cast<ak::memory_access>(aValue);
+	}
+	
+	std::optional<ak::memory_access> to_memory_access(std::optional<ak::write_memory_access> aValue)
+	{
+		if (aValue.has_value()) {
+			return to_memory_access(aValue.value());
+		}
+		return {};
+	}
+
+	ak::filter_mode to_cgb_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
+	{
+		if (aMipMappingAvailable) {
+			if (aVulkanAnisotropy > 1.0f) {
+				if (std::fabs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_16x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_8x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_4x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_2x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_32x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_64x;
+				}
+				AK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
+			}
+			return ak::filter_mode::trilinear;
+		}
+		return ak::filter_mode::bilinear;
+	}
+
+	vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info)
+	{
+		switch (info.imageType)
+		{
+		case vk::ImageType::e1D:
+			if (info.arrayLayers > 1) {
+				return vk::ImageViewType::e1DArray;
+			}
+			else {
+				return vk::ImageViewType::e1D;
+			}
+		case vk::ImageType::e2D:
+			if (info.arrayLayers > 1) {
+				return vk::ImageViewType::e2DArray;
+			}
+			else {
+				return vk::ImageViewType::e2D;
+			}
+		case vk::ImageType::e3D:
+			return vk::ImageViewType::e3D;
+		}
+		throw new ak::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
+	}
+#pragma endregion
 }

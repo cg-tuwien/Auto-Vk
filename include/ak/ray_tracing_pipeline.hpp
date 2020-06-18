@@ -69,9 +69,9 @@ namespace ak
 
 	template <>
 	inline void command_buffer_t::bind_descriptors<std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*>>
-		(std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::initializer_list<binding_data> aBindings, descriptor_cache_interface* aDescriptorCache)
+		(std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
 	{
-		command_buffer_t::bind_descriptors(vk::PipelineBindPoint::eRayTracingKHR, std::get<const ray_tracing_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aBindings), aDescriptorCache);
+		command_buffer_t::bind_descriptors(vk::PipelineBindPoint::eRayTracingKHR, std::get<const ray_tracing_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aDescriptorSets));
 	}
 
 }

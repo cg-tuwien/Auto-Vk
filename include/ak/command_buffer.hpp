@@ -145,7 +145,7 @@ namespace ak // ========================== TODO/WIP ============================
 
 		// Template specializations are implemented in the respective pipeline's header files
 		template <typename T> 
-		void bind_descriptors(T aPipelineLayoutTuple, std::initializer_list<binding_data> aBindings, descriptor_cache_interface* aDescriptorCache = nullptr)
+		void bind_descriptors(T aPipelineLayoutTuple, std::vector<descriptor_set> aDescriptorSets)
 		{
 			// TODO: In the current state, we're relying on COMPATIBLE layouts. Think about reusing the pipeline's allocated and internally stored layouts!
 			assert(false);
@@ -171,7 +171,7 @@ namespace ak // ========================== TODO/WIP ============================
 				}
 				// TODO: How to deal with push constants of same size and multiple vk::PushConstantRanges??
 			}
-			LOG_WARNING(fmt::format("No vk::PushConstantRange entry found that matches the dataSize[{}]", dataSize));
+			AK_LOG_WARNING("No vk::PushConstantRange entry found that matches the dataSize[" + std::to_string(dataSize) + "]");
 		}
 
 	private:

@@ -5,6 +5,8 @@ namespace ak
 	/** Represents data for a vulkan graphics pipeline */
 	class graphics_pipeline_t
 	{
+		friend class root;
+		
 	public:
 		graphics_pipeline_t() = default;
 		graphics_pipeline_t(graphics_pipeline_t&&) noexcept = default;
@@ -19,8 +21,6 @@ namespace ak
 		const renderpass_t& get_renderpass() const { return mRenderPass; }
 		const auto& renderpass_handle() const { return mRenderPass->handle(); }
 		auto subpass_id() const { return mSubpassIndex; }
-
-		static ak::owning_resource<graphics_pipeline_t> create(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 	private:
 		renderpass mRenderPass;
@@ -80,9 +80,9 @@ namespace ak
 
 	template <>
 	inline void command_buffer_t::bind_descriptors<std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*>>
-		(std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::initializer_list<binding_data> aBindings, descriptor_cache_interface* aDescriptorCache)
+		(std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
 	{
-		bind_descriptors(vk::PipelineBindPoint::eGraphics, std::get<const graphics_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aBindings), aDescriptorCache);
+		bind_descriptors(vk::PipelineBindPoint::eGraphics, std::get<const graphics_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aDescriptorSets));
 	}
 
 }

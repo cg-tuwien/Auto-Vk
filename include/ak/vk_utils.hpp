@@ -2,10 +2,6 @@
 
 namespace ak
 {
-	namespace cfg {
-		enum struct blending_logic_operation;
-	}
-
 	/** Returns true if the given image format is a sRGB format
 	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_srgb_format(const vk::Format& pImageFormat);
@@ -88,6 +84,4 @@ namespace ak
 
 	/** Analyze the given `ak::image_usage` flags, and assemble some (hopefully valid) `vk::ImageUsageFlags`, and determine `vk::ImageLayout` and `vk::ImageTiling`. */
 	extern std::tuple<vk::ImageUsageFlags, vk::ImageLayout, vk::ImageTiling, vk::ImageCreateFlags> determine_usage_layout_tiling_flags_based_on_image_usage(ak::image_usage aImageUsageFlags);
-
-	
 }

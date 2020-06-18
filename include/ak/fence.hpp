@@ -5,6 +5,8 @@ namespace ak
 	/** A synchronization object which allows GPU->CPU synchronization */
 	class fence_t
 	{
+		friend class root;
+		
 	public:
 		fence_t() = default;
 		fence_t(const fence_t&) = delete;
@@ -43,8 +45,6 @@ namespace ak
 
 		void wait_until_signalled() const;
 		void reset();
-
-		static ak::owning_resource<fence_t> create(bool _CreateInSignaledState = false, std::function<void(fence_t&)> _AlterConfigBeforeCreation = {});
 
 	private:
 		vk::FenceCreateInfo mCreateInfo;
