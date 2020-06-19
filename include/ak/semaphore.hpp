@@ -3,7 +3,7 @@
 namespace ak
 {
 	// Forward declaration:
-	class device_queue;
+	class queue;
 
 	/** A synchronization object which allows GPU->GPU synchronization */
 	class semaphore_t

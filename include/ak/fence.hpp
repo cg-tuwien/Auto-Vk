@@ -19,7 +19,7 @@ namespace ak
 		 *	This is only used for keeping the information of the queue. 
 		 *	There is no impact on any internal functionality whether or not a designated queue has been set.
 		 */
-		fence_t& set_designated_queue(device_queue& _Queue);
+		fence_t& set_designated_queue(queue& _Queue);
 
 		template <typename F>
 		fence_t& set_custom_deleter(F&& aDeleter) noexcept
@@ -49,7 +49,7 @@ namespace ak
 	private:
 		vk::FenceCreateInfo mCreateInfo;
 		vk::UniqueFence mFence;
-		device_queue* mQueue;
+		queue* mQueue;
 
 		// --- Some advanced features of a fence object ---
 

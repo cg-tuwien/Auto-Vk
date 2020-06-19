@@ -564,7 +564,12 @@ namespace ak
 
 		image_t wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, ak::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags);
 #pragma endregion
-		
+
+#pragma region image sampler
+		owning_resource<image_sampler_t> create_image_sampler(image_view aImageView, sampler aSampler);
+#pragma endregion
+
+#pragma region image view
 		/** Creates a new image view upon a given image
 		*	@param	aImageToOwn					The image which to create an image view for
 		*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
@@ -578,7 +583,9 @@ namespace ak
 		owning_resource<image_view_t> create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {});
 
 		void finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation);
+#pragma endregion 
 
+		
 		/**	Create a new sampler with the given configuration parameters
 		 *	@param	aFilterMode					Filtering strategy for the sampler to be created
 		 *	@param	aBorderHandlingMode			Border handling strategy for the sampler to be created
@@ -587,7 +594,6 @@ namespace ak
 		 */
 		owning_resource<sampler_t> create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
 
-		owning_resource<image_sampler_t> create(image_view aImageView, sampler aSampler);
 
 
 	};

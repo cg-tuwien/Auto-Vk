@@ -209,7 +209,7 @@ namespace ak
 		return result;
 	}
 
-	sync& sync::on_queue(std::reference_wrapper<device_queue> aQueue)
+	sync& sync::on_queue(std::reference_wrapper<queue> aQueue)
 	{
 		mQueueToUse = aQueue;
 		return *this;
@@ -226,7 +226,7 @@ namespace ak
 		return mSpecialSync.has_value() ? mSpecialSync.value() : sync_type::via_wait_idle;
 	}
 	
-	std::reference_wrapper<device_queue> sync::queue_to_use() const
+	std::reference_wrapper<queue> sync::queue_to_use() const
 	{
 #if defined(_DEBUG) && LOG_LEVEL > 4
 		if (!mQueueToUse.has_value()) {
@@ -277,19 +277,19 @@ namespace ak
 		return mCommandBuffer.value();
 	}
 	
-	//std::reference_wrapper<device_queue> sync::queue_to_transfer_to() const
+	//std::reference_wrapper<queue> sync::queue_to_transfer_to() const
 	//{
 	//	return mQueueToTransferOwnershipTo.value_or(queue_to_use());
 	//}
 	//
 	//bool sync::queues_are_the_same() const
 	//{
-	//	device_queue& q0 = queue_to_use();
-	//	device_queue& q1 = queue_to_transfer_to();
+	//	queue& q0 = queue_to_use();
+	//	queue& q1 = queue_to_transfer_to();
 	//	return q0 == q1;
 	//}
 
-	void sync::set_queue_hint(std::reference_wrapper<device_queue> aQueueRecommendation)
+	void sync::set_queue_hint(std::reference_wrapper<queue> aQueueRecommendation)
 	{
 		mQueueRecommendation = aQueueRecommendation;
 	}
@@ -314,7 +314,7 @@ namespace ak
 
 	std::optional<command_buffer> sync::submit_and_sync()
 	{
-		device_queue& queue = queue_to_use();
+		queue& queue = queue_to_use();
 		auto syncType = get_sync_type();
 		switch (syncType) {
 		case sync_type::via_semaphore:

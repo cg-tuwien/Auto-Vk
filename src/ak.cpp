@@ -2023,7 +2023,7 @@ namespace ak
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
 	}
 
-	fence_t& fence_t::set_designated_queue(device_queue& _Queue)
+	fence_t& fence_t::set_designated_queue(queue& _Queue)
 	{
 		mQueue = &_Queue;
 		return *this;
@@ -3047,6 +3047,24 @@ namespace ak
 	}
 #pragma endregion
 
+#pragma region image sampler definitions
+	owning_resource<image_sampler_t> root::create_image_sampler(image_view aImageView, sampler aSampler)
+	{
+		image_sampler_t result;
+		result.mImageView = std::move(aImageView);
+		result.mSampler = std::move(aSampler);
+
+		result.mDescriptorInfo = vk::DescriptorImageInfo{}
+			.setImageView(result.view_handle())
+			.setSampler(result.sampler_handle());
+		result.mDescriptorInfo.setImageLayout(result.mImageView->get_image().target_layout());
+		
+		result.mDescriptorType = vk::DescriptorType::eCombinedImageSampler;
+		return result;
+	}
+#pragma endregion
+
+#pragma region image view definitions
 	owning_resource<image_view_t> root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
@@ -3168,7 +3186,192 @@ namespace ak
 			.setImageView(aImageView.handle())
 			.setImageLayout(aImageView.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout? 
 	}
+#pragma endregion
 
+#pragma region input description definitions
+	input_description::input_description(std::initializer_list<input_binding_location_data> aBindings)
+	{
+		for (const auto& bindingLoc : aBindings) {
+			auto& bfr = mInputBuffers[bindingLoc.mGeneralData.mBinding];
+			// Create if it doesn't exist
+			if (std::holds_alternative<std::monostate>(bfr)) {
+				switch (bindingLoc.mGeneralData.mKind)
+				{
+				case input_binding_general_data::kind::vertex:
+					bfr = vertex_buffer_meta::create_from_element_size(bindingLoc.mGeneralData.mStride);
+					break;
+				case input_binding_general_data::kind::instance:
+					bfr = instance_buffer_meta::create_from_element_size(bindingLoc.mGeneralData.mStride);
+					break;
+				default:
+					throw ak::runtime_error("Invalid input_binding_location_data::kind value");
+				}
+			}
+
+#if defined(_DEBUG)
+			// It exists => perform some sanity checks:
+			if (std::holds_alternative<std::monostate>(bfr)
+				|| (input_binding_general_data::kind::vertex == bindingLoc.mGeneralData.mKind && std::holds_alternative<instance_buffer_meta>(bfr))
+				|| (input_binding_general_data::kind::instance == bindingLoc.mGeneralData.mKind && std::holds_alternative<vertex_buffer_meta>(bfr))
+				) {
+				throw ak::logic_error("All locations of the same binding must come from the same buffer type (vertex buffer or instance buffer).");
+			}
+#endif
+
+			if (std::holds_alternative<vertex_buffer_meta>(bfr)) {
+				std::get<vertex_buffer_meta>(bfr).describe_member(
+					bindingLoc.mMemberMetaData.mOffset,
+					bindingLoc.mMemberMetaData.mFormat,
+					bindingLoc.mMemberMetaData.mLocation);
+			}
+			else { // must be instance_buffer_meta
+				std::get<instance_buffer_meta>(bfr).describe_member(
+					bindingLoc.mMemberMetaData.mOffset,
+					bindingLoc.mMemberMetaData.mFormat,
+					bindingLoc.mMemberMetaData.mLocation);
+			}
+		}
+	}
+#pragma endregion
+
+#pragma region queue definitions
+	std::vector<std::tuple<uint32_t, vk::QueueFamilyProperties>> queue::find_queue_families_for_criteria(
+		vk::PhysicalDevice aPhysicalDevice,
+		vk::QueueFlags aRequiredFlags, 
+		vk::QueueFlags aForbiddenFlags, 
+		std::optional<vk::SurfaceKHR> aSurface)
+	{
+		assert(aPhysicalDevice);
+		// All queue families:
+		auto queueFamilies = aPhysicalDevice.getQueueFamilyProperties();
+		std::vector<std::tuple<uint32_t, vk::QueueFamilyProperties>> indexedQueueFamilies;
+		std::transform(std::begin(queueFamilies), std::end(queueFamilies),
+					   std::back_inserter(indexedQueueFamilies),
+					   [index = uint32_t(0)](const decltype(queueFamilies)::value_type& input) mutable {
+						   auto tpl = std::make_tuple(index, input);
+						   index += 1;
+						   return tpl;
+					   });
+		// Subset to which the criteria applies:
+		std::vector<std::tuple<uint32_t, vk::QueueFamilyProperties>> selection;
+		// Select the subset
+		std::copy_if(std::begin(indexedQueueFamilies), std::end(indexedQueueFamilies),
+					 std::back_inserter(selection),
+					 [aPhysicalDevice, aRequiredFlags, aForbiddenFlags, aSurface](const std::tuple<uint32_t, decltype(queueFamilies)::value_type>& tpl) {
+						 bool requirementsMet = true;
+						 if (aRequiredFlags) {
+							 requirementsMet = requirementsMet && ((std::get<1>(tpl).queueFlags & aRequiredFlags) == aRequiredFlags);
+						 }
+						 if (aForbiddenFlags) {
+							 requirementsMet = requirementsMet && ((std::get<1>(tpl).queueFlags & aForbiddenFlags) != aForbiddenFlags);
+						 }
+						 if (aSurface) {
+							 requirementsMet = requirementsMet && (aPhysicalDevice.getSurfaceSupportKHR(std::get<0>(tpl), *aSurface));
+						 }
+						 return requirementsMet;
+					 });
+		return selection;
+	}
+
+	std::vector<std::tuple<uint32_t, vk::QueueFamilyProperties>> queue::find_best_queue_family_for(
+		vk::PhysicalDevice aPhysicalDevice,
+		vk::QueueFlags aRequiredFlags,
+		queue_selection_preference aQueueSelectionPreference,
+		std::optional<vk::SurfaceKHR> aSurface
+	)
+	{
+		static std::array queueTypes = {
+			vk::QueueFlagBits::eGraphics,
+			vk::QueueFlagBits::eCompute,
+			vk::QueueFlagBits::eTransfer,
+		};
+		// sparse binding and protected bits are ignored, for now
+
+		std::vector<std::tuple<uint32_t, vk::QueueFamilyProperties>> selection;
+		
+		switch (aQueueSelectionPreference) {
+		case queue_selection_preference::specialized_queue:
+			{
+				vk::QueueFlags forbiddenFlags = {};
+				for (auto f : queueTypes) { // TODO: Maybe a differend loosening order would be better?
+					forbiddenFlags |= f;
+				}
+				forbiddenFlags &= ~aRequiredFlags;
+
+				int32_t loosenIndex = 0;
+
+				while (loosenIndex <= queueTypes.size()) { // might result in returning an empty selection
+					selection = queue::find_queue_families_for_criteria(aPhysicalDevice, aRequiredFlags, forbiddenFlags, aSurface);
+					if (selection.size() > 0 || loosenIndex == queueTypes.size()) {
+						break;
+					}
+					forbiddenFlags = forbiddenFlags & ~queueTypes[loosenIndex++]; // gradually loosen restrictions
+				}
+			}
+			break;
+		case queue_selection_preference::versatile_queue:
+			{
+				vk::QueueFlags additionalVersatileFlags = {};
+				for (auto f : queueTypes) { // TODO: Maybe a different addition order would be better?
+					additionalVersatileFlags |= f;
+				}
+			
+				int32_t loosenIndex = 0;
+
+				while (loosenIndex <= queueTypes.size()) {
+					selection = queue::find_queue_families_for_criteria(aPhysicalDevice, aRequiredFlags | additionalVersatileFlags, vk::QueueFlags{}, aSurface);
+					if (selection.size() > 0 || loosenIndex == queueTypes.size()) {
+						break;
+					}
+					additionalVersatileFlags = additionalVersatileFlags & ~queueTypes[loosenIndex++]; // gradually loosen versatile-additions
+				}
+			}
+			break;
+		}
+
+		return selection;
+	}
+
+	uint32_t queue::select_queue_family_index(
+		vk::PhysicalDevice aPhysicalDevice,
+		vk::QueueFlags aRequiredFlags,
+		queue_selection_preference aQueueSelectionPreference,
+		std::optional<vk::SurfaceKHR> aSupportForSurface
+	)
+	{
+		auto families = find_best_queue_family_for(aPhysicalDevice, aRequiredFlags, aQueueSelectionPreference, aSupportForSurface);
+		if (families.size() == 0) {
+			throw ak::runtime_error("Couldn't find queue families satisfying the given criteria.");
+		}
+
+		uint32_t familyIndex = std::get<0>(families[0]);
+		return familyIndex;
+	}
+
+	queue queue::prepare(
+		vk::PhysicalDevice aPhysicalDevice,
+		uint32_t aQueueFamilyIndex,
+		uint32_t aQueueIndex,
+		float aQueuePriority
+	)
+	{
+		auto queueFamilies = aPhysicalDevice.getQueueFamilyProperties();
+		if (queueFamilies.size() >= aQueueFamilyIndex) {
+			throw ak::runtime_error("Invalid queue family index in queue::prepare");
+		}
+		if (queueFamilies[aQueueFamilyIndex].queueCount >= aQueueIndex) {
+			throw ak::runtime_error("Queue family #" + std::to_string(aQueueFamilyIndex) + " does not provide enough queues (requested index: " + std::to_string(aQueueIndex) + ")");
+		}
+		
+		queue result;
+		result.mQueueFamilyIndex = aQueueFamilyIndex;
+		result.mQueueIndex = aQueueIndex;
+		result.mPriority = aQueuePriority;
+		result.mQueue = nullptr;
+		return result;
+	}
+#pragma endregion
+	
 	owning_resource<sampler_t> root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
 	{
 		vk::Filter magFilter;
@@ -3302,21 +3505,6 @@ namespace ak
 		result.mDescriptorInfo = vk::DescriptorImageInfo{}
 			.setSampler(result.handle());
 		result.mDescriptorType = vk::DescriptorType::eSampler;
-		return result;
-	}
-
-	owning_resource<image_sampler_t> root::create(image_view aImageView, sampler aSampler)
-	{
-		image_sampler_t result;
-		result.mImageView = std::move(aImageView);
-		result.mSampler = std::move(aSampler);
-
-		result.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(result.view_handle())
-			.setSampler(result.sampler_handle());
-		result.mDescriptorInfo.setImageLayout(result.mImageView->get_image().target_layout());
-		
-		result.mDescriptorType = vk::DescriptorType::eCombinedImageSampler;
 		return result;
 	}
 	

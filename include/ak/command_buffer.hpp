@@ -25,7 +25,7 @@ namespace ak // ========================== TODO/WIP ============================
 	class command_buffer_t
 	{
 		friend class root;
-		friend class device_queue;
+		friend class queue;
 		
 	public:
 		command_buffer_t() = default;

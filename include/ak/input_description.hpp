@@ -50,7 +50,7 @@ namespace ak
 
 	public:
 		/** Create a complete input description record based on multiple `input_binding_location_data` records. */
-		static input_description create(std::initializer_list<input_binding_location_data> aBindings);
+		input_description(std::initializer_list<input_binding_location_data> aBindings);
 
 	private:
 		// Contains all the data, ordered by the binding ids
@@ -59,7 +59,7 @@ namespace ak
 	};
 
 	/** Describe an input location for a pipeline's vertex input.
-	 *	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_bindign` where you have to specify it),
+	 *	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_binding` where you have to specify it),
 	 *	but you'll have to set it to some other value if you are going to use multiple buffers. 
 	 *	Suggested usage/example: `cgb::vertex_input_location(0, &Vertex::position).from_buffer_at_binding(0);`
 	 *	The binding point represents a specific buffer which provides the data for the location specified.
@@ -81,7 +81,7 @@ namespace ak
 
 #if defined(_MSC_VER) && defined(__cplusplus)
 	/** Describe an input location for a pipeline's vertex input.
-	 *	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_bindign` where you have to specify it),
+	 *	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_binding` where you have to specify it),
 	 *	but you'll have to set it to some other value if you are going to use multiple buffers. 
 	 *	Suggested usage/example: `cgb::vertex_input_location(0, &Vertex::position).from_buffer_at_binding(0);`
 	 *	The binding point represents a specific buffer which provides the data for the location specified.

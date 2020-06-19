@@ -3,7 +3,7 @@
 namespace ak
 {
 	// Forward-declare the device-queue
-	class device_queue;
+	class queue;
 	class window;
 
 	/**	The sync class is a fundamental part of the framework and is used wherever synchronization is or can be needed.
@@ -215,7 +215,7 @@ namespace ak
 #pragma region ownership-related settings
 		/**	Set the queue where the command is to be submitted to AND also where the sync will happen.
 		 */
-		sync& on_queue(std::reference_wrapper<device_queue> aQueue);
+		sync& on_queue(std::reference_wrapper<queue> aQueue);
 #pragma endregion 
 
 #pragma region getters 
@@ -223,14 +223,14 @@ namespace ak
 		sync_type get_sync_type() const;
 		
 		/** Queue which the command and sync will be submitted to. */
-		std::reference_wrapper<device_queue> queue_to_use() const;
+		std::reference_wrapper<queue> queue_to_use() const;
 
 		/** Get the command buffer reference stored internally or create a single-use command buffer and store it within the sync object */
 		command_buffer_t& get_or_create_command_buffer();
 #pragma endregion 
 
 #pragma region essential functions which establish the actual sync. Used by the framework internally.
-		void set_queue_hint(std::reference_wrapper<device_queue> aQueueRecommendation);
+		void set_queue_hint(std::reference_wrapper<queue> aQueueRecommendation);
 		
 		void establish_barrier_before_the_operation(pipeline_stage aDestinationPipelineStages, std::optional<read_memory_access> aDestinationMemoryStages);
 		void establish_barrier_after_the_operation(pipeline_stage aSourcePipelineStages, std::optional<write_memory_access> aSourceMemoryStages);
@@ -255,7 +255,7 @@ namespace ak
 		std::optional<command_buffer> mCommandBuffer;
 		ak::unique_function<void(command_buffer_t&, pipeline_stage /* destination stage */, std::optional<read_memory_access> /* destination access */)> mEstablishBarrierBeforeOperationCallback;
 		ak::unique_function<void(command_buffer_t&, pipeline_stage /* source stage */,	  std::optional<write_memory_access> /* source access */)>	  mEstablishBarrierAfterOperationCallback;
-		std::optional<std::reference_wrapper<device_queue>> mQueueToUse;
-		std::optional<std::reference_wrapper<device_queue>> mQueueRecommendation;
+		std::optional<std::reference_wrapper<queue>> mQueueToUse;
+		std::optional<std::reference_wrapper<queue>> mQueueRecommendation;
 	};
 }
