@@ -56,10 +56,64 @@ namespace ak
 			float aQueuePriority = 0.5f
 		);
 
-		/** Create a new queue on the logical device. */
-		static queue create(uint32_t aQueueFamilyIndex, uint32_t aQueueIndex);
-		/** Create a new queue on the logical device. */
-		static void create(queue& aPreparedQueue);
+		/**	Input: Iterators [begin end) to ak::queue elements.
+		 */
+		template <typename It>
+		std::tuple<
+			std::vector<vk::DeviceQueueCreateInfo>,
+			std::vector<std::vector<float>>
+		> get_queue_config_for_DeviceCreateInfo(It begin, It end)
+		{
+			std::vector<vk::DeviceQueueCreateInfo> createInfos;
+			std::vector<std::vector<float>> priorities;
+			std::vector<std::vector<bool>> fixed;
+
+			It it = begin;
+			while (it != end) {
+				auto pos = std::lower_bound(std::begin(createInfos), std::end(createInfos), it->family_index(), [](vk::DeviceQueueCreateInfo& left, vk::DeviceQueueCreateInfo& right) { 
+					return left.queueFamilyIndex < right.queueFamilyIndex;
+				});
+				const auto targetIndex = std::distance(std::begin(createInfos), pos);
+
+				// Maybe add queues to an already existing family:
+				if (pos != std::end(createInfos) && pos->queueFamilyIndex == it->family_index()) {
+					assert (priorities[targetIndex].size() > 0);
+					for (uint32_t i = 0; i <= it->queue_index(); ++i) {
+						if (priorities[targetIndex].size() <= i) {
+							priorities[targetIndex].push_back(it->priority());
+						}
+						else {
+							if (i == it->queue_index()) {
+								if (fixed[targetIndex][i]) {
+									throw ak::runtime_error("Invalid queue configuration: queueFamily[" + std::to_string(it->family_index()) + "] and queueIndex[" + std::to_string(it->queue_index()) + "] are set multiple times");
+								}
+								priorities[targetIndex][i] = it->priority();
+								fixed     [targetIndex][i] = true;
+							}
+						}
+					}
+				}
+				// ...or add a new queue family (and one queue):
+				else {
+					createInfos.insert(pos, vk::DeviceQueueCreateInfo{ vk::DeviceQueueCreateFlags{}, it->family_index(), it->queue_index() + 1u, nullptr });
+					priorities .insert(std::begin(priorities) + targetIndex, std::vector<float> {});
+					fixed      .insert(std::begin(fixed)      + targetIndex, std::vector<bool>  {});
+					for (uint32_t i = 0; i <= it->queue_index(); ++i) {
+						priorities[targetIndex].push_back(it->priority());
+						fixed     [targetIndex].push_back(i == it->queue_index());
+					}
+				}
+				++it;
+			}
+
+			return { std::move(createInfos), std::move(priorities) };
+		}
+
+		/** Assign the queue handle from the given, already created(!) logical device. 
+		 *	This assumes that the logical device has been created with the proper queue create configuration,
+		 *	so that the properties this queue has been configured with (family-index and queue-index) are available.
+		 */
+		void assign_handle(vk::Device aDevice);
 
 		/** Gets the queue family index of this queue */
 		auto family_index() const { return mQueueFamilyIndex; }

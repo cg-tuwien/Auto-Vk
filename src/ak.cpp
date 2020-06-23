@@ -3370,6 +3370,11 @@ namespace ak
 		result.mQueue = nullptr;
 		return result;
 	}
+
+	void queue::assign_handle(vk::Device aDevice)
+	{
+		mQueue = aDevice.getQueue(mQueueFamilyIndex, mQueueIndex);
+	}
 #pragma endregion
 	
 	owning_resource<sampler_t> root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
