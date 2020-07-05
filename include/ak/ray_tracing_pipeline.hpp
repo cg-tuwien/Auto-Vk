@@ -1,10 +1,13 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
 	/** Represents data for a vulkan ray tracing pipeline */
 	class ray_tracing_pipeline_t
 	{
+		friend class root;
+		
 	public:
 		ray_tracing_pipeline_t() = default;
 		ray_tracing_pipeline_t(ray_tracing_pipeline_t&&) noexcept = default;
@@ -19,8 +22,6 @@ namespace ak
 		vk::DeviceSize table_entry_size() const { return static_cast<vk::DeviceSize>(mShaderGroupHandleSize); }
 		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta_data().total_size()); }
 		const auto& shader_binding_table_handle() const { return mShaderBindingTable->buffer_handle(); }
-
-		static ak::owning_resource<ray_tracing_pipeline_t> create(ray_tracing_pipeline_config _Config, std::function<void(ray_tracing_pipeline_t&)> _AlterConfigBeforeCreation = {});
 
 	private:
 		// TODO: What to do with flags?
@@ -50,7 +51,7 @@ namespace ak
 		vk::Pipeline mPipeline;
 
 		size_t mShaderGroupHandleSize;
-		ak::generic_buffer mShaderBindingTable; // TODO: support more than one shader binding table
+		buffer mShaderBindingTable; // TODO: support more than one shader binding table
 	};
 
 	using ray_tracing_pipeline = ak::owning_resource<ray_tracing_pipeline_t>;

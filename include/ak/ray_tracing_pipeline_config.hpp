@@ -66,8 +66,6 @@ namespace ak
 		static max_recursion_depth disable_recursion();
 		/** Set the maximum recursion depth to a specific value. */
 		static max_recursion_depth set_to(uint32_t _Value);
-		/** Set the recursion depth to the maximum which is supported by the physical device. */
-		static max_recursion_depth set_to_max();
 
 		uint32_t mMaxRecursionDepth;
 	};
@@ -88,4 +86,103 @@ namespace ak
 		std::vector<binding_data> mResourceBindings;
 		std::vector<push_constant_binding_data> mPushConstantsBindings;
 	};
+
+#pragma region shader_table_config convenience functions
+	// End of recursive variadic template handling
+	inline void add_shader_table_entry(shader_table_config& aShaderTableConfig) { /* We're done here. */ }
+
+	// Add a single shader (without hit group) to the shader table definition
+	template <typename... Ts>
+	void add_shader_table_entry(shader_table_config& aShaderTableConfig, shader_info aShaderInfo, Ts... args)
+	{
+		aShaderTableConfig.mShaderTableEntries.push_back(std::move(aShaderInfo));
+		add_shader_table_entry(aShaderTableConfig, std::move(args)...);
+	}
+
+	// Add a single shader (without hit group) to the shader table definition
+	template <typename... Ts>
+	void add_shader_table_entry(shader_table_config& aShaderTableConfig, std::string_view aShaderPath, Ts... args)
+	{
+		aShaderTableConfig.mShaderTableEntries.push_back(shader_info::create(std::string(aShaderPath)));
+		add_shader_table_entry(aShaderTableConfig, std::move(args)...);
+	}
+
+	// Add a triangles-intersection-type hit group to the shader table definition
+	template <typename... Ts>
+	void add_shader_table_entry(shader_table_config& aShaderTableConfig, triangles_hit_group aHitGroup, Ts... args)
+	{
+		aShaderTableConfig.mShaderTableEntries.push_back(std::move(aHitGroup));
+		add_shader_table_entry(aShaderTableConfig, std::move(args)...);
+	}
+
+	// Add a procedural-type hit group to the shader table definition
+	template <typename... Ts>
+	void add_shader_table_entry(shader_table_config& aShaderTableConfig, procedural_hit_group aHitGroup, Ts... args)
+	{
+		aShaderTableConfig.mShaderTableEntries.push_back(std::move(aHitGroup));
+		add_shader_table_entry(aShaderTableConfig, std::move(args)...);
+	}
+
+	// Define a shader table which is to be used with a ray tracing pipeline
+	template <typename... Ts>
+	shader_table_config define_shader_table(Ts... args)
+	{
+		shader_table_config shaderTableConfig;
+		add_shader_table_entry(shaderTableConfig, std::move(args)...);
+		return shaderTableConfig;
+	}
+#pragma endregion
+
+#pragma region ray_tracing_pipeline_config convenience functions
+	// End of recursive variadic template handling
+	inline void add_config(ray_tracing_pipeline_config& aConfig, std::function<void(ray_tracing_pipeline_t&)>& aFunc) { /* We're done here. */ }
+
+	// Add a specific pipeline setting to the pipeline config
+	template <typename... Ts>
+	void add_config(ray_tracing_pipeline_config& aConfig, std::function<void(ray_tracing_pipeline_t&)>& aFunc, cfg::pipeline_settings aSetting, Ts... args)
+	{
+		aConfig.mPipelineSettings |= aSetting;
+		add_config(aConfig, aFunc, std::move(args)...);
+	}
+
+	// Add the shader table to the pipeline config
+	template <typename... Ts>
+	void add_config(ray_tracing_pipeline_config& aConfig, std::function<void(ray_tracing_pipeline_t&)>& aFunc, shader_table_config aShaderTable, Ts... args)
+	{
+		aConfig.mShaderTableConfig = std::move(aShaderTable);
+		add_config(aConfig, aFunc, std::move(args)...);
+	}
+
+	// Add the maximum recursion setting to the pipeline config
+	template <typename... Ts>
+	void add_config(ray_tracing_pipeline_config& aConfig, std::function<void(ray_tracing_pipeline_t&)>& aFunc, max_recursion_depth aMaxRecursionDepth, Ts... args)
+	{
+		aConfig.mMaxRecursionDepth = std::move(aMaxRecursionDepth);
+		add_config(aConfig, aFunc, std::move(args)...);
+	}
+
+	// Add a resource binding to the pipeline config
+	template <typename... Ts>
+	void add_config(ray_tracing_pipeline_config& aConfig, std::function<void(ray_tracing_pipeline_t&)>& aFunc, binding_data aResourceBinding, Ts... args)
+	{
+		aConfig.mResourceBindings.push_back(std::move(aResourceBinding));
+		add_config(aConfig, aFunc, std::move(args)...);
+	}
+
+	// Add a push constants binding to the pipeline config
+	template <typename... Ts>
+	void add_config(ray_tracing_pipeline_config& aConfig, std::function<void(ray_tracing_pipeline_t&)>& aFunc, push_constant_binding_data aPushConstBinding, Ts... args)
+	{
+		aConfig.mPushConstantsBindings.push_back(std::move(aPushConstBinding));
+		add_config(aConfig, aFunc, std::move(args)...);
+	}
+
+	// Add an config-alteration function to the pipeline config
+	template <typename... Ts>
+	void add_config(ray_tracing_pipeline_config& aConfig, std::function<void(ray_tracing_pipeline_t&)>& aFunc, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation, Ts... args)
+	{
+		aFunc = std::move(aAlterConfigBeforeCreation);
+		add_config(aConfig, aFunc, std::move(args)...);
+	}
+#pragma endregion 	
 }

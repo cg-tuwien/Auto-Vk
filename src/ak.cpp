@@ -4004,7 +4004,7 @@ namespace ak
 	void read_memory_access::validate_or_throw() const
 	{
 		if (!is_read_access(mMemoryAccess)) {
-			throw cgb::runtime_error("The access flag represented by this instance of read_memory_access is not a read-type access flag.");
+			throw ak::runtime_error("The access flag represented by this instance of read_memory_access is not a read-type access flag.");
 		}
 	}
 
@@ -4167,6 +4167,375 @@ namespace ak
 	void queue::assign_handle(vk::Device aDevice)
 	{
 		mQueue = aDevice.getQueue(mQueueFamilyIndex, mQueueIndex);
+	}
+#pragma endregion
+
+#pragma region ray tracing pipeline definitions
+	triangles_hit_group triangles_hit_group::create_with_rahit_only(shader_info _AnyHitShader)
+	{
+		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+		}
+		return triangles_hit_group { std::move(_AnyHitShader), std::nullopt };
+	}
+
+	triangles_hit_group triangles_hit_group::create_with_rchit_only(shader_info _ClosestHitShader)
+	{
+		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+		}
+		return triangles_hit_group { std::nullopt, std::move(_ClosestHitShader) };
+	}
+
+	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(shader_info _AnyHitShader, shader_info _ClosestHitShader)
+	{
+		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+		}
+		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+		}
+		return triangles_hit_group { std::move(_AnyHitShader), std::move(_ClosestHitShader) };
+	}
+
+	triangles_hit_group triangles_hit_group::create_with_rahit_only(std::string _AnyHitShaderPath)
+	{
+		return create_with_rahit_only(
+			shader_info::create(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit)
+		);
+	}
+
+	triangles_hit_group triangles_hit_group::create_with_rchit_only(std::string _ClosestHitShaderPath)
+	{
+		return create_with_rchit_only(
+			shader_info::create(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
+		);
+	}
+
+	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(std::string _AnyHitShaderPath, std::string _ClosestHitShaderPath)
+	{
+		return create_with_rahit_and_rchit(
+			shader_info::create(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit),
+			shader_info::create(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
+		);
+	}
+
+
+	procedural_hit_group procedural_hit_group::create_with_rint_only(shader_info _IntersectionShader)
+	{
+		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+		}
+		return procedural_hit_group { std::move(_IntersectionShader), std::nullopt, std::nullopt };
+	}
+
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(shader_info _IntersectionShader, shader_info _AnyHitShader)
+	{
+		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+		}
+		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+		}
+		return procedural_hit_group { std::move(_IntersectionShader), std::move(_AnyHitShader), std::nullopt };
+	}
+
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(shader_info _IntersectionShader, shader_info _ClosestHitShader)
+	{
+		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+		}
+		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+		}
+		return procedural_hit_group { std::move(_IntersectionShader), std::nullopt, std::move(_ClosestHitShader) };
+	}
+
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(shader_info _IntersectionShader, shader_info _AnyHitShader, shader_info _ClosestHitShader)
+	{
+		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+		}
+		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+		}
+		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+		}
+		return procedural_hit_group { std::move(_IntersectionShader), std::move(_AnyHitShader), std::move(_ClosestHitShader) };
+	}
+
+	procedural_hit_group procedural_hit_group::create_with_rint_only(std::string _IntersectionShader)
+	{
+		return create_with_rint_only(
+			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection)
+		);
+	}
+
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(std::string _IntersectionShader, std::string _AnyHitShader)
+	{
+		return create_with_rint_and_rahit(
+			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection),
+			shader_info::create(std::move(_AnyHitShader), "main", false, shader_type::any_hit)
+		);
+	}
+
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(std::string _IntersectionShader, std::string _ClosestHitShader)
+	{
+		return create_with_rint_and_rchit(
+			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection),
+			shader_info::create(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
+		);
+	}
+
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(std::string _IntersectionShader, std::string _AnyHitShader, std::string _ClosestHitShader)
+	{
+		return create_with_rint_and_rahit_and_rchit(
+			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection),
+			shader_info::create(std::move(_AnyHitShader), "main", false, shader_type::any_hit),
+			shader_info::create(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
+		);
+	}
+
+
+	max_recursion_depth max_recursion_depth::disable_recursion()
+	{
+		return max_recursion_depth { 0u };
+	}
+
+	max_recursion_depth max_recursion_depth::set_to(uint32_t _Value)
+	{
+		return max_recursion_depth { _Value };
+	}
+
+
+	ray_tracing_pipeline_config::ray_tracing_pipeline_config()
+		: mPipelineSettings{ cfg::pipeline_settings::nothing }
+		, mShaderTableConfig{ }
+		, mMaxRecursionDepth{ 16u } // 16 ... why not?!
+	{
+	}
+	
+	uint32_t root::get_max_ray_tracing_recursion_depth()
+	{
+		vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
+		vk::PhysicalDeviceProperties2 props2;
+		props2.pNext = &rtProps;
+		physical_device().getProperties2(&props2);
+		return rtProps.maxRecursionDepth;
+	}
+
+	owning_resource<ray_tracing_pipeline_t> root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		using namespace cfg;
+		
+		ray_tracing_pipeline_t result;
+
+		// 1. Set pipeline flags 
+		result.mPipelineCreateFlags = {};
+		// TODO: Support all flags (only one of the flags is handled at the moment)
+		if ((aConfig.mPipelineSettings & pipeline_settings::disable_optimization) == pipeline_settings::disable_optimization) {
+			result.mPipelineCreateFlags |= vk::PipelineCreateFlagBits::eDisableOptimization;
+		}
+
+		// 2. Gather and build shaders
+		// First of all, gather unique shaders and build them
+		std::vector<shader_info> orderedUniqueShaderInfos;
+		for (auto& tableEntry : aConfig.mShaderTableConfig.mShaderTableEntries) {
+			if (std::holds_alternative<shader_info>(tableEntry)) {
+				add_to_vector_if_not_already_contained(orderedUniqueShaderInfos, std::get<shader_info>(tableEntry));
+			}
+			else if (std::holds_alternative<triangles_hit_group>(tableEntry)) {
+				const auto& hitGroup = std::get<triangles_hit_group>(tableEntry);
+				if (hitGroup.mAnyHitShader.has_value()) {
+					add_to_vector_if_not_already_contained(orderedUniqueShaderInfos, hitGroup.mAnyHitShader.value());
+				}
+				if (hitGroup.mClosestHitShader.has_value()) {
+					add_to_vector_if_not_already_contained(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value());
+				}
+			}
+			else if (std::holds_alternative<procedural_hit_group>(tableEntry)) {
+				const auto& hitGroup = std::get<procedural_hit_group>(tableEntry);
+				add_to_vector_if_not_already_contained(orderedUniqueShaderInfos, hitGroup.mIntersectionShader);
+				if (hitGroup.mAnyHitShader.has_value()) {
+					add_to_vector_if_not_already_contained(orderedUniqueShaderInfos, hitGroup.mAnyHitShader.value());
+				}
+				if (hitGroup.mClosestHitShader.has_value()) {
+					add_to_vector_if_not_already_contained(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value());
+				}
+			}
+			else {
+				throw ak::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
+			}
+		}
+		result.mShaders.reserve(orderedUniqueShaderInfos.size());
+		result.mShaderStageCreateInfos.reserve(orderedUniqueShaderInfos.size());
+		for (auto& shaderInfo : orderedUniqueShaderInfos) {
+			// 2.2 Compile the shader
+			result.mShaders.push_back(shader::create(shaderInfo));
+			assert(result.mShaders.back().has_been_built());
+			// 2.3 Create shader info
+			result.mShaderStageCreateInfos.push_back(vk::PipelineShaderStageCreateInfo{}
+				.setStage(to_vk_shader_stage(result.mShaders.back().info().mShaderType))
+				.setModule(result.mShaders.back().handle())
+				.setPName(result.mShaders.back().info().mEntryPoint.c_str())
+			);
+		}
+		assert(orderedUniqueShaderInfos.size() == result.mShaders.size());
+		assert(result.mShaders.size() == result.mShaderStageCreateInfos.size());
+#if defined(_DEBUG)
+		// Perform a sanity check:
+		for (size_t i = 0; i < orderedUniqueShaderInfos.size(); ++i) {
+			assert(orderedUniqueShaderInfos[i] == result.mShaders[i].info());
+		}
+#endif
+
+		// 3. Create the shader table (with references to the shaders from step 2.)
+		// Iterate over the shader table... AGAIN!
+		result.mShaderGroupCreateInfos.reserve(aConfig.mShaderTableConfig.mShaderTableEntries.size());
+		for (auto& tableEntry : aConfig.mShaderTableConfig.mShaderTableEntries) {
+			// ...But this time, build the shader groups for Vulkan's Ray Tracing Pipeline:
+			if (std::holds_alternative<shader_info>(tableEntry)) {
+				// The shader indices are actually indices into `result.mShaders` not into
+				// `orderedUniqueShaderInfos`. However, both vectors are aligned perfectly,
+				// so we are just using `orderedUniqueShaderInfos` for convenience.
+				const uint32_t generalShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, std::get<shader_info>(tableEntry)));
+				result.mShaderGroupCreateInfos.emplace_back()
+					.setType(vk::RayTracingShaderGroupTypeNV::eGeneral)
+					.setGeneralShader(generalShaderIndex)
+					.setIntersectionShader(VK_SHADER_UNUSED_KHR)
+					.setAnyHitShader(VK_SHADER_UNUSED_KHR)
+					.setClosestHitShader(VK_SHADER_UNUSED_KHR);
+			}
+			else if (std::holds_alternative<triangles_hit_group>(tableEntry)) {
+				const auto& hitGroup = std::get<triangles_hit_group>(tableEntry);
+				uint32_t rahitShaderIndex = VK_SHADER_UNUSED_KHR;
+				if (hitGroup.mAnyHitShader.has_value()) {
+					rahitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mAnyHitShader.value()));
+				}
+				uint32_t rchitShaderIndex = VK_SHADER_UNUSED_KHR;
+				if (hitGroup.mClosestHitShader.has_value()) {
+					rchitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value()));
+				}
+				result.mShaderGroupCreateInfos.emplace_back()
+					.setType(vk::RayTracingShaderGroupTypeNV::eTrianglesHitGroup)
+					.setGeneralShader(VK_SHADER_UNUSED_KHR)
+					.setIntersectionShader(VK_SHADER_UNUSED_KHR)
+					.setAnyHitShader(rahitShaderIndex)
+					.setClosestHitShader(rchitShaderIndex);
+			}
+			else if (std::holds_alternative<procedural_hit_group>(tableEntry)) {
+				const auto& hitGroup = std::get<procedural_hit_group>(tableEntry);
+				uint32_t rintShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mIntersectionShader));
+				uint32_t rahitShaderIndex = VK_SHADER_UNUSED_KHR;
+				if (hitGroup.mAnyHitShader.has_value()) {
+					rahitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mAnyHitShader.value()));
+				}
+				uint32_t rchitShaderIndex = VK_SHADER_UNUSED_KHR;
+				if (hitGroup.mClosestHitShader.has_value()) {
+					rchitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value()));
+				}
+				result.mShaderGroupCreateInfos.emplace_back()
+					.setType(vk::RayTracingShaderGroupTypeNV::eProceduralHitGroup)
+					.setGeneralShader(VK_SHADER_UNUSED_KHR)
+					.setIntersectionShader(rintShaderIndex)
+					.setAnyHitShader(rahitShaderIndex)
+					.setClosestHitShader(rchitShaderIndex);
+			}
+			else {
+				throw ak::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
+			}
+		}
+
+		// 4. Maximum recursion depth:
+		result.mMaxRecursionDepth = aConfig.mMaxRecursionDepth.mMaxRecursionDepth;
+
+		// 5. Pipeline layout
+		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
+		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		// Gather the push constant data
+		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
+			result.mPushConstantRanges.push_back(vk::PushConstantRange{}
+				.setStageFlags(to_vk_shader_stages(pcBinding.mShaderStages))
+				.setOffset(static_cast<uint32_t>(pcBinding.mOffset))
+				.setSize(static_cast<uint32_t>(pcBinding.mSize))
+			);
+			// TODO: Push Constants need a prettier interface
+		}
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size()))
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		// 6. Maybe alter the config?
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		// 8. Create the pipeline's layout
+		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
+		assert(nullptr != result.layout_handle());
+
+		// 9. Build the Ray Tracing Pipeline
+		auto pipelineCreateInfo = vk::RayTracingPipelineCreateInfoKHR{}
+			.setFlags(vk::PipelineCreateFlagBits{}) // TODO: Support flags
+			.setStageCount(static_cast<uint32_t>(result.mShaderStageCreateInfos.size()))
+			.setPStages(result.mShaderStageCreateInfos.data())
+			.setGroupCount(static_cast<uint32_t>(result.mShaderGroupCreateInfos.size()))
+			.setPGroups(result.mShaderGroupCreateInfos.data())
+			.setLibraries(vk::PipelineLibraryCreateInfoKHR{0u, nullptr}) // TODO: Support libraries
+			.setPLibraryInterface(nullptr)
+			.setMaxRecursionDepth(result.mMaxRecursionDepth)
+			.setLayout(result.layout_handle());
+		auto pipeCreationResult = device().createRayTracingPipelineKHR(
+			nullptr,
+			pipelineCreateInfo,
+			nullptr,
+			dynamic_dispatch());
+		result.mPipeline = pipeCreationResult.value;
+		//result.mPipeline = std::move(pipeCreationResult.value);
+
+		// TODO: This ^ will be fixed with vulkan headers v 136
+		
+		// 10. Build the shader binding table
+		{
+			vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
+			vk::PhysicalDeviceProperties2 props2;
+			props2.pNext = &rtProps;
+			physical_device().getProperties2(&props2);
+
+			result.mShaderGroupHandleSize = static_cast<size_t>(rtProps.shaderGroupHandleSize);
+			size_t shaderBindingTableSize = result.mShaderGroupHandleSize * result.mShaderGroupCreateInfos.size();
+
+			// TODO: All of this SBT-stuff probably needs some refactoring
+			result.mShaderBindingTable = create_buffer(
+				generic_buffer_meta::create_from_size(shaderBindingTableSize),
+				memory_usage::host_coherent,
+				vk::BufferUsageFlagBits::eRayTracingKHR
+			); 
+			void* mapped = device().mapMemory(result.mShaderBindingTable->memory_handle(), 0, result.mShaderBindingTable->meta_data().total_size());
+			// Transfer something into the buffer's memory...
+			device().getRayTracingShaderGroupHandlesKHR(
+				result.handle(), 
+				0, static_cast<uint32_t>(result.mShaderGroupCreateInfos.size()), 
+				result.mShaderBindingTable->meta_data().total_size(), 
+				mapped, 
+				dynamic_dispatch());
+			device().unmapMemory(result.mShaderBindingTable->memory_handle());
+		}
+
+		return result;
+	}
+
+	ray_tracing_pipeline_t::~ray_tracing_pipeline_t()
+	{
+		if (mPipelineLayout) {
+			mPipelineLayout.getOwner().destroy(mPipeline);
+		}
 	}
 #pragma endregion
 

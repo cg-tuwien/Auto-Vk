@@ -3,14 +3,6 @@
 
 namespace ak
 {
-	class generic_buffer_t;
-	class uniform_buffer_t;
-	class uniform_texel_buffer_t;
-	class storage_buffer_t;
-	class storage_texel_buffer_t;
-	class vertex_buffer_t;
-	class index_buffer_t;
-	class instance_buffer_t;
 	class top_level_acceleration_structure_t;
 	class image_view_t;
 	class image_view_as_input_attachment;

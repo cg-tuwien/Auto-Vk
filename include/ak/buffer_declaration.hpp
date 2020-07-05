@@ -17,6 +17,7 @@ namespace ak
 	using index_buffer_t = buffer_t<index_buffer_meta>;
 	using instance_buffer_t = buffer_t<instance_buffer_meta>;
 
+	using buffer				= owning_resource<buffer_t<buffer_meta>>;
 	using generic_buffer		= owning_resource<generic_buffer_t>;
 	using uniform_buffer		= owning_resource<uniform_buffer_t>;
 	using uniform_texel_buffer	= owning_resource<uniform_texel_buffer_t>;

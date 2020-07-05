@@ -67,6 +67,9 @@
 #include <ak/descriptor_alloc_request.hpp>
 #include <ak/descriptor_pool.hpp>
 #include <ak/descriptor_set.hpp>
+
+#include <ak/buffer_meta.hpp>
+#include <ak/buffer_declaration.hpp>
 #include <ak/binding_data.hpp>
 #include <ak/descriptor_set_layout.hpp>
 #include <ak/set_of_descriptor_set_layouts.hpp>
@@ -84,8 +87,6 @@
 #include <ak/semaphore.hpp>
 #include <ak/fence.hpp>
 
-#include <ak/buffer_meta.hpp>
-#include <ak/buffer_declaration.hpp>
 
 #include <ak/input_description.hpp>
 
@@ -604,6 +605,39 @@ namespace ak
 		owning_resource<image_sampler_t> create_image_sampler(image_view aImageView, sampler aSampler);
 #pragma endregion
 
+#pragma region ray tracing pipeline
+	uint32_t get_max_ray_tracing_recursion_depth();
+		
+	ak::owning_resource<ray_tracing_pipeline_t> create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		
+	/**	Convenience function for gathering the ray tracing pipeline's configuration.
+	 *
+	 *	It supports the following types:
+	 *		- ak::cfg::pipeline_settings
+	 *		- ak::shader_table_config (hint: use `ak::define_shader_table`)
+	 *		- ak::max_recursion_depth
+	 *		- ak::binding_data
+	 *		- ak::push_constant_binding_data
+	 *		- ak::std::function<void(ray_tracing_pipeline_t&)>
+	 *
+	 *	For building the shader table in a convenient fashion, use the `ak::define_shader_table` function!
+	 *	
+	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref ray_tracing_pipeline_t::create
+	 */
+	template <typename... Ts>
+	ak::owning_resource<ray_tracing_pipeline_t> ray_tracing_pipeline_for(Ts... args)
+	{
+		// 1. GATHER CONFIG
+		std::function<void(ray_tracing_pipeline_t&)> alterConfigFunction;
+		ray_tracing_pipeline_config config;
+		add_config(config, alterConfigFunction, std::move(args)...);
 
+		// 2. CREATE PIPELINE according to the config
+		// ============================================ Vk ============================================ 
+		//    => VULKAN CODE HERE:
+		return ray_tracing_pipeline_t::create(std::move(config), std::move(alterConfigFunction));
+		// ============================================================================================ 
+	}
+#pragma endregion
 	};
 }
