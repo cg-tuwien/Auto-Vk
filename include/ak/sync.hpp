@@ -4,7 +4,7 @@ namespace ak
 {
 	// Forward-declare the device-queue
 	class queue;
-	class window;
+	class image_t;
 
 	/**	The sync class is a fundamental part of the framework and is used wherever synchronization is or can be needed.
 	 *	It allows a caller to inject a specific synchronization strategy into a particular method/function.

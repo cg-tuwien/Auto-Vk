@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
@@ -50,7 +51,7 @@ namespace ak
 
 	public:
 		/** Create a complete input description record based on multiple `input_binding_location_data` records. */
-		input_description(std::initializer_list<input_binding_location_data> aBindings);
+		static input_description declare(std::initializer_list<input_binding_location_data> aBindings);
 
 	private:
 		// Contains all the data, ordered by the binding ids

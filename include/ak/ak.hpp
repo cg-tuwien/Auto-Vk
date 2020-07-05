@@ -63,17 +63,26 @@
 #include <ak/shader_info.hpp>
 #include <ak/aabb.hpp>
 #include <ak/pipeline_stage.hpp>
-
-#include <ak/semaphore.hpp>
-#include <ak/fence.hpp>
-#include <ak/descriptor_cache_interface.hpp>
-#include <ak/command_buffer.hpp>
 #include <ak/sync.hpp>
+#include <ak/descriptor_alloc_request.hpp>
+#include <ak/descriptor_pool.hpp>
+#include <ak/descriptor_set.hpp>
+#include <ak/binding_data.hpp>
+#include <ak/descriptor_set_layout.hpp>
+#include <ak/set_of_descriptor_set_layouts.hpp>
+#include <ak/descriptor_cache_interface.hpp>
+#include <ak/standard_descriptor_cache.hpp>
+
+#include <ak/command_buffer.hpp>
+
 #include <ak/image.hpp>
 #include <ak/image_view.hpp>
 #include <ak/sampler.hpp>
 #include <ak/image_sampler.hpp>
 #include <ak/attachment.hpp>
+
+#include <ak/semaphore.hpp>
+#include <ak/fence.hpp>
 
 #include <ak/buffer_meta.hpp>
 #include <ak/buffer_declaration.hpp>
@@ -96,14 +105,8 @@
 #include <ak/bottom_level_acceleration_structure.hpp>
 #include <ak/top_level_acceleration_structure.hpp>
 #include <ak/shader.hpp>
-#include <ak/descriptor_alloc_request.hpp>
-#include <ak/descriptor_pool.hpp>
-#include <ak/descriptor_set_layout.hpp>
-#include <ak/set_of_descriptor_set_layouts.hpp>
-#include <ak/descriptor_set.hpp>
-#include <ak/standard_descriptor_cache.hpp>
-#include <ak/binding_data.hpp>
-#include <ak/pipeline_settings.hpp>
+
+
 #include <ak/graphics_pipeline_config.hpp>
 #include <ak/compute_pipeline_config.hpp>
 #include <ak/ray_tracing_pipeline_config.hpp>
@@ -473,13 +476,21 @@ namespace ak
 			std::vector<image_view> imageViews;
 			(imageViews.push_back(std::move(aImViews)), ...);
 			return create_framebuffer(std::move(aRenderpass), std::move(imageViews));
-		}
+	}
+#pragma endregion
+		
+#pragma region geometry instance
+	/** Create a geometry instance for a specific geometry, which is represented by a bottom level acceleration structure.
+	 *	@param	aBlas	The bottom level acceleration structure which represents the underlying geometry for this instance
+	 */
+	geometry_instance create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas);
 #pragma endregion
 
 #pragma region graphics pipeline
-		ak::owning_resource<graphics_pipeline_t> create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+	ak::owning_resource<graphics_pipeline_t> create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
-		/**	Convenience function for gathering the graphic pipeline's configuration.
+		
+	/**	Convenience function for gathering the graphic pipeline's configuration.
 		 *	
 		 *	It supports the following types 
 		 *
@@ -565,10 +576,6 @@ namespace ak
 		image_t wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, ak::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags);
 #pragma endregion
 
-#pragma region image sampler
-		owning_resource<image_sampler_t> create_image_sampler(image_view aImageView, sampler aSampler);
-#pragma endregion
-
 #pragma region image view
 		/** Creates a new image view upon a given image
 		*	@param	aImageToOwn					The image which to create an image view for
@@ -583,17 +590,19 @@ namespace ak
 		owning_resource<image_view_t> create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {});
 
 		void finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation);
-#pragma endregion 
+#pragma endregion
 
-		
+#pragma region sampler and image sampler
 		/**	Create a new sampler with the given configuration parameters
 		 *	@param	aFilterMode					Filtering strategy for the sampler to be created
 		 *	@param	aBorderHandlingMode			Border handling strategy for the sampler to be created
 		 *	@param	aMipMapMaxLod				Default value = house number
 		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
-		 */
+		 */                                                                                               // TODO: vvv Which value by default? vvv
 		owning_resource<sampler_t> create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
 
+		owning_resource<image_sampler_t> create_image_sampler(image_view aImageView, sampler aSampler);
+#pragma endregion
 
 
 	};

@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 #if !defined(AK_LOG_FATAL)
 #define AK_LOG_FATAL(msg)			do { std::cout << "AK-FATAL: " << msg << std::endl; } while(false)

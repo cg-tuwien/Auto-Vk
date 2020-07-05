@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
@@ -104,8 +105,6 @@ namespace ak
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
 		else {
-			aSyncHandler.set_queue_hint(ak::context().transfer_queue());
-			
 			assert(ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
 			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
@@ -184,8 +183,6 @@ namespace ak
 		// #2: Otherwise, it must be on the GPU-SIDE!
 		else {
 			assert(ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
-
-			aSyncHandler.set_queue_hint(ak::context().transfer_queue());
 
 			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
 			// "somewhat temporary" means that it can not be deleted in this function, but only

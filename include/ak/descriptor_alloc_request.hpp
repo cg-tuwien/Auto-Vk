@@ -1,7 +1,10 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
+	class descriptor_set_layout;
+	
 	/** Data about an allocation which is to be passed to a descriptor pool 
 	 *	Actually this is only a helper class.
 	 */

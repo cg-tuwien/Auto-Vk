@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
@@ -7,7 +8,7 @@ namespace ak
 	class image_t
 	{
 		friend class root;
-		
+
 	public:
 		image_t() = default;
 		image_t(image_t&&) noexcept = default;

@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
@@ -43,7 +44,7 @@ namespace ak
 		auto has_designated_queue() const { return nullptr != mQueue; }
 		auto* designated_queue() const { return mQueue; }
 
-		void wait_until_signalled() const;
+		void wait_until_signalled(std::optional<uint64_t> aTimeout) const;
 		void reset();
 
 	private:

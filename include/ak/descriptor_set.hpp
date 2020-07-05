@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
@@ -193,19 +194,6 @@ namespace ak
 
 namespace std
 {
-	template<> struct hash<ak::descriptor_set_layout>
-	{
-		std::size_t operator()(ak::descriptor_set_layout const& o) const noexcept
-		{
-			std::size_t h = 0;
-			for(auto& binding : o.mOrderedBindings)
-			{
-				ak::hash_combine(h, binding.binding, binding.descriptorType, binding.descriptorCount, static_cast<VkShaderStageFlags>(binding.stageFlags), binding.pImmutableSamplers);
-			}
-			return h;
-		}
-	};
-
 	template<> struct hash<ak::descriptor_set>
 	{
 		std::size_t operator()(ak::descriptor_set const& o) const noexcept

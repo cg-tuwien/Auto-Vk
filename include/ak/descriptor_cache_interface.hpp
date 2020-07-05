@@ -1,10 +1,8 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
-	class descriptor_set_layout;
-	class descriptor_set;
-	
 	class descriptor_cache_interface
 	{
 	public:

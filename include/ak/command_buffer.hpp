@@ -1,10 +1,10 @@
 #pragma once
+#include <ak/ak.hpp>
 
-namespace ak // ========================== TODO/WIP =================================
+namespace ak 
 {
 	class renderpass_t;
 	class command_pool;
-	class window;
 	class image_t;
 	class graphics_pipeline_t;
 	class compute_pipeline_t;

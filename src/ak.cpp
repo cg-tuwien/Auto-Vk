@@ -75,6 +75,28 @@ namespace ak
 
 		// TODO: Descriptors?!
 	}
+#pragma endregion 
+
+#pragma region ak_error definitions
+	runtime_error::runtime_error (const std::string& what_arg) : std::runtime_error(what_arg)
+	{
+		AK_LOG_ERROR("!RUNTIME ERROR! " + what_arg);
+	}
+	
+	runtime_error::runtime_error (const char* what_arg) : std::runtime_error(what_arg)
+	{
+		AK_LOG_ERROR("!RUNTIME ERROR! " + std::string(what_arg));
+	}
+
+	logic_error::logic_error (const std::string& what_arg) : std::logic_error(what_arg)
+	{
+		AK_LOG_ERROR("!LOGIC ERROR! " + what_arg);
+	}
+	
+	logic_error::logic_error (const char* what_arg) : std::logic_error(what_arg)
+	{
+		AK_LOG_ERROR("!LOGIC ERROR! " + std::string(what_arg));
+	}
 #pragma endregion
 
 #pragma region vk_utils
@@ -734,25 +756,554 @@ namespace ak
 	}
 #pragma endregion
 
-#pragma region ak_error definitions
-	runtime_error::runtime_error (const std::string& what_arg) : std::runtime_error(what_arg)
+#pragma region vulkan helper functions
+	vk::IndexType to_vk_index_type(size_t aSize)
 	{
-		AK_LOG_ERROR("!RUNTIME ERROR! " + what_arg);
-	}
-	
-	runtime_error::runtime_error (const char* what_arg) : std::runtime_error(what_arg)
-	{
-		AK_LOG_ERROR("!RUNTIME ERROR! " + std::string(what_arg));
+		if (aSize == sizeof(uint16_t)) {
+			return vk::IndexType::eUint16;
+		}
+		if (aSize == sizeof(uint32_t)) {
+			return vk::IndexType::eUint32;
+		}
+		AK_LOG_ERROR("The given size[" + std::to_string(aSize) + "] does not correspond to a valid vk::IndexType");
+		return vk::IndexType::eNoneKHR;
 	}
 
-	logic_error::logic_error (const std::string& what_arg) : std::logic_error(what_arg)
+	vk::Bool32 to_vk_bool(bool value)
 	{
-		AK_LOG_ERROR("!LOGIC ERROR! " + what_arg);
+		return value ? VK_TRUE : VK_FALSE;
+	}
+
+	vk::ShaderStageFlagBits to_vk_shader_stage(shader_type aType)
+	{
+		switch (aType) {
+		case ak::shader_type::vertex:
+			return vk::ShaderStageFlagBits::eVertex;
+		case ak::shader_type::tessellation_control:
+			return vk::ShaderStageFlagBits::eTessellationControl;
+		case ak::shader_type::tessellation_evaluation:
+			return vk::ShaderStageFlagBits::eTessellationEvaluation;
+		case ak::shader_type::geometry:
+			return vk::ShaderStageFlagBits::eGeometry;
+		case ak::shader_type::fragment:
+			return vk::ShaderStageFlagBits::eFragment;
+		case ak::shader_type::compute:
+			return vk::ShaderStageFlagBits::eCompute;
+		case ak::shader_type::ray_generation:
+			return vk::ShaderStageFlagBits::eRaygenKHR;
+		case ak::shader_type::any_hit:
+			return vk::ShaderStageFlagBits::eAnyHitKHR;
+		case ak::shader_type::closest_hit:
+			return vk::ShaderStageFlagBits::eClosestHitKHR;
+		case ak::shader_type::miss:
+			return vk::ShaderStageFlagBits::eMissKHR;
+		case ak::shader_type::intersection:
+			return vk::ShaderStageFlagBits::eIntersectionKHR;
+		case ak::shader_type::callable:
+			return vk::ShaderStageFlagBits::eCallableKHR;
+		case ak::shader_type::task:
+			return vk::ShaderStageFlagBits::eTaskNV;
+		case ak::shader_type::mesh:
+			return vk::ShaderStageFlagBits::eMeshNV;
+		default:
+			throw ak::runtime_error("Invalid shader_type");
+		}
+	}
+
+	vk::ShaderStageFlags to_vk_shader_stages(shader_type aType)
+	{
+		vk::ShaderStageFlags result;
+		if ((aType & ak::shader_type::vertex) == ak::shader_type::vertex) {
+			result |= vk::ShaderStageFlagBits::eVertex;
+		}
+		if ((aType & ak::shader_type::tessellation_control) == ak::shader_type::tessellation_control) {
+			result |= vk::ShaderStageFlagBits::eTessellationControl;
+		}
+		if ((aType & ak::shader_type::tessellation_evaluation) == ak::shader_type::tessellation_evaluation) {
+			result |= vk::ShaderStageFlagBits::eTessellationEvaluation;
+		}
+		if ((aType & ak::shader_type::geometry) == ak::shader_type::geometry) {
+			result |= vk::ShaderStageFlagBits::eGeometry;
+		}
+		if ((aType & ak::shader_type::fragment) == ak::shader_type::fragment) {
+			result |= vk::ShaderStageFlagBits::eFragment;
+		}
+		if ((aType & ak::shader_type::compute) == ak::shader_type::compute) {
+			result |= vk::ShaderStageFlagBits::eCompute;
+		}
+		if ((aType & ak::shader_type::ray_generation) == ak::shader_type::ray_generation) {
+			result |= vk::ShaderStageFlagBits::eRaygenKHR;
+		}
+		if ((aType & ak::shader_type::any_hit) == ak::shader_type::any_hit) {
+			result |= vk::ShaderStageFlagBits::eAnyHitKHR;
+		}
+		if ((aType & ak::shader_type::closest_hit) == ak::shader_type::closest_hit) {
+			result |= vk::ShaderStageFlagBits::eClosestHitKHR;
+		}
+		if ((aType & ak::shader_type::miss) == ak::shader_type::miss) {
+			result |= vk::ShaderStageFlagBits::eMissKHR;
+		}
+		if ((aType & ak::shader_type::intersection) == ak::shader_type::intersection) {
+			result |= vk::ShaderStageFlagBits::eIntersectionKHR;
+		}
+		if ((aType & ak::shader_type::callable) == ak::shader_type::callable) {
+			result |= vk::ShaderStageFlagBits::eCallableKHR;
+		}
+		if ((aType & ak::shader_type::task) == ak::shader_type::task) {
+			result |= vk::ShaderStageFlagBits::eTaskNV;
+		}
+		if ((aType & ak::shader_type::mesh) == ak::shader_type::mesh) {
+			result |= vk::ShaderStageFlagBits::eMeshNV;
+		}
+		return result;
+	}
+
+	vk::VertexInputRate to_vk_vertex_input_rate(input_binding_general_data::kind aValue)
+	{
+		switch (aValue) {
+		case input_binding_general_data::kind::instance:
+			return vk::VertexInputRate::eInstance;
+		case input_binding_general_data::kind::vertex:
+			return vk::VertexInputRate::eVertex;
+		default:
+			throw std::invalid_argument("Invalid vertex input rate");
+		}
+	}
+
+	vk::PrimitiveTopology to_vk_primitive_topology(cfg::primitive_topology aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case primitive_topology::points:
+			return vk::PrimitiveTopology::ePointList;
+		case primitive_topology::lines: 
+			return vk::PrimitiveTopology::eLineList;
+		case primitive_topology::line_strip:
+			return vk::PrimitiveTopology::eLineStrip;
+		case primitive_topology::triangles: 
+			return vk::PrimitiveTopology::eTriangleList;
+		case primitive_topology::triangle_strip:
+			return vk::PrimitiveTopology::eTriangleStrip;
+		case primitive_topology::triangle_fan: 
+			return vk::PrimitiveTopology::eTriangleFan;
+		case primitive_topology::lines_with_adjacency:
+			return vk::PrimitiveTopology::eLineListWithAdjacency;
+		case primitive_topology::line_strip_with_adjacency: 
+			return vk::PrimitiveTopology::eLineStripWithAdjacency;
+		case primitive_topology::triangles_with_adjacency: 
+			return vk::PrimitiveTopology::eTriangleListWithAdjacency;
+		case primitive_topology::triangle_strip_with_adjacency: 
+			return vk::PrimitiveTopology::eTriangleStripWithAdjacency;
+		case primitive_topology::patches: 
+			return vk::PrimitiveTopology::ePatchList;
+		default:
+			throw std::invalid_argument("Invalid primitive topology");
+		}
+	}
+
+	vk::PolygonMode to_vk_polygon_mode(cfg::polygon_drawing_mode aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case polygon_drawing_mode::fill: 
+			return vk::PolygonMode::eFill;
+		case polygon_drawing_mode::line:
+			return vk::PolygonMode::eLine;
+		case polygon_drawing_mode::point:
+			return vk::PolygonMode::ePoint;
+		default:
+			throw std::invalid_argument("Invalid polygon drawing mode.");
+		}
+	}
+
+	vk::CullModeFlags to_vk_cull_mode(cfg::culling_mode aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case culling_mode::disabled:
+			return vk::CullModeFlagBits::eNone;
+		case culling_mode::cull_front_faces:
+			return vk::CullModeFlagBits::eFront;
+		case culling_mode::cull_back_faces:
+			return vk::CullModeFlagBits::eBack;
+		case culling_mode::cull_front_and_back_faces:
+			return vk::CullModeFlagBits::eFrontAndBack;
+		default:
+			throw std::invalid_argument("Invalid culling mode.");
+		}
+	}
+
+	vk::FrontFace to_vk_front_face(cfg::winding_order aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case winding_order::counter_clockwise:
+			return vk::FrontFace::eCounterClockwise;
+		case winding_order::clockwise:
+			return vk::FrontFace::eClockwise;
+		default:
+			throw std::invalid_argument("Invalid front face winding order.");
+		}
+	}
+
+	vk::CompareOp to_vk_compare_op(cfg::compare_operation aValue)
+	{
+		using namespace cfg;
+		
+		switch(aValue) {
+		case compare_operation::never:
+			return vk::CompareOp::eNever;
+		case compare_operation::less: 
+			return vk::CompareOp::eLess;
+		case compare_operation::equal: 
+			return vk::CompareOp::eEqual;
+		case compare_operation::less_or_equal: 
+			return vk::CompareOp::eLessOrEqual;
+		case compare_operation::greater: 
+			return vk::CompareOp::eGreater;
+		case compare_operation::not_equal: 
+			return vk::CompareOp::eNotEqual;
+		case compare_operation::greater_or_equal: 
+			return vk::CompareOp::eGreaterOrEqual;
+		case compare_operation::always: 
+			return vk::CompareOp::eAlways;
+		default:
+			throw std::invalid_argument("Invalid compare operation.");
+		}
+	}
+
+	vk::ColorComponentFlags to_vk_color_components(cfg::color_channel aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue)	{
+		case color_channel::none:
+			return vk::ColorComponentFlags{};
+		case color_channel::red:
+			return vk::ColorComponentFlagBits::eR;
+		case color_channel::green:
+			return vk::ColorComponentFlagBits::eG;
+		case color_channel::blue:
+			return vk::ColorComponentFlagBits::eB;
+		case color_channel::alpha:
+			return vk::ColorComponentFlagBits::eA;
+		case color_channel::rg:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG;
+		case color_channel::rgb:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB;
+		case color_channel::rgba:
+			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+		default:
+			throw std::invalid_argument("Invalid color channel value.");
+		}
+	}
+
+	vk::BlendFactor to_vk_blend_factor(cfg::blending_factor aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue) {
+		case blending_factor::zero:
+			return vk::BlendFactor::eZero;
+		case blending_factor::one: 
+			return vk::BlendFactor::eOne;
+		case blending_factor::source_color: 
+			return vk::BlendFactor::eSrcColor;
+		case blending_factor::one_minus_source_color: 
+			return vk::BlendFactor::eOneMinusSrcColor;
+		case blending_factor::destination_color: 
+			return vk::BlendFactor::eDstColor;
+		case blending_factor::one_minus_destination_color: 
+			return vk::BlendFactor::eOneMinusDstColor;
+		case blending_factor::source_alpha: 
+			return vk::BlendFactor::eSrcAlpha;
+		case blending_factor::one_minus_source_alpha: 
+			return vk::BlendFactor::eOneMinusSrcAlpha;
+		case blending_factor::destination_alpha: 
+			return vk::BlendFactor::eDstAlpha;
+		case blending_factor::one_minus_destination_alpha:
+			return vk::BlendFactor::eOneMinusDstAlpha;
+		case blending_factor::constant_color: 
+			return vk::BlendFactor::eConstantColor;
+		case blending_factor::one_minus_constant_color: 
+			return vk::BlendFactor::eOneMinusConstantColor;
+		case blending_factor::constant_alpha: 
+			return vk::BlendFactor::eConstantAlpha;
+		case blending_factor::one_minus_constant_alpha: 
+			return vk::BlendFactor::eOneMinusConstantAlpha;
+		case blending_factor::source_alpha_saturate: 
+			return vk::BlendFactor::eSrcAlphaSaturate;
+		default:
+			throw std::invalid_argument("Invalid blend factor value.");
+		}
+	}
+
+	vk::BlendOp to_vk_blend_operation(cfg::color_blending_operation aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue)
+		{
+		case color_blending_operation::add: 
+			return vk::BlendOp::eAdd;
+		case color_blending_operation::subtract: 
+			return vk::BlendOp::eSubtract;
+		case color_blending_operation::reverse_subtract: 
+			return vk::BlendOp::eReverseSubtract;
+		case color_blending_operation::min: 
+			return vk::BlendOp::eMin;
+		case color_blending_operation::max: 
+			return vk::BlendOp::eMax;
+		default:
+			throw std::invalid_argument("Invalid color blending operation.");
+		}
+	}
+
+	vk::LogicOp to_vk_logic_operation(cfg::blending_logic_operation aValue)
+	{
+		using namespace cfg;
+		
+		switch (aValue)
+		{
+		case blending_logic_operation::op_clear:
+			return vk::LogicOp::eClear;
+		case blending_logic_operation::op_and: 
+			return vk::LogicOp::eAnd;
+		case blending_logic_operation::op_and_reverse: 
+			return vk::LogicOp::eAndReverse;
+		case blending_logic_operation::op_copy: 
+			return vk::LogicOp::eCopy;
+		case blending_logic_operation::op_and_inverted: 
+			return vk::LogicOp::eAndInverted;
+		case blending_logic_operation::no_op: 
+			return vk::LogicOp::eNoOp;
+		case blending_logic_operation::op_xor: 
+			return vk::LogicOp::eXor;
+		case blending_logic_operation::op_or: 
+			return vk::LogicOp::eOr;
+		case blending_logic_operation::op_nor: 
+			return vk::LogicOp::eNor;
+		case blending_logic_operation::op_equivalent: 
+			return vk::LogicOp::eEquivalent;
+		case blending_logic_operation::op_invert: 
+			return vk::LogicOp::eInvert;
+		case blending_logic_operation::op_or_reverse: 
+			return vk::LogicOp::eOrReverse;
+		case blending_logic_operation::op_copy_inverted: 
+			return vk::LogicOp::eCopyInverted;
+		case blending_logic_operation::op_or_inverted: 
+			return vk::LogicOp::eOrInverted;
+		case blending_logic_operation::op_nand: 
+			return vk::LogicOp::eNand;
+		case blending_logic_operation::op_set: 
+			return vk::LogicOp::eSet;
+		default: 
+			throw std::invalid_argument("Invalid blending logic operation.");
+		}
+	}
+
+	vk::AttachmentLoadOp to_vk_load_op(on_load aValue)
+	{
+		switch (aValue) {
+		case on_load::dont_care:
+			return vk::AttachmentLoadOp::eDontCare;
+		case on_load::clear: 
+			return vk::AttachmentLoadOp::eClear;
+		case on_load::load: 
+			return vk::AttachmentLoadOp::eLoad;
+		default:
+			throw std::invalid_argument("Invalid attachment load operation.");
+		}
+	}
+
+	vk::AttachmentStoreOp to_vk_store_op(on_store aValue)
+	{
+		switch (aValue) {
+		case on_store::dont_care:
+			return vk::AttachmentStoreOp::eDontCare;
+		case on_store::store:
+		case on_store::store_in_presentable_format:
+			return vk::AttachmentStoreOp::eStore;
+		default:
+			throw std::invalid_argument("Invalid attachment store operation.");
+		}
+	}
+
+	vk::PipelineStageFlags to_vk_pipeline_stage_flags(ak::pipeline_stage aValue)
+	{
+		vk::PipelineStageFlags result;
+		// TODO: This might be a bit expensive. Is there a different possible solution to this?
+		if (ak::is_included(aValue, ak::pipeline_stage::top_of_pipe					)) { result |= vk::PipelineStageFlagBits::eTopOfPipe					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::draw_indirect					)) { result |= vk::PipelineStageFlagBits::eDrawIndirect					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::vertex_input					)) { result |= vk::PipelineStageFlagBits::eVertexInput					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::vertex_shader					)) { result |= vk::PipelineStageFlagBits::eVertexShader					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_control_shader	)) { result |= vk::PipelineStageFlagBits::eTessellationControlShader	; }
+		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_evaluation_shader)) { result |= vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
+		if (ak::is_included(aValue, ak::pipeline_stage::geometry_shader				)) { result |= vk::PipelineStageFlagBits::eGeometryShader				; }
+		if (ak::is_included(aValue, ak::pipeline_stage::fragment_shader				)) { result |= vk::PipelineStageFlagBits::eFragmentShader				; }
+		if (ak::is_included(aValue, ak::pipeline_stage::early_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::late_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eLateFragmentTests			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::color_attachment_output		)) { result |= vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
+		if (ak::is_included(aValue, ak::pipeline_stage::compute_shader				)) { result |= vk::PipelineStageFlagBits::eComputeShader				; }
+		if (ak::is_included(aValue, ak::pipeline_stage::transfer						)) { result |= vk::PipelineStageFlagBits::eTransfer						; }
+		if (ak::is_included(aValue, ak::pipeline_stage::bottom_of_pipe				)) { result |= vk::PipelineStageFlagBits::eBottomOfPipe					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::host							)) { result |= vk::PipelineStageFlagBits::eHost							; }
+		if (ak::is_included(aValue, ak::pipeline_stage::all_graphics			)) { result |= vk::PipelineStageFlagBits::eAllGraphics					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::all_commands					)) { result |= vk::PipelineStageFlagBits::eAllCommands					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::transform_feedback			)) { result |= vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::conditional_rendering			)) { result |= vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
+#if VK_HEADER_VERSION >= 135
+		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
+#else 
+		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
+#endif
+		if (ak::is_included(aValue, ak::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
+		if (ak::is_included(aValue, ak::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
+		if (ak::is_included(aValue, ak::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
+		if (ak::is_included(aValue, ak::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
+		return result;
 	}
 	
-	logic_error::logic_error (const char* what_arg) : std::logic_error(what_arg)
+	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<ak::pipeline_stage> aValue)
 	{
-		AK_LOG_ERROR("!LOGIC ERROR! " + std::string(what_arg));
+		if (aValue.has_value()) {
+			return to_vk_pipeline_stage_flags(aValue.value());
+		}
+		return vk::PipelineStageFlags{};
+	}
+
+	vk::AccessFlags to_vk_access_flags(ak::memory_access aValue)
+	{
+		vk::AccessFlags result;
+		// TODO: This might be a bit expensive. Is there a different possible solution to this?
+		if (ak::is_included(aValue, ak::memory_access::indirect_command_data_read_access			)) { result |= vk::AccessFlagBits::eIndirectCommandRead; }
+		if (ak::is_included(aValue, ak::memory_access::index_buffer_read_access					)) { result |= vk::AccessFlagBits::eIndexRead; }
+		if (ak::is_included(aValue, ak::memory_access::vertex_buffer_read_access					)) { result |= vk::AccessFlagBits::eVertexAttributeRead; }
+		if (ak::is_included(aValue, ak::memory_access::uniform_buffer_read_access					)) { result |= vk::AccessFlagBits::eUniformRead; }
+		if (ak::is_included(aValue, ak::memory_access::input_attachment_read_access				)) { result |= vk::AccessFlagBits::eInputAttachmentRead; }
+		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_read_access		)) { result |= vk::AccessFlagBits::eShaderRead; }
+		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_write_access		)) { result |= vk::AccessFlagBits::eShaderWrite; }
+		if (ak::is_included(aValue, ak::memory_access::color_attachment_read_access				)) { result |= vk::AccessFlagBits::eColorAttachmentRead; }
+		if (ak::is_included(aValue, ak::memory_access::color_attachment_write_access				)) { result |= vk::AccessFlagBits::eColorAttachmentWrite; }
+		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_read_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentRead; }
+		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_write_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; }
+		if (ak::is_included(aValue, ak::memory_access::transfer_read_access						)) { result |= vk::AccessFlagBits::eTransferRead; }
+		if (ak::is_included(aValue, ak::memory_access::transfer_write_access						)) { result |= vk::AccessFlagBits::eTransferWrite; }
+		if (ak::is_included(aValue, ak::memory_access::host_read_access							)) { result |= vk::AccessFlagBits::eHostRead; }
+		if (ak::is_included(aValue, ak::memory_access::host_write_access							)) { result |= vk::AccessFlagBits::eHostWrite; }
+		if (ak::is_included(aValue, ak::memory_access::any_read_access							)) { result |= vk::AccessFlagBits::eMemoryRead; }
+		if (ak::is_included(aValue, ak::memory_access::any_write_access					 		)) { result |= vk::AccessFlagBits::eMemoryWrite; }
+		if (ak::is_included(aValue, ak::memory_access::transform_feedback_write_access			)) { result |= vk::AccessFlagBits::eTransformFeedbackWriteEXT; }
+		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_read_access		)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterReadEXT; }
+		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_write_access	)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterWriteEXT; }
+		if (ak::is_included(aValue, ak::memory_access::conditional_rendering_predicate_read_access)) { result |= vk::AccessFlagBits::eConditionalRenderingReadEXT; }
+#if VK_HEADER_VERSION >= 135
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
+#else
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
+		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
+#endif
+		if (ak::is_included(aValue, ak::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
+		if (ak::is_included(aValue, ak::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
+		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
+		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
+		if (ak::is_included(aValue, ak::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
+
+		return result;
+	}
+
+	vk::AccessFlags to_vk_access_flags(std::optional<ak::memory_access> aValue)
+	{
+		if (aValue.has_value()) {
+			return to_vk_access_flags(aValue.value());
+		}
+		return vk::AccessFlags{};
+	}
+
+	ak::memory_access to_memory_access(ak::read_memory_access aValue)
+	{
+		return static_cast<ak::memory_access>(aValue);
+	}
+	
+	std::optional<ak::memory_access> to_memory_access(std::optional<ak::read_memory_access> aValue)
+	{
+		if (aValue.has_value()) {
+			return to_memory_access(aValue.value());
+		}
+		return {};
+	}
+	
+	ak::memory_access to_memory_access(ak::write_memory_access aValue)
+	{
+		return static_cast<ak::memory_access>(aValue);
+	}
+	
+	std::optional<ak::memory_access> to_memory_access(std::optional<ak::write_memory_access> aValue)
+	{
+		if (aValue.has_value()) {
+			return to_memory_access(aValue.value());
+		}
+		return {};
+	}
+
+	ak::filter_mode to_cgb_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
+	{
+		if (aMipMappingAvailable) {
+			if (aVulkanAnisotropy > 1.0f) {
+				if (std::fabs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_16x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_8x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_4x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_2x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_32x;
+				}
+				if (std::fabs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
+					return ak::filter_mode::anisotropic_64x;
+				}
+				AK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
+			}
+			return ak::filter_mode::trilinear;
+		}
+		return ak::filter_mode::bilinear;
+	}
+
+	vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info)
+	{
+		switch (info.imageType)
+		{
+		case vk::ImageType::e1D:
+			if (info.arrayLayers > 1) {
+				return vk::ImageViewType::e1DArray;
+			}
+			else {
+				return vk::ImageViewType::e1D;
+			}
+		case vk::ImageType::e2D:
+			if (info.arrayLayers > 1) {
+				return vk::ImageViewType::e2DArray;
+			}
+			else {
+				return vk::ImageViewType::e2D;
+			}
+		case vk::ImageType::e3D:
+			return vk::ImageViewType::e3D;
+		}
+		throw new ak::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
 	}
 #pragma endregion
 
@@ -2029,10 +2580,10 @@ namespace ak
 		return *this;
 	}
 
-	void fence_t::wait_until_signalled() const
+	void fence_t::wait_until_signalled(std::optional<uint64_t> aTimeout) const
 	{
 		// ReSharper disable once CppExpressionWithoutSideEffects
-		mFence.getOwner().waitForFences(1u, handle_ptr(), VK_TRUE, UINT64_MAX);
+		mFence.getOwner().waitForFences(1u, handle_ptr(), VK_TRUE, aTimeout.value_or(UINT64_MAX));
 	}
 
 	void fence_t::reset()
@@ -2076,7 +2627,7 @@ namespace ak
 			auto& a = aAttachments[i];
 			auto& v = aImageViews[i];
 			if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
-				AK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "]");
+				AK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
 			}
 			// TODO: Maybe further checks?
 			if (!a.mImageUsageHintBefore.has_value() && !a.mImageUsageHintAfter.has_value()) {
@@ -2166,24 +2717,61 @@ namespace ak
 #pragma endregion
 
 #pragma region geometry instance definitions
-	geometry_instance::geometry_instance(const bottom_level_acceleration_structure_t& aBlas)
-		: mTransform{ { 1.0f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f, 0.0f, 0.0f,   0.0f, 0.0f, 1.0f, 0.0f } }
-		, mInstanceCustomIndex{ 0 }
-		, mMask{ 0xff }
-		, mInstanceOffset{ 0 }
-		, mFlags{ vk::GeometryInstanceFlagsKHR() }
-		, mAccelerationStructureDeviceHandle{ aBlas.device_address() }		
-	{ }
+	geometry_instance root::create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas)
+	{
+		// glm::mat4 mTransform;
+		// uint32_t mInstanceCustomIndex;
+		// uint32_t mMask;
+		// size_t mInstanceOffset;
+		// vk::GeometryInstanceFlagsKHR mFlags;
+		// uint64_t mAccelerationStructureDeviceHandle;
+		return geometry_instance
+		{
+			{ 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f },
+			0,
+			0xff,
+			0,
+			vk::GeometryInstanceFlagsKHR(),
+			aBlas.device_address()
+		};
+	}
 
 	geometry_instance& geometry_instance::set_transform(VkTransformMatrixKHR aTransformationMatrix)
 	{
-		mTransform = aTransformationMatrix;
+		mTransform.matrix[0][0] = aTransformationMatrix.matrix[0][0];
+		mTransform.matrix[0][1] = aTransformationMatrix.matrix[0][1];
+		mTransform.matrix[0][2] = aTransformationMatrix.matrix[0][2];
+		mTransform.matrix[0][3] = aTransformationMatrix.matrix[0][3];
+		mTransform.matrix[1][0] = aTransformationMatrix.matrix[1][0];
+		mTransform.matrix[1][1] = aTransformationMatrix.matrix[1][1];
+		mTransform.matrix[1][2] = aTransformationMatrix.matrix[1][2];
+		mTransform.matrix[1][3] = aTransformationMatrix.matrix[1][3];
+		mTransform.matrix[2][0] = aTransformationMatrix.matrix[2][0];
+		mTransform.matrix[2][1] = aTransformationMatrix.matrix[2][1];
+		mTransform.matrix[2][2] = aTransformationMatrix.matrix[2][2];
+		mTransform.matrix[2][3] = aTransformationMatrix.matrix[2][3];
 		return *this;
 	}
 	
-	geometry_instance& geometry_instance::set_transform(std::array<float, 12> aTransformationMatrix)
+	geometry_instance& geometry_instance::set_transform_row_major(float aTransformationMatrix[3][4])
 	{
-		// transpose it along the way:
+		mTransform.matrix[0][0] = aTransformationMatrix[0][0];
+		mTransform.matrix[0][1] = aTransformationMatrix[0][1];
+		mTransform.matrix[0][2] = aTransformationMatrix[0][2];
+		mTransform.matrix[0][3] = aTransformationMatrix[0][3];
+		mTransform.matrix[1][0] = aTransformationMatrix[1][0];
+		mTransform.matrix[1][1] = aTransformationMatrix[1][1];
+		mTransform.matrix[1][2] = aTransformationMatrix[1][2];
+		mTransform.matrix[1][3] = aTransformationMatrix[1][3];
+		mTransform.matrix[2][0] = aTransformationMatrix[2][0];
+		mTransform.matrix[2][1] = aTransformationMatrix[2][1];
+		mTransform.matrix[2][2] = aTransformationMatrix[2][2];
+		mTransform.matrix[2][3] = aTransformationMatrix[2][3];
+		return *this;
+	}
+	
+	geometry_instance& geometry_instance::set_transform_row_major(std::array<float, 16> aTransformationMatrix)
+	{
 		mTransform.matrix[0][0] = aTransformationMatrix[0];
 		mTransform.matrix[0][1] = aTransformationMatrix[1];
 		mTransform.matrix[0][2] = aTransformationMatrix[2];
@@ -2196,51 +2784,11 @@ namespace ak
 		mTransform.matrix[2][1] = aTransformationMatrix[9];
 		mTransform.matrix[2][2] = aTransformationMatrix[10];
 		mTransform.matrix[2][3] = aTransformationMatrix[11];
-		// TODO: Which order ^ or v ?
-		mTransform.matrix[0][0] = aTransformationMatrix[0];
-		mTransform.matrix[0][1] = aTransformationMatrix[3];
-		mTransform.matrix[0][2] = aTransformationMatrix[6];
-		mTransform.matrix[0][3] = aTransformationMatrix[9];
-		mTransform.matrix[1][0] = aTransformationMatrix[1];
-		mTransform.matrix[1][1] = aTransformationMatrix[4];
-		mTransform.matrix[1][2] = aTransformationMatrix[7];
-		mTransform.matrix[1][3] = aTransformationMatrix[10];
-		mTransform.matrix[2][0] = aTransformationMatrix[2];
-		mTransform.matrix[2][1] = aTransformationMatrix[5];
-		mTransform.matrix[2][2] = aTransformationMatrix[8];
-		mTransform.matrix[2][3] = aTransformationMatrix[11];
 		return *this;
 	}
 	
-	geometry_instance& geometry_instance::set_transform(std::array<float, 16> aTransformationMatrix)
+	geometry_instance& geometry_instance::set_transform_column_major(std::array<float, 16> aTransformationMatrix)
 	{
-		// transpose it along the way:
-		mTransform.matrix[0][0] = aTransformationMatrix[0];
-		mTransform.matrix[0][1] = aTransformationMatrix[1];
-		mTransform.matrix[0][2] = aTransformationMatrix[2];
-		mTransform.matrix[0][3] = aTransformationMatrix[3];
-		mTransform.matrix[1][0] = aTransformationMatrix[4];
-		mTransform.matrix[1][1] = aTransformationMatrix[5];
-		mTransform.matrix[1][2] = aTransformationMatrix[6];
-		mTransform.matrix[1][3] = aTransformationMatrix[7];
-		mTransform.matrix[2][0] = aTransformationMatrix[8];
-		mTransform.matrix[2][1] = aTransformationMatrix[9];
-		mTransform.matrix[2][2] = aTransformationMatrix[10];
-		mTransform.matrix[2][3] = aTransformationMatrix[11];
-		// TODO: Which order ^ or v ?
-		mTransform.matrix[0][0] = aTransformationMatrix[0];
-		mTransform.matrix[0][1] = aTransformationMatrix[3];
-		mTransform.matrix[0][2] = aTransformationMatrix[6];
-		mTransform.matrix[0][3] = aTransformationMatrix[9];
-		mTransform.matrix[1][0] = aTransformationMatrix[1];
-		mTransform.matrix[1][1] = aTransformationMatrix[4];
-		mTransform.matrix[1][2] = aTransformationMatrix[7];
-		mTransform.matrix[1][3] = aTransformationMatrix[10];
-		mTransform.matrix[2][0] = aTransformationMatrix[2];
-		mTransform.matrix[2][1] = aTransformationMatrix[5];
-		mTransform.matrix[2][2] = aTransformationMatrix[8];
-		mTransform.matrix[2][3] = aTransformationMatrix[11];
-		// TODO: ...or is it one of the following??
 		mTransform.matrix[0][0] = aTransformationMatrix[0];
 		mTransform.matrix[0][1] = aTransformationMatrix[4];
 		mTransform.matrix[0][2] = aTransformationMatrix[8];
@@ -2319,8 +2867,6 @@ namespace ak
 	VkAccelerationStructureInstanceKHR convert_for_gpu_usage(const geometry_instance& aGeomInst)
 	{
 		VkAccelerationStructureInstanceKHR element;
-		//auto matrix = glm::transpose(aGeomInst.mTransform);
-		//memcpy(&element.transform, glm::value_ptr(matrix), sizeof(element.transform));
 		element.transform = aGeomInst.mTransform;
 		element.instanceCustomIndex = aGeomInst.mInstanceCustomIndex;
 		element.mask = aGeomInst.mMask;
@@ -2332,8 +2878,8 @@ namespace ak
 
 	std::vector<VkAccelerationStructureInstanceKHR> convert_for_gpu_usage(const std::vector<geometry_instance>& aGeomInstances)
 	{
-		if (aGeomInstances.size() == 0) {
-			AK_LOG_WARNING("Empty vector of geometry instances");
+		if (aGeomInstances.empty()) {
+			AK_LOG_WARNING("Empty vector of geometry instances passed to convert_for_gpu_usage");
 		}
 
 		std::vector<VkAccelerationStructureInstanceKHR> instancesGpu;
@@ -2342,6 +2888,46 @@ namespace ak
 			instancesGpu.emplace_back(convert_for_gpu_usage(data));			
 		}
 		return instancesGpu;
+	}
+#pragma endregion
+
+#pragma region graphics pipeline config definitions
+
+	// Set sensible defaults:
+	graphics_pipeline_config::graphics_pipeline_config()
+		: mPipelineSettings{ cfg::pipeline_settings::nothing }
+		, mRenderPassSubpass {} // not set by default
+		, mPrimitiveTopology{ cfg::primitive_topology::triangles } // triangles after one another
+		, mRasterizerGeometryMode{ cfg::rasterizer_geometry_mode::rasterize_geometry } // don't discard, but rasterize!
+		, mPolygonDrawingModeAndConfig{ cfg::polygon_drawing::config_for_filling() } // Fill triangles
+		, mCullingMode{ cfg::culling_mode::cull_back_faces } // Cull back faces
+		, mFrontFaceWindingOrder{ cfg::front_face::define_front_faces_to_be_counter_clockwise() } // CCW == front face
+		, mDepthClampBiasConfig{ cfg::depth_clamp_bias::config_nothing_special() } // no clamp, no bias, no factors
+		, mDepthTestConfig{ cfg::depth_test::enabled() } // enable depth testing
+		, mDepthWriteConfig{ cfg::depth_write::enabled() } // enable depth writing
+		, mDepthBoundsConfig{ cfg::depth_bounds::disable() }
+		, mColorBlendingSettings{ cfg::color_blending_settings::disable_logic_operation() }
+		, mTessellationPatchControlPoints {}
+	{
+	}
+
+	namespace cfg
+	{
+		viewport_depth_scissors_config viewport_depth_scissors_config::from_framebuffer(const framebuffer_t& aFramebuffer)
+		{
+			const auto width = aFramebuffer.create_info().width;
+			const auto height = aFramebuffer.create_info().height;
+			return viewport_depth_scissors_config{ 
+				{0.0f, 0.0f},
+				{static_cast<float>(width), static_cast<float>(height)}, 
+				0.0f, 1.0f,		// TODO: make min/max depth configurable?!
+				{0, 0},			// TODO: support different settings for scissor?!
+				{static_cast<int32_t>(width), static_cast<int32_t>(height)},
+				false,
+				false
+			}; 
+		}
+		
 	}
 #pragma endregion
 
@@ -2510,7 +3096,12 @@ namespace ak
 
 			// Iterate over all color target attachments and set a color blending config
 			if (result.subpass_id() >= result.mRenderPass->attachment_descriptions().size()) {
-				throw ak::runtime_error("There are fewer subpasses in the renderpass (" + std::to_string(result.mRenderPass->attachment_descriptions().size()) + ") as the subpass index indicates (" + std::to_string(result.subpass_id()) + "). I.e. subpass index is out of bounds.");
+				throw ak::runtime_error(
+					"There are fewer subpasses in the renderpass (" 
+					+ std::to_string(result.mRenderPass->attachment_descriptions().size()) + 
+					") than the subpass index ("
+					+ std::to_string(result.subpass_id()) + 
+					") indicates. I.e. the subpass index is out of bounds.");
 			}
 			const auto n = result.mRenderPass->color_attachments_for_subpass(result.subpass_id()).size(); /////////////////// TODO: (doublecheck or) FIX this section (after renderpass refactoring)
 			result.mBlendingConfigsForColorAttachments.reserve(n); // Important! Otherwise the vector might realloc and .data() will become invalid!
@@ -2740,6 +3331,7 @@ namespace ak
 		result.mPipeline = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
 		return result;
 	}
+
 #pragma endregion
 	
 #pragma region image definitions
@@ -3047,23 +3639,6 @@ namespace ak
 	}
 #pragma endregion
 
-#pragma region image sampler definitions
-	owning_resource<image_sampler_t> root::create_image_sampler(image_view aImageView, sampler aSampler)
-	{
-		image_sampler_t result;
-		result.mImageView = std::move(aImageView);
-		result.mSampler = std::move(aSampler);
-
-		result.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(result.view_handle())
-			.setSampler(result.sampler_handle());
-		result.mDescriptorInfo.setImageLayout(result.mImageView->get_image().target_layout());
-		
-		result.mDescriptorType = vk::DescriptorType::eCombinedImageSampler;
-		return result;
-	}
-#pragma endregion
-
 #pragma region image view definitions
 	owning_resource<image_view_t> root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
@@ -3187,12 +3762,167 @@ namespace ak
 			.setImageLayout(aImageView.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout? 
 	}
 #pragma endregion
+	
+#pragma region sampler and image sampler definitions
+	owning_resource<sampler_t> root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
+	{
+		vk::Filter magFilter;
+		vk::Filter minFilter;
+		vk::SamplerMipmapMode mipmapMode;
+		vk::Bool32 enableAnisotropy = VK_FALSE;
+		float maxAnisotropy = 1.0f;
+		switch (aFilterMode)
+		{
+		case filter_mode::nearest_neighbor:
+			magFilter = vk::Filter::eNearest;
+			minFilter = vk::Filter::eNearest;
+			mipmapMode = vk::SamplerMipmapMode::eNearest;
+			break;
+		case filter_mode::bilinear:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eNearest;
+			break;
+		case filter_mode::trilinear:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			break;
+		case filter_mode::cubic: // I have no idea what I'm doing.
+			magFilter = vk::Filter::eCubicIMG;
+			minFilter = vk::Filter::eCubicIMG;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			break;
+		case filter_mode::anisotropic_2x:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			enableAnisotropy = VK_TRUE;
+			maxAnisotropy = 2.0f;
+			break;
+		case filter_mode::anisotropic_4x:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			enableAnisotropy = VK_TRUE;
+			maxAnisotropy = 4.0f;
+			break;
+		case filter_mode::anisotropic_8x:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			enableAnisotropy = VK_TRUE;
+			maxAnisotropy = 8.0f;
+			break;
+		case filter_mode::anisotropic_16x:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			enableAnisotropy = VK_TRUE;
+			maxAnisotropy = 16.0f;
+			break;
+		case filter_mode::anisotropic_32x:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			enableAnisotropy = VK_TRUE;
+			maxAnisotropy = 32.0f;
+			break;
+		case filter_mode::anisotropic_64x:
+			magFilter = vk::Filter::eLinear;
+			minFilter = vk::Filter::eLinear;
+			mipmapMode = vk::SamplerMipmapMode::eLinear;
+			enableAnisotropy = VK_TRUE;
+			maxAnisotropy = 64.0f;
+			break;
+		default:
+			throw ak::runtime_error("invalid filter_mode");
+		}
+
+		// Determine how to handle the borders:
+		vk::SamplerAddressMode addressMode;
+		switch (aBorderHandlingMode)
+		{
+		case border_handling_mode::clamp_to_edge:
+			addressMode = vk::SamplerAddressMode::eClampToEdge;
+			break;
+		case border_handling_mode::mirror_clamp_to_edge:
+			addressMode = vk::SamplerAddressMode::eMirrorClampToEdge;
+			break;
+		case border_handling_mode::clamp_to_border:
+			addressMode = vk::SamplerAddressMode::eClampToEdge;
+			break;
+		case border_handling_mode::repeat:
+			addressMode = vk::SamplerAddressMode::eRepeat;
+			break;
+		case border_handling_mode::mirrored_repeat:
+			addressMode = vk::SamplerAddressMode::eMirroredRepeat;
+			break;
+		default:
+			throw ak::runtime_error("invalid border_handling_mode");
+		}
+
+		// Compile the config for this sampler:
+		sampler_t result;
+		result.mInfo = vk::SamplerCreateInfo()
+			.setMagFilter(magFilter)
+			.setMinFilter(minFilter)
+			.setAddressModeU(addressMode)
+			.setAddressModeV(addressMode)
+			.setAddressModeW(addressMode)
+			.setAnisotropyEnable(enableAnisotropy)
+			.setMaxAnisotropy(maxAnisotropy)
+			.setBorderColor(vk::BorderColor::eFloatOpaqueBlack)
+			// The unnormalizedCoordinates field specifies which coordinate system you want to use to address texels in an image. 
+			// If this field is VK_TRUE, then you can simply use coordinates within the [0, texWidth) and [0, texHeight) range.
+			// If it is VK_FALSE, then the texels are addressed using the [0, 1) range on all axes. Real-world applications almost 
+			// always use normalized coordinates, because then it's possible to use textures of varying resolutions with the exact 
+			// same coordinates. [4]
+			.setUnnormalizedCoordinates(VK_FALSE)
+			// If a comparison function is enabled, then texels will first be compared to a value, and the result of that comparison 
+			// is used in filtering operations. This is mainly used for percentage-closer filtering on shadow maps. [4]
+			.setCompareEnable(VK_FALSE)
+			.setCompareOp(vk::CompareOp::eAlways)
+			.setMipmapMode(mipmapMode)
+			.setMipLodBias(0.0f)
+			.setMinLod(0.0f)
+			.setMaxLod(aMipMapMaxLod);
+
+		// Call custom config function
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		result.mSampler = device().createSamplerUnique(result.config());
+		result.mDescriptorInfo = vk::DescriptorImageInfo{}
+			.setSampler(result.handle());
+		result.mDescriptorType = vk::DescriptorType::eSampler;
+		return result;
+	}
+
+	owning_resource<image_sampler_t> root::create_image_sampler(image_view aImageView, sampler aSampler)
+	{
+		image_sampler_t result;
+		result.mImageView = std::move(aImageView);
+		result.mSampler = std::move(aSampler);
+
+		result.mDescriptorInfo = vk::DescriptorImageInfo{}
+			.setImageView(result.view_handle())
+			.setSampler(result.sampler_handle());
+		result.mDescriptorInfo.setImageLayout(result.mImageView->get_image().target_layout());
+		
+		result.mDescriptorType = vk::DescriptorType::eCombinedImageSampler;
+		return result;
+	}
+#pragma endregion
 
 #pragma region input description definitions
-	input_description::input_description(std::initializer_list<input_binding_location_data> aBindings)
+	input_description input_description::declare(std::initializer_list<input_binding_location_data> aBindings)
 	{
+		input_description result;
+
 		for (const auto& bindingLoc : aBindings) {
-			auto& bfr = mInputBuffers[bindingLoc.mGeneralData.mBinding];
+			auto& bfr = result.mInputBuffers[bindingLoc.mGeneralData.mBinding];
 			// Create if it doesn't exist
 			if (std::holds_alternative<std::monostate>(bfr)) {
 				switch (bindingLoc.mGeneralData.mKind)
@@ -3230,6 +3960,69 @@ namespace ak
 					bindingLoc.mMemberMetaData.mFormat,
 					bindingLoc.mMemberMetaData.mLocation);
 			}
+		}
+
+		return result;
+	}
+#pragma endregion
+
+#pragma memory access definitions
+	bool is_read_access(memory_access aValue)
+	{
+		return (aValue & (memory_access::indirect_command_data_read_access			
+						| memory_access::index_buffer_read_access					
+						| memory_access::vertex_buffer_read_access					
+						| memory_access::uniform_buffer_read_access					
+						| memory_access::input_attachment_read_access				
+						| memory_access::shader_buffers_and_images_read_access		
+						| memory_access::color_attachment_read_access				
+						| memory_access::depth_stencil_attachment_read_access		
+						| memory_access::transfer_read_access						
+						| memory_access::host_read_access						    
+						| memory_access::any_read_access							
+						| memory_access::transform_feedback_counter_read_access		
+						| memory_access::conditional_rendering_predicate_read_access
+						| memory_access::command_preprocess_read_access				
+						| memory_access::color_attachment_noncoherent_read_access	
+						| memory_access::shading_rate_image_read_access				
+						| memory_access::acceleration_structure_read_access			
+						| memory_access::fragment_density_map_attachment_read_access)
+				) == aValue;
+	}
+
+	read_memory_access::operator memory_access() const
+	{
+		validate_or_throw();
+		return mMemoryAccess;
+	}
+
+	memory_access read_memory_access::value() const
+	{
+		return operator memory_access();
+	}
+	
+	void read_memory_access::validate_or_throw() const
+	{
+		if (!is_read_access(mMemoryAccess)) {
+			throw cgb::runtime_error("The access flag represented by this instance of read_memory_access is not a read-type access flag.");
+		}
+	}
+
+	write_memory_access::operator memory_access() const
+	{
+		validate_or_throw();
+		return mMemoryAccess;
+	}
+	
+	memory_access write_memory_access::value() const
+	{
+		return operator memory_access();
+	}
+
+	void write_memory_access::validate_or_throw() const
+	{
+		if (is_read_access(mMemoryAccess)) {
+			throw ak::runtime_error("The access flag represented by this instance of write_memory_access is not a write-type access flag.");
 		}
 	}
 #pragma endregion
@@ -3376,691 +4169,5 @@ namespace ak
 		mQueue = aDevice.getQueue(mQueueFamilyIndex, mQueueIndex);
 	}
 #pragma endregion
-	
-	owning_resource<sampler_t> root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
-	{
-		vk::Filter magFilter;
-		vk::Filter minFilter;
-		vk::SamplerMipmapMode mipmapMode;
-		vk::Bool32 enableAnisotropy = VK_FALSE;
-		float maxAnisotropy = 1.0f;
-		switch (aFilterMode)
-		{
-		case filter_mode::nearest_neighbor:
-			magFilter = vk::Filter::eNearest;
-			minFilter = vk::Filter::eNearest;
-			mipmapMode = vk::SamplerMipmapMode::eNearest;
-			break;
-		case filter_mode::bilinear:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eNearest;
-			break;
-		case filter_mode::trilinear:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			break;
-		case filter_mode::cubic: // I have no idea what I'm doing.
-			magFilter = vk::Filter::eCubicIMG;
-			minFilter = vk::Filter::eCubicIMG;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			break;
-		case filter_mode::anisotropic_2x:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			enableAnisotropy = VK_TRUE;
-			maxAnisotropy = 2.0f;
-			break;
-		case filter_mode::anisotropic_4x:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			enableAnisotropy = VK_TRUE;
-			maxAnisotropy = 4.0f;
-			break;
-		case filter_mode::anisotropic_8x:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			enableAnisotropy = VK_TRUE;
-			maxAnisotropy = 8.0f;
-			break;
-		case filter_mode::anisotropic_16x:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			enableAnisotropy = VK_TRUE;
-			maxAnisotropy = 16.0f;
-			break;
-		case filter_mode::anisotropic_32x:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			enableAnisotropy = VK_TRUE;
-			maxAnisotropy = 32.0f;
-			break;
-		case filter_mode::anisotropic_64x:
-			magFilter = vk::Filter::eLinear;
-			minFilter = vk::Filter::eLinear;
-			mipmapMode = vk::SamplerMipmapMode::eLinear;
-			enableAnisotropy = VK_TRUE;
-			maxAnisotropy = 64.0f;
-			break;
-		default:
-			throw ak::runtime_error("invalid filter_mode");
-		}
 
-		// Determine how to handle the borders:
-		vk::SamplerAddressMode addressMode;
-		switch (aBorderHandlingMode)
-		{
-		case border_handling_mode::clamp_to_edge:
-			addressMode = vk::SamplerAddressMode::eClampToEdge;
-			break;
-		case border_handling_mode::mirror_clamp_to_edge:
-			addressMode = vk::SamplerAddressMode::eMirrorClampToEdge;
-			break;
-		case border_handling_mode::clamp_to_border:
-			addressMode = vk::SamplerAddressMode::eClampToEdge;
-			break;
-		case border_handling_mode::repeat:
-			addressMode = vk::SamplerAddressMode::eRepeat;
-			break;
-		case border_handling_mode::mirrored_repeat:
-			addressMode = vk::SamplerAddressMode::eMirroredRepeat;
-			break;
-		default:
-			throw ak::runtime_error("invalid border_handling_mode");
-		}
-
-		// Compile the config for this sampler:
-		sampler_t result;
-		result.mInfo = vk::SamplerCreateInfo()
-			.setMagFilter(magFilter)
-			.setMinFilter(minFilter)
-			.setAddressModeU(addressMode)
-			.setAddressModeV(addressMode)
-			.setAddressModeW(addressMode)
-			.setAnisotropyEnable(enableAnisotropy)
-			.setMaxAnisotropy(maxAnisotropy)
-			.setBorderColor(vk::BorderColor::eFloatOpaqueBlack)
-			// The unnormalizedCoordinates field specifies which coordinate system you want to use to address texels in an image. 
-			// If this field is VK_TRUE, then you can simply use coordinates within the [0, texWidth) and [0, texHeight) range.
-			// If it is VK_FALSE, then the texels are addressed using the [0, 1) range on all axes. Real-world applications almost 
-			// always use normalized coordinates, because then it's possible to use textures of varying resolutions with the exact 
-			// same coordinates. [4]
-			.setUnnormalizedCoordinates(VK_FALSE)
-			// If a comparison function is enabled, then texels will first be compared to a value, and the result of that comparison 
-			// is used in filtering operations. This is mainly used for percentage-closer filtering on shadow maps. [4]
-			.setCompareEnable(VK_FALSE)
-			.setCompareOp(vk::CompareOp::eAlways)
-			.setMipmapMode(mipmapMode)
-			.setMipLodBias(0.0f)
-			.setMinLod(0.0f)
-			.setMaxLod(aMipMapMaxLod);
-
-		// Call custom config function
-		if (aAlterConfigBeforeCreation) {
-			aAlterConfigBeforeCreation(result);
-		}
-
-		result.mSampler = device().createSamplerUnique(result.config());
-		result.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setSampler(result.handle());
-		result.mDescriptorType = vk::DescriptorType::eSampler;
-		return result;
-	}
-	
-#pragma region vulkan helper functions
-	vk::IndexType to_vk_index_type(size_t aSize)
-	{
-		if (aSize == sizeof(uint16_t)) {
-			return vk::IndexType::eUint16;
-		}
-		if (aSize == sizeof(uint32_t)) {
-			return vk::IndexType::eUint32;
-		}
-		AK_LOG_ERROR("The given size[" + std::to_string(aSize) + "] does not correspond to a valid vk::IndexType");
-		return vk::IndexType::eNoneKHR;
-	}
-
-	vk::Bool32 to_vk_bool(bool value)
-	{
-		return value ? VK_TRUE : VK_FALSE;
-	}
-
-	vk::ShaderStageFlagBits to_vk_shader_stage(shader_type aType)
-	{
-		switch (aType) {
-		case ak::shader_type::vertex:
-			return vk::ShaderStageFlagBits::eVertex;
-		case ak::shader_type::tessellation_control:
-			return vk::ShaderStageFlagBits::eTessellationControl;
-		case ak::shader_type::tessellation_evaluation:
-			return vk::ShaderStageFlagBits::eTessellationEvaluation;
-		case ak::shader_type::geometry:
-			return vk::ShaderStageFlagBits::eGeometry;
-		case ak::shader_type::fragment:
-			return vk::ShaderStageFlagBits::eFragment;
-		case ak::shader_type::compute:
-			return vk::ShaderStageFlagBits::eCompute;
-		case ak::shader_type::ray_generation:
-			return vk::ShaderStageFlagBits::eRaygenKHR;
-		case ak::shader_type::any_hit:
-			return vk::ShaderStageFlagBits::eAnyHitKHR;
-		case ak::shader_type::closest_hit:
-			return vk::ShaderStageFlagBits::eClosestHitKHR;
-		case ak::shader_type::miss:
-			return vk::ShaderStageFlagBits::eMissKHR;
-		case ak::shader_type::intersection:
-			return vk::ShaderStageFlagBits::eIntersectionKHR;
-		case ak::shader_type::callable:
-			return vk::ShaderStageFlagBits::eCallableKHR;
-		case ak::shader_type::task:
-			return vk::ShaderStageFlagBits::eTaskNV;
-		case ak::shader_type::mesh:
-			return vk::ShaderStageFlagBits::eMeshNV;
-		default:
-			throw ak::runtime_error("Invalid shader_type");
-		}
-	}
-
-	vk::ShaderStageFlags to_vk_shader_stages(shader_type aType)
-	{
-		vk::ShaderStageFlags result;
-		if ((aType & ak::shader_type::vertex) == ak::shader_type::vertex) {
-			result |= vk::ShaderStageFlagBits::eVertex;
-		}
-		if ((aType & ak::shader_type::tessellation_control) == ak::shader_type::tessellation_control) {
-			result |= vk::ShaderStageFlagBits::eTessellationControl;
-		}
-		if ((aType & ak::shader_type::tessellation_evaluation) == ak::shader_type::tessellation_evaluation) {
-			result |= vk::ShaderStageFlagBits::eTessellationEvaluation;
-		}
-		if ((aType & ak::shader_type::geometry) == ak::shader_type::geometry) {
-			result |= vk::ShaderStageFlagBits::eGeometry;
-		}
-		if ((aType & ak::shader_type::fragment) == ak::shader_type::fragment) {
-			result |= vk::ShaderStageFlagBits::eFragment;
-		}
-		if ((aType & ak::shader_type::compute) == ak::shader_type::compute) {
-			result |= vk::ShaderStageFlagBits::eCompute;
-		}
-		if ((aType & ak::shader_type::ray_generation) == ak::shader_type::ray_generation) {
-			result |= vk::ShaderStageFlagBits::eRaygenKHR;
-		}
-		if ((aType & ak::shader_type::any_hit) == ak::shader_type::any_hit) {
-			result |= vk::ShaderStageFlagBits::eAnyHitKHR;
-		}
-		if ((aType & ak::shader_type::closest_hit) == ak::shader_type::closest_hit) {
-			result |= vk::ShaderStageFlagBits::eClosestHitKHR;
-		}
-		if ((aType & ak::shader_type::miss) == ak::shader_type::miss) {
-			result |= vk::ShaderStageFlagBits::eMissKHR;
-		}
-		if ((aType & ak::shader_type::intersection) == ak::shader_type::intersection) {
-			result |= vk::ShaderStageFlagBits::eIntersectionKHR;
-		}
-		if ((aType & ak::shader_type::callable) == ak::shader_type::callable) {
-			result |= vk::ShaderStageFlagBits::eCallableKHR;
-		}
-		if ((aType & ak::shader_type::task) == ak::shader_type::task) {
-			result |= vk::ShaderStageFlagBits::eTaskNV;
-		}
-		if ((aType & ak::shader_type::mesh) == ak::shader_type::mesh) {
-			result |= vk::ShaderStageFlagBits::eMeshNV;
-		}
-		return result;
-	}
-
-	vk::VertexInputRate to_vk_vertex_input_rate(input_binding_general_data::kind aValue)
-	{
-		switch (aValue) {
-		case input_binding_general_data::kind::instance:
-			return vk::VertexInputRate::eInstance;
-		case input_binding_general_data::kind::vertex:
-			return vk::VertexInputRate::eVertex;
-		default:
-			throw std::invalid_argument("Invalid vertex input rate");
-		}
-	}
-
-	vk::PrimitiveTopology to_vk_primitive_topology(cfg::primitive_topology aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue) {
-		case primitive_topology::points:
-			return vk::PrimitiveTopology::ePointList;
-		case primitive_topology::lines: 
-			return vk::PrimitiveTopology::eLineList;
-		case primitive_topology::line_strip:
-			return vk::PrimitiveTopology::eLineStrip;
-		case primitive_topology::triangles: 
-			return vk::PrimitiveTopology::eTriangleList;
-		case primitive_topology::triangle_strip:
-			return vk::PrimitiveTopology::eTriangleStrip;
-		case primitive_topology::triangle_fan: 
-			return vk::PrimitiveTopology::eTriangleFan;
-		case primitive_topology::lines_with_adjacency:
-			return vk::PrimitiveTopology::eLineListWithAdjacency;
-		case primitive_topology::line_strip_with_adjacency: 
-			return vk::PrimitiveTopology::eLineStripWithAdjacency;
-		case primitive_topology::triangles_with_adjacency: 
-			return vk::PrimitiveTopology::eTriangleListWithAdjacency;
-		case primitive_topology::triangle_strip_with_adjacency: 
-			return vk::PrimitiveTopology::eTriangleStripWithAdjacency;
-		case primitive_topology::patches: 
-			return vk::PrimitiveTopology::ePatchList;
-		default:
-			throw std::invalid_argument("Invalid primitive topology");
-		}
-	}
-
-	vk::PolygonMode to_vk_polygon_mode(cfg::polygon_drawing_mode aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue) {
-		case polygon_drawing_mode::fill: 
-			return vk::PolygonMode::eFill;
-		case polygon_drawing_mode::line:
-			return vk::PolygonMode::eLine;
-		case polygon_drawing_mode::point:
-			return vk::PolygonMode::ePoint;
-		default:
-			throw std::invalid_argument("Invalid polygon drawing mode.");
-		}
-	}
-
-	vk::CullModeFlags to_vk_cull_mode(cfg::culling_mode aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue) {
-		case culling_mode::disabled:
-			return vk::CullModeFlagBits::eNone;
-		case culling_mode::cull_front_faces:
-			return vk::CullModeFlagBits::eFront;
-		case culling_mode::cull_back_faces:
-			return vk::CullModeFlagBits::eBack;
-		case culling_mode::cull_front_and_back_faces:
-			return vk::CullModeFlagBits::eFrontAndBack;
-		default:
-			throw std::invalid_argument("Invalid culling mode.");
-		}
-	}
-
-	vk::FrontFace to_vk_front_face(cfg::winding_order aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue) {
-		case winding_order::counter_clockwise:
-			return vk::FrontFace::eCounterClockwise;
-		case winding_order::clockwise:
-			return vk::FrontFace::eClockwise;
-		default:
-			throw std::invalid_argument("Invalid front face winding order.");
-		}
-	}
-
-	vk::CompareOp to_vk_compare_op(cfg::compare_operation aValue)
-	{
-		using namespace cfg;
-		
-		switch(aValue) {
-		case compare_operation::never:
-			return vk::CompareOp::eNever;
-		case compare_operation::less: 
-			return vk::CompareOp::eLess;
-		case compare_operation::equal: 
-			return vk::CompareOp::eEqual;
-		case compare_operation::less_or_equal: 
-			return vk::CompareOp::eLessOrEqual;
-		case compare_operation::greater: 
-			return vk::CompareOp::eGreater;
-		case compare_operation::not_equal: 
-			return vk::CompareOp::eNotEqual;
-		case compare_operation::greater_or_equal: 
-			return vk::CompareOp::eGreaterOrEqual;
-		case compare_operation::always: 
-			return vk::CompareOp::eAlways;
-		default:
-			throw std::invalid_argument("Invalid compare operation.");
-		}
-	}
-
-	vk::ColorComponentFlags to_vk_color_components(cfg::color_channel aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue)	{
-		case color_channel::none:
-			return vk::ColorComponentFlags{};
-		case color_channel::red:
-			return vk::ColorComponentFlagBits::eR;
-		case color_channel::green:
-			return vk::ColorComponentFlagBits::eG;
-		case color_channel::blue:
-			return vk::ColorComponentFlagBits::eB;
-		case color_channel::alpha:
-			return vk::ColorComponentFlagBits::eA;
-		case color_channel::rg:
-			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG;
-		case color_channel::rgb:
-			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB;
-		case color_channel::rgba:
-			return vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-		default:
-			throw std::invalid_argument("Invalid color channel value.");
-		}
-	}
-
-	vk::BlendFactor to_vk_blend_factor(cfg::blending_factor aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue) {
-		case blending_factor::zero:
-			return vk::BlendFactor::eZero;
-		case blending_factor::one: 
-			return vk::BlendFactor::eOne;
-		case blending_factor::source_color: 
-			return vk::BlendFactor::eSrcColor;
-		case blending_factor::one_minus_source_color: 
-			return vk::BlendFactor::eOneMinusSrcColor;
-		case blending_factor::destination_color: 
-			return vk::BlendFactor::eDstColor;
-		case blending_factor::one_minus_destination_color: 
-			return vk::BlendFactor::eOneMinusDstColor;
-		case blending_factor::source_alpha: 
-			return vk::BlendFactor::eSrcAlpha;
-		case blending_factor::one_minus_source_alpha: 
-			return vk::BlendFactor::eOneMinusSrcAlpha;
-		case blending_factor::destination_alpha: 
-			return vk::BlendFactor::eDstAlpha;
-		case blending_factor::one_minus_destination_alpha:
-			return vk::BlendFactor::eOneMinusDstAlpha;
-		case blending_factor::constant_color: 
-			return vk::BlendFactor::eConstantColor;
-		case blending_factor::one_minus_constant_color: 
-			return vk::BlendFactor::eOneMinusConstantColor;
-		case blending_factor::constant_alpha: 
-			return vk::BlendFactor::eConstantAlpha;
-		case blending_factor::one_minus_constant_alpha: 
-			return vk::BlendFactor::eOneMinusConstantAlpha;
-		case blending_factor::source_alpha_saturate: 
-			return vk::BlendFactor::eSrcAlphaSaturate;
-		default:
-			throw std::invalid_argument("Invalid blend factor value.");
-		}
-	}
-
-	vk::BlendOp to_vk_blend_operation(cfg::color_blending_operation aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue)
-		{
-		case color_blending_operation::add: 
-			return vk::BlendOp::eAdd;
-		case color_blending_operation::subtract: 
-			return vk::BlendOp::eSubtract;
-		case color_blending_operation::reverse_subtract: 
-			return vk::BlendOp::eReverseSubtract;
-		case color_blending_operation::min: 
-			return vk::BlendOp::eMin;
-		case color_blending_operation::max: 
-			return vk::BlendOp::eMax;
-		default:
-			throw std::invalid_argument("Invalid color blending operation.");
-		}
-	}
-
-	vk::LogicOp to_vk_logic_operation(cfg::blending_logic_operation aValue)
-	{
-		using namespace cfg;
-		
-		switch (aValue)
-		{
-		case blending_logic_operation::op_clear:
-			return vk::LogicOp::eClear;
-		case blending_logic_operation::op_and: 
-			return vk::LogicOp::eAnd;
-		case blending_logic_operation::op_and_reverse: 
-			return vk::LogicOp::eAndReverse;
-		case blending_logic_operation::op_copy: 
-			return vk::LogicOp::eCopy;
-		case blending_logic_operation::op_and_inverted: 
-			return vk::LogicOp::eAndInverted;
-		case blending_logic_operation::no_op: 
-			return vk::LogicOp::eNoOp;
-		case blending_logic_operation::op_xor: 
-			return vk::LogicOp::eXor;
-		case blending_logic_operation::op_or: 
-			return vk::LogicOp::eOr;
-		case blending_logic_operation::op_nor: 
-			return vk::LogicOp::eNor;
-		case blending_logic_operation::op_equivalent: 
-			return vk::LogicOp::eEquivalent;
-		case blending_logic_operation::op_invert: 
-			return vk::LogicOp::eInvert;
-		case blending_logic_operation::op_or_reverse: 
-			return vk::LogicOp::eOrReverse;
-		case blending_logic_operation::op_copy_inverted: 
-			return vk::LogicOp::eCopyInverted;
-		case blending_logic_operation::op_or_inverted: 
-			return vk::LogicOp::eOrInverted;
-		case blending_logic_operation::op_nand: 
-			return vk::LogicOp::eNand;
-		case blending_logic_operation::op_set: 
-			return vk::LogicOp::eSet;
-		default: 
-			throw std::invalid_argument("Invalid blending logic operation.");
-		}
-	}
-
-	vk::AttachmentLoadOp to_vk_load_op(on_load aValue)
-	{
-		switch (aValue) {
-		case on_load::dont_care:
-			return vk::AttachmentLoadOp::eDontCare;
-		case on_load::clear: 
-			return vk::AttachmentLoadOp::eClear;
-		case on_load::load: 
-			return vk::AttachmentLoadOp::eLoad;
-		default:
-			throw std::invalid_argument("Invalid attachment load operation.");
-		}
-	}
-
-	vk::AttachmentStoreOp to_vk_store_op(on_store aValue)
-	{
-		switch (aValue) {
-		case on_store::dont_care:
-			return vk::AttachmentStoreOp::eDontCare;
-		case on_store::store:
-		case on_store::store_in_presentable_format:
-			return vk::AttachmentStoreOp::eStore;
-		default:
-			throw std::invalid_argument("Invalid attachment store operation.");
-		}
-	}
-
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(ak::pipeline_stage aValue)
-	{
-		vk::PipelineStageFlags result;
-		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (ak::is_included(aValue, ak::pipeline_stage::top_of_pipe					)) { result |= vk::PipelineStageFlagBits::eTopOfPipe					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::draw_indirect					)) { result |= vk::PipelineStageFlagBits::eDrawIndirect					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::vertex_input					)) { result |= vk::PipelineStageFlagBits::eVertexInput					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::vertex_shader					)) { result |= vk::PipelineStageFlagBits::eVertexShader					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_control_shader	)) { result |= vk::PipelineStageFlagBits::eTessellationControlShader	; }
-		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_evaluation_shader)) { result |= vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
-		if (ak::is_included(aValue, ak::pipeline_stage::geometry_shader				)) { result |= vk::PipelineStageFlagBits::eGeometryShader				; }
-		if (ak::is_included(aValue, ak::pipeline_stage::fragment_shader				)) { result |= vk::PipelineStageFlagBits::eFragmentShader				; }
-		if (ak::is_included(aValue, ak::pipeline_stage::early_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::late_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eLateFragmentTests			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::color_attachment_output		)) { result |= vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
-		if (ak::is_included(aValue, ak::pipeline_stage::compute_shader				)) { result |= vk::PipelineStageFlagBits::eComputeShader				; }
-		if (ak::is_included(aValue, ak::pipeline_stage::transfer						)) { result |= vk::PipelineStageFlagBits::eTransfer						; }
-		if (ak::is_included(aValue, ak::pipeline_stage::bottom_of_pipe				)) { result |= vk::PipelineStageFlagBits::eBottomOfPipe					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::host							)) { result |= vk::PipelineStageFlagBits::eHost							; }
-		if (ak::is_included(aValue, ak::pipeline_stage::all_graphics			)) { result |= vk::PipelineStageFlagBits::eAllGraphics					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::all_commands					)) { result |= vk::PipelineStageFlagBits::eAllCommands					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::transform_feedback			)) { result |= vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::conditional_rendering			)) { result |= vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
-#if VK_HEADER_VERSION >= 135
-		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
-#else 
-		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
-#endif
-		if (ak::is_included(aValue, ak::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
-		if (ak::is_included(aValue, ak::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
-		return result;
-	}
-	
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<ak::pipeline_stage> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_vk_pipeline_stage_flags(aValue.value());
-		}
-		return vk::PipelineStageFlags{};
-	}
-
-	vk::AccessFlags to_vk_access_flags(ak::memory_access aValue)
-	{
-		vk::AccessFlags result;
-		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (ak::is_included(aValue, ak::memory_access::indirect_command_data_read_access			)) { result |= vk::AccessFlagBits::eIndirectCommandRead; }
-		if (ak::is_included(aValue, ak::memory_access::index_buffer_read_access					)) { result |= vk::AccessFlagBits::eIndexRead; }
-		if (ak::is_included(aValue, ak::memory_access::vertex_buffer_read_access					)) { result |= vk::AccessFlagBits::eVertexAttributeRead; }
-		if (ak::is_included(aValue, ak::memory_access::uniform_buffer_read_access					)) { result |= vk::AccessFlagBits::eUniformRead; }
-		if (ak::is_included(aValue, ak::memory_access::input_attachment_read_access				)) { result |= vk::AccessFlagBits::eInputAttachmentRead; }
-		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_read_access		)) { result |= vk::AccessFlagBits::eShaderRead; }
-		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_write_access		)) { result |= vk::AccessFlagBits::eShaderWrite; }
-		if (ak::is_included(aValue, ak::memory_access::color_attachment_read_access				)) { result |= vk::AccessFlagBits::eColorAttachmentRead; }
-		if (ak::is_included(aValue, ak::memory_access::color_attachment_write_access				)) { result |= vk::AccessFlagBits::eColorAttachmentWrite; }
-		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_read_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentRead; }
-		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_write_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; }
-		if (ak::is_included(aValue, ak::memory_access::transfer_read_access						)) { result |= vk::AccessFlagBits::eTransferRead; }
-		if (ak::is_included(aValue, ak::memory_access::transfer_write_access						)) { result |= vk::AccessFlagBits::eTransferWrite; }
-		if (ak::is_included(aValue, ak::memory_access::host_read_access							)) { result |= vk::AccessFlagBits::eHostRead; }
-		if (ak::is_included(aValue, ak::memory_access::host_write_access							)) { result |= vk::AccessFlagBits::eHostWrite; }
-		if (ak::is_included(aValue, ak::memory_access::any_read_access							)) { result |= vk::AccessFlagBits::eMemoryRead; }
-		if (ak::is_included(aValue, ak::memory_access::any_write_access					 		)) { result |= vk::AccessFlagBits::eMemoryWrite; }
-		if (ak::is_included(aValue, ak::memory_access::transform_feedback_write_access			)) { result |= vk::AccessFlagBits::eTransformFeedbackWriteEXT; }
-		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_read_access		)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterReadEXT; }
-		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_write_access	)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterWriteEXT; }
-		if (ak::is_included(aValue, ak::memory_access::conditional_rendering_predicate_read_access)) { result |= vk::AccessFlagBits::eConditionalRenderingReadEXT; }
-#if VK_HEADER_VERSION >= 135
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
-#else
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
-#endif
-		if (ak::is_included(aValue, ak::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
-		if (ak::is_included(aValue, ak::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
-		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
-		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
-		if (ak::is_included(aValue, ak::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
-
-		return result;
-	}
-
-	vk::AccessFlags to_vk_access_flags(std::optional<ak::memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_vk_access_flags(aValue.value());
-		}
-		return vk::AccessFlags{};
-	}
-
-	ak::memory_access to_memory_access(ak::read_memory_access aValue)
-	{
-		return static_cast<ak::memory_access>(aValue);
-	}
-	
-	std::optional<ak::memory_access> to_memory_access(std::optional<ak::read_memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_memory_access(aValue.value());
-		}
-		return {};
-	}
-	
-	ak::memory_access to_memory_access(ak::write_memory_access aValue)
-	{
-		return static_cast<ak::memory_access>(aValue);
-	}
-	
-	std::optional<ak::memory_access> to_memory_access(std::optional<ak::write_memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_memory_access(aValue.value());
-		}
-		return {};
-	}
-
-	ak::filter_mode to_cgb_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
-	{
-		if (aMipMappingAvailable) {
-			if (aVulkanAnisotropy > 1.0f) {
-				if (std::fabs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_16x;
-				}
-				if (std::fabs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_8x;
-				}
-				if (std::fabs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_4x;
-				}
-				if (std::fabs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_2x;
-				}
-				if (std::fabs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_32x;
-				}
-				if (std::fabs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_64x;
-				}
-				AK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
-			}
-			return ak::filter_mode::trilinear;
-		}
-		return ak::filter_mode::bilinear;
-	}
-
-	vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info)
-	{
-		switch (info.imageType)
-		{
-		case vk::ImageType::e1D:
-			if (info.arrayLayers > 1) {
-				return vk::ImageViewType::e1DArray;
-			}
-			else {
-				return vk::ImageViewType::e1D;
-			}
-		case vk::ImageType::e2D:
-			if (info.arrayLayers > 1) {
-				return vk::ImageViewType::e2DArray;
-			}
-			else {
-				return vk::ImageViewType::e2D;
-			}
-		case vk::ImageType::e3D:
-			return vk::ImageViewType::e3D;
-		}
-		throw new ak::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
-	}
-#pragma endregion
 }
