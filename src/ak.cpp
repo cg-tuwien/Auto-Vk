@@ -7,20 +7,25 @@
 namespace ak
 {
 #pragma region root definitions
-	uint32_t root::find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+	uint32_t find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
 	{
 		// The VkPhysicalDeviceMemoryProperties structure has two arrays memoryTypes and memoryHeaps. 
 		// Memory heaps are distinct memory resources like dedicated VRAM and swap space in RAM for 
 		// when VRAM runs out. The different types of memory exist within these heaps. Right now we'll 
 		// only concern ourselves with the type of memory and not the heap it comes from, but you can 
 		// imagine that this can affect performance. (Source: https://vulkan-tutorial.com/)
-		auto memProperties = physical_device().getMemoryProperties();
+		auto memProperties = aPhysicalDevice.getMemoryProperties();
 		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
 			if ((aMemoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & aMemoryProperties) == aMemoryProperties) {
 				return i;
 			}
 		}
 		throw ak::runtime_error("failed to find suitable memory type!");
+	}
+	
+	uint32_t root::find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+	{
+		return find_memory_type_index(physical_device(), aMemoryTypeBits, aMemoryProperties);
 	}
 
 	bool root::is_format_supported(vk::Format pFormat, vk::ImageTiling pTiling, vk::FormatFeatureFlags aFormatFeatures)
@@ -46,16 +51,21 @@ namespace ak
 		return rtProps;
 	}
 
-	vk::DeviceAddress root::get_buffer_address(vk::Buffer aBufferHandle)
+	vk::DeviceAddress root::get_buffer_address(const vk::Device& aDevice, vk::Buffer aBufferHandle)
 	{
-		PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device(), "vkGetBufferDeviceAddressKHR"));
+		PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(aDevice, "vkGetBufferDeviceAddressKHR"));
 
 	    VkBufferDeviceAddressInfo bufferAddressInfo;
 		bufferAddressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 		bufferAddressInfo.pNext = nullptr;
 		bufferAddressInfo.buffer = aBufferHandle;
 
-	    return vkGetBufferDeviceAddress(device(), &bufferAddressInfo);
+	    return vkGetBufferDeviceAddress(aDevice, &bufferAddressInfo);
+	}
+
+	vk::DeviceAddress root::get_buffer_address(vk::Buffer aBufferHandle)
+	{
+		return get_buffer_address(device(), aBufferHandle);
 	}
 
 	void root::finish_configuration(buffer_view_t& aBufferViewToBeFinished, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
@@ -1253,7 +1263,7 @@ namespace ak
 		return {};
 	}
 
-	ak::filter_mode to_cgb_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
+	ak::filter_mode to_vk_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
 	{
 		if (aMipMappingAvailable) {
 			if (aVulkanAnisotropy > 1.0f) {
@@ -1339,7 +1349,7 @@ namespace ak
 	}
 #pragma endregion
 
-#pragma region bottom level acceleration structure definitions
+#pragma region acceleration structure definitions
 	ak::owning_resource<bottom_level_acceleration_structure_t> root::create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
 	{
 		bottom_level_acceleration_structure_t result;
@@ -1384,17 +1394,17 @@ namespace ak
 		return result;
 	}
 
-	//const generic_buffer_t& bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
-	//{
-	//	if (!mScratchBuffer.has_value()) {
-	//		mScratchBuffer = ak::create(
-	//			ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size())),
-	//			ak::memory_usage::device,
-	//			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
-	//		);
-	//	}
-	//	return mScratchBuffer.value();
-	//}
+	const generic_buffer_t& bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
+	{
+		if (!mScratchBuffer.has_value()) {
+			mScratchBuffer = create_buffer(
+				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size())),
+				ak::memory_usage::device,
+				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+			);
+		}
+		return mScratchBuffer.value();
+	}
 	
 	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(std::vector<std::tuple<std::reference_wrapper<const ak::vertex_buffer_t>, std::reference_wrapper<const ak::index_buffer_t>>> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, blas_action aBuildAction)
 	{
@@ -1407,7 +1417,7 @@ namespace ak
 		}
 		else {
 			throw ak::runtime_error("Not implemented!");
-			//scratchBuffer = &get_and_possibly_create_scratch_buffer();
+			scratchBuffer = &get_and_possibly_create_scratch_buffer();
 		}
 
 		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
@@ -1583,36 +1593,376 @@ namespace ak
 	{
 		build_or_update(std::move(aBuffer), std::move(aGeometries), std::move(aSyncHandler), std::move(aScratchBuffer), blas_action::update);
 	}
+
+	ak::owning_resource<top_level_acceleration_structure_t> root::create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
+	{
+		top_level_acceleration_structure_t result;
+
+		// 2. Assemble info about the BOTTOM LEVEL acceleration structure and the set its geometry
+		auto geometryTypeInfo = vk::AccelerationStructureCreateGeometryTypeInfoKHR{}
+			.setGeometryType(vk::GeometryTypeKHR::eInstances)
+			.setMaxPrimitiveCount(aInstanceCount)
+			.setIndexType(vk::IndexType::eNoneKHR)
+			.setMaxVertexCount(0u)
+			.setVertexFormat(vk::Format::eUndefined)
+			.setAllowsTransforms(VK_FALSE);
+		
+		result.mCreateInfo = vk::AccelerationStructureCreateInfoKHR{}
+			.setCompactedSize(0) // If compactedSize is 0 then maxGeometryCount must not be 0
+			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
+			.setFlags(aAllowUpdates 
+					  ? vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate | vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild
+					  : vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace) // TODO: Support flags
+			.setMaxGeometryCount(1u) // If type is VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR and compactedSize is 0, maxGeometryCount must be 1
+			.setPGeometryInfos(&geometryTypeInfo)
+			.setDeviceAddress(VK_NULL_HANDLE);
+		
+		// 3. Maybe alter the config?
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		// 4. Create it
+		result.mAccStructure = device().createAccelerationStructureKHRUnique(result.mCreateInfo, nullptr, dynamic_dispatch());
+
+		// Steps 5. to 10. in here:
+		finish_acceleration_structure_creation(result, std::move(aAlterConfigBeforeMemoryAlloc));
+
+		return result;
+	}
+
+	const generic_buffer_t& top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
+	{
+		if (!mScratchBuffer.has_value()) {
+			mScratchBuffer = cgb::create(
+				cgb::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size())),
+				xv::memory_usage::device, 
+				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+			);
+		}
+		return mScratchBuffer.value();
+	}
+
+	std::optional<command_buffer> top_level_acceleration_structure_t::build_or_update(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, tlas_action aBuildAction)
+	{
+		aSyncHandler.set_queue_hint(cgb::context().transfer_queue()); // TODO: better use graphics queue?
+		
+		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
+		const generic_buffer_t* scratchBuffer = nullptr;
+		if (aScratchBuffer.has_value()) {
+			scratchBuffer = &aScratchBuffer->get();
+		}
+		else {
+			scratchBuffer = &get_and_possibly_create_scratch_buffer();
+		}
+
+		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
+		accStructureGeometries.reserve(aGeometryInstances.size());
+		
+		std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> buildGeometryInfos;
+		buildGeometryInfos.reserve(aGeometryInstances.size()); 
+		
+		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
+		buildOffsetInfos.reserve(aGeometryInstances.size());
+		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
+		buildOffsetInfoPtrs.reserve(aGeometryInstances.size());
+		
+		auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
+		
+		// TODO: Retain this buffer, don't always create a new one
+		auto geomInstBuffer = cgb::create_and_fill(
+				cgb::generic_buffer_meta::create_from_data(geomInstances),
+				xv::memory_usage::host_coherent,
+				geomInstances.data(),
+				sync::not_required(),
+				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR // <--- TODO: Which eShaderDeviceAddress*  flag??
+			);
+
+		for (auto& gi : aGeometryInstances) {
+
+			accStructureGeometries.emplace_back()
+				.setGeometryType(vk::GeometryTypeKHR::eInstances)
+				.setGeometry(vk::AccelerationStructureGeometryInstancesDataKHR{}
+					.setArrayOfPointers(VK_FALSE) // arrayOfPointers specifies whether data is used as an array of addresses or just an array.
+					// TODO: Is this ^ relevant? Probably only for host-builds if the data is structured in "array of pointers"-style?!
+					.setData(vk::DeviceOrHostAddressConstKHR{ geomInstBuffer->buffer_address() })
+				)
+				.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
+			
+			auto& boi = buildOffsetInfos.emplace_back()
+				// For geometries of type VK_GEOMETRY_TYPE_INSTANCES_KHR, primitiveCount is the number of acceleration
+				// structures. primitiveCount VkAccelerationStructureInstanceKHR structures are consumed from
+				// VkAccelerationStructureGeometryInstancesDataKHR::data, starting at an offset of primitiveOffset.
+				.setPrimitiveCount(static_cast<uint32_t>(aGeometryInstances.size())) 
+				.setPrimitiveOffset(0u)
+				.setFirstVertex(0u)
+				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
+
+			buildOffsetInfoPtrs.emplace_back(&boi);
+		}
+
+		const auto* pointerToAnArray = accStructureGeometries.data();
+
+		buildGeometryInfos.emplace_back()
+			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
+			.setFlags(mCreateInfo.flags)
+			.setUpdate(aBuildAction == tlas_action::build ? VK_FALSE : VK_TRUE)
+			.setSrcAccelerationStructure(nullptr) // TODO: support different src acceleration structure?!
+			.setDstAccelerationStructure(mAccStructure.get())
+			.setGeometryArrayOfPointers(VK_FALSE)
+			.setGeometryCount(1u) // TODO: Correct?
+			.setPpGeometries(&pointerToAnArray)
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->buffer_address() });
+
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		// Sync before:
+		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::acceleration_structure_build, read_memory_access{memory_access::acceleration_structure_read_access});
+
+		// Operation:
+		commandBuffer.handle().buildAccelerationStructureKHR(
+			static_cast<uint32_t>(buildGeometryInfos.size()), 
+			buildGeometryInfos.data(),
+			buildOffsetInfoPtrs.data(),
+			cgb::context().dynamic_dispatch()
+		);
+
+		// Sync after:
+		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
+
+		return aSyncHandler.submit_and_sync();
+	}
+
+	void top_level_acceleration_structure_t::build(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	{
+		build_or_update(aGeometryInstances, std::move(aSyncHandler), std::move(aScratchBuffer), tlas_action::build);
+	}
+	
+	void top_level_acceleration_structure_t::update(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	{
+		build_or_update(aGeometryInstances, std::move(aSyncHandler), std::move(aScratchBuffer), tlas_action::update);
+	}
 #pragma endregion
 
 #pragma region buffer definitions
-
-#pragma endregion
-
-#pragma region buffer view definitions
-	owning_resource<buffer_view_t> root::create_buffer_view(ak::uniform_texel_buffer aBufferToOwn, std::optional<vk::Format> aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+	buffer root::create_buffer(const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const buffer_meta& aMetaData, vk::BufferUsageFlags aBufferUsage, vk::MemoryPropertyFlags aMemoryProperties, vk::MemoryAllocateFlags aMemoryAllocateFlags)
 	{
-		buffer_view_t result;
-		vk::Format format;
-		if (aViewFormat.has_value()) {
-			format = aViewFormat.value();
+		auto bufferSize = aMetaData.total_size();
+
+		// Create (possibly multiple) buffer(s):
+		auto bufferCreateInfo = vk::BufferCreateInfo()
+			.setSize(static_cast<vk::DeviceSize>(bufferSize))
+			.setUsage(aBufferUsage)
+			// Always grant exclusive ownership to the queue.
+			.setSharingMode(vk::SharingMode::eExclusive)
+			// The flags parameter is used to configure sparse buffer memory, which is not relevant right now. We'll leave it at the default value of 0. [2]
+			.setFlags(vk::BufferCreateFlags()); 
+
+		// Create the buffer on the logical device
+		auto vkBuffer = aDevice.createBufferUnique(bufferCreateInfo);
+
+		// The buffer has been created, but it doesn't actually have any memory assigned to it yet. 
+		// The first step of allocating memory for the buffer is to query its memory requirements [2]
+		const auto memRequirements = aDevice.getBufferMemoryRequirements(vkBuffer.get());
+
+		auto allocInfo = vk::MemoryAllocateInfo()
+			.setAllocationSize(memRequirements.size)
+			.setMemoryTypeIndex(find_memory_type_index(
+				aPhysicalDevice,
+				memRequirements.memoryTypeBits, 
+				aMemoryProperties));
+
+		auto allocateFlagsInfo = vk::MemoryAllocateFlagsInfo{};
+		if (aMemoryAllocateFlags) {
+			allocateFlagsInfo.setFlags(aMemoryAllocateFlags);
+			allocInfo.setPNext(&allocateFlagsInfo);
 		}
-		else {
-			if (aBufferToOwn->meta_data().member_descriptions().size() == 0) {
-				throw ak::runtime_error("No _ViewFormat passed and ak::uniform_texel_buffer contains no member descriptions");
-			}
-			if (aBufferToOwn->meta_data().member_descriptions().size() > 1) {
-				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
-			}
-			format = aBufferToOwn->meta_data().member_descriptions().front().mFormat;
+
+		// Allocate the memory for the buffer:
+		auto vkMemory = aDevice.allocateMemoryUnique(allocInfo);
+
+		// If memory allocation was successful, then we can now associate this memory with the buffer
+		aDevice.bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
+		// TODO: if(!succeeded) { throw ak::runtime_error("Binding memory to buffer failed."); }
+
+		buffer_t result;
+		result.mMetaData.push_back(aMetaData);
+		result.mCreateInfo = bufferCreateInfo;
+		result.mMemoryPropertyFlags = aMemoryProperties;
+		result.mMemory = std::move(vkMemory);
+		result.mBufferUsageFlags = aBufferUsage;
+		result.mPhysicalDevice = aPhysicalDevice;
+		result.mBuffer = std::move(vkBuffer);
+
+		if (ak::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || ak::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || ak::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
 		}
-		// Transfer ownership:
-		result.mBuffer = std::move(aBufferToOwn);
-		finish_configuration(result, format, std::move(aAlterConfigBeforeCreation));
+		
 		return result;
 	}
 	
-	owning_resource<buffer_view_t> root::create_buffer_view(ak::storage_texel_buffer aBufferToOwn, std::optional<vk::Format> aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+	std::optional<command_buffer> buffer_t::fill(const void* pData, size_t aMetaDataIndex, sync aSyncHandler)
+	{
+		auto metaData = meta_data<buffer_meta>(aMetaDataIndex);
+		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
+		auto memProps = memory_properties();
+		auto device = mBuffer.getOwner();
+
+		// #1: Is our memory on the CPU-SIDE? 
+		if (ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
+			void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
+			memcpy(mapped, pData, bufferSize);
+			// Coherent memory is done; non-coherent memory not yet
+			if (!ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
+				// Setup the range 
+				auto range = vk::MappedMemoryRange()
+					.setMemory(memory_handle())
+					.setOffset(0)
+					.setSize(bufferSize);
+				// Flush the range
+				device.flushMappedMemoryRanges(1, &range);
+			}
+			device.unmapMemory(memory_handle());
+			// TODO: Handle has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCached) case
+
+			// No need to sync, so.. don't sync!
+			return {}; // TODO: This should be okay, is it?
+		}
+
+		// #2: Otherwise, it must be on the GPU-SIDE!
+		else {
+			assert(ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
+
+			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
+			// "somewhat temporary" means that it can not be deleted in this function, but only
+			//						after the transfer operation has completed => handle via sync
+			auto stagingBuffer = root::create_buffer(
+				mPhysicalDevice, device,
+				ak::memory_usage::host_coherent,
+				vk::BufferUsageFlagBits::eTransferSrc,
+				generic_buffer_meta::create_from_size(bufferSize)
+			);
+			stagingBuffer->fill(pData); // Recurse into the other if-branch
+
+			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+			// Sync before:
+			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
+			// Operation:
+			auto copyRegion = vk::BufferCopy{}
+				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
+				.setDstOffset(0u)
+				.setSize(bufferSize);
+			commandBuffer.handle().copyBuffer(stagingBuffer->buffer_handle(), buffer_handle(), { copyRegion });
+
+			// Sync after:
+			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+
+			// Take care of the lifetime handling of the stagingBuffer, it might still be in use:
+			commandBuffer.set_custom_deleter([
+				lOwnedStagingBuffer{ std::move(stagingBuffer) }
+			]() { /* Nothing to do here, the buffers' destructors will do the cleanup, the lambda is just storing it. */ });
+			
+			// Finish him:
+			return aSyncHandler.submit_and_sync();			
+		}
+	}
+
+	std::optional<command_buffer> buffer_t::read(void* aData, size_t aMetaDataIndex, sync aSyncHandler) const
+	{
+		auto metaData = meta_data<buffer_meta>(aMetaDataIndex);
+		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
+		auto memProps = memory_properties();
+		auto device = mBuffer.getOwner();
+		
+		// #1: Is our memory accessible on the CPU-SIDE? 
+		if (ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
+			
+			const void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
+			if (!ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
+				// Setup the range 
+				auto range = vk::MappedMemoryRange()
+					.setMemory(memory_handle())
+					.setOffset(0)
+					.setSize(bufferSize);
+				// Flush the range
+				device.invalidateMappedMemoryRanges(1, &range); // TODO: Test this! (should be okay, but double-check against spec.: https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/vkInvalidateMappedMemoryRanges.html)
+			}
+			memcpy(aData, mapped, bufferSize);
+			device.unmapMemory(memory_handle());
+			// TODO: Handle has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCached) case
+			return {};
+		}
+
+		// #2: Otherwise, it must be on the GPU-SIDE!
+		else {
+			assert(ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
+
+			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
+			// "somewhat temporary" means that it can not be deleted in this function, but only
+			//						after the transfer operation has completed => handle via ak::sync!
+			auto stagingBuffer = root::create_buffer(
+				mPhysicalDevice, device,
+				ak::memory_usage::host_coherent,
+				vk::BufferUsageFlagBits::eTransferDst,
+				generic_buffer_meta::create_from_size(bufferSize));
+			// TODO: Creating a staging buffer in every read()-call is probably not optimal. => Think about alternative ways!
+
+			// TODO: What about queue ownership?! If not the device_queue_selection_strategy::prefer_everything_on_single_queue strategy is being applied, it could very well be that this fails.
+			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+			// Sync before:
+			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
+			// Operation:
+			auto copyRegion = vk::BufferCopy{}
+				.setSrcOffset(0u)
+				.setDstOffset(0u)
+				.setSize(bufferSize);
+			commandBuffer.handle().copyBuffer(buffer_handle(), stagingBuffer->buffer_handle(), { copyRegion });
+
+			// Sync after:
+			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+
+			// Take care of the stagingBuffer's lifetime handling and also of reading the data for this branch:
+			commandBuffer.set_custom_deleter([ 
+				lOwnedStagingBuffer{ std::move(stagingBuffer) },
+				aMetaDataIndex,
+				aData
+			]() {
+				lOwnedStagingBuffer->read(aData, aMetaDataIndex, sync::not_required()); // TODO: not sure about that sync
+			});
+
+			// Finish him:
+			return aSyncHandler.submit_and_sync();
+		}
+	}
+#pragma endregion
+
+#pragma region buffer view definitions
+	const vk::Buffer& buffer_view_t::buffer_handle() const
+	{
+		if (std::holds_alternative<buffer>(mBuffer)) {
+			return std::get<buffer>(mBuffer)->buffer_handle();
+		}
+		return std::get<vk::Buffer>(std::get<std::tuple<vk::Buffer, vk::BufferCreateInfo>>(mBuffer));	
+	}
+
+	const vk::BufferCreateInfo& buffer_view_t::buffer_config() const
+	{
+		if (std::holds_alternative<buffer>(mBuffer)) {
+			return std::get<buffer>(mBuffer)->config();
+		}
+		return std::get<vk::BufferCreateInfo>(std::get<std::tuple<vk::Buffer, vk::BufferCreateInfo>>(mBuffer));
+	}
+
+	vk::DescriptorType buffer_view_t::descriptor_type(size_t aOffset = 0) const
+	{
+		if (std::holds_alternative<buffer>(mBuffer)) {
+			return std::get<buffer>(mBuffer)->descriptor_type(aOffset);
+		}
+		throw ak::runtime_error("Which descriptor type?");
+	}
+	
+	buffer_view root::create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
 		buffer_view_t result;
 		vk::Format format;
@@ -1620,13 +1970,13 @@ namespace ak
 			format = aViewFormat.value();
 		}
 		else {
-			if (aBufferToOwn->meta_data().member_descriptions().size() == 0) {
-				throw ak::runtime_error("No aViewFormat passed and ak::storage_texel_buffer contains no member descriptions");
+			if (aBufferToOwn->meta_data<buffer_meta>().member_descriptions().size() == 0) {
+				throw ak::runtime_error("No _ViewFormat passed and ak::uniform_texel_buffer contains no member descriptions");
 			}
-			if (aBufferToOwn->meta_data().member_descriptions().size() > 1) {
-				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in ak::storage_texel_buffer. The view will likely be corrupted.");
+			if (aBufferToOwn->meta_data<buffer_meta>().member_descriptions().size() > 1) {
+				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
 			}
-			format = aBufferToOwn->meta_data().member_descriptions().front().mFormat;
+			format = aBufferToOwn->meta_data<buffer_meta>().member_descriptions().front().mFormat;
 		}
 		// Transfer ownership:
 		result.mBuffer = std::move(aBufferToOwn);
@@ -1958,7 +2308,7 @@ namespace ak
 			throw ak::logic_error("Shader missing in compute_pipeline_config! A compute pipeline can not be constructed without a shader.");
 		}
 		//    Compile the shader
-		result.mShader = std::move(shader::create(aConfig.mShaderInfo.value()));
+		result.mShader = std::move(create_shader(aConfig.mShaderInfo.value()));
 		assert(result.mShader.has_been_built());
 		//    Just fill in the create struct
 		result.mShaderStageCreateInfo = vk::PipelineShaderStageCreateInfo{}
@@ -2677,7 +3027,7 @@ namespace ak
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
-			renderpass_t::create(std::move(aAttachments)),
+			create_renderpass(std::move(aAttachments)),
 			std::move(aImageViews),
 			aWidth, aHeight,
 			std::move(aAlterConfigBeforeCreation)
@@ -2695,7 +3045,7 @@ namespace ak
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
-			std::move(renderpass_t::create(std::move(aAttachments))),
+			create_renderpass(std::move(aAttachments)),
 			std::move(aImageViews),
 			std::move(aAlterConfigBeforeCreation)
 		);
@@ -3010,7 +3360,7 @@ namespace ak
 				throw ak::runtime_error("There's already a " + vk::to_string(to_vk_shader_stages(shaderInfo.mShaderType)) + "-type shader contained in this graphics pipeline. Can not add another one of the same type.");
 			}
 			// 5.1 Compile the shader
-			result.mShaders.push_back(shader::create(shaderInfo));
+			result.mShaders.push_back(create_shader(shaderInfo));
 			assert(result.mShaders.back().has_been_built());
 			// 5.2 Combine
 			result.mShaderStageCreateInfos.push_back(vk::PipelineShaderStageCreateInfo{}
@@ -4201,22 +4551,22 @@ namespace ak
 	triangles_hit_group triangles_hit_group::create_with_rahit_only(std::string _AnyHitShaderPath)
 	{
 		return create_with_rahit_only(
-			shader_info::create(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit)
+			shader_info::describe(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit)
 		);
 	}
 
 	triangles_hit_group triangles_hit_group::create_with_rchit_only(std::string _ClosestHitShaderPath)
 	{
 		return create_with_rchit_only(
-			shader_info::create(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
 		);
 	}
 
 	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(std::string _AnyHitShaderPath, std::string _ClosestHitShaderPath)
 	{
 		return create_with_rahit_and_rchit(
-			shader_info::create(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit),
-			shader_info::create(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit),
+			shader_info::describe(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
 		);
 	}
 
@@ -4268,32 +4618,32 @@ namespace ak
 	procedural_hit_group procedural_hit_group::create_with_rint_only(std::string _IntersectionShader)
 	{
 		return create_with_rint_only(
-			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection)
+			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection)
 		);
 	}
 
 	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(std::string _IntersectionShader, std::string _AnyHitShader)
 	{
 		return create_with_rint_and_rahit(
-			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection),
-			shader_info::create(std::move(_AnyHitShader), "main", false, shader_type::any_hit)
+			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection),
+			shader_info::describe(std::move(_AnyHitShader), "main", false, shader_type::any_hit)
 		);
 	}
 
 	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(std::string _IntersectionShader, std::string _ClosestHitShader)
 	{
 		return create_with_rint_and_rchit(
-			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection),
-			shader_info::create(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection),
+			shader_info::describe(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
 		);
 	}
 
 	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(std::string _IntersectionShader, std::string _AnyHitShader, std::string _ClosestHitShader)
 	{
 		return create_with_rint_and_rahit_and_rchit(
-			shader_info::create(std::move(_IntersectionShader), "main", false, shader_type::intersection),
-			shader_info::create(std::move(_AnyHitShader), "main", false, shader_type::any_hit),
-			shader_info::create(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection),
+			shader_info::describe(std::move(_AnyHitShader), "main", false, shader_type::any_hit),
+			shader_info::describe(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
 		);
 	}
 
@@ -4372,7 +4722,7 @@ namespace ak
 		result.mShaderStageCreateInfos.reserve(orderedUniqueShaderInfos.size());
 		for (auto& shaderInfo : orderedUniqueShaderInfos) {
 			// 2.2 Compile the shader
-			result.mShaders.push_back(shader::create(shaderInfo));
+			result.mShaders.push_back(create_shader(shaderInfo));
 			assert(result.mShaders.back().has_been_built());
 			// 2.3 Create shader info
 			result.mShaderStageCreateInfos.push_back(vk::PipelineShaderStageCreateInfo{}
@@ -4539,4 +4889,657 @@ namespace ak
 	}
 #pragma endregion
 
+#pragma region renderpass definitions
+using namespace cpplinq;
+
+	struct subpass_desc_helper
+	{
+		size_t mSubpassId;
+		std::map<uint32_t, vk::AttachmentReference> mSpecificInputLocations;
+		std::queue<vk::AttachmentReference> mUnspecifiedInputLocations;
+		int mInputMaxLoc;
+		std::map<uint32_t, vk::AttachmentReference> mSpecificColorLocations;
+		std::queue<vk::AttachmentReference> mUnspecifiedColorLocations;
+		int mColorMaxLoc;
+		std::map<uint32_t, vk::AttachmentReference> mSpecificDepthStencilLocations;
+		std::queue<vk::AttachmentReference> mUnspecifiedDepthStencilLocations;
+		int mDepthStencilMaxLoc;
+		std::map<uint32_t, vk::AttachmentReference> mSpecificResolveLocations;
+		std::queue<vk::AttachmentReference> mUnspecifiedResolveLocations;
+		std::vector<uint32_t> mPreserveAttachments;
+	};
+
+	owning_resource<renderpass_t> root::create_renderpass(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	{
+		renderpass_t result;
+
+		std::vector<subpass_desc_helper> subpasses;
+		
+		if (aAttachments.empty()) {
+			throw ak::runtime_error("No attachments have been passed to the creation of a renderpass.");
+		}
+		const auto numSubpassesFirst = aAttachments.front().mSubpassUsages.num_subpasses();
+		// All further attachments must have the same number of subpasses! It will be checked.
+		subpasses.reserve(numSubpassesFirst);
+		for (size_t i = 0; i < numSubpassesFirst; ++i) {
+			auto& a = subpasses.emplace_back();
+			a.mSubpassId = i;
+			a.mInputMaxLoc = -1;
+			a.mColorMaxLoc = -1;
+			a.mDepthStencilMaxLoc = -1;
+		}
+
+		result.mAttachmentDescriptions.reserve(aAttachments.size());
+		for (const auto& a : aAttachments) {
+			// Try to infer initial and final image layouts (If this isn't cool => user must use aAlterConfigBeforeCreation)
+			vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
+			vk::ImageLayout finalLayout = vk::ImageLayout::eUndefined;
+
+			const auto isLoad = ak::on_load::load == a.mLoadOperation;
+			const auto isClear = ak::on_load::clear == a.mLoadOperation;
+			const auto isStore  = ak::on_store::store == a.mStoreOperation || ak::on_store::store_in_presentable_format == a.mStoreOperation;
+			const auto makePresentable = ak::on_store::store_in_presentable_format == a.mStoreOperation;
+			
+			const auto hasSeparateStencilLoad = a.mStencilLoadOperation.has_value();
+			const auto hasSeparateStencilStore = a.mStencilStoreOperation.has_value();
+			const auto isStencilLoad = ak::on_load::load == a.get_stencil_load_op();
+			const auto isStencilClear = ak::on_load::clear == a.get_stencil_load_op();
+			const auto isStencilStore  = ak::on_store::store == a.get_stencil_store_op() || ak::on_store::store_in_presentable_format == a.get_stencil_store_op();
+			const auto makeStencilPresentable = ak::on_store::store_in_presentable_format == a.get_stencil_store_op();
+			const auto hasStencilComponent = has_stencil_component(a.format());
+
+			bool initialLayoutFixed = false;
+			auto firstUsage = a.get_first_color_depth_input();
+			if (firstUsage.as_input()) {
+				if (isLoad) {
+					initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+					initialLayoutFixed = true;
+				}
+				if (isClear) {
+					initialLayoutFixed = true;
+				}
+			}
+			if (firstUsage.as_color()) { // this potentially overwrites the above
+				if (isLoad) {
+					initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
+					initialLayoutFixed = true;
+				}
+				if (isClear) {
+					initialLayoutFixed = true;
+				}
+			}
+			if (firstUsage.as_depth_stencil()) {
+				if (isLoad) {
+					initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+					{
+						// TODO: Set other depth/stencil-specific formats
+						//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
+						//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
+						//       - vk::ImageLayout::eDepthReadOnlyOptimal
+						//       - vk::ImageLayout::eStencilAttachmentOptimal
+						//       - vk::ImageLayout::eStencilReadOnlyOptimal
+					}
+					initialLayoutFixed = true;
+				}
+				if (isClear) {
+					initialLayoutFixed = true;
+				}
+			}
+			if (!initialLayoutFixed) {
+				if (a.mImageUsageHintBefore.has_value()) {
+					// If we detect the image usage to be more generic, we should change the layout to something more generic
+					if (ak::has_flag(a.mImageUsageHintBefore.value(), ak::image_usage::sampled)) {
+						initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+					}
+					if (ak::has_flag(a.mImageUsageHintBefore.value(), ak::image_usage::shader_storage)) {
+						initialLayout = vk::ImageLayout::eGeneral;
+					}
+				}
+			}
+			
+			auto lastUsage = a.get_last_color_depth_input();
+			if (lastUsage.as_input()) {
+				finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			}
+			if (lastUsage.as_color()) { // This potentially overwrites the above
+				finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			}
+			if (lastUsage.as_depth_stencil()) {
+				finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+				{
+					// TODO: Set other depth/stencil-specific formats
+					//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
+					//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
+					//       - vk::ImageLayout::eDepthReadOnlyOptimal
+					//       - vk::ImageLayout::eStencilAttachmentOptimal
+					//       - vk::ImageLayout::eStencilReadOnlyOptimal
+				}
+			}
+			if (isStore && vk::ImageLayout::eUndefined == finalLayout) {
+				if (a.is_used_as_color_attachment()) {
+					finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+				}
+				else if (a.is_used_as_depth_stencil_attachment()) {
+					finalLayout = vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal;
+				}
+				else if (a.is_used_as_input_attachment()) {
+					finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+				}
+			}
+			if (a.mImageUsageHintAfter.has_value()) {
+				// If we detect the image usage to be more generic, we should change the layout to something more generic
+				if (ak::has_flag(a.mImageUsageHintAfter.value(), ak::image_usage::sampled)) {
+					finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+				}
+				if (ak::has_flag(a.mImageUsageHintAfter.value(), ak::image_usage::shader_storage)) {
+					finalLayout = vk::ImageLayout::eGeneral;
+				}
+			}
+			if (vk::ImageLayout::eUndefined == finalLayout) {
+				// We can just guess:
+				finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			}
+			
+			if (a.shall_be_presentable()) {
+				finalLayout = vk::ImageLayout::ePresentSrcKHR;
+			}
+
+			if (!initialLayoutFixed && isLoad) {
+				initialLayout = finalLayout;
+			}
+			// ^^^ I have no idea what I'm assuming ^^^
+
+			// 1. Create the attachment descriptions
+			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription()
+				.setFormat(a.format())
+				.setSamples(a.sample_count())
+				.setLoadOp(to_vk_load_op(a.mLoadOperation))
+				.setStoreOp(to_vk_store_op(a.mStoreOperation))
+				.setStencilLoadOp(to_vk_load_op(a.get_stencil_load_op()))
+				.setStencilStoreOp(to_vk_store_op(a.get_stencil_store_op()))
+				.setInitialLayout(initialLayout)
+				.setFinalLayout(finalLayout)
+			);
+			
+			const auto attachmentIndex = static_cast<uint32_t>(result.mAttachmentDescriptions.size() - 1); // Index of this attachment as used in the further subpasses
+
+			// 2. Go throught the subpasses and gather data for subpass config
+			const auto nSubpasses = a.mSubpassUsages.num_subpasses();
+			if (nSubpasses != numSubpassesFirst) {
+				throw ak::runtime_error("All attachments must have the exact same number of subpasses!");
+			}
+
+			// Determine and fill clear values:
+			assert(result.mAttachmentDescriptions.size() == result.mClearValues.size() + 1);
+			size_t spId = 0;
+			while (result.mAttachmentDescriptions.size() != result.mClearValues.size() && spId < nSubpasses) {
+				auto subpassUsage = a.mSubpassUsages.get_subpass_usage(spId);
+				if (subpassUsage.as_color()) {
+					result.mClearValues.emplace_back(vk::ClearColorValue{ a.clear_color() });
+				}
+				if (subpassUsage.as_depth_stencil()) {
+					result.mClearValues.emplace_back(vk::ClearDepthStencilValue{ a.depth_clear_value(), a.stencil_clear_value() });
+				}
+				++spId;
+			}
+			if (result.mAttachmentDescriptions.size() != result.mClearValues.size() ) {
+				result.mClearValues.emplace_back(); // just an empty clear value
+			}
+			assert(result.mAttachmentDescriptions.size() == result.mClearValues.size());
+			
+			for (size_t i = 0; i < nSubpasses; ++i) {
+				auto& sp = subpasses[i];
+				auto subpassUsage = a.mSubpassUsages.get_subpass_usage(i);
+				if (subpassUsage.as_input()) {
+					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment
+					if (subpassUsage.has_input_location()) {
+						auto loc = subpassUsage.input_location();
+						if (sp.mSpecificInputLocations.count(loc) != 0) {
+							throw ak::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for an input attachments in subpass " + std::to_string(i) + ". This is not allowed.");
+						}
+						sp.mSpecificInputLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal};
+						sp.mInputMaxLoc = std::max(sp.mInputMaxLoc, loc);
+					}
+					else {
+						AK_LOG_WARNING("No layout location is specified for an input attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
+						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal});
+					}
+				}
+				if (subpassUsage.as_color()) {
+					auto resolve = subpassUsage.has_resolve();
+					if (subpassUsage.has_color_location()) {
+						auto loc = subpassUsage.color_location();
+						if (sp.mSpecificColorLocations.count(loc) != 0) {
+							throw ak::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for a color attachments in subpass " + std::to_string(i) + ". This is not allowed.");
+						}
+						sp.mSpecificColorLocations[loc] =	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal};
+						sp.mSpecificResolveLocations[loc] =	 vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal};
+						sp.mColorMaxLoc = std::max(sp.mColorMaxLoc, loc);
+					}
+					else {
+						AK_LOG_WARNING("No layout location is specified for a color attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
+						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal});
+						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal});
+					}
+				}
+				if (subpassUsage.as_depth_stencil()) {
+					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment // TODO: Support depth/stencil resolve by using VkSubpassDescription2
+					//if (hasLoc) { // Depth/stencil attachments have no location... have they?
+					//	if (sp.mSpecificDepthStencilLocations.count(loc) != 0) {
+					//		throw ak::runtime_error(fmt::format("Layout location {} is used multiple times for a depth/stencil attachments in subpass {}. This is not allowed.", loc, i));
+					//	}
+					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
+					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
+					//}
+					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+				}
+				if (subpassUsage.as_preserve()) {
+					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment 
+					assert(!subpassUsage.as_input() && !subpassUsage.as_color() && !subpassUsage.as_depth_stencil()); // Makes no sense to preserve and use as something else
+					sp.mPreserveAttachments.push_back(attachmentIndex);
+				}
+			}
+		}
+
+		// 3. Fill all the vectors in the right order:
+		const auto unusedAttachmentRef = vk::AttachmentReference().setAttachment(VK_ATTACHMENT_UNUSED);
+		result.mSubpassData.reserve(numSubpassesFirst);
+		for (size_t i = 0; i < numSubpassesFirst; ++i) {
+			auto& a = subpasses[i];
+			auto& b = result.mSubpassData.emplace_back();
+			assert(result.mSubpassData.size() == i + 1);
+			// INPUT ATTACHMENTS
+			for (int loc = 0; loc <= a.mInputMaxLoc || !a.mUnspecifiedInputLocations.empty(); ++loc) {
+				if (a.mSpecificInputLocations.count(loc) > 0) {
+					assert (a.mSpecificInputLocations.count(loc) == 1);
+					b.mOrderedInputAttachmentRefs.push_back(a.mSpecificInputLocations[loc]);
+				}
+				else {
+					if (!a.mUnspecifiedInputLocations.empty()) {
+						b.mOrderedInputAttachmentRefs.push_back(a.mUnspecifiedInputLocations.front());
+						a.mUnspecifiedInputLocations.pop();
+					}
+					else {
+						b.mOrderedInputAttachmentRefs.push_back(unusedAttachmentRef);
+					}
+				}
+			}
+			// COLOR ATTACHMENTS
+			for (int loc = 0; loc <= a.mColorMaxLoc || !a.mUnspecifiedColorLocations.empty(); ++loc) {
+				if (a.mSpecificColorLocations.count(loc) > 0) {
+					assert (a.mSpecificColorLocations.count(loc) == 1);
+					assert (a.mSpecificResolveLocations.count(loc) == 1);
+					b.mOrderedColorAttachmentRefs.push_back(a.mSpecificColorLocations[loc]);
+					b.mOrderedResolveAttachmentRefs.push_back(a.mSpecificResolveLocations[loc]);
+				}
+				else {
+					if (!a.mUnspecifiedColorLocations.empty()) {
+						assert(a.mUnspecifiedColorLocations.size() == a.mUnspecifiedResolveLocations.size());
+						b.mOrderedColorAttachmentRefs.push_back(a.mUnspecifiedColorLocations.front());
+						a.mUnspecifiedColorLocations.pop();
+						b.mOrderedResolveAttachmentRefs.push_back(a.mUnspecifiedResolveLocations.front());
+						a.mUnspecifiedResolveLocations.pop();
+					}
+					else {
+						b.mOrderedColorAttachmentRefs.push_back(unusedAttachmentRef);
+						b.mOrderedResolveAttachmentRefs.push_back(unusedAttachmentRef);
+					}
+				}
+			}
+			// DEPTH/STENCIL ATTACHMENTS
+			for (int loc = 0; loc <= a.mDepthStencilMaxLoc || !a.mUnspecifiedDepthStencilLocations.empty(); ++loc) {
+				if (a.mSpecificDepthStencilLocations.count(loc) > 0) {
+					assert (a.mSpecificDepthStencilLocations.count(loc) == 1);
+					b.mOrderedDepthStencilAttachmentRefs.push_back(a.mSpecificDepthStencilLocations[loc]);
+				}
+				else {
+					if (!a.mUnspecifiedDepthStencilLocations.empty()) {
+						b.mOrderedDepthStencilAttachmentRefs.push_back(a.mUnspecifiedDepthStencilLocations.front());
+						a.mUnspecifiedDepthStencilLocations.pop();
+					}
+					else {
+						b.mOrderedDepthStencilAttachmentRefs.push_back(unusedAttachmentRef);
+					}
+				}
+			}
+			b.mPreserveAttachments = std::move(a.mPreserveAttachments);
+			
+			// SOME SANITY CHECKS:
+			// - The resolve attachments must either be empty or there must be a entry for each color attachment 
+			assert(b.mOrderedResolveAttachmentRefs.empty() || b.mOrderedResolveAttachmentRefs.size() == b.mOrderedColorAttachmentRefs.size());
+			// - There must not be more than 1 depth/stencil attachements
+			assert(b.mOrderedDepthStencilAttachmentRefs.size() <= 1);
+		}
+
+		// Done with the helper structure:
+		subpasses.clear();
+		
+		// 4. Now we can fill the subpass description
+		result.mSubpasses.reserve(numSubpassesFirst);
+		for (size_t i = 0; i < numSubpassesFirst; ++i) {
+			auto& b = result.mSubpassData[i];
+			
+			result.mSubpasses.push_back(vk::SubpassDescription()
+				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
+				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+				.setColorAttachmentCount(static_cast<uint32_t>(b.mOrderedColorAttachmentRefs.size()))
+				.setPColorAttachments(b.mOrderedColorAttachmentRefs.data())
+				// If pResolveAttachments is not NULL, each of its elements corresponds to a color attachment 
+				//  (the element in pColorAttachments at the same index), and a multisample resolve operation 
+				//  is defined for each attachment. [1]
+				.setPResolveAttachments(b.mOrderedResolveAttachmentRefs.size() == 0 ? nullptr : b.mOrderedResolveAttachmentRefs.data())
+				// If pDepthStencilAttachment is NULL, or if its attachment index is VK_ATTACHMENT_UNUSED, it 
+				//  indicates that no depth/stencil attachment will be used in the subpass. [1]
+				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.size() == 0 ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
+				// The following two attachment types are probably totally irrelevant if we only have one subpass
+				.setInputAttachmentCount(static_cast<uint32_t>(b.mOrderedInputAttachmentRefs.size()))
+				.setPInputAttachments(b.mOrderedInputAttachmentRefs.data())
+				.setPreserveAttachmentCount(static_cast<uint32_t>(b.mPreserveAttachments.size()))
+				.setPPreserveAttachments(b.mPreserveAttachments.data()));
+		}
+		
+		// ======== Regarding Subpass Dependencies ==========
+		// At this point, we can not know how a subpass shall 
+		// be synchronized exactly with whatever comes before
+		// and whatever comes after. 
+		//  => Let's establish very (overly) cautious dependencies to ensure correctness, but user can set more tight sync via the callback
+
+		const uint32_t firstSubpassId = 0u;
+		const uint32_t lastSubpassId = numSubpassesFirst - 1;
+		const auto addDependency = [&result](renderpass_sync& rps){
+			result.mSubpassDependencies.push_back(vk::SubpassDependency()
+				// Between which two subpasses is this dependency:
+				.setSrcSubpass(rps.source_vk_subpass_id())
+				.setDstSubpass(rps.destination_vk_subpass_id())
+				// Which stage from whatever comes before are we waiting on, and which operations from whatever comes before are we waiting on:
+				.setSrcStageMask(to_vk_pipeline_stage_flags(rps.mSourceStage))
+				.setSrcAccessMask(to_vk_access_flags(to_memory_access(rps.mSourceMemoryDependency)))
+				// Which stage and which operations of our subpass ZERO shall wait:
+				.setDstStageMask(to_vk_pipeline_stage_flags(rps.mDestinationStage))
+				.setDstAccessMask(to_vk_access_flags(rps.mDestinationMemoryDependency))
+			);
+		};
+		
+		{
+			renderpass_sync syncBefore {renderpass_sync::sExternal, static_cast<int>(firstSubpassId),
+				pipeline_stage::all_commands,			memory_access::any_write_access,
+				pipeline_stage::all_graphics,	        memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access
+			};
+			// Let the user modify this sync
+			if (aSync) {
+				aSync(syncBefore);
+			}
+			assert(syncBefore.source_vk_subpass_id() == VK_SUBPASS_EXTERNAL);
+			assert(syncBefore.destination_vk_subpass_id() == 0u);
+			addDependency(syncBefore);
+		}
+
+		for (auto i = firstSubpassId + 1; i <= lastSubpassId; ++i) {
+			auto prevSubpassId = i - 1;
+			auto nextSubpassId = i;
+			renderpass_sync syncBetween {static_cast<int>(prevSubpassId), static_cast<int>(nextSubpassId),
+				pipeline_stage::all_graphics,	memory_access::any_graphics_basic_write_access,
+				pipeline_stage::all_graphics,	memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access,
+			};
+			// Let the user modify this sync
+			if (aSync) {
+				aSync(syncBetween);
+			}
+			assert(syncBetween.source_vk_subpass_id() == prevSubpassId);
+			assert(syncBetween.destination_vk_subpass_id() == nextSubpassId);
+			addDependency(syncBetween);
+		}
+
+		{
+			renderpass_sync syncAfter {static_cast<int>(lastSubpassId), renderpass_sync::sExternal,
+				pipeline_stage::all_graphics,	        memory_access::any_graphics_basic_write_access,
+				pipeline_stage::all_commands,			memory_access::any_read_access
+			};
+			// Let the user modify this sync
+			if (aSync) {
+				aSync(syncAfter);
+			}
+			assert(syncAfter.source_vk_subpass_id() == lastSubpassId);
+			assert(syncAfter.destination_vk_subpass_id() == VK_SUBPASS_EXTERNAL);
+			addDependency(syncAfter);
+		}
+
+		assert(result.mSubpassDependencies.size() == numSubpassesFirst + 1);
+
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		// Finally, create the render pass
+		auto createInfo = vk::RenderPassCreateInfo()
+			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
+			.setPAttachments(result.mAttachmentDescriptions.data())
+			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
+			.setPSubpasses(result.mSubpasses.data())
+			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
+			.setPDependencies(result.mSubpassDependencies.data());
+		result.mRenderPass = device().createRenderPassUnique(createInfo);
+		//result.mTracker.setTrackee(result);
+		return result; 
+
+		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
+		
+		// References:
+		// [1] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkSubpassDescription.html
+		// [2] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkSubpassDescriptionDepthStencilResolveKHR.html
+		// [3] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkPipelineStageFlagBits.html
+	}
+
+	bool renderpass_t::is_input_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		assert(aAttachmentIndex < mAttachmentDescriptions.size());
+		return b.mOrderedInputAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedInputAttachmentRefs), std::end(b.mOrderedInputAttachmentRefs), 
+			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+	}
+
+	bool renderpass_t::is_color_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		assert(aAttachmentIndex < mAttachmentDescriptions.size());
+		return b.mOrderedColorAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedColorAttachmentRefs), std::end(b.mOrderedColorAttachmentRefs), 
+			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+	}
+
+	bool renderpass_t::is_depth_stencil_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		assert(aAttachmentIndex < mAttachmentDescriptions.size());
+		return b.mOrderedDepthStencilAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedDepthStencilAttachmentRefs), std::end(b.mOrderedDepthStencilAttachmentRefs), 
+			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+	}
+
+	bool renderpass_t::is_resolve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		assert(aAttachmentIndex < mAttachmentDescriptions.size());
+		return b.mOrderedResolveAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedResolveAttachmentRefs), std::end(b.mOrderedResolveAttachmentRefs), 
+			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+	}
+
+	bool renderpass_t::is_preserve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		assert(aAttachmentIndex < mAttachmentDescriptions.size());
+		return b.mPreserveAttachments.end() != std::find_if(std::begin(b.mPreserveAttachments), std::end(b.mPreserveAttachments), 
+			[aAttachmentIndex](uint32_t idx) { return idx == aAttachmentIndex; });
+	}
+
+	const std::vector<vk::AttachmentReference>& renderpass_t::input_attachments_for_subpass(uint32_t aSubpassId)
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		return b.mOrderedInputAttachmentRefs;
+	}
+	
+	const std::vector<vk::AttachmentReference>& renderpass_t::color_attachments_for_subpass(uint32_t aSubpassId)
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		return b.mOrderedColorAttachmentRefs;
+	}
+	
+	const std::vector<vk::AttachmentReference>& renderpass_t::depth_stencil_attachments_for_subpass(uint32_t aSubpassId)
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		return b.mOrderedDepthStencilAttachmentRefs;
+	}
+	
+	const std::vector<vk::AttachmentReference>& renderpass_t::resolve_attachments_for_subpass(uint32_t aSubpassId)
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		return b.mOrderedResolveAttachmentRefs;
+	}
+	
+	const std::vector<uint32_t>& renderpass_t::preserve_attachments_for_subpass(uint32_t aSubpassId)
+	{
+		assert(aSubpassId < mSubpassData.size());
+		auto& b = mSubpassData[aSubpassId];
+		return b.mPreserveAttachments;
+	}
+#pragma endregion
+
+#pragma region semaphore definitions
+	semaphore_t::semaphore_t()
+		: mCreateInfo{}
+		, mSemaphore{}
+		, mSemaphoreWaitStageForNextCommand{ vk::PipelineStageFlagBits::eAllCommands }
+		, mCustomDeleter{}
+	{
+	}
+
+	semaphore_t::~semaphore_t()
+	{
+		if (mCustomDeleter.has_value() && *mCustomDeleter) {
+			// If there is a custom deleter => call it now
+			(*mCustomDeleter)();
+			mCustomDeleter.reset();
+		}
+		// Destroy the dependant instance before destroying myself
+		// ^ This is ensured by the order of the members
+		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
+	}
+
+	semaphore_t& semaphore_t::set_semaphore_wait_stage(vk::PipelineStageFlags _Stage)
+	{
+		mSemaphoreWaitStageForNextCommand = _Stage;
+		return *this;
+	}
+
+	ak::owning_resource<semaphore_t> root::create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
+	{ 
+		semaphore_t result;
+		result.mCreateInfo = vk::SemaphoreCreateInfo{};
+
+		// Maybe alter the config?
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		result.mSemaphore = device().createSemaphoreUnique(result.mCreateInfo);
+		return result;
+	}
+#pragma endregion
+
+#pragma region shader definitions
+	shader shader::prepare(shader_info pInfo)
+	{
+		shader result;
+		result.mInfo = std::move(pInfo);
+		return result;
+	}
+
+	vk::UniqueShaderModule root::build_shader_module_from_binary_code(const std::vector<char>& pCode)
+	{
+		auto createInfo = vk::ShaderModuleCreateInfo()
+			.setCodeSize(pCode.size())
+			.setPCode(reinterpret_cast<const uint32_t*>(pCode.data()));
+
+		return device().createShaderModuleUnique(createInfo);
+	}
+	
+	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& pPath)
+	{
+		auto binFileContents = ak::load_binary_file(pPath);
+		return build_shader_module_from_binary_code(binFileContents);
+	}
+	
+	shader root::create_shader(shader_info pInfo)
+	{
+		auto shdr = shader::prepare(std::move(pInfo));
+
+		if (std::filesystem::exists(shdr.info().mPath)) {
+			try {
+				shdr.mShaderModule = build_shader_module_from_file(shdr.info().mPath);
+				shdr.mActualShaderLoadPath = shdr.info().mPath;
+				return shdr;
+			}
+			catch (ak::runtime_error&) {
+			}			
+		}
+
+		const std::string secondTry = shdr.info().mPath + ".spv";
+		shdr.mShaderModule = build_shader_module_from_file(secondTry);
+		AK_LOG_INFO("Couldn't load '" + shdr.info().mPath + "' but loading '" + secondTry + "' was successful => going to use the latter, fyi!");
+		shdr.mActualShaderLoadPath = secondTry;
+
+		return shdr;
+	}
+
+	bool shader::has_been_built() const
+	{
+		return static_cast<bool>(mShaderModule);
+	}
+
+	shader_info shader_info::describe(std::string pPath, std::string pEntryPoint, bool pDontMonitorFile, std::optional<shader_type> pShaderType)
+	{
+		pPath = trim_spaces(pPath);
+		if (!pShaderType.has_value()) {
+			// "classical" shaders
+			if (pPath.ends_with(".vert"))	{ pShaderType = shader_type::vertex; }
+			else if (pPath.ends_with(".tesc"))	{ pShaderType = shader_type::tessellation_control; }
+			else if (pPath.ends_with(".tese"))	{ pShaderType = shader_type::tessellation_evaluation; }
+			else if (pPath.ends_with(".geom"))	{ pShaderType = shader_type::geometry; }
+			else if (pPath.ends_with(".frag"))	{ pShaderType = shader_type::fragment; }
+			else if (pPath.ends_with(".comp"))	{ pShaderType = shader_type::compute; }
+			// ray tracing shaders
+			else if (pPath.ends_with(".rgen"))	{ pShaderType = shader_type::ray_generation; }
+			else if (pPath.ends_with(".rahit"))	{ pShaderType = shader_type::any_hit; }
+			else if (pPath.ends_with(".rchit"))	{ pShaderType = shader_type::closest_hit; }
+			else if (pPath.ends_with(".rmiss"))	{ pShaderType = shader_type::miss; }
+			else if (pPath.ends_with(".rint"))	{ pShaderType = shader_type::intersection; }
+			// callable shader
+			else if (pPath.ends_with(".call"))	{ pShaderType = shader_type::callable; }
+			// mesh shaders
+			else if (pPath.ends_with(".task"))	{ pShaderType = shader_type::task; }
+			else if (pPath.ends_with(".mesh"))	{ pShaderType = shader_type::mesh; }
+		}
+
+		if (!pShaderType.has_value()) {
+			throw ak::runtime_error("No shader type set and could not infer it from the file ending.");
+		}
+
+		return shader_info
+		{
+			std::move(pPath),
+			pShaderType.value(),
+			std::move(pEntryPoint),
+			pDontMonitorFile
+		};
+	}
+#pragma endregion
+	
 }

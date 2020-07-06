@@ -2,6 +2,30 @@
 
 namespace ak
 {
+	namespace presets
+	{
+		void default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess)
+		{
+			// We do not know which operation came before. Hence, we have to be overly cautious and
+			// establish a (possibly) hefty barrier w.r.t. write access that happened before.
+			aCommandBuffer.establish_global_memory_barrier_rw(
+				pipeline_stage::all_commands,							aDestinationStage,	// Wait for all previous command before continuing with the operation's command
+				write_memory_access{memory_access::any_write_access},	aDestinationAccess	// Make any write access available before making the operation's read access type visible
+			);
+		}
+		
+		void default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess)
+		{
+			// We do not know which operation comes after. Hence, we have to be overly cautious and
+			// establish a (possibly) hefty barrier w.r.t. read access that happens after.
+			aCommandBuffer.establish_global_memory_barrier_rw(
+				aSourceStage,	pipeline_stage::all_commands,							// All subsequent stages have to wait until the operation has completed
+				aSourceAccess,  read_memory_access{memory_access::any_read_access}		// Make the operation's writes available and visible to all memory stages
+			);
+		}
+		
+	}
+	
 	ak::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> sync::presets::image_copy::wait_for_previous_operations(ak::image_t& aSourceImage, ak::image_t& aDestinationImage)
 	{
 		return [&aSourceImage, &aDestinationImage](command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess) {
@@ -142,16 +166,6 @@ namespace ak
 		return result;
 	}
 
-	sync sync::with_semaphore_to_backbuffer_dependency(std::vector<semaphore> aWaitBeforeOperation, ak::window* aWindow, std::optional<int64_t> aFrameId)
-	{
-		return sync::with_semaphore(
-			[wnd = nullptr != aWindow ? aWindow : ak::context().main_window(), aFrameId] (semaphore aSemaphore) {  
-				wnd->set_extra_semaphore_dependency(std::move(aSemaphore), aFrameId);
-			}, 
-			std::move(aWaitBeforeOperation)
-		);
-	}
-
 	sync sync::auxiliary_with_barriers(
 			sync& aMasterSync,
 			unique_function<void(command_buffer_t&, pipeline_stage /* destination stage */, std::optional<read_memory_access> /* destination access */)> aEstablishBarrierBeforeOperation,
@@ -238,11 +252,7 @@ namespace ak
 			}
 		}
 #endif
-		return mQueueToUse.value_or(
-			mQueueRecommendation.value_or(
-				ak::context().graphics_queue()
-			)
-		);
+		return mQueueToUse.value();
 	}
 
 	sync& sync::create_reusable_commandbuffer()

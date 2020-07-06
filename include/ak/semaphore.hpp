@@ -8,6 +8,8 @@ namespace ak
 	/** A synchronization object which allows GPU->GPU synchronization */
 	class semaphore_t
 	{
+		friend class root;
+		
 	public:
 		semaphore_t();
 		semaphore_t(semaphore_t&&) noexcept = default;
@@ -53,8 +55,6 @@ namespace ak
 		auto semaphore_wait_stage() const { return mSemaphoreWaitStageForNextCommand; }
 		/** Gets the address of the `semaphore_wait_stage`. */
 		const auto* semaphore_wait_stage_addr() const { return &mSemaphoreWaitStageForNextCommand; }
-
-		static ak::owning_resource<semaphore_t> create(std::function<void(semaphore_t&)> _AlterConfigBeforeCreation = {});
 
 	private:
 		// The semaphore config struct:

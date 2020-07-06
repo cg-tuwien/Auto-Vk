@@ -63,12 +63,14 @@ namespace ak
 		const auto& member_descriptions() const { return mOrderedMemberDescriptions; }
 
 		/** Gets the descriptor type that is suitable for binding a buffer of this kind to shaders. */
-		std::optional<vk::DescriptorType> descriptor_type() const { return {}; }
+		auto descriptor_type() const { return mDescriptorType; }
 
 		/** Gets buffer usage flags for this kind of buffer. */
 		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlags{}; }
 
 	protected:
+		// The descriptor type of the buffer, if it has one
+		std::optional<vk::DescriptorType> mDescriptorType;
 		// The size of one record/element
 		size_t mSizeOfOneElement;
 		// The total number of records/elements
@@ -86,6 +88,7 @@ namespace ak
 		static generic_buffer_meta create_from_size(size_t aSize) 
 		{ 
 			generic_buffer_meta result;
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSize;
 			result.mNumElements = 1;
 			return result; 
@@ -98,6 +101,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, generic_buffer_meta> create_from_data(const T& aData)
 		{
 			generic_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -119,6 +123,7 @@ namespace ak
 		static uniform_buffer_meta create_from_size(size_t aSize) 
 		{ 
 			uniform_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eUniformBuffer;
 			result.mSizeOfOneElement = aSize;
 			result.mNumElements = 1; 
 			return result; 
@@ -131,6 +136,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, uniform_buffer_meta> create_from_data(const T& aData)
 		{
 			uniform_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eUniformBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -153,6 +159,7 @@ namespace ak
 		static uniform_texel_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElemaents) 
 		{ 
 			uniform_texel_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eUniformTexelBuffer;
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElemaents;
 			return result; 
@@ -162,6 +169,7 @@ namespace ak
 		static uniform_texel_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			uniform_texel_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eUniformTexelBuffer;
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -174,6 +182,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, uniform_texel_buffer_meta> create_from_data(const T& aData)
 		{
 			uniform_texel_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eUniformTexelBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -274,6 +283,7 @@ namespace ak
 		static storage_buffer_meta create_from_size(size_t aSize) 
 		{ 
 			storage_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eStorageBuffer;
 			result.mSizeOfOneElement = aSize;
 			result.mNumElements = 1; 
 			return result; 
@@ -286,6 +296,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, storage_buffer_meta> create_from_data(const T& aData)
 		{
 			storage_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eStorageBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -308,6 +319,7 @@ namespace ak
 		static storage_texel_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements) 
 		{ 
 			storage_texel_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eStorageTexelBuffer;
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -317,6 +329,7 @@ namespace ak
 		static storage_texel_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			storage_texel_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eStorageTexelBuffer;
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -329,6 +342,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, storage_texel_buffer_meta> create_from_data(const T& aData)
 		{
 			storage_texel_buffer_meta result; 
+			result.mDescriptorType = vk::DescriptorType::eStorageTexelBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -409,6 +423,7 @@ namespace ak
 		static vertex_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements = 0) 
 		{ 
 			vertex_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -418,6 +433,7 @@ namespace ak
 		static vertex_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			vertex_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -430,6 +446,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, vertex_buffer_meta> create_from_data(const T& aData)
 		{
 			vertex_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -512,6 +529,7 @@ namespace ak
 		static index_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements = 0) 
 		{ 
 			index_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -521,6 +539,7 @@ namespace ak
 		static index_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			index_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -533,6 +552,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, index_buffer_meta> create_from_data(const T& aData)
 		{
 			index_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -555,6 +575,7 @@ namespace ak
 		static instance_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements = 0) 
 		{ 
 			instance_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -564,6 +585,7 @@ namespace ak
 		static instance_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			instance_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -576,6 +598,7 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, instance_buffer_meta> create_from_data(const T& aData)
 		{
 			instance_buffer_meta result; 
+			result.mDescriptorType = {};
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 

@@ -4,6 +4,8 @@ namespace ak // ========================== TODO/WIP ============================
 {
 	struct shader_binding_table
 	{
+		friend class root;
+		
 		shader_binding_table();
 		shader_binding_table(size_t, const vk::BufferUsageFlags&, const vk::Buffer&, const vk::MemoryPropertyFlags&, const vk::DeviceMemory&) noexcept;
 		shader_binding_table(const sampler&) = delete;
@@ -12,6 +14,5 @@ namespace ak // ========================== TODO/WIP ============================
 		shader_binding_table& operator=(shader_binding_table&&) noexcept;
 		~shader_binding_table();
 
-		static shader_binding_table create(const graphics_pipeline_t& pRtPipeline);
 	};
 }

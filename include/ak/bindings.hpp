@@ -8,24 +8,12 @@ namespace ak
 	vk::DescriptorType descriptor_type_of(const T*);
 
 	template<>
-	inline vk::DescriptorType descriptor_type_of<uniform_buffer_t>(const uniform_buffer_t*) { return vk::DescriptorType::eUniformBuffer; }
+	inline vk::DescriptorType descriptor_type_of<buffer_t>(const buffer_t* aBuffer) { return aBuffer->descriptor_type(); }
 	template<>
-	inline vk::DescriptorType descriptor_type_of<uniform_buffer>(const uniform_buffer*) { return vk::DescriptorType::eUniformBuffer; }
+	inline vk::DescriptorType descriptor_type_of<buffer>(const buffer* aBuffer) { return (*aBuffer)->descriptor_type(); }
 
 	template<>
-	inline vk::DescriptorType descriptor_type_of<uniform_texel_buffer_t>(const uniform_texel_buffer_t*) { return vk::DescriptorType::eUniformTexelBuffer; }
-	template<>
-	inline vk::DescriptorType descriptor_type_of<uniform_texel_buffer>(const uniform_texel_buffer*) { return vk::DescriptorType::eUniformTexelBuffer; }
-
-	template<>
-	inline vk::DescriptorType descriptor_type_of<storage_buffer_t>(const storage_buffer_t*) { return vk::DescriptorType::eStorageBuffer; }
-	template<>
-	inline vk::DescriptorType descriptor_type_of<storage_buffer>(const storage_buffer*) { return vk::DescriptorType::eStorageBuffer; }
-
-	template<>
-	inline vk::DescriptorType descriptor_type_of<storage_texel_buffer_t>(const storage_texel_buffer_t*) { return vk::DescriptorType::eStorageTexelBuffer; }
-	template<>
-	inline vk::DescriptorType descriptor_type_of<storage_texel_buffer>(const storage_texel_buffer*) { return vk::DescriptorType::eStorageTexelBuffer; }
+	inline vk::DescriptorType descriptor_type_of<buffer_descriptor>(const buffer_descriptor* aBufferDescriptor) { return aBufferDescriptor->descriptor_type(); }
 
 	template<>
 	inline vk::DescriptorType descriptor_type_of<ak::image_view_t>(const ak::image_view_t* aImageView) { return vk::DescriptorType::eSampledImage; }
@@ -44,9 +32,9 @@ namespace ak
 	inline vk::DescriptorType descriptor_type_of<top_level_acceleration_structure>(const top_level_acceleration_structure*) { return vk::DescriptorType::eAccelerationStructureKHR; }
 
 	template<>
-	inline vk::DescriptorType descriptor_type_of<buffer_view_t>(const buffer_view_t* _BufferView) { return _BufferView->descriptor_type(); }
+	inline vk::DescriptorType descriptor_type_of<buffer_view_t>(const buffer_view_t* aBufferView) { return aBufferView->descriptor_type(); }
 	template<>
-	inline vk::DescriptorType descriptor_type_of<buffer_view>(const buffer_view* _BufferView) { return (*_BufferView)->descriptor_type(); }
+	inline vk::DescriptorType descriptor_type_of<buffer_view>(const buffer_view* aBufferView) { return (*aBufferView)->descriptor_type(); }
 
 	template<>
 	inline vk::DescriptorType descriptor_type_of<ak::sampler_t>(const ak::sampler_t*) { return vk::DescriptorType::eSampler; }

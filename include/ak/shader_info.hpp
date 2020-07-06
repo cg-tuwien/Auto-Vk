@@ -4,7 +4,7 @@ namespace ak
 {
 	struct shader_info
 	{
-		static shader_info create(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false, std::optional<ak::shader_type> pShaderType = {});
+		static shader_info describe(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false, std::optional<ak::shader_type> pShaderType = {});
 
 		std::string mPath;
 		ak::shader_type mShaderType;
@@ -61,20 +61,20 @@ namespace ak
 		return a = a & b;
 	}
 
-	inline shader_info vertex_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::vertex); }
-	inline shader_info tessellation_control_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::tessellation_control); }
-	inline shader_info tessellation_evaluation_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::tessellation_evaluation); }
-	inline shader_info geometry_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::geometry); }
-	inline shader_info fragment_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::fragment); }
-	inline shader_info compute_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::compute); }
-	inline shader_info ray_generation_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::ray_generation); }
-	inline shader_info any_hit_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::any_hit); }
-	inline shader_info closest_hit_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::closest_hit); }
-	inline shader_info miss_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::miss); }
-	inline shader_info intersection_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::intersection); }
-	inline shader_info callable_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::callable); }
-	inline shader_info task_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::task); }
-	inline shader_info mesh_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::create(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::mesh); }
+	inline shader_info vertex_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::vertex); }
+	inline shader_info tessellation_control_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::tessellation_control); }
+	inline shader_info tessellation_evaluation_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::tessellation_evaluation); }
+	inline shader_info geometry_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::geometry); }
+	inline shader_info fragment_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::fragment); }
+	inline shader_info compute_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::compute); }
+	inline shader_info ray_generation_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::ray_generation); }
+	inline shader_info any_hit_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::any_hit); }
+	inline shader_info closest_hit_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::closest_hit); }
+	inline shader_info miss_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::miss); }
+	inline shader_info intersection_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::intersection); }
+	inline shader_info callable_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::callable); }
+	inline shader_info task_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::task); }
+	inline shader_info mesh_shader(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false) { return shader_info::describe(std::move(pPath), std::move(pEntryPoint), pDontMonitorFile, ak::shader_type::mesh); }
 
 }
 

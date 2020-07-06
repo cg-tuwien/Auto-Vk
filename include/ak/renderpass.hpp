@@ -7,6 +7,8 @@ namespace ak
 	 */
 	class renderpass_t
 	{
+		friend class root;
+		
 		struct subpass_data
 		{
 			subpass_data() = default;
@@ -40,17 +42,6 @@ namespace ak
 		renderpass_t& operator=(renderpass_t&&) noexcept = default;
 		renderpass_t& operator=(const renderpass_t&) = delete;
 		~renderpass_t() = default;
-
-		/** Create a renderpass from a given set of attachments.
-		 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
-		 *	To specify custom subpass dependencies, pass a callback to the second parameter!
-		 *	@param	aAttachments				Attachments of the renderpass to be created
-		 *	@param	aSync						Callback of type void(renderpass_sync&) that is invoked for external subpass dependencies (before and after),
-		 *										and also between each of the subpasses. Modify the passed `renderpass_sync&` in order to set custom
-		 *										synchronization parameters.
-		 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
-		 */
-		static ak::owning_resource<renderpass_t> create(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 
 		const auto& attachment_descriptions() const { return mAttachmentDescriptions; }
 		const auto& clear_values() const { return mClearValues; }

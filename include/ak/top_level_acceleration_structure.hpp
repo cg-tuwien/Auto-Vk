@@ -4,9 +4,7 @@ namespace ak
 {
 	class top_level_acceleration_structure_t
 	{
-		template <typename T>
-		friend void finish_acceleration_structure_creation(T& aResult, std::function<void(T&)> aAlterConfigBeforeMemoryAlloc) noexcept;
-
+		friend class root;
 	public:
 		top_level_acceleration_structure_t() = default;
 		top_level_acceleration_structure_t(top_level_acceleration_structure_t&&) noexcept = default;
@@ -35,8 +33,6 @@ namespace ak
 		}
 
 		auto descriptor_type() const			{ return vk::DescriptorType::eAccelerationStructureKHR; } 
-
-		static ak::owning_resource<top_level_acceleration_structure_t> create(uint32_t _InstanceCount, bool _AllowUpdates = true, std::function<void(top_level_acceleration_structure_t&)> _AlterConfigBeforeCreation = {}, std::function<void(top_level_acceleration_structure_t&)> _AlterConfigBeforeMemoryAlloc = {});
 
 		void build(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});
 		void update(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});

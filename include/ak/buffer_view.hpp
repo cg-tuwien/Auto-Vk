@@ -20,21 +20,7 @@ namespace ak
 		const auto& config() const { return mInfo; }
 		/** Get the config which is used to created this image view with the API. */
 		auto& config() { return mInfo; }
-		
-		/** Returns true if it holds a `ak::uniform_texel_buffer` */
-		bool has_ak_uniform_texel_buffer() const;
-		/** Gets the associated image or throws if no `ak::uniform_texel_buffer` is associated. */
-		const uniform_texel_buffer_t& get_uniform_texel_buffer() const;
-		/** Gets the associated image or throws if no `ak::uniform_texel_buffer` is associated. */
-		uniform_texel_buffer_t& get_uniform_texel_buffer();
-		
-		/** Returns true if it holds a `ak::storage_texel_buffer` */
-		bool has_ak_storage_texel_buffer() const;
-		/** Gets the associated image or throws if no `ak::storage_texel_buffer` is associated. */
-		const storage_texel_buffer_t& get_storage_texel_buffer() const;
-		/** Gets the associated image or throws if no `ak::storage_texel_buffer` is associated. */
-		storage_texel_buffer_t& get_storage_texel_buffer();
-		
+
 		/** Gets the buffer handle which this view has been created for. */
 		const vk::Buffer& buffer_handle() const;
 		/** Gets the buffer's config */
@@ -44,12 +30,12 @@ namespace ak
 		const auto& view_handle() const { return mBufferView.get(); }
 
 		/** Gets the descriptor type from the wrapped buffer */
-		vk::DescriptorType descriptor_type() const;
+		vk::DescriptorType descriptor_type(size_t aOffset = 0) const;
 
 	private:
 		
-		// Owning XOR non-owning handle to an buffer.
-		std::variant<ak::uniform_texel_buffer, ak::storage_texel_buffer, std::tuple<vk::Buffer, vk::BufferCreateInfo>> mBuffer;
+		// Owning XOR non-owning handle to a buffer.
+		std::variant<buffer, std::tuple<vk::Buffer, vk::BufferCreateInfo>> mBuffer;
 		// Config which is passed to the create call and contains all the parameters for buffer view creation.
 		vk::BufferViewCreateInfo mInfo;
 		// The image view's handle. This member will contain a valid handle only after successful image view creation.

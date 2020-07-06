@@ -45,6 +45,8 @@
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
 
+namespace ak { class sync; }
+
 #include <ak/image_color_channel_order.hpp>
 #include <ak/image_color_channel_format.hpp>
 #include <ak/image_usage.hpp>
@@ -63,13 +65,11 @@
 #include <ak/shader_info.hpp>
 #include <ak/aabb.hpp>
 #include <ak/pipeline_stage.hpp>
-#include <ak/sync.hpp>
 #include <ak/descriptor_alloc_request.hpp>
 #include <ak/descriptor_pool.hpp>
 #include <ak/descriptor_set.hpp>
 
 #include <ak/buffer_meta.hpp>
-#include <ak/buffer_declaration.hpp>
 #include <ak/binding_data.hpp>
 #include <ak/descriptor_set_layout.hpp>
 #include <ak/set_of_descriptor_set_layouts.hpp>
@@ -87,6 +87,7 @@
 #include <ak/semaphore.hpp>
 #include <ak/fence.hpp>
 
+#include <ak/sync.hpp>
 
 #include <ak/input_description.hpp>
 
@@ -114,13 +115,10 @@
 #include <ak/graphics_pipeline.hpp>
 #include <ak/compute_pipeline.hpp>
 #include <ak/ray_tracing_pipeline.hpp>
-#include <ak/shader_binding_table.hpp>
 
 #include <ak/vulkan_helper_functions.hpp>
 
 #include <ak/bindings.hpp>
-
-#include <ak/ray_tracing_pipeline_config_convenience_functions.hpp>
 
 #include <ak/commands.hpp>
 #include <ak/vk_utils2.hpp>
@@ -148,6 +146,13 @@ namespace ak
 		virtual descriptor_cache_interface& descriptor_cache()                                    = 0;
 
 #pragma region root helper functions
+		/** Find (index of) memory with parameters
+		 *	@param aMemoryTypeBits		Bit field of the memory types that are suitable for the buffer. [9]
+		 *	@param aMemoryProperties	Special features of the memory, like being able to map it so we can write to it from the CPU. [9]
+		 */
+
+		static uint32_t find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
+		
 		/** Find (index of) memory with parameters
 		 *	@param aMemoryTypeBits		Bit field of the memory types that are suitable for the buffer. [9]
 		 *	@param aMemoryProperties	Special features of the memory, like being able to map it so we can write to it from the CPU. [9]
@@ -218,86 +223,38 @@ namespace ak
 
 		vk::PhysicalDeviceRayTracingPropertiesKHR get_ray_tracing_properties();
 
+		static vk::DeviceAddress get_buffer_address(const vk::Device& aDevice, vk::Buffer aBufferHandle);
+		
 		vk::DeviceAddress get_buffer_address(vk::Buffer aBufferHandle);
 
 		void finish_configuration(buffer_view_t& aBufferViewToBeFinished, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation);
 #pragma endregion
 
-#pragma region bottom level acceleration structure
+#pragma region acceleration structures
 		ak::owning_resource<bottom_level_acceleration_structure_t> create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
+		ak::owning_resource<top_level_acceleration_structure_t> create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates = true, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
 #pragma endregion 
 
 #pragma region buffer
-		/**	Create a buffer which is always created with exclusive access for a queue.
-		*	If different queues are being used, ownership has to be transferred explicitly.
-		*/
-		template <typename Meta>
-		ak::owning_resource<buffer_t<Meta>> create_buffer(const Meta& aMetaData, vk::BufferUsageFlags aBufferUsage, vk::MemoryPropertyFlags aMemoryProperties, vk::MemoryAllocateFlags aMemoryAllocateFlags, std::optional<vk::DescriptorType> aDescriptorType)
+		static buffer create_buffer(const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const buffer_meta& aMetaData, vk::BufferUsageFlags aBufferUsage, vk::MemoryPropertyFlags aMemoryProperties, vk::MemoryAllocateFlags aMemoryAllocateFlags);
+		
+		buffer create_buffer(const buffer_meta& aMetaData, vk::BufferUsageFlags aBufferUsage, vk::MemoryPropertyFlags aMemoryProperties, vk::MemoryAllocateFlags aMemoryAllocateFlags)
 		{
-			auto bufferSize = aMetaData.total_size();
-
-			// Create (possibly multiple) buffer(s):
-			auto bufferCreateInfo = vk::BufferCreateInfo()
-				.setSize(static_cast<vk::DeviceSize>(bufferSize))
-				.setUsage(aBufferUsage)
-				// Always grant exclusive ownership to the queue.
-				.setSharingMode(vk::SharingMode::eExclusive)
-				// The flags parameter is used to configure sparse buffer memory, which is not relevant right now. We'll leave it at the default value of 0. [2]
-				.setFlags(vk::BufferCreateFlags()); 
-
-			// Create the buffer on the logical device
-			auto vkBuffer = device().createBufferUnique(bufferCreateInfo);
-
-			// The buffer has been created, but it doesn't actually have any memory assigned to it yet. 
-			// The first step of allocating memory for the buffer is to query its memory requirements [2]
-			const auto memRequirements = device().getBufferMemoryRequirements(vkBuffer.get());
-
-			auto allocInfo = vk::MemoryAllocateInfo()
-				.setAllocationSize(memRequirements.size)
-				.setMemoryTypeIndex(find_memory_type_index(
-					memRequirements.memoryTypeBits, 
-					aMemoryProperties));
-
-			auto allocateFlagsInfo = vk::MemoryAllocateFlagsInfo{};
-			if (aMemoryAllocateFlags) {
-				allocateFlagsInfo.setFlags(aMemoryAllocateFlags);
-				allocInfo.setPNext(&allocateFlagsInfo);
-			}
-
-			// Allocate the memory for the buffer:
-			auto vkMemory = device().allocateMemoryUnique(allocInfo);
-
-			// If memory allocation was successful, then we can now associate this memory with the buffer
-			device().bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
-			// TODO: if(!succeeded) { throw ak::runtime_error("Binding memory to buffer failed."); }
-
-			buffer_t<buffer_meta> b;
-			b.mMetaData = static_cast<buffer_meta>(aMetaData);;
-			b.mCreateInfo = bufferCreateInfo;
-			b.mMemoryPropertyFlags = aMemoryProperties;
-			b.mMemory = std::move(vkMemory);
-			b.mBufferUsageFlags = aBufferUsage;
-			b.mBuffer = std::move(vkBuffer);
-
-			if (ak::has_flag(b.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || ak::has_flag(b.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || ak::has_flag(b.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-				b.mDeviceAddress = get_buffer_address(b.buffer_handle());
-			}
-			
-			return std::move(b);
+			return create_buffer(physical_device(), device(), aMetaData, aBufferUsage, aMemoryProperties, aMemoryAllocateFlags);
 		}
-			
-		// CREATE 
+
 		template <typename Meta, typename... Metas>
-		ak::owning_resource<buffer_t<buffer_meta>> create_buffer(
-			Meta aConfig, Metas... aConfigs,
+		static buffer create_buffer(
+			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, 
 			ak::memory_usage aMemoryUsage,
-			vk::BufferUsageFlags aUsage = vk::BufferUsageFlags())
+			vk::BufferUsageFlags aAdditionalUsageFlags,
+			Meta aConfig, Metas... aConfigs)
 		{
 			assert(((aConfig.total_size() == aConfigs.total_size()) && ...));
 			auto bufferSize = aConfig.total_size();
-			std::optional<vk::DescriptorType> descriptorType = {};
 			vk::MemoryPropertyFlags memoryFlags;
 			vk::MemoryAllocateFlags memoryAllocateFlags;
+			vk::BufferUsageFlags aUsage = aAdditionalUsageFlags;
 
 			// We've got two major branches here: 
 			// 1) Memory will stay on the host and there will be no dedicated memory on the device
@@ -334,7 +291,7 @@ namespace ak
 			if (ak::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress) || ak::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || ak::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
 				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddress;
 			}
-			
+
 			aUsage |= aConfig.buffer_usage_flags();
 			if constexpr (sizeof...(aConfigs) > 0) {
 				aUsage |= (... | aConfigs);
@@ -342,14 +299,30 @@ namespace ak
 
 			// Create buffer here to make use of named return value optimization.
 			// How it will be filled depends on where the memory is located at.
-			return create_buffer(aConfig, aUsage, memoryFlags, memoryAllocateFlags, descriptorType);
+			return create_buffer(aPhysicalDevice, aDevice, aConfig, aUsage, memoryFlags, memoryAllocateFlags);
+		}
+		
+		template <typename Meta, typename... Metas>
+		buffer create_buffer(
+			ak::memory_usage aMemoryUsage,
+			vk::BufferUsageFlags aAdditionalUsageFlags,
+			Meta aConfig, Metas... aConfigs)
+		{	
+			return create_buffer(physical_device(), device(), aMemoryUsage, aAdditionalUsageFlags, std::move(aConfig), std::move(aConfigs)...);
+		}
+
+		template <typename Meta, typename... Metas>
+		buffer create_buffer(
+			ak::memory_usage aMemoryUsage,
+			Meta aConfig, Metas... aConfigs)
+		{
+			return create_buffer(physical_device(), device(), aMemoryUsage, {}, std::move(aConfig), std::move(aConfigs)...);
 		}
 #pragma endregion
 
 #pragma region buffer view 
-		owning_resource<buffer_view_t> create_buffer_view(ak::uniform_texel_buffer aBufferToOwn, std::optional<vk::Format> aViewFormat = {}, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
-		owning_resource<buffer_view_t> create_buffer_view(ak::storage_texel_buffer aBufferToOwn, std::optional<vk::Format> aViewFormat = {}, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
-		owning_resource<buffer_view_t> create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
+		buffer_view create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat = {}, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
+		buffer_view create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region command pool and command buffer
@@ -639,5 +612,29 @@ namespace ak
 		// ============================================================================================ 
 	}
 #pragma endregion
+
+#pragma region renderpass
+	/** Create a renderpass from a given set of attachments.
+	 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
+	 *	To specify custom subpass dependencies, pass a callback to the second parameter!
+	 *	@param	aAttachments				Attachments of the renderpass to be created
+	 *	@param	aSync						Callback of type void(renderpass_sync&) that is invoked for external subpass dependencies (before and after),
+	 *										and also between each of the subpasses. Modify the passed `renderpass_sync&` in order to set custom
+	 *										synchronization parameters.
+	 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
+	 */
+	ak::owning_resource<renderpass_t> create_renderpass(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+#pragma endregion
+
+#pragma region semaphore
+	ak::owning_resource<semaphore_t> create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+#pragma endregion
+
+#pragma region shader
+	vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& pCode);
+	vk::UniqueShaderModule build_shader_module_from_file(const std::string& pPath);
+	shader create_shader(shader_info pInfo);
+#pragma endregion
+	
 	};
 }

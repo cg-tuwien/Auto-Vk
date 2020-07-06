@@ -1,11 +1,8 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
-	// Forward-declare the device-queue
-	class queue;
-	class image_t;
-
 	/**	The sync class is a fundamental part of the framework and is used wherever synchronization is or can be needed.
 	 *	It allows a caller to inject a specific synchronization strategy into a particular method/function.
 	 */
@@ -14,25 +11,9 @@ namespace ak
 	public:
 		struct presets
 		{
-			static void default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess)
-			{
-				// We do not know which operation came before. Hence, we have to be overly cautious and
-				// establish a (possibly) hefty barrier w.r.t. write access that happened before.
-				aCommandBuffer.establish_global_memory_barrier_rw(
-					pipeline_stage::all_commands,							aDestinationStage,	// Wait for all previous command before continuing with the operation's command
-					write_memory_access{memory_access::any_write_access},	aDestinationAccess	// Make any write access available before making the operation's read access type visible
-				);
-			}
+			static void default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess);
 			
-			static void default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess)
-			{
-				// We do not know which operation comes after. Hence, we have to be overly cautious and
-				// establish a (possibly) hefty barrier w.r.t. read access that happens after.
-				aCommandBuffer.establish_global_memory_barrier_rw(
-					aSourceStage,	pipeline_stage::all_commands,							// All subsequent stages have to wait until the operation has completed
-					aSourceAccess,  read_memory_access{memory_access::any_read_access}		// Make the operation's writes available and visible to all memory stages
-				);
-			}
+			static void default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess);
 			
 			struct image_copy
 			{
@@ -104,13 +85,6 @@ namespace ak
 			result.mWaitBeforeSemaphores = std::move(aWaitBeforeOperation);
 			return result;
 		}
-
-		/**	Establish semaphore-based synchronization and have its lifetime handled w.r.t the window's swap chain.
-		 *	@param	aWaitBeforeOperation		A vector of other semaphores to be waited on before executing the command.
-		 *	@param	aWindow						A window, whose swap chain shall be used to handle the lifetime of the possibly emerging semaphore.
-		 *	@param	aFrameId					Which frame shall wait on the semaphore. If left empty, the current frame's id is inserted.
-		 */
-		static sync with_semaphore_to_backbuffer_dependency(std::vector<semaphore> aWaitBeforeOperation = {}, ak::window* aWindow = nullptr, std::optional<int64_t> aFrameId = {});
 
 		/**	Establish barrier-based synchronization and return the resulting command buffer from the operation.
 		 *	Note: Not all operations support this type of synchronization. You can notice them by a method
