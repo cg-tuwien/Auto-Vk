@@ -20,7 +20,7 @@ namespace ak
 		std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> layout() const { return std::make_tuple(this, layout_handle(), &mPushConstantRanges); }
 		const auto& handle() const { return mPipeline; }
 		vk::DeviceSize table_entry_size() const { return static_cast<vk::DeviceSize>(mShaderGroupHandleSize); }
-		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta_data().total_size()); }
+		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta<buffer_meta>().total_size()); }
 		const auto& shader_binding_table_handle() const { return mShaderBindingTable->buffer_handle(); }
 
 	private:

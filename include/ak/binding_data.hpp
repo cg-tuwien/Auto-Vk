@@ -3,14 +3,6 @@
 
 namespace ak
 {
-	class top_level_acceleration_structure_t;
-	class image_view_t;
-	class image_view_as_input_attachment;
-	class image_view_as_storage_image;
-	class buffer_view_t;
-	class sampler_t;
-	class image_sampler_t;
-	
 	/** Configuration data for a binding, containing a set-index, binding data, 
 	*	and the shader stages where the bound resource might be used.
 	*/
@@ -20,36 +12,22 @@ namespace ak
 		vk::DescriptorSetLayoutBinding mLayoutBinding;
 		std::variant<
 			std::monostate,
-			const generic_buffer_t*,
-			const uniform_buffer_t*,
-			const uniform_texel_buffer_t*,
-			const storage_buffer_t*,
-			const storage_texel_buffer_t*,
-			const vertex_buffer_t*,
-			const index_buffer_t*,
-			const instance_buffer_t*,
+			const buffer_t*,
 			const top_level_acceleration_structure_t*,
-			const ak::image_view_t*,
-			const ak::image_view_as_input_attachment*,
-			const ak::image_view_as_storage_image*,
+			const image_view_t*,
+			const image_view_as_input_attachment*,
+			const image_view_as_storage_image*,
 			const buffer_view_t*,
 			const ak::sampler_t*,
 			const ak::image_sampler_t*,
-			std::vector<const generic_buffer_t*>,
-			std::vector<const uniform_buffer_t*>,
-			std::vector<const uniform_texel_buffer_t*>,
-			std::vector<const storage_buffer_t*>,
-			std::vector<const storage_texel_buffer_t*>,
-			std::vector<const vertex_buffer_t*>,
-			std::vector<const index_buffer_t*>,
-			std::vector<const instance_buffer_t*>,
+			std::vector<const buffer_t*>,
 			std::vector<const top_level_acceleration_structure_t*>,
-			std::vector<const ak::image_view_t*>,
-			std::vector<const ak::image_view_as_input_attachment*>,
-			std::vector<const ak::image_view_as_storage_image*>,
+			std::vector<const image_view_t*>,
+			std::vector<const image_view_as_input_attachment*>,
+			std::vector<const image_view_as_storage_image*>,
 			std::vector<const buffer_view_t*>,
-			std::vector<const ak::sampler_t*>,
-			std::vector<const ak::image_sampler_t*>
+			std::vector<const sampler_t*>,
+			std::vector<const image_sampler_t*>
 		> mResourcePtr;
 
 
@@ -95,14 +73,7 @@ namespace ak
 
 		uint32_t descriptor_count() const
 		{
-			if (std::holds_alternative<std::vector<const generic_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const generic_buffer_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const uniform_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const uniform_buffer_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const uniform_texel_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const uniform_texel_buffer_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const storage_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const storage_buffer_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const storage_texel_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const storage_texel_buffer_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const vertex_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const vertex_buffer_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const index_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const index_buffer_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const instance_buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const instance_buffer_t*>>(mResourcePtr).size()); }
+			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_t*>>(mResourcePtr).size()); }
 			// vvv NOPE vvv There can only be ONE pNext (at least I think so)
 			//if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr).size()); }
 			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const ak::image_view_t*>>(mResourcePtr).size()); }
@@ -116,14 +87,7 @@ namespace ak
 
 		const vk::DescriptorImageInfo* descriptor_image_info(descriptor_set& aDescriptorSet) const
 		{
-			if (std::holds_alternative<const generic_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const uniform_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const uniform_texel_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const storage_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const storage_texel_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const vertex_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const index_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const instance_buffer_t*>(mResourcePtr)) { return nullptr; }
+			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
 			
 			if (std::holds_alternative<const ak::image_view_t*>(mResourcePtr)) {
@@ -144,14 +108,8 @@ namespace ak
 
 			if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
 
-			if (std::holds_alternative<std::vector<const generic_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const uniform_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const uniform_texel_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const storage_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const storage_texel_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const vertex_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const index_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const instance_buffer_t*>>(mResourcePtr)) { return nullptr; }
+			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
+
 			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
 
 			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { 
@@ -177,29 +135,8 @@ namespace ak
 
 		const vk::DescriptorBufferInfo* descriptor_buffer_info(descriptor_set& aDescriptorSet) const
 		{
-			if (std::holds_alternative<const generic_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const generic_buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const uniform_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const uniform_buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const uniform_texel_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const uniform_texel_buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const storage_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const storage_buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const storage_texel_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const storage_texel_buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const vertex_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const vertex_buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const index_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const index_buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const instance_buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const instance_buffer_t*>(mResourcePtr)->descriptor_info());
+			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) {
+				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const buffer_t*>(mResourcePtr)->descriptor_info());
 			}
 			
 			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
@@ -210,29 +147,8 @@ namespace ak
 			if (std::holds_alternative<const ak::image_sampler_t*>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
 
-			if (std::holds_alternative<std::vector<const generic_buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const generic_buffer_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const uniform_buffer_t*>>(mResourcePtr)) { 
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const uniform_buffer_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const uniform_texel_buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const uniform_texel_buffer_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const storage_buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const storage_buffer_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const storage_texel_buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const storage_texel_buffer_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const vertex_buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const vertex_buffer_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const index_buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const index_buffer_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const instance_buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const instance_buffer_t*>>(mResourcePtr)));
+			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) {
+				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const buffer_t*>>(mResourcePtr)));
 			}
 
 			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
@@ -248,14 +164,7 @@ namespace ak
 
 		const void* next_pointer(descriptor_set& aDescriptorSet) const
 		{
-			if (std::holds_alternative<const generic_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const uniform_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const uniform_texel_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const storage_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const storage_texel_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const vertex_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const index_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const instance_buffer_t*>(mResourcePtr)) { return nullptr; }
+			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 			
 			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) {
 				return aDescriptorSet.store_acceleration_structure_info(mLayoutBinding.binding, std::get<const top_level_acceleration_structure_t*>(mResourcePtr)->descriptor_info());
@@ -268,14 +177,7 @@ namespace ak
 			if (std::holds_alternative<const ak::image_sampler_t*>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
 
-			if (std::holds_alternative<std::vector<const generic_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const uniform_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const uniform_texel_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const storage_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const storage_texel_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const vertex_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const index_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const instance_buffer_t*>>(mResourcePtr)) { return nullptr; }
+			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 
 			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) {
 				return aDescriptorSet.store_acceleration_structure_infos(mLayoutBinding.binding, gather_acceleration_structure_infos(std::get<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)));
@@ -293,14 +195,7 @@ namespace ak
 
 		const vk::BufferView* texel_buffer_view_info(descriptor_set& aDescriptorSet) const
 		{
-			if (std::holds_alternative<const generic_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const uniform_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const uniform_texel_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const storage_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const storage_texel_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const vertex_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const index_buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const instance_buffer_t*>(mResourcePtr)) { return nullptr; }
+			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<const ak::image_view_t*>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<const ak::image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
@@ -312,14 +207,7 @@ namespace ak
 				return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_t*>(mResourcePtr)->view_handle());
 			}
 
-			if (std::holds_alternative<std::vector<const generic_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const uniform_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const uniform_texel_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const storage_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const storage_texel_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const vertex_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const index_buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const instance_buffer_t*>>(mResourcePtr)) { return nullptr; }
+			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { return nullptr; }
 			if (std::holds_alternative<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }

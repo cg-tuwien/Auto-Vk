@@ -34,13 +34,13 @@ namespace ak
 
 		auto descriptor_type() const			{ return vk::DescriptorType::eAccelerationStructureKHR; } 
 
-		void build(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});
-		void update(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});
+		void build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		void update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
 		
 	private:
 		enum struct tlas_action { build, update };
-		std::optional<command_buffer> build_or_update(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, tlas_action aBuildAction);
-		const generic_buffer_t& get_and_possibly_create_scratch_buffer();
+		std::optional<command_buffer> build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction);
+		buffer_t& get_and_possibly_create_scratch_buffer();
 		
 		vk::MemoryRequirements2KHR mMemoryRequirementsForAccelerationStructure;
 		vk::MemoryRequirements2KHR mMemoryRequirementsForBuildScratchBuffer;
@@ -49,10 +49,12 @@ namespace ak
 		vk::UniqueDeviceMemory mMemory;
 
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
+		vk::PhysicalDevice mPhysicalDevice;
 		vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic>>::type mAccStructure;
+		vk::DispatchLoaderDynamic mDynamicDispatch;
 		vk::DeviceAddress mDeviceAddress;
 
-		std::optional<generic_buffer> mScratchBuffer;
+		std::optional<buffer> mScratchBuffer;
 		
 		mutable vk::WriteDescriptorSetAccelerationStructureKHR mDescriptorInfo;
 	};

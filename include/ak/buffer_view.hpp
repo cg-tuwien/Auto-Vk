@@ -29,8 +29,25 @@ namespace ak
 		/** Gets the buffer view's vulkan handle */
 		const auto& view_handle() const { return mBufferView.get(); }
 
-		/** Gets the descriptor type from the wrapped buffer */
-		vk::DescriptorType descriptor_type(size_t aOffset = 0) const;
+		/** Gets the descriptor type from the wrapped buffer, using the buffer's
+		 *	meta data at the specified index.
+		 */
+		vk::DescriptorType descriptor_type(size_t aMetaDataIndex = 0) const;
+
+		/** Gets the descriptor type from the wrapped buffer, using the given meta
+		 *	data type Meta and an optional meta data offset.
+		 *	@tparam		Meta				Buffer's meta data type
+		 *	@param		aMetaDataOffset		Optional offset into buffer's meta data types.
+		 *									I.e., e.g., take n-th uniform_buffer_meta meta data entry.
+		 */
+		template <typename Meta>
+		vk::DescriptorType descriptor_type(size_t aMetaDataOffset = 0) const
+		{
+			if (std::holds_alternative<buffer>(mBuffer)) {
+				return std::get<buffer>(mBuffer)->meta<Meta>(aMetaDataOffset).descriptor_type().value();
+			}
+			throw ak::runtime_error("Which descriptor type?");
+		}
 
 	private:
 		

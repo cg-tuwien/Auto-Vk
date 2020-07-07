@@ -1394,31 +1394,25 @@ namespace ak
 		return result;
 	}
 
-	const generic_buffer_t& bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
+	buffer_t& bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
-			mScratchBuffer = create_buffer(
-				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size())),
+			mScratchBuffer = root::create_buffer(
+				mPhysicalDevice, mAccStructure.getOwner(),
 				ak::memory_usage::device,
-				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
 		}
 		return mScratchBuffer.value();
 	}
 	
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(std::vector<std::tuple<std::reference_wrapper<const ak::vertex_buffer_t>, std::reference_wrapper<const ak::index_buffer_t>>> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, blas_action aBuildAction)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
 	{
 		// TODO: into ak::commands
 		
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		const generic_buffer_t* scratchBuffer = nullptr;
-		if (aScratchBuffer.has_value()) {
-			scratchBuffer = &aScratchBuffer->get();
-		}
-		else {
-			throw ak::runtime_error("Not implemented!");
-			scratchBuffer = &get_and_possibly_create_scratch_buffer();
-		}
+		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
 
 		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
 		accStructureGeometries.reserve(aGeometries.size());
@@ -1431,22 +1425,23 @@ namespace ak
 		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
 		buildOffsetInfoPtrs.reserve(aGeometries.size());
 
-		for (auto& tpl : aGeometries) {
-			auto& vertexBuffer = std::get<std::reference_wrapper<const ak::vertex_buffer_t>>(tpl).get();
-			auto& indexBuffer = std::get<std::reference_wrapper<const ak::index_buffer_t>>(tpl).get();
+		for (auto& pair : aGeometries) {
+			auto& vertexBuffer = pair.vertex_buffer();
+			const auto& vertexBufferMeta = vertexBuffer.meta_data<vertex_buffer_meta>();
+			auto& indexBuffer = pair.index_buffer();
+			const auto& indexBufferMeta = indexBuffer.meta_data<index_buffer_meta>();
 			
-			if (vertexBuffer.meta_data().member_descriptions().size() == 0) {
+			if (vertexBufferMeta.member_descriptions().size() == 0) {
 				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
 			}
 			// Find member representing the positions, and...
 			auto posMember = std::find_if(
-				std::begin(vertexBuffer.meta_data().member_descriptions()), 
-				std::end(vertexBuffer.meta_data().member_descriptions()), 
+				std::begin(vertexBufferMeta.member_descriptions()), std::end(vertexBufferMeta.member_descriptions()), 
 				[](const buffer_element_member_meta& md) {
 					return md.mContent == content_description::position;
 				});
 			// ... perform 2nd check:
-			if (posMember == std::end(vertexBuffer.meta_data().member_descriptions())) {
+			if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
 				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
 			}
 	
@@ -1455,15 +1450,15 @@ namespace ak
 				.setGeometry(vk::AccelerationStructureGeometryTrianglesDataKHR{}
 					.setVertexFormat(posMember->mFormat)
 					.setVertexData(vk::DeviceOrHostAddressConstKHR{ vertexBuffer.device_address() }) // TODO: Support host addresses
-					.setVertexStride(static_cast<vk::DeviceSize>(vertexBuffer.meta_data().sizeof_one_element()))
-					.setIndexType(ak::to_vk_index_type( indexBuffer.meta_data().sizeof_one_element()))
+					.setVertexStride(static_cast<vk::DeviceSize>(vertexBufferMeta.sizeof_one_element()))
+					.setIndexType(ak::to_vk_index_type(indexBufferMeta.sizeof_one_element()))
 					.setIndexData(vk::DeviceOrHostAddressConstKHR{ indexBuffer.device_address() }) // TODO: Support host addresses
 					.setTransformData(nullptr)
 				)
 				.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
 			auto& boi = buildOffsetInfos.emplace_back()
-				.setPrimitiveCount(static_cast<uint32_t>(indexBuffer.meta_data().num_elements()) / 3u)
+				.setPrimitiveCount(static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3u)
 				.setPrimitiveOffset(0u)
 				.setFirstVertex(0u)
 				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
@@ -1482,7 +1477,7 @@ namespace ak
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
 
 		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 		// Sync before:
@@ -1503,27 +1498,30 @@ namespace ak
 		return aSyncHandler.submit_and_sync();
 	}
 
-	void bottom_level_acceleration_structure_t::build(std::vector<std::tuple<std::reference_wrapper<const ak::vertex_buffer_t>, std::reference_wrapper<const ak::index_buffer_t>>> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
-		build_or_update(std::move(aGeometries), std::move(aSyncHandler), std::move(aScratchBuffer), blas_action::build);
+		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
 	}
 	
-	void bottom_level_acceleration_structure_t::update(std::vector<std::tuple<std::reference_wrapper<const ak::vertex_buffer_t>, std::reference_wrapper<const ak::index_buffer_t>>> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
-		build_or_update(std::move(aGeometries), std::move(aSyncHandler), std::move(aScratchBuffer), blas_action::update);
+		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(ak::generic_buffer aBuffer, std::vector<ak::aabb> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, blas_action aBuildAction)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
 	{
+		// Create buffer for the AABBs:
+		auto aabbDataBuffer = root::create_buffer(
+			mPhysicalDevice, mAccStructure.getOwner(),
+			memory_usage::device,
+			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+			generic_buffer_meta::create_from_data(aGeometries)
+		);
+		aabbDataBuffer->fill(aGeometries.data()); // TODO: Do not use wait_idle!
+		// TODO: Probably better to NOT create an entirely new buffer at every invocation ^^ 
+		
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		const generic_buffer_t* scratchBuffer = nullptr;
-		if (aScratchBuffer.has_value()) {
-			scratchBuffer = &aScratchBuffer->get();
-		}
-		else {
-			throw ak::runtime_error("Not implemented!");
-			//scratchBuffer = &get_and_possibly_create_scratch_buffer();
-		}
+		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
 
 		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
 		//accStructureGeometries.reserve(aGeometries.size());
@@ -1539,7 +1537,7 @@ namespace ak
 		accStructureGeometries.emplace_back()
 			.setGeometryType(vk::GeometryTypeKHR::eAabbs)
 			.setGeometry(vk::AccelerationStructureGeometryAabbsDataKHR{}
-				.setData(vk::DeviceOrHostAddressConstKHR{ aBuffer->device_address() })
+				.setData(vk::DeviceOrHostAddressConstKHR{ aabbDataBuffer->device_address() })
 				.setStride(0)
 			)
 			.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
@@ -1563,7 +1561,7 @@ namespace ak
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
 
 		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 		// Sync before:
@@ -1579,19 +1577,22 @@ namespace ak
 
 		// Sync after:
 		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
+
+		// Handle lifetime:
+		commandBuffer.set_custom_deleter([lOwnedAabbBuffer = std::move(aabbDataBuffer)](){});
 		
 		// Finish him:
 		return aSyncHandler.submit_and_sync();
 	}
 
-	void bottom_level_acceleration_structure_t::build(ak::generic_buffer aBuffer, std::vector<ak::aabb> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
-		build_or_update(std::move(aBuffer), std::move(aGeometries), std::move(aSyncHandler), std::move(aScratchBuffer), blas_action::build);
+		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
 	}
 	
-	void bottom_level_acceleration_structure_t::update(ak::generic_buffer aBuffer, std::vector<ak::aabb> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
-		build_or_update(std::move(aBuffer), std::move(aGeometries), std::move(aSyncHandler), std::move(aScratchBuffer), blas_action::update);
+		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
 
 	ak::owning_resource<top_level_acceleration_structure_t> root::create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
@@ -1602,7 +1603,6 @@ namespace ak
 		auto geometryTypeInfo = vk::AccelerationStructureCreateGeometryTypeInfoKHR{}
 			.setGeometryType(vk::GeometryTypeKHR::eInstances)
 			.setMaxPrimitiveCount(aInstanceCount)
-			.setIndexType(vk::IndexType::eNoneKHR)
 			.setMaxVertexCount(0u)
 			.setVertexFormat(vk::Format::eUndefined)
 			.setAllowsTransforms(VK_FALSE);
@@ -1631,30 +1631,23 @@ namespace ak
 		return result;
 	}
 
-	const generic_buffer_t& top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
+	buffer_t& top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
-			mScratchBuffer = cgb::create(
-				cgb::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size())),
-				xv::memory_usage::device, 
-				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+			mScratchBuffer = root::create_buffer(
+				mPhysicalDevice, mAccStructure.getOwner(),
+				ak::memory_usage::device,
+				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
 		}
 		return mScratchBuffer.value();
 	}
 
-	std::optional<command_buffer> top_level_acceleration_structure_t::build_or_update(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, tlas_action aBuildAction)
+	std::optional<command_buffer> top_level_acceleration_structure_t::build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction)
 	{
-		aSyncHandler.set_queue_hint(cgb::context().transfer_queue()); // TODO: better use graphics queue?
-		
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		const generic_buffer_t* scratchBuffer = nullptr;
-		if (aScratchBuffer.has_value()) {
-			scratchBuffer = &aScratchBuffer->get();
-		}
-		else {
-			scratchBuffer = &get_and_possibly_create_scratch_buffer();
-		}
+		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
 
 		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
 		accStructureGeometries.reserve(aGeometryInstances.size());
@@ -1670,13 +1663,13 @@ namespace ak
 		auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
 		
 		// TODO: Retain this buffer, don't always create a new one
-		auto geomInstBuffer = cgb::create_and_fill(
-				cgb::generic_buffer_meta::create_from_data(geomInstances),
-				xv::memory_usage::host_coherent,
-				geomInstances.data(),
-				sync::not_required(),
-				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR // <--- TODO: Which eShaderDeviceAddress*  flag??
-			);
+		auto geomInstBuffer = root::create_buffer(
+			mPhysicalDevice, mAccStructure.getOwner(),
+			memory_usage::host_coherent,
+			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR, // <--- TODO: Which eShaderDeviceAddress*  flag??
+			generic_buffer_meta::create_from_data(geomInstances) 
+		);
+		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
 
 		for (auto& gi : aGeometryInstances) {
 
@@ -1685,7 +1678,7 @@ namespace ak
 				.setGeometry(vk::AccelerationStructureGeometryInstancesDataKHR{}
 					.setArrayOfPointers(VK_FALSE) // arrayOfPointers specifies whether data is used as an array of addresses or just an array.
 					// TODO: Is this ^ relevant? Probably only for host-builds if the data is structured in "array of pointers"-style?!
-					.setData(vk::DeviceOrHostAddressConstKHR{ geomInstBuffer->buffer_address() })
+					.setData(vk::DeviceOrHostAddressConstKHR{ geomInstBuffer->device_address() })
 				)
 				.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 			
@@ -1712,7 +1705,7 @@ namespace ak
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(1u) // TODO: Correct?
 			.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->buffer_address() });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
 
 		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 		// Sync before:
@@ -1723,7 +1716,7 @@ namespace ak
 			static_cast<uint32_t>(buildGeometryInfos.size()), 
 			buildGeometryInfos.data(),
 			buildOffsetInfoPtrs.data(),
-			cgb::context().dynamic_dispatch()
+			mDynamicDispatch
 		);
 
 		// Sync after:
@@ -1732,14 +1725,14 @@ namespace ak
 		return aSyncHandler.submit_and_sync();
 	}
 
-	void top_level_acceleration_structure_t::build(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	void top_level_acceleration_structure_t::build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
-		build_or_update(aGeometryInstances, std::move(aSyncHandler), std::move(aScratchBuffer), tlas_action::build);
+		build_or_update(aGeometryInstances, aScratchBuffer, std::move(aSyncHandler), tlas_action::build);
 	}
 	
-	void top_level_acceleration_structure_t::update(const std::vector<geometry_instance>& aGeometryInstances, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer)
+	void top_level_acceleration_structure_t::update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
-		build_or_update(aGeometryInstances, std::move(aSyncHandler), std::move(aScratchBuffer), tlas_action::update);
+		build_or_update(aGeometryInstances, aScratchBuffer, std::move(aSyncHandler), tlas_action::update);
 	}
 #pragma endregion
 
@@ -1954,10 +1947,11 @@ namespace ak
 		return std::get<vk::BufferCreateInfo>(std::get<std::tuple<vk::Buffer, vk::BufferCreateInfo>>(mBuffer));
 	}
 
-	vk::DescriptorType buffer_view_t::descriptor_type(size_t aOffset = 0) const
+	vk::DescriptorType buffer_view_t::descriptor_type(size_t aMetaDataIndex) const
 	{
 		if (std::holds_alternative<buffer>(mBuffer)) {
-			return std::get<buffer>(mBuffer)->descriptor_type(aOffset);
+			// meta<buffer_meta> should evaluate true for EVERY meta data there is. 
+			return std::get<buffer>(mBuffer)->meta<buffer_meta>(aMetaDataIndex).descriptor_type().value();
 		}
 		throw ak::runtime_error("Which descriptor type?");
 	}
@@ -4863,16 +4857,17 @@ namespace ak
 
 			// TODO: All of this SBT-stuff probably needs some refactoring
 			result.mShaderBindingTable = create_buffer(
-				generic_buffer_meta::create_from_size(shaderBindingTableSize),
 				memory_usage::host_coherent,
-				vk::BufferUsageFlagBits::eRayTracingKHR
-			); 
-			void* mapped = device().mapMemory(result.mShaderBindingTable->memory_handle(), 0, result.mShaderBindingTable->meta_data().total_size());
+				vk::BufferUsageFlagBits::eRayTracingKHR,				
+				generic_buffer_meta::create_from_size(shaderBindingTableSize)
+			);
+			const auto sbtBufferSize = result.mShaderBindingTable->meta<buffer_meta>().total_size();
+			void* mapped = device().mapMemory(result.mShaderBindingTable->memory_handle(), 0, sbtBufferSize);
 			// Transfer something into the buffer's memory...
 			device().getRayTracingShaderGroupHandlesKHR(
 				result.handle(), 
 				0, static_cast<uint32_t>(result.mShaderGroupCreateInfos.size()), 
-				result.mShaderBindingTable->meta_data().total_size(), 
+				sbtBufferSize, 
 				mapped, 
 				dynamic_dispatch());
 			device().unmapMemory(result.mShaderBindingTable->memory_handle());

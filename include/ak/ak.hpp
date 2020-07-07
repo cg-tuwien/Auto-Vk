@@ -70,7 +70,6 @@ namespace ak { class sync; }
 #include <ak/descriptor_set.hpp>
 
 #include <ak/buffer_meta.hpp>
-#include <ak/binding_data.hpp>
 #include <ak/descriptor_set_layout.hpp>
 #include <ak/set_of_descriptor_set_layouts.hpp>
 #include <ak/descriptor_cache_interface.hpp>
@@ -97,6 +96,7 @@ namespace ak { class sync; }
 
 #include <ak/buffer.hpp>
 #include <ak/buffer_view.hpp>
+#include <ak/vertex_index_buffer_pair.hpp>
 #include <ak/queue.hpp>
 #include <ak/renderpass_sync.hpp>
 #include <ak/renderpass.hpp>
@@ -108,6 +108,7 @@ namespace ak { class sync; }
 #include <ak/top_level_acceleration_structure.hpp>
 #include <ak/shader.hpp>
 
+#include <ak/binding_data.hpp>
 
 #include <ak/graphics_pipeline_config.hpp>
 #include <ak/compute_pipeline_config.hpp>
@@ -163,7 +164,7 @@ namespace ak
 
 		// Helper function used for creating both, bottom level and top level acceleration structures
 		template <typename T>
-		void finish_acceleration_structure_creation(T& result, std::function<void(T&)> aAlterConfigBeforeMemoryAlloc) noexcept
+		void finish_acceleration_structure_creation(T& result, std::function<void(T&)> aAlterConfigBeforeMemoryAlloc)
 		{
 			// ------------- Memory ------------
 			// 5. Query memory requirements

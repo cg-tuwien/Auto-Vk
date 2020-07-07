@@ -2,6 +2,8 @@
 
 namespace ak
 {
+	struct binding_data;
+	
 	/** Basically a vector of descriptor_set_layout instances */
 	class set_of_descriptor_set_layouts
 	{

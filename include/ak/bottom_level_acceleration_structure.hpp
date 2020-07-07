@@ -25,16 +25,16 @@ namespace ak
 		size_t required_scratch_buffer_build_size() const { return static_cast<size_t>(mMemoryRequirementsForBuildScratchBuffer.memoryRequirements.size); }
 		size_t required_scratch_buffer_update_size() const { return static_cast<size_t>(mMemoryRequirementsForScratchBufferUpdate.memoryRequirements.size); }
 
-		void build(std::vector<std::tuple<std::reference_wrapper<const ak::vertex_buffer_t>, std::reference_wrapper<const ak::index_buffer_t>>> aGeometries, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});
-		void update(std::vector<std::tuple<std::reference_wrapper<const ak::vertex_buffer_t>, std::reference_wrapper<const ak::index_buffer_t>>> aGeometries, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});
-		void build(ak::generic_buffer aBuffer, std::vector<ak::aabb> aGeometries, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});
-		void update(ak::generic_buffer aBuffer, std::vector<ak::aabb> aGeometries, sync aSyncHandler = sync::wait_idle(), std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer = {});
+		std::optional<command_buffer> build(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> build(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler = sync::wait_idle());
 		
 	private:
 		enum struct blas_action { build, update };
-		std::optional<command_buffer> build_or_update(std::vector<std::tuple<std::reference_wrapper<const ak::vertex_buffer_t>, std::reference_wrapper<const ak::index_buffer_t>>> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, blas_action aBuildAction);
-		std::optional<command_buffer> build_or_update(ak::generic_buffer aBuffer, std::vector<ak::aabb> aGeometries, sync aSyncHandler, std::optional<std::reference_wrapper<const generic_buffer_t>> aScratchBuffer, blas_action aBuildAction);
-		//const generic_buffer_t& get_and_possibly_create_scratch_buffer();
+		std::optional<command_buffer> build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction);
+		std::optional<command_buffer> build_or_update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction);
+		buffer_t& get_and_possibly_create_scratch_buffer();
 		
 		vk::MemoryRequirements2KHR mMemoryRequirementsForAccelerationStructure;
 		vk::MemoryRequirements2KHR mMemoryRequirementsForBuildScratchBuffer;
@@ -45,13 +45,12 @@ namespace ak
 		std::vector<vk::AccelerationStructureCreateGeometryTypeInfoKHR> mGeometryInfos;
 		//std::vector<vk::GeometryKHR> mGeometries;
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
+		vk::PhysicalDevice mPhysicalDevice;
 		vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic>>::type mAccStructure;
 		vk::DispatchLoaderDynamic mDynamicDispatch;
 		vk::DeviceAddress mDeviceAddress;
 
-		std::optional<generic_buffer> mScratchBuffer;
-
-		std::optional<generic_buffer> mAabbBuffer;
+		std::optional<buffer> mScratchBuffer;
 	};
 
 	using bottom_level_acceleration_structure = ak::owning_resource<bottom_level_acceleration_structure_t>;

@@ -63,14 +63,12 @@ namespace ak
 		const auto& member_descriptions() const { return mOrderedMemberDescriptions; }
 
 		/** Gets the descriptor type that is suitable for binding a buffer of this kind to shaders. */
-		auto descriptor_type() const { return mDescriptorType; }
+		virtual std::optional<vk::DescriptorType> descriptor_type() const { return {}; }
 
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlags{}; }
+		virtual vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlags{}; }
 
 	protected:
-		// The descriptor type of the buffer, if it has one
-		std::optional<vk::DescriptorType> mDescriptorType;
 		// The size of one record/element
 		size_t mSizeOfOneElement;
 		// The total number of records/elements
@@ -88,7 +86,6 @@ namespace ak
 		static generic_buffer_meta create_from_size(size_t aSize) 
 		{ 
 			generic_buffer_meta result;
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSize;
 			result.mNumElements = 1;
 			return result; 
@@ -100,8 +97,7 @@ namespace ak
 		template <typename T>
 		static std::enable_if_t<!std::is_pointer_v<T>, generic_buffer_meta> create_from_data(const T& aData)
 		{
-			generic_buffer_meta result; 
-			result.mDescriptorType = {};
+			generic_buffer_meta result;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -114,16 +110,15 @@ namespace ak
 	{
 	public:
 		/** Gets the descriptor type that is suitable for binding a buffer of this kind to shaders. */
-		std::optional<vk::DescriptorType> descriptor_type() const { return vk::DescriptorType::eUniformBuffer; }
+		std::optional<vk::DescriptorType> descriptor_type() const override { return vk::DescriptorType::eUniformBuffer; }
 
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlagBits::eUniformBuffer; }
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eUniformBuffer; }
 		
 		/** Create meta info from the total size of the represented data. */
 		static uniform_buffer_meta create_from_size(size_t aSize) 
 		{ 
 			uniform_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eUniformBuffer;
 			result.mSizeOfOneElement = aSize;
 			result.mNumElements = 1; 
 			return result; 
@@ -136,7 +131,6 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, uniform_buffer_meta> create_from_data(const T& aData)
 		{
 			uniform_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eUniformBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -149,17 +143,16 @@ namespace ak
 	{
 	public:
 		/** Gets the descriptor type that is suitable for binding a buffer of this kind to shaders. */
-		std::optional<vk::DescriptorType> descriptor_type() const { return vk::DescriptorType::eUniformTexelBuffer; }
+		std::optional<vk::DescriptorType> descriptor_type() const override { return vk::DescriptorType::eUniformTexelBuffer; }
 
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlagBits::eUniformTexelBuffer; }
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eUniformTexelBuffer; }
 		
 		/** Create meta info from the size of one element and the number of elements. 
 		 */
 		static uniform_texel_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElemaents) 
 		{ 
 			uniform_texel_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eUniformTexelBuffer;
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElemaents;
 			return result; 
@@ -169,7 +162,6 @@ namespace ak
 		static uniform_texel_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			uniform_texel_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eUniformTexelBuffer;
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -182,7 +174,6 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, uniform_texel_buffer_meta> create_from_data(const T& aData)
 		{
 			uniform_texel_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eUniformTexelBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -274,16 +265,15 @@ namespace ak
 	{
 	public:
 		/** Gets the descriptor type that is suitable for binding a buffer of this kind to shaders. */
-		std::optional<vk::DescriptorType> descriptor_type() const { return vk::DescriptorType::eStorageBuffer; }
+		std::optional<vk::DescriptorType> descriptor_type() const override { return vk::DescriptorType::eStorageBuffer; }
 
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlagBits::eStorageBuffer; }
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eStorageBuffer; }
 		
 		/** Create meta info from the total size of the represented data. */
 		static storage_buffer_meta create_from_size(size_t aSize) 
 		{ 
 			storage_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eStorageBuffer;
 			result.mSizeOfOneElement = aSize;
 			result.mNumElements = 1; 
 			return result; 
@@ -296,7 +286,6 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, storage_buffer_meta> create_from_data(const T& aData)
 		{
 			storage_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eStorageBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
 			result.mNumElements = how_many_elements(aData);
 			return result; 
@@ -309,17 +298,16 @@ namespace ak
 	{
 	public:
 		/** Gets the descriptor type that is suitable for binding a buffer of this kind to shaders. */
-		std::optional<vk::DescriptorType> descriptor_type() const { return vk::DescriptorType::eStorageTexelBuffer; }
+		std::optional<vk::DescriptorType> descriptor_type() const override { return vk::DescriptorType::eStorageTexelBuffer; }
 
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlagBits::eStorageTexelBuffer; }
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eStorageTexelBuffer; }
 		
 		/** Create meta info from the size of one element and the number of elements. 
 		 */
 		static storage_texel_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements) 
 		{ 
 			storage_texel_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eStorageTexelBuffer;
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -329,7 +317,6 @@ namespace ak
 		static storage_texel_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			storage_texel_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eStorageTexelBuffer;
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -414,7 +401,7 @@ namespace ak
 	{
 	public:
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlagBits::eVertexBuffer; }
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eVertexBuffer; }
 		
 		/** Create meta info from the size of one element and the number of elements. 
 		 *	It is legal to omit the `pNumElements` parameter for only creating an input description
@@ -423,7 +410,6 @@ namespace ak
 		static vertex_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements = 0) 
 		{ 
 			vertex_buffer_meta result; 
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -433,7 +419,6 @@ namespace ak
 		static vertex_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			vertex_buffer_meta result; 
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -523,13 +508,12 @@ namespace ak
 	{
 	public:
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlagBits::eIndexBuffer; }
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eIndexBuffer; }
 		
 		/** Create meta info from the size of one index and the number of elements.  */
 		static index_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements = 0) 
 		{ 
 			index_buffer_meta result; 
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -539,7 +523,6 @@ namespace ak
 		static index_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			index_buffer_meta result; 
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -566,7 +549,7 @@ namespace ak
 	{
 	public:
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const { return vk::BufferUsageFlagBits::eVertexBuffer; }
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eVertexBuffer; }
 		
 		/** Create meta info from the size of one element and the number of elements. 
 		 *	It is legal to omit the `pNumElements` parameter for only creating an input description
@@ -575,7 +558,6 @@ namespace ak
 		static instance_buffer_meta create_from_element_size(size_t aSizeElement, size_t aNumElements = 0) 
 		{ 
 			instance_buffer_meta result; 
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aSizeElement;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -585,7 +567,6 @@ namespace ak
 		static instance_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements) 
 		{ 
 			instance_buffer_meta result; 
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = aTotalSize / aNumElements;
 			result.mNumElements = aNumElements;
 			return result; 
@@ -598,7 +579,6 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, instance_buffer_meta> create_from_data(const T& aData)
 		{
 			instance_buffer_meta result; 
-			result.mDescriptorType = {};
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 
