@@ -5,8 +5,8 @@ namespace ak
 {
 	struct acceleration_structure_size_requirements
 	{
-		static acceleration_structure_size_requirements from_buffers(const ak::vertex_buffer_t& aVertexBuffer, const ak::index_buffer_t& aIndexBuffer);
-		static acceleration_structure_size_requirements from_buffers(const ak::index_buffer_t& aIndexBuffer, const ak::vertex_buffer_t& aVertexBuffer);
+		static acceleration_structure_size_requirements from_buffers(vertex_index_buffer_pair aPair);
+		static acceleration_structure_size_requirements from_buffers(vertex_index_buffer_pair aPair);
 
 		template <typename T>
 		static std::vector<acceleration_structure_size_requirements> from_buffers(const T& aCollection)

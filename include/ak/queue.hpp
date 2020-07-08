@@ -31,21 +31,21 @@ namespace ak
 			vk::PhysicalDevice aPhysicalDevice,
 			vk::QueueFlags aRequiredFlags, 
 			vk::QueueFlags aForbiddenFlags, 
-			std::optional<vk::SurfaceKHR> aSurface
+			std::optional<vk::SurfaceKHR> aSurface = {}
 		);
 
 		static std::vector<std::tuple<uint32_t, vk::QueueFamilyProperties>> find_best_queue_family_for(
 			vk::PhysicalDevice aPhysicalDevice,
 			vk::QueueFlags aRequiredFlags,
 			queue_selection_preference aQueueSelectionPreference,
-			std::optional<vk::SurfaceKHR> aSurface
+			std::optional<vk::SurfaceKHR> aSurface = {}
 		);
 
 		static uint32_t select_queue_family_index(
 			vk::PhysicalDevice aPhysicalDevice,
 			vk::QueueFlags aRequiredFlags,
 			queue_selection_preference aQueueSelectionPreference,
-			std::optional<vk::SurfaceKHR> aSupportForSurface
+			std::optional<vk::SurfaceKHR> aSupportForSurface = {}
 		);
 		
 		/** Prepare another queue and for the given queue family index. */
@@ -59,7 +59,7 @@ namespace ak
 		/**	Input: Iterators [begin end) to ak::queue elements.
 		 */
 		template <typename It>
-		std::tuple<
+		static std::tuple<
 			std::vector<vk::DeviceQueueCreateInfo>,
 			std::vector<std::vector<float>>
 		> get_queue_config_for_DeviceCreateInfo(It begin, It end)
@@ -104,6 +104,11 @@ namespace ak
 					}
 				}
 				++it;
+			}
+
+			// No guarantee that this is maintained afterwards! Better call this code afterwards again (must be done by the user)!
+			for (auto i = 0; i < createInfos.size(); ++i) {
+				createInfos[i].setPQueuePriorities(priorities[i].data());
 			}
 
 			return { std::move(createInfos), std::move(priorities) };
@@ -160,18 +165,4 @@ namespace ak
 		return same;
 	}
 
-	struct queue_submit_proxy
-	{
-		queue_submit_proxy() = default;
-		queue_submit_proxy(queue_submit_proxy&&) = delete;
-		queue_submit_proxy(const queue_submit_proxy&) = delete;
-		queue_submit_proxy& operator=(queue_submit_proxy&&) = delete;
-		queue_submit_proxy& operator=(const queue_submit_proxy&) = delete;
-
-		queue& mQueue;
-		vk::SubmitInfo mSubmitInfo;
-		std::vector<command_buffer> mCommandBuffers;
-		std::vector<semaphore> mWaitSemaphores;
-		std::vector<semaphore> mSignalSemaphores;
-	};
 }

@@ -138,13 +138,10 @@ namespace ak
 	{
 	public:
 		root() {}
-		virtual vk::PhysicalDevice& physical_device()		                                      = 0;
-		virtual vk::Device& device()						                                      = 0;
-		virtual vk::Queue& queue()							                                      = 0;
-		virtual uint32_t queue_family_index()                                                     = 0;
-		virtual vk::DispatchLoaderDynamic& dynamic_dispatch()                                     = 0;
-		virtual vk::CommandPool& command_pool_for_flags(vk::CommandPoolCreateFlags aCreateFlags)  = 0;
-		virtual descriptor_cache_interface& descriptor_cache()                                    = 0;
+		virtual vk::PhysicalDevice physical_device()				= 0;
+		virtual vk::Device device()									= 0;
+		virtual vk::DispatchLoaderDynamic dynamic_dispatch()		= 0;
+		virtual descriptor_cache_interface& descriptor_cache()		= 0;
 
 #pragma region root helper functions
 		/** Find (index of) memory with parameters
@@ -327,58 +324,7 @@ namespace ak
 #pragma endregion
 
 #pragma region command pool and command buffer
-		command_pool create_command_pool(vk::CommandPoolCreateFlags aCreateFlags = vk::CommandPoolCreateFlags());
-
-		std::vector<ak::owning_resource<command_buffer_t>> create_command_buffers(uint32_t aCount, vk::CommandPoolCreateFlags aCommandPoolFlags, vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
-			
-		ak::owning_resource<command_buffer_t> create_command_buffer(vk::CommandPoolCreateFlags aCommandPoolFlags, vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
-
-		/** Creates a "standard" command buffer which is not necessarily short-lived
-		 *	and can be re-submitted, but not necessarily re-recorded.
-		 *
-		 *	@param	aSimultaneousUseEnabled		`true` means that the command buffer to be created can be 
-		 *										resubmitted to a queue while it is in the pending state.
-		 *										It also means that it can be recorded into multiple primary
-		 *										command buffers, if it is intended to be used as a secondary.
-		 */
-		command_buffer create_command_buffer(bool aSimultaneousUseEnabled = false, bool aPrimary = true);
-
-		/** Creates a "standard" command buffer which is not necessarily short-lived
-		 *	and can be re-submitted, but not necessarily re-recorded.
-		 *
-		 *	@param	aNumBuffers					How many command buffers to be created.
-		 *	@param	aSimultaneousUseEnabled		`true` means that the command buffer to be created can be 
-		 *										resubmitted to a queue while it is in the pending state.
-		 *										It also means that it can be recorded into multiple primary
-		 *										command buffers, if it is intended to be used as a secondary.
-		 */
-		std::vector<command_buffer> create_command_buffers(uint32_t aNumBuffers, bool aSimultaneousUseEnabled = false, bool aPrimary = true);
-
-		/** Creates a command buffer which is intended to be used as a one time submit command buffer
-		 */
-		command_buffer create_single_use_command_buffer(bool aPrimary = true);
-
-		/** Creates a command buffer which is intended to be used as a one time submit command buffer
-		 *	@param	aNumBuffers					How many command buffers to be created.
-		 */
-		std::vector<command_buffer> create_single_use_command_buffers(uint32_t aNumBuffers, bool aPrimary = true);
-
-		/** Creates a command buffer which is intended to be reset (and possible re-recorded).
-		 *	@param	aSimultaneousUseEnabled		`true` means that the command buffer to be created can be 
-		 *										resubmitted to a queue while it is in the pending state.
-		 *										It also means that it can be recorded into multiple primary
-		 *										command buffers, if it is intended to be used as a secondary.
-		 */
-		command_buffer create_resettable_command_buffer(bool aSimultaneousUseEnabled = false, bool aPrimary = true);
-
-		/** Creates a command buffer which is intended to be reset (and possible re-recorded).
-		 *	@param	aNumBuffers					How many command buffers to be created.
-		 *	@param	aSimultaneousUseEnabled		`true` means that the command buffer to be created can be 
-		 *										resubmitted to a queue while it is in the pending state.
-		 *										It also means that it can be recorded into multiple primary
-		 *										command buffers, if it is intended to be used as a secondary.
-		 */
-		std::vector<command_buffer> create_resettable_command_buffers(uint32_t aNumBuffers, bool aSimultaneousUseEnabled = false, bool aPrimary = true);
+		command_pool create_command_pool(uint32_t aQueueFamilyIndex, vk::CommandPoolCreateFlags aCreateFlags = vk::CommandPoolCreateFlags());
 #pragma endregion 
 
 #pragma region compute pipeline

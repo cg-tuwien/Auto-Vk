@@ -45,8 +45,6 @@ namespace ak
 	extern ak::memory_access to_memory_access(ak::write_memory_access aValue);
 	extern std::optional<ak::memory_access> to_memory_access(std::optional<ak::write_memory_access> aValue);
 
-	extern ak::filter_mode to_cgb_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable);
-
 	extern vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info);
 	
 }

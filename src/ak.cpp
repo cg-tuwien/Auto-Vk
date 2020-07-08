@@ -110,7 +110,7 @@ namespace ak
 #pragma endregion
 
 #pragma region vk_utils
-	bool is_srgb_format(const vk::Format& pImageFormat)
+	bool is_srgb_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> srgbFormats = {
@@ -122,11 +122,11 @@ namespace ak
 			vk::Format::eB8G8R8A8Srgb,
 			vk::Format::eA8B8G8R8SrgbPack32
 		};
-		auto it = std::find(std::begin(srgbFormats), std::end(srgbFormats), pImageFormat);
+		auto it = std::find(std::begin(srgbFormats), std::end(srgbFormats), aImageFormat);
 		return it != srgbFormats.end();
 	}
 
-	bool is_uint8_format(const vk::Format& pImageFormat)
+	bool is_uint8_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
 		// TODO: sRGB-formats are assumed to be uint8-formats (not signed int8-formats) => is that true?
@@ -160,11 +160,11 @@ namespace ak
 			vk::Format::eA8B8G8R8UintPack32,
 			vk::Format::eA8B8G8R8SrgbPack32
 		};
-		auto it = std::find(std::begin(uint8Formats), std::end(uint8Formats), pImageFormat);
+		auto it = std::find(std::begin(uint8Formats), std::end(uint8Formats), aImageFormat);
 		return it != uint8Formats.end();
 	}
 
-	bool is_int8_format(const vk::Format& pImageFormat)
+	bool is_int8_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> int8Formats = {
@@ -190,11 +190,11 @@ namespace ak
 			vk::Format::eA8B8G8R8SscaledPack32,
 			vk::Format::eA8B8G8R8SintPack32,
 		};
-		auto it = std::find(std::begin(int8Formats), std::end(int8Formats), pImageFormat);
+		auto it = std::find(std::begin(int8Formats), std::end(int8Formats), aImageFormat);
 		return it != int8Formats.end();
 	}
 
-	bool is_uint16_format(const vk::Format& pImageFormat)
+	bool is_uint16_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> uint16Formats = {
@@ -211,11 +211,11 @@ namespace ak
 			vk::Format::eR16G16B16A16Uscaled,
 			vk::Format::eR16G16B16A16Uint
 		};
-		auto it = std::find(std::begin(uint16Formats), std::end(uint16Formats), pImageFormat);
+		auto it = std::find(std::begin(uint16Formats), std::end(uint16Formats), aImageFormat);
 		return it != uint16Formats.end();
 	}
 
-	bool is_int16_format(const vk::Format& pImageFormat)
+	bool is_int16_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> int16Formats = {
@@ -232,11 +232,11 @@ namespace ak
 			vk::Format::eR16G16B16A16Sscaled,
 			vk::Format::eR16G16B16A16Sint
 		};
-		auto it = std::find(std::begin(int16Formats), std::end(int16Formats), pImageFormat);
+		auto it = std::find(std::begin(int16Formats), std::end(int16Formats), aImageFormat);
 		return it != int16Formats.end();
 	}
 
-	bool is_uint32_format(const vk::Format& pImageFormat)
+	bool is_uint32_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> uint32Format = { 
@@ -245,11 +245,11 @@ namespace ak
 			vk::Format::eR32G32B32Uint,
 			vk::Format::eR32G32B32A32Uint
 		};
-		auto it = std::find(std::begin(uint32Format), std::end(uint32Format), pImageFormat);
+		auto it = std::find(std::begin(uint32Format), std::end(uint32Format), aImageFormat);
 		return it != uint32Format.end();
 	}
 
-	bool is_int32_format(const vk::Format& pImageFormat)
+	bool is_int32_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> int32Format = {
@@ -258,16 +258,16 @@ namespace ak
 			vk::Format::eR32G32B32Sint,
 			vk::Format::eR32G32B32A32Sint
 		};
-		auto it = std::find(std::begin(int32Format), std::end(int32Format), pImageFormat);
+		auto it = std::find(std::begin(int32Format), std::end(int32Format), aImageFormat);
 		return it != int32Format.end();
 	}
 
-	bool is_float_format(const vk::Format& pImageFormat)
+	bool is_float_format(const vk::Format& aImageFormat)
 	{
-		return is_float16_format(pImageFormat) || is_float32_format(pImageFormat) || is_float64_format(pImageFormat);
+		return is_float16_format(aImageFormat) || is_float32_format(aImageFormat) || is_float64_format(aImageFormat);
 	}
 
-	bool is_float16_format(const vk::Format& pImageFormat)
+	bool is_float16_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> float16Formats = {
@@ -276,11 +276,11 @@ namespace ak
 			vk::Format::eR16G16B16Sfloat,
 			vk::Format::eR16G16B16A16Sfloat
 		};
-		auto it = std::find(std::begin(float16Formats), std::end(float16Formats), pImageFormat);
+		auto it = std::find(std::begin(float16Formats), std::end(float16Formats), aImageFormat);
 		return it != float16Formats.end();
 	}
 
-	bool is_float32_format(const vk::Format& pImageFormat)
+	bool is_float32_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> float32Formats = {
@@ -289,11 +289,11 @@ namespace ak
 			vk::Format::eR32G32B32Sfloat,
 			vk::Format::eR32G32B32A32Sfloat
 		};
-		auto it = std::find(std::begin(float32Formats), std::end(float32Formats), pImageFormat);
+		auto it = std::find(std::begin(float32Formats), std::end(float32Formats), aImageFormat);
 		return it != float32Formats.end();
 	}
 
-	bool is_float64_format(const vk::Format& pImageFormat)
+	bool is_float64_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> float64Formats = {
@@ -302,11 +302,11 @@ namespace ak
 			vk::Format::eR64G64B64Sfloat,
 			vk::Format::eR64G64B64A64Sfloat
 		};
-		auto it = std::find(std::begin(float64Formats), std::end(float64Formats), pImageFormat);
+		auto it = std::find(std::begin(float64Formats), std::end(float64Formats), aImageFormat);
 		return it != float64Formats.end();
 	}
 
-	bool is_rgb_format(const vk::Format& pImageFormat)
+	bool is_rgb_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> rgbFormats = {
@@ -333,11 +333,11 @@ namespace ak
 			vk::Format::eR64G64B64Sfloat,
 
 		};
-		auto it = std::find(std::begin(rgbFormats), std::end(rgbFormats), pImageFormat);
+		auto it = std::find(std::begin(rgbFormats), std::end(rgbFormats), aImageFormat);
 		return it != rgbFormats.end();
 	}
 
-	bool is_rgba_format(const vk::Format& pImageFormat)
+	bool is_rgba_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> rgbaFormats = {
@@ -364,11 +364,11 @@ namespace ak
 			vk::Format::eR64G64B64A64Sint,
 			vk::Format::eR64G64B64A64Sfloat,
 		};
-		auto it = std::find(std::begin(rgbaFormats), std::end(rgbaFormats), pImageFormat);
+		auto it = std::find(std::begin(rgbaFormats), std::end(rgbaFormats), aImageFormat);
 		return it != rgbaFormats.end();
 	}
 
-	bool is_argb_format(const vk::Format& pImageFormat)
+	bool is_argb_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> argbFormats = {
@@ -380,11 +380,11 @@ namespace ak
 			vk::Format::eA2R10G10B10UintPack32,
 			vk::Format::eA2R10G10B10SintPack32,
 		};
-		auto it = std::find(std::begin(argbFormats), std::end(argbFormats), pImageFormat);
+		auto it = std::find(std::begin(argbFormats), std::end(argbFormats), aImageFormat);
 		return it != argbFormats.end();
 	}
 
-	bool is_bgr_format(const vk::Format& pImageFormat)
+	bool is_bgr_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> bgrFormats = {
@@ -398,11 +398,11 @@ namespace ak
 			vk::Format::eB8G8R8Srgb,
 			vk::Format::eB10G11R11UfloatPack32,
 		};
-		auto it = std::find(std::begin(bgrFormats), std::end(bgrFormats), pImageFormat);
+		auto it = std::find(std::begin(bgrFormats), std::end(bgrFormats), aImageFormat);
 		return it != bgrFormats.end();
 	}
 
-	bool is_bgra_format(const vk::Format& pImageFormat)
+	bool is_bgra_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> bgraFormats = {
@@ -423,11 +423,11 @@ namespace ak
 			vk::Format::eB8G8R8A8Sint,
 			vk::Format::eB8G8R8A8Srgb,
 		};
-		auto it = std::find(std::begin(bgraFormats), std::end(bgraFormats), pImageFormat);
+		auto it = std::find(std::begin(bgraFormats), std::end(bgraFormats), aImageFormat);
 		return it != bgraFormats.end();
 	}
 
-	bool is_abgr_format(const vk::Format& pImageFormat)
+	bool is_abgr_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
 		static std::set<vk::Format> abgrFormats = {
@@ -445,22 +445,22 @@ namespace ak
 			vk::Format::eA2B10G10R10UintPack32,
 			vk::Format::eA2B10G10R10SintPack32,
 		};
-		auto it = std::find(std::begin(abgrFormats), std::end(abgrFormats), pImageFormat);
+		auto it = std::find(std::begin(abgrFormats), std::end(abgrFormats), aImageFormat);
 		return it != abgrFormats.end();
 	}
 
-	bool has_stencil_component(const vk::Format& pImageFormat)
+	bool has_stencil_component(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> stencilFormats = {
 			vk::Format::eD16UnormS8Uint,
 			vk::Format::eD32SfloatS8Uint,
 			vk::Format::eD24UnormS8Uint,
 		};
-		auto it = std::find(std::begin(stencilFormats), std::end(stencilFormats), pImageFormat);
+		auto it = std::find(std::begin(stencilFormats), std::end(stencilFormats), aImageFormat);
 		return it != stencilFormats.end();
 	}
 
-	bool is_depth_format(const vk::Format& pImageFormat)
+	bool is_depth_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> depthFormats = {
 			vk::Format::eD16Unorm,
@@ -469,11 +469,11 @@ namespace ak
 			vk::Format::eD32Sfloat,
 			vk::Format::eD32SfloatS8Uint,
 		};
-		auto it = std::find(std::begin(depthFormats), std::end(depthFormats), pImageFormat);
+		auto it = std::find(std::begin(depthFormats), std::end(depthFormats), aImageFormat);
 		return it != depthFormats.end();
 	}
 
-	bool is_1component_format(const vk::Format& pImageFormat)
+	bool is_1component_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> singleCompFormats = {
 			vk::Format::eR8Srgb,
@@ -496,11 +496,11 @@ namespace ak
 			vk::Format::eR32Sfloat,
 			vk::Format::eR64Sfloat,
 		};
-		auto it = std::find(std::begin(singleCompFormats), std::end(singleCompFormats), pImageFormat);
+		auto it = std::find(std::begin(singleCompFormats), std::end(singleCompFormats), aImageFormat);
 		return it != singleCompFormats.end();
 	}
 
-	bool is_2component_format(const vk::Format& pImageFormat)
+	bool is_2component_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> twoComponentFormats = {
 			vk::Format::eR8G8Srgb,
@@ -523,11 +523,11 @@ namespace ak
 			vk::Format::eR32G32Sfloat,
 			vk::Format::eR64G64Sfloat,
 		};
-		auto it = std::find(std::begin(twoComponentFormats), std::end(twoComponentFormats), pImageFormat);
+		auto it = std::find(std::begin(twoComponentFormats), std::end(twoComponentFormats), aImageFormat);
 		return it != twoComponentFormats.end();
 	}
 
-	bool is_3component_format(const vk::Format& pImageFormat)
+	bool is_3component_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> threeCompFormat = {
 			vk::Format::eR8G8B8Srgb,
@@ -563,11 +563,11 @@ namespace ak
 			vk::Format::eB8G8R8Srgb,
 			vk::Format::eB10G11R11UfloatPack32,
 		};
-		auto it = std::find(std::begin(threeCompFormat), std::end(threeCompFormat), pImageFormat);
+		auto it = std::find(std::begin(threeCompFormat), std::end(threeCompFormat), aImageFormat);
 		return it != threeCompFormat.end();
 	}
 
-	bool is_4component_format(const vk::Format& pImageFormat)
+	bool is_4component_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> fourCompFormats = {
 			vk::Format::eR8G8B8A8Srgb,
@@ -632,11 +632,11 @@ namespace ak
 			vk::Format::eA2B10G10R10UintPack32,
 			vk::Format::eA2B10G10R10SintPack32,
 		};
-		auto it = std::find(std::begin(fourCompFormats), std::end(fourCompFormats), pImageFormat);
+		auto it = std::find(std::begin(fourCompFormats), std::end(fourCompFormats), aImageFormat);
 		return it != fourCompFormats.end();
 	}
 
-	bool is_unorm_format(const vk::Format& pImageFormat)
+	bool is_unorm_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> unormFormats = {
 			vk::Format::eR8Unorm,
@@ -651,11 +651,11 @@ namespace ak
 			vk::Format::eR16G16B16Unorm,
 			vk::Format::eR16G16B16A16Unorm
 		};
-		auto it = std::find(std::begin(unormFormats), std::end(unormFormats), pImageFormat);
+		auto it = std::find(std::begin(unormFormats), std::end(unormFormats), aImageFormat);
 		return it != unormFormats.end();
 	}
 	
-	bool is_snorm_format(const vk::Format& pImageFormat)
+	bool is_snorm_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> snormFormats = {
 			vk::Format::eR8Snorm,
@@ -670,13 +670,13 @@ namespace ak
 			vk::Format::eR16G16B16Snorm,
 			vk::Format::eR16G16B16A16Snorm
 		};
-		auto it = std::find(std::begin(snormFormats), std::end(snormFormats), pImageFormat);
+		auto it = std::find(std::begin(snormFormats), std::end(snormFormats), aImageFormat);
 		return it != snormFormats.end();
 	}
 	
-	bool is_norm_format(const vk::Format& pImageFormat)
+	bool is_norm_format(const vk::Format& aImageFormat)
 	{
-		return is_unorm_format(pImageFormat) || is_snorm_format(pImageFormat) || is_srgb_format(pImageFormat);
+		return is_unorm_format(aImageFormat) || is_snorm_format(aImageFormat) || is_srgb_format(aImageFormat);
 	}
 
 	std::tuple<vk::ImageUsageFlags, vk::ImageLayout, vk::ImageTiling, vk::ImageCreateFlags> determine_usage_layout_tiling_flags_based_on_image_usage(ak::image_usage aImageUsageFlags)
@@ -1350,6 +1350,37 @@ namespace ak
 #pragma endregion
 
 #pragma region acceleration structure definitions
+	acceleration_structure_size_requirements from_buffers(vertex_index_buffer_pair aPair)
+	{
+		const auto& vertexBufferMeta = aPair.vertex_buffer().meta<vertex_buffer_meta>();
+		const auto& indexBufferMeta = aPair.index_buffer().meta<index_buffer_meta>();
+		
+		// Perform two sanity checks, because we really need the member descriptions to know where to find the positions.
+		// 1st check:
+		if (vertexBufferMeta.member_descriptions().size() == 0) {
+			throw ak::runtime_error("cgb::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
+		}
+
+		// Find member representing the positions, and...
+		auto posMember = std::find_if(
+			std::begin(vertexBufferMeta.member_descriptions()), std::end(vertexBufferMeta.member_descriptions()), 
+			[](const buffer_element_member_meta& md) {
+				return md.mContent == content_description::position;
+			});
+		// ... perform 2nd check:
+		if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
+			throw ak::runtime_error("cgb::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
+		}
+		
+		return acceleration_structure_size_requirements{
+			vk::GeometryTypeKHR::eTriangles,
+			static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3,
+			indexBufferMeta.sizeof_one_element(),
+			static_cast<uint32_t>(vertexBufferMeta.num_elements()),
+			posMember->mFormat
+		};
+	}
+	
 	ak::owning_resource<bottom_level_acceleration_structure_t> root::create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
 	{
 		bottom_level_acceleration_structure_t result;
@@ -1989,27 +2020,26 @@ namespace ak
 #pragma endregion
 
 #pragma region command pool and command buffer definitions
-	command_pool root::create_command_pool(vk::CommandPoolCreateFlags aCreateFlags)
+	command_pool root::create_command_pool(uint32_t aQueueFamilyIndex, vk::CommandPoolCreateFlags aCreateFlags)
 	{
-		const auto queueFamilyIndex = queue_family_index();
 		auto createInfo = vk::CommandPoolCreateInfo()
-			.setQueueFamilyIndex(queueFamilyIndex)
+			.setQueueFamilyIndex(aQueueFamilyIndex)
 			.setFlags(aCreateFlags);
-		command_pool result;
-		result.mQueueFamilyIndex = queueFamilyIndex;
+		command_pool_t result;
+		result.mQueueFamilyIndex = aQueueFamilyIndex;
 		result.mCreateInfo = createInfo;
 		result.mCommandPool = device().createCommandPoolUnique(createInfo);
 		return result;
 	}
 
-	std::vector<owning_resource<command_buffer_t>> root::create_command_buffers(uint32_t aCount, vk::CommandPoolCreateFlags aCommandPoolFlags, vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel)
+	std::vector<command_buffer> command_pool_t::alloc_command_buffers(uint32_t aCount, vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel)
 	{
 		auto bufferAllocInfo = vk::CommandBufferAllocateInfo()
-			.setCommandPool(command_pool_for_flags(aCommandPoolFlags))
+			.setCommandPool(handle())
 			.setLevel(aLevel) 
 			.setCommandBufferCount(aCount);
 
-		auto tmp = device().allocateCommandBuffersUnique(bufferAllocInfo);
+		auto tmp = mCommandPool.getOwner().allocateCommandBuffersUnique(bufferAllocInfo);
 
 		// Iterate over all the "raw"-Vk objects in `tmp` and...
 		std::vector<owning_resource<command_buffer_t>> buffers;
@@ -2028,66 +2058,12 @@ namespace ak
 		return buffers;
 	}
 
-	owning_resource<command_buffer_t> root::create_command_buffer(vk::CommandPoolCreateFlags aCommandPoolFlags, vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel)
+	command_buffer command_pool_t::alloc_command_buffer(vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel)
 	{
-		auto result = std::move(create_command_buffers(1, aCommandPoolFlags, aUsageFlags, aLevel)[0]);
+		auto result = std::move(alloc_command_buffers(1, aUsageFlags, aLevel)[0]);
 		return result;
 	}
 
-	command_buffer root::create_command_buffer(bool aSimultaneousUseEnabled, bool aPrimary)
-	{
-		auto usageFlags = vk::CommandBufferUsageFlags();
-		if (aSimultaneousUseEnabled) {
-			usageFlags |= vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-		}
-		auto result = create_command_buffer(vk::CommandPoolCreateFlags{}, usageFlags, aPrimary ? vk::CommandBufferLevel::ePrimary : vk::CommandBufferLevel::eSecondary);
-		return result;
-	}
-
-	std::vector<command_buffer> root::create_command_buffers(uint32_t aNumBuffers, bool aSimultaneousUseEnabled, bool aPrimary)
-	{
-		auto usageFlags = vk::CommandBufferUsageFlags();
-		if (aSimultaneousUseEnabled) {
-			usageFlags |= vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-		}
-		auto result = create_command_buffers(aNumBuffers, vk::CommandPoolCreateFlags{}, usageFlags, aPrimary ? vk::CommandBufferLevel::ePrimary : vk::CommandBufferLevel::eSecondary);
-		return result;
-	}
-	
-	command_buffer root::create_single_use_command_buffer(bool aPrimary)
-	{
-		const vk::CommandBufferUsageFlags usageFlags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-		auto result = create_command_buffer(vk::CommandPoolCreateFlagBits::eTransient, usageFlags, aPrimary ? vk::CommandBufferLevel::ePrimary : vk::CommandBufferLevel::eSecondary);
-		return result;
-	}
-
-	std::vector<command_buffer> root::create_single_use_command_buffers(uint32_t aNumBuffers, bool aPrimary)
-	{
-		const vk::CommandBufferUsageFlags usageFlags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-		auto result = create_command_buffers(aNumBuffers, vk::CommandPoolCreateFlagBits::eTransient, usageFlags, aPrimary ? vk::CommandBufferLevel::ePrimary : vk::CommandBufferLevel::eSecondary);
-		return result;		
-	}
-
-	command_buffer root::create_resettable_command_buffer(bool aSimultaneousUseEnabled, bool aPrimary)
-	{
-		vk::CommandBufferUsageFlags usageFlags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit | vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-		if (aSimultaneousUseEnabled) {
-			usageFlags |= vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-		}
-		auto result = create_command_buffer(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, usageFlags, aPrimary ? vk::CommandBufferLevel::ePrimary : vk::CommandBufferLevel::eSecondary);
-		return result;
-	}
-
-	std::vector<command_buffer> root::create_resettable_command_buffers(uint32_t aNumBuffers, bool aSimultaneousUseEnabled, bool aPrimary)
-	{
-		vk::CommandBufferUsageFlags usageFlags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit | vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-		if (aSimultaneousUseEnabled) {
-			usageFlags |= vk::CommandBufferUsageFlagBits::eSimultaneousUse;
-		}
-		auto result = create_command_buffers(aNumBuffers, vk::CommandPoolCreateFlagBits::eResetCommandBuffer, usageFlags, aPrimary ? vk::CommandBufferLevel::ePrimary : vk::CommandBufferLevel::eSecondary);
-		return result;
-	}
-	
 	command_buffer_t::~command_buffer_t()
 	{
 		if (mCustomDeleter.has_value() && *mCustomDeleter) {
@@ -2302,7 +2278,7 @@ namespace ak
 			throw ak::logic_error("Shader missing in compute_pipeline_config! A compute pipeline can not be constructed without a shader.");
 		}
 		//    Compile the shader
-		result.mShader = std::move(create_shader(aConfig.mShaderInfo.value()));
+		result.mShader = create_shader(aConfig.mShaderInfo.value());
 		assert(result.mShader.has_been_built());
 		//    Just fill in the create struct
 		result.mShaderStageCreateInfo = vk::PipelineShaderStageCreateInfo{}
@@ -2606,7 +2582,7 @@ namespace ak
 	{
 		std::vector<vk::DescriptorSetLayout> allHandles;
 		allHandles.reserve(mLayouts.size());
-		for (auto& dsl : mLayouts) {
+		for (const auto& dsl : mLayouts) {
 			allHandles.push_back(dsl.handle());
 		}
 		return allHandles;
@@ -5534,6 +5510,199 @@ using namespace cpplinq;
 			std::move(pEntryPoint),
 			pDontMonitorFile
 		};
+	}
+#pragma endregion
+
+#pragma region vk_utils2 definitions
+	std::optional<command_buffer> copy_image_to_another(image_t& aSrcImage, image_t& aDstImage, sync aSyncHandler, bool aRestoreSrcLayout, bool aRestoreDstLayout)
+	{
+		const auto originalSrcLayout = aSrcImage.target_layout();
+		const auto originalDstLayout = aDstImage.target_layout();
+		
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		// Sync before:
+		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
+		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
+		const auto srcLayoutAfterBarrier = aSrcImage.current_layout();
+		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
+									//|| initialSrcLayout == vk::ImageLayout::eGeneral
+									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
+		if (suitableSrcLayout) {
+			// Just make sure that is really is in target layout:
+			aSrcImage.transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {})); 
+		}
+		else {
+			// Not a suitable src layout => must transform
+			aSrcImage.transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+
+		// Citing the specs: "dstImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
+		const auto dstLayoutAfterBarrier = aDstImage.current_layout();
+		const bool suitableDstLayout = dstLayoutAfterBarrier == vk::ImageLayout::eTransferDstOptimal;
+									//|| dstLayoutAfterBarrier == vk::ImageLayout::eGeneral
+									//|| dstLayoutAfterBarrier == vk::ImageLayout::eSharedPresentKHR;
+		if (suitableDstLayout) {
+			// Just make sure that is really is in target layout:
+			aDstImage.transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {})); 
+		}
+		else {
+			// Not a suitable dst layout => must transform
+			aDstImage.transition_to_layout(vk::ImageLayout::eTransferDstOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+		
+		// Operation:
+		auto copyRegion = vk::ImageCopy{}
+			.setExtent(aSrcImage.config().extent) // TODO: Support different ranges/extents
+			.setSrcOffset({0, 0})
+			.setSrcSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
+				.setAspectMask(aSrcImage.aspect_flags())
+				.setBaseArrayLayer(0u)
+				.setLayerCount(1u)
+				.setMipLevel(0u)
+			)
+			.setDstOffset({0, 0})
+			.setDstSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
+				.setAspectMask(aDstImage.aspect_flags())
+				.setBaseArrayLayer(0u)
+				.setLayerCount(1u)
+				.setMipLevel(0u));
+
+		commandBuffer.handle().copyImage(
+			aSrcImage.handle(),
+			aSrcImage.current_layout(),
+			aDstImage.handle(),
+			aDstImage.current_layout(),
+			1u, &copyRegion);
+
+		if (aRestoreSrcLayout) { // => restore original layout of the src image
+			aSrcImage.transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+
+		if (aRestoreDstLayout) { // => restore original layout of the dst image
+			aDstImage.transition_to_layout(originalDstLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+		
+		// Sync after:
+		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+
+		// Finish him:
+		return aSyncHandler.submit_and_sync();
+	}
+
+	std::optional<command_buffer> blit_image(image_t& aSrcImage, image_t& aDstImage, sync aSyncHandler, bool aRestoreSrcLayout, bool aRestoreDstLayout)
+	{
+		const auto originalSrcLayout = aSrcImage.target_layout();
+		const auto originalDstLayout = aDstImage.target_layout();
+		
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		// Sync before:
+		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
+		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
+		const auto srcLayoutAfterBarrier = aSrcImage.current_layout();
+		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
+									//|| initialSrcLayout == vk::ImageLayout::eGeneral
+									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
+		if (suitableSrcLayout) {
+			// Just make sure that is really is in target layout:
+			aSrcImage.transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {})); 
+		}
+		else {
+			// Not a suitable src layout => must transform
+			aSrcImage.transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+
+		// Citing the specs: "dstImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
+		const auto dstLayoutAfterBarrier = aDstImage.current_layout();
+		const bool suitableDstLayout = dstLayoutAfterBarrier == vk::ImageLayout::eTransferDstOptimal;
+									//|| dstLayoutAfterBarrier == vk::ImageLayout::eGeneral
+									//|| dstLayoutAfterBarrier == vk::ImageLayout::eSharedPresentKHR;
+		if (suitableDstLayout) {
+			// Just make sure that is really is in target layout:
+			aDstImage.transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {})); 
+		}
+		else {
+			// Not a suitable dst layout => must transform
+			aDstImage.transition_to_layout(vk::ImageLayout::eTransferDstOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+
+
+		std::array<vk::Offset3D, 2> srcOffsets = { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(aSrcImage.width()), static_cast<int32_t>(aSrcImage.height()), 1 } };
+		std::array<vk::Offset3D, 2> dstOffsets = { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(aDstImage.width()), static_cast<int32_t>(aDstImage.height()), 1 } };
+		
+		// Operation:
+		auto blitRegion = vk::ImageBlit{}
+			.setSrcSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
+				.setAspectMask(aSrcImage.aspect_flags())
+				.setBaseArrayLayer(0u)
+				.setLayerCount(1u)
+				.setMipLevel(0u)
+			)
+			.setSrcOffsets(srcOffsets)
+			.setDstSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
+				.setAspectMask(aDstImage.aspect_flags())
+				.setBaseArrayLayer(0u)
+				.setLayerCount(1u)
+				.setMipLevel(0u)
+			)
+			.setDstOffsets(dstOffsets);
+
+		commandBuffer.handle().blitImage(
+			aSrcImage.handle(),
+			aSrcImage.current_layout(),
+			aDstImage.handle(),
+			aDstImage.current_layout(),
+			1u, &blitRegion, 
+			vk::Filter::eNearest); // TODO: Support other filters and everything
+
+		if (aRestoreSrcLayout) { // => restore original layout of the src image
+			aSrcImage.transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+
+		if (aRestoreDstLayout) { // => restore original layout of the dst image
+			aDstImage.transition_to_layout(originalDstLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+		
+		// Sync after:
+		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+
+		// Finish him:
+		return aSyncHandler.submit_and_sync();
+	}
+
+	std::optional<command_buffer> copy_buffer_to_image(const buffer_t& pSrcBuffer, image_t& pDstImage, sync aSyncHandler)
+	{
+		
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		// Sync before:
+		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
+		// Operation:
+		auto copyRegion = vk::BufferImageCopy()
+			.setBufferOffset(0)
+			// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
+			// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
+			.setBufferRowLength(0)
+			.setBufferImageHeight(0)
+			.setImageSubresource(vk::ImageSubresourceLayers()
+				.setAspectMask(vk::ImageAspectFlagBits::eColor)
+				.setMipLevel(0u)
+				.setBaseArrayLayer(0u)
+				.setLayerCount(1u))
+			.setImageOffset({ 0u, 0u, 0u })
+			.setImageExtent(pDstImage.config().extent);
+		commandBuffer.handle().copyBufferToImage(
+			pSrcBuffer.buffer_handle(),
+			pDstImage.handle(),
+			vk::ImageLayout::eTransferDstOptimal,
+			{ copyRegion });
+
+		// Sync after:
+		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+
+		// Finish him:
+		return aSyncHandler.submit_and_sync();
 	}
 #pragma endregion
 	

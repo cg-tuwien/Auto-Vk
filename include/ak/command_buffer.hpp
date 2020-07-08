@@ -4,7 +4,7 @@
 namespace ak 
 {
 	class renderpass_t;
-	class command_pool;
+	class command_pool_t;
 	class image_t;
 	class graphics_pipeline_t;
 	class compute_pipeline_t;
@@ -26,6 +26,7 @@ namespace ak
 	{
 		friend class root;
 		friend class queue;
+		friend class command_pool_t;
 		
 	public:
 		command_buffer_t() = default;

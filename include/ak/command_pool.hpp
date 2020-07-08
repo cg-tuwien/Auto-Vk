@@ -13,26 +13,33 @@ namespace ak
 	*	
 	*	[+]: https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkCommandPoolCreateInfo.html
 	*/
-	class command_pool
+	class command_pool_t
 	{
 		friend class root;
+		
 	public:
-		command_pool() = default;
-		command_pool(const command_pool&) = delete;
-		command_pool(command_pool&&) noexcept = default;
-		command_pool& operator=(const command_pool&) = delete;
-		command_pool& operator=(command_pool&&) noexcept = default;
-		~command_pool() = default;
+		command_pool_t() = default;
+		command_pool_t(const command_pool_t&) = delete;
+		command_pool_t(command_pool_t&&) noexcept = default;
+		command_pool_t& operator=(const command_pool_t&) = delete;
+		command_pool_t& operator=(command_pool_t&&) noexcept = default;
+		~command_pool_t() = default;
 
 		auto queue_family_index() const { return mQueueFamilyIndex; }
 		const auto& create_info() const { return mCreateInfo; }
 		const auto& handle() const { return mCommandPool.get(); }
 		const auto* handle_ptr() const { return &mCommandPool.get(); }
 
+		std::vector<ak::owning_resource<command_buffer_t>> alloc_command_buffers(uint32_t aCount, vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
+			
+		ak::owning_resource<command_buffer_t> alloc_command_buffer(vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
+		
 	private:
 		uint32_t mQueueFamilyIndex;
 		vk::CommandPoolCreateInfo mCreateInfo;
 		vk::UniqueCommandPool mCommandPool;
 	};
 
+	using command_pool = owning_resource<command_pool_t>;
+	
 }
