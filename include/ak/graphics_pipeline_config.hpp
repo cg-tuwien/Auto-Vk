@@ -424,7 +424,7 @@ namespace ak
 				};
 			}
 
-			static color_blending_config enable_alpha_blending_for_allaAttachments(color_channel pAffectedColorChannels = color_channel::rgba)
+			static color_blending_config enable_alpha_blending_for_all_attachments(color_channel pAffectedColorChannels = color_channel::rgba)
 			{
 				return color_blending_config{ 
 					{},
@@ -446,7 +446,7 @@ namespace ak
 				};
 			}
 
-			static color_blending_config enable_premultiplied_alpha_blending_for_allaAttachments(color_channel pAffectedColorChannels = color_channel::rgba)
+			static color_blending_config enable_premultiplied_alpha_blending_for_all_attachments(color_channel pAffectedColorChannels = color_channel::rgba)
 			{
 				return color_blending_config{ 
 					{},
@@ -468,7 +468,7 @@ namespace ak
 				};
 			}
 
-			static color_blending_config enable_additive_for_allaAttachments(color_channel pAffectedColorChannels = color_channel::rgba)
+			static color_blending_config enable_additive_for_all_attachments(color_channel pAffectedColorChannels = color_channel::rgba)
 			{
 				return color_blending_config{ 
 					{},
