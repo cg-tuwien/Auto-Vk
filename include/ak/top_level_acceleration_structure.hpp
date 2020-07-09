@@ -1,10 +1,12 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
 	class top_level_acceleration_structure_t
 	{
 		friend class root;
+		
 	public:
 		top_level_acceleration_structure_t() = default;
 		top_level_acceleration_structure_t(top_level_acceleration_structure_t&&) noexcept = default;

@@ -9,6 +9,9 @@ namespace ak
 	class sync
 	{
 	public:
+		static command_pool sPoolToAllocCommandBuffersFrom;
+		
+		
 		struct presets
 		{
 			static void default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess);

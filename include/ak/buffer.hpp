@@ -55,7 +55,7 @@ namespace ak
 		 *	one is created, that includes the buffer handle, offset is set to 0, and
 		 *	the size to total_size.
 		 */
-		const vk::DescriptorBufferInfo& descriptor_info() const
+		const auto& descriptor_info() const
 		{
 			if (!mDescriptorInfo.has_value()) {
 				mDescriptorInfo = vk::DescriptorBufferInfo()

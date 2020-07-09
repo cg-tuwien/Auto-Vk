@@ -67,13 +67,16 @@ namespace ak { class sync; }
 #include <ak/pipeline_stage.hpp>
 #include <ak/descriptor_alloc_request.hpp>
 #include <ak/descriptor_pool.hpp>
-#include <ak/descriptor_set.hpp>
 
+#include <ak/format_for.hpp>
 #include <ak/buffer_meta.hpp>
+
+#include <ak/binding_data.hpp>
+
+#include <ak/descriptor_set.hpp>
 #include <ak/descriptor_set_layout.hpp>
 #include <ak/set_of_descriptor_set_layouts.hpp>
-#include <ak/descriptor_cache_interface.hpp>
-#include <ak/standard_descriptor_cache.hpp>
+#include <ak/descriptor_cache.hpp>
 
 #include <ak/command_buffer.hpp>
 
@@ -86,13 +89,11 @@ namespace ak { class sync; }
 #include <ak/semaphore.hpp>
 #include <ak/fence.hpp>
 
-#include <ak/sync.hpp>
-
 #include <ak/input_description.hpp>
-
 #include <ak/push_constants.hpp>
 
 #include <ak/command_pool.hpp>
+#include <ak/sync.hpp>
 
 #include <ak/buffer.hpp>
 #include <ak/buffer_view.hpp>
@@ -107,8 +108,6 @@ namespace ak { class sync; }
 #include <ak/bottom_level_acceleration_structure.hpp>
 #include <ak/top_level_acceleration_structure.hpp>
 #include <ak/shader.hpp>
-
-#include <ak/binding_data.hpp>
 
 #include <ak/graphics_pipeline_config.hpp>
 #include <ak/compute_pipeline_config.hpp>
@@ -141,7 +140,6 @@ namespace ak
 		virtual vk::PhysicalDevice physical_device()				= 0;
 		virtual vk::Device device()									= 0;
 		virtual vk::DispatchLoaderDynamic dynamic_dispatch()		= 0;
-		virtual descriptor_cache_interface& descriptor_cache()		= 0;
 
 #pragma region root helper functions
 		/** Find (index of) memory with parameters
@@ -229,8 +227,8 @@ namespace ak
 #pragma endregion
 
 #pragma region acceleration structures
-		ak::owning_resource<bottom_level_acceleration_structure_t> create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
-		ak::owning_resource<top_level_acceleration_structure_t> create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates = true, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
+		bottom_level_acceleration_structure create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
+		top_level_acceleration_structure create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates = true, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
 #pragma endregion 
 
 #pragma region buffer
@@ -328,7 +326,7 @@ namespace ak
 #pragma endregion 
 
 #pragma region compute pipeline
-		owning_resource<compute_pipeline_t> create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		compute_pipeline create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Convenience function for gathering the compute pipeline's configuration.
 		 *
@@ -342,7 +340,7 @@ namespace ak
 		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref compute_pipeline_t::create
 		 */
 		template <typename... Ts>
-		ak::owning_resource<compute_pipeline_t> create_compute_pipeline_for(Ts... args)
+		compute_pipeline create_compute_pipeline_for(Ts... args)
 		{
 			// 1. GATHER CONFIG
 			std::function<void(compute_pipeline_t&)> alterConfigFunction;
@@ -358,33 +356,33 @@ namespace ak
 #pragma endregion
 
 #pragma region descriptor pool
-		std::shared_ptr<descriptor_pool> create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
+		static descriptor_pool create_descriptor_pool(vk::Device aDevice, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
+		descriptor_pool create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
+		descriptor_cache create_descriptor_cache(std::string_view aName);
 #pragma endregion
 
 #pragma region descriptor set layout and set of descriptor set layouts
+		static void allocate_descriptor_set_layout(vk::Device aDevice, descriptor_set_layout& aLayoutToBeAllocated);
 		void allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated);
 		void allocate_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated);
 #pragma endregion
 
-#pragma region descriptor set
-		std::vector<descriptor_set> get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings);
-#pragma endregion
-
 #pragma region fence
-		owning_resource<fence_t> create_fence(bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
+		static fence create_fence(vk::Device aDevice, bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
+		fence create_fence(bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region framebuffer
 		// Helper methods for the create methods that take attachments and image views
 		void check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<image_view>& aImageViews);
 		
-		owning_resource<framebuffer_t> create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		owning_resource<framebuffer_t> create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		owning_resource<framebuffer_t> create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		owning_resource<framebuffer_t> create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 
 		template <typename ...ImViews>
-		ak::owning_resource<framebuffer_t> create_framebuffer(std::vector<ak::attachment> aAttachments, ImViews... aImViews)
+		framebuffer create_framebuffer(std::vector<ak::attachment> aAttachments, ImViews... aImViews)
 		{
 			std::vector<image_view> imageViews;
 			(imageViews.push_back(std::move(aImViews)), ...);
@@ -392,7 +390,7 @@ namespace ak
 		}
 
 		template <typename ...ImViews>
-		ak::owning_resource<framebuffer_t> create_framebuffer(ak::renderpass aRenderpass, ImViews... aImViews)
+		framebuffer create_framebuffer(ak::renderpass aRenderpass, ImViews... aImViews)
 		{
 			std::vector<image_view> imageViews;
 			(imageViews.push_back(std::move(aImViews)), ...);
@@ -408,7 +406,7 @@ namespace ak
 #pragma endregion
 
 #pragma region graphics pipeline
-	ak::owning_resource<graphics_pipeline_t> create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+	graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		
 	/**	Convenience function for gathering the graphic pipeline's configuration.
@@ -419,7 +417,7 @@ namespace ak
 		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref graphics_pipeline_t::create
 		 */
 		template <typename... Ts>
-		ak::owning_resource<graphics_pipeline_t> create_graphics_pipeline_for(Ts... args)
+		graphics_pipeline create_graphics_pipeline_for(Ts... args)
 		{
 			// 1. GATHER CONFIG
 			std::vector<ak::attachment> renderPassAttachments;
@@ -458,7 +456,7 @@ namespace ak
 		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
 		 *	@return	Returns a newly created image.
 		 */
-		owning_resource<image_t> create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		image create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 		
 		/** Creates a new image
 		 *	@param	aWidth						The width of the image to be created
@@ -470,7 +468,7 @@ namespace ak
 		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
 		 *	@return	Returns a newly created image.
 		 */
-		owning_resource<image_t> create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		image create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
 		/** Creates a new image
 		*	@param	aWidth						The width of the depth buffer to be created
@@ -481,7 +479,7 @@ namespace ak
 		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
 		*	@return	Returns a newly created depth buffer.
 		*/
-		owning_resource<image_t> create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		image create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
 		/** Creates a new image
 		*	@param	aWidth						The width of the depth+stencil buffer to be created
@@ -492,7 +490,7 @@ namespace ak
 		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
 		*	@return	Returns a newly created depth+stencil buffer.
 		*/
-		owning_resource<image_t> create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		image create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
 		image_t wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, ak::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags);
 #pragma endregion
@@ -504,11 +502,11 @@ namespace ak
 		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.config()` to access the configuration structure!
 		*	@return	Returns a newly created image.
 		*/
-		owning_resource<image_view_t> create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		owning_resource<image_view_t> create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		owning_resource<image_view_t> create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
 
-		owning_resource<image_view_t> create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {});
+		image_view create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {});
 
 		void finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation);
 #pragma endregion
@@ -520,15 +518,15 @@ namespace ak
 		 *	@param	aMipMapMaxLod				Default value = house number
 		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
 		 */                                                                                               // TODO: vvv Which value by default? vvv
-		owning_resource<sampler_t> create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
+		sampler create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
 
-		owning_resource<image_sampler_t> create_image_sampler(image_view aImageView, sampler aSampler);
+		image_sampler create_image_sampler(image_view aImageView, sampler aSampler);
 #pragma endregion
 
 #pragma region ray tracing pipeline
 	uint32_t get_max_ray_tracing_recursion_depth();
 		
-	ak::owning_resource<ray_tracing_pipeline_t> create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
+	ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
 		
 	/**	Convenience function for gathering the ray tracing pipeline's configuration.
 	 *
@@ -545,7 +543,7 @@ namespace ak
 	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref ray_tracing_pipeline_t::create
 	 */
 	template <typename... Ts>
-	ak::owning_resource<ray_tracing_pipeline_t> ray_tracing_pipeline_for(Ts... args)
+	ray_tracing_pipeline ray_tracing_pipeline_for(Ts... args)
 	{
 		// 1. GATHER CONFIG
 		std::function<void(ray_tracing_pipeline_t&)> alterConfigFunction;
@@ -570,11 +568,12 @@ namespace ak
 	 *										synchronization parameters.
 	 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
 	 */
-	ak::owning_resource<renderpass_t> create_renderpass(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+	renderpass create_renderpass(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region semaphore
-	ak::owning_resource<semaphore_t> create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+	static semaphore create_semaphore(vk::Device aDevice, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+	semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region shader

@@ -21,8 +21,8 @@ namespace ak
 		auto number_of_writes() const { return mOrderedDescriptorDataWrites.size(); }
 		const auto& write_at(size_t i) const { return mOrderedDescriptorDataWrites[i]; }
 		const auto* pool() const { return static_cast<bool>(mPool) ? mPool.get() : nullptr; }
-		const auto handle() const { return mDescriptorSet; }
-		const auto set_id() const { return mSetId; }
+		auto handle() const { return mDescriptorSet; }
+		auto set_id() const { return mSetId; }
 		void set_set_id(uint32_t aNewSetId) { mSetId = aNewSetId; }
 
 		const auto* store_image_infos(uint32_t aBindingId, std::vector<vk::DescriptorImageInfo> aStoredImageInfos)

@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
@@ -85,7 +86,28 @@ namespace ak
 		return (toTest & includee) == includee;
 	}
 
-	extern bool is_read_access(memory_access aValue);
+	inline bool is_read_access(memory_access aValue)
+	{
+		return (aValue & (memory_access::indirect_command_data_read_access			
+						| memory_access::index_buffer_read_access					
+						| memory_access::vertex_buffer_read_access					
+						| memory_access::uniform_buffer_read_access					
+						| memory_access::input_attachment_read_access				
+						| memory_access::shader_buffers_and_images_read_access		
+						| memory_access::color_attachment_read_access				
+						| memory_access::depth_stencil_attachment_read_access		
+						| memory_access::transfer_read_access						
+						| memory_access::host_read_access						    
+						| memory_access::any_read_access							
+						| memory_access::transform_feedback_counter_read_access		
+						| memory_access::conditional_rendering_predicate_read_access
+						| memory_access::command_preprocess_read_access				
+						| memory_access::color_attachment_noncoherent_read_access	
+						| memory_access::shading_rate_image_read_access				
+						| memory_access::acceleration_structure_read_access			
+						| memory_access::fragment_density_map_attachment_read_access)
+				) == aValue;
+	}
 
 	// Constructur is noexcept => throws on usage if the value is invalid
 	class read_memory_access

@@ -1,4 +1,5 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
@@ -27,6 +28,13 @@ namespace ak
 	class queue
 	{
 	public:
+		queue() = default;
+		queue(const queue&) = default;
+		queue(queue&&) noexcept = default;
+		queue& operator=(const queue&) = default;
+		queue& operator=(queue&&) noexcept = default;
+		~queue() = default;
+		
 		static std::vector<std::tuple<uint32_t, vk::QueueFamilyProperties>> find_queue_families_for_criteria(
 			vk::PhysicalDevice aPhysicalDevice,
 			vk::QueueFlags aRequiredFlags, 
@@ -154,6 +162,8 @@ namespace ak
 		uint32_t mQueueFamilyIndex;
 		uint32_t mQueueIndex;
 		float mPriority;
+		vk::PhysicalDevice mPhysicalDevice;
+		vk::Device mDevice;
 		vk::Queue mQueue;
 	};
 

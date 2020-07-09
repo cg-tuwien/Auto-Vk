@@ -1,13 +1,13 @@
 #pragma once
+#include <ak/ak.hpp>
 
 namespace ak
 {
-	struct binding_data;
-	
 	/** Basically a vector of descriptor_set_layout instances */
 	class set_of_descriptor_set_layouts
 	{
 		friend class root;
+		
 	public:
 		set_of_descriptor_set_layouts() = default;
 		set_of_descriptor_set_layouts(const set_of_descriptor_set_layouts&) = delete;
@@ -19,7 +19,7 @@ namespace ak
 		uint32_t number_of_sets() const { return static_cast<uint32_t>(mLayouts.size()); }
 		const auto& set_at(uint32_t pIndex) const { return mLayouts[pIndex]; }
 		auto& set_at(uint32_t pIndex) { return mLayouts[pIndex]; }
-		const auto& all_sets() { return mLayouts; }
+		const auto& all_sets() const { return mLayouts; }
 		uint32_t set_index_for_set_id(uint32_t pSetId) const { return pSetId - mFirstSetId; }
 		const auto& set_for_set_id(uint32_t pSetId) const { return set_at(set_index_for_set_id(pSetId)); }
 		const auto& required_pool_sizes() const { return mBindingRequirements; }

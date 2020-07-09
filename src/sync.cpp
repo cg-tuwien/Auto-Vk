@@ -276,10 +276,10 @@ namespace ak
 		if (!mCommandBuffer.has_value()) {
 			switch (mCommandbufferRequest) {
 			case commandbuffer_request::reusable:
-				mCommandBuffer = ak::command_pool::create_command_buffer(queue_to_use().get());
+				mCommandBuffer = sPoolToAllocCommandBuffersFrom->alloc_command_buffer({});
 				break;
 			default:
-				mCommandBuffer = ak::command_pool::create_single_use_command_buffer(queue_to_use().get());
+				mCommandBuffer = sPoolToAllocCommandBuffersFrom->alloc_command_buffer(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 				break;
 			}
 			mCommandBuffer.value()->begin_recording(); // Immediately start recording

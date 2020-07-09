@@ -7,7 +7,7 @@
 namespace ak
 {
 #pragma region root definitions
-	uint32_t find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+	uint32_t root::find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
 	{
 		// The VkPhysicalDeviceMemoryProperties structure has two arrays memoryTypes and memoryHeaps. 
 		// Memory heaps are distinct memory resources like dedicated VRAM and swap space in RAM for 
@@ -1350,7 +1350,7 @@ namespace ak
 #pragma endregion
 
 #pragma region acceleration structure definitions
-	acceleration_structure_size_requirements from_buffers(vertex_index_buffer_pair aPair)
+	acceleration_structure_size_requirements acceleration_structure_size_requirements::from_buffers(vertex_index_buffer_pair aPair)
 	{
 		const auto& vertexBufferMeta = aPair.vertex_buffer().meta<vertex_buffer_meta>();
 		const auto& indexBufferMeta = aPair.index_buffer().meta<index_buffer_meta>();
@@ -1358,7 +1358,7 @@ namespace ak
 		// Perform two sanity checks, because we really need the member descriptions to know where to find the positions.
 		// 1st check:
 		if (vertexBufferMeta.member_descriptions().size() == 0) {
-			throw ak::runtime_error("cgb::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
+			throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
 		}
 
 		// Find member representing the positions, and...
@@ -1369,7 +1369,7 @@ namespace ak
 			});
 		// ... perform 2nd check:
 		if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
-			throw ak::runtime_error("cgb::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
+			throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
 		}
 		
 		return acceleration_structure_size_requirements{
@@ -1381,7 +1381,7 @@ namespace ak
 		};
 	}
 	
-	ak::owning_resource<bottom_level_acceleration_structure_t> root::create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
+	bottom_level_acceleration_structure root::create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
 	{
 		bottom_level_acceleration_structure_t result;
 		result.mGeometryInfos.reserve(aGeometryDescriptions.size());
@@ -1626,7 +1626,7 @@ namespace ak
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
 
-	ak::owning_resource<top_level_acceleration_structure_t> root::create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
+	top_level_acceleration_structure root::create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
 	{
 		top_level_acceleration_structure_t result;
 
@@ -1764,6 +1764,179 @@ namespace ak
 	void top_level_acceleration_structure_t::update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
 		build_or_update(aGeometryInstances, aScratchBuffer, std::move(aSyncHandler), tlas_action::update);
+	}
+#pragma endregion
+
+#pragma region binding_data definitions
+	uint32_t binding_data::descriptor_count() const
+	{
+		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_t*>>(mResourcePtr).size()); }
+		
+		//                                                                         vvv There can only be ONE pNext (at least I think so) vvv
+		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return 1u; }
+
+		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_input_attachment*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_storage_image*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const sampler_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_sampler_t*>>(mResourcePtr).size()); }
+
+		return 1u;
+	}
+
+	const vk::DescriptorImageInfo* binding_data::descriptor_image_info(descriptor_set& aDescriptorSet) const
+	{
+		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
+		
+		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) {
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_t*>(mResourcePtr)->descriptor_info());
+		}
+		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) {
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_as_input_attachment*>(mResourcePtr)->descriptor_info());
+		}
+		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { 
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_as_storage_image*>(mResourcePtr)->descriptor_info());
+		}
+		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) {  
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const sampler_t*>(mResourcePtr)->descriptor_info());
+		}
+		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { 
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_sampler_t*>(mResourcePtr)->descriptor_info());
+		}
+
+
+		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
+
+		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
+
+		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { 
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_t*>>(mResourcePtr)));
+		}
+		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { 
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)));
+		}
+		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { 
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_as_storage_image*>>(mResourcePtr)));
+		}
+		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { 
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const sampler_t*>>(mResourcePtr)));
+		}
+		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { 
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_sampler_t*>>(mResourcePtr)));
+		}
+		
+		throw runtime_error("Some holds_alternative calls are not implemented.");
+	}
+
+	const vk::DescriptorBufferInfo* binding_data::descriptor_buffer_info(descriptor_set& aDescriptorSet) const
+	{
+		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const buffer_t*>(mResourcePtr)->descriptor_info());
+		}
+		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const buffer_descriptor*>(mResourcePtr)->descriptor_info());
+		}		
+		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
+		
+		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+
+		
+		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const buffer_t*>>(mResourcePtr)));
+		}
+		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr)));
+		}
+		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
+
+		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		
+		throw runtime_error("Some holds_alternative calls are not implemented.");
+	}
+
+	const void* binding_data::next_pointer(descriptor_set& aDescriptorSet) const
+	{
+		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
+		
+		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) {
+			return aDescriptorSet.store_acceleration_structure_info(mLayoutBinding.binding, std::get<const top_level_acceleration_structure_t*>(mResourcePtr)->descriptor_info());
+		}
+		
+		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+
+
+		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
+
+		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) {
+			return aDescriptorSet.store_acceleration_structure_infos(mLayoutBinding.binding, gather_acceleration_structure_infos(std::get<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)));
+		}
+
+		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		
+		throw runtime_error("Some holds_alternative calls are not implemented.");
+	}
+
+	const vk::BufferView* binding_data::texel_buffer_view_info(descriptor_set& aDescriptorSet) const
+	{
+		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
+		
+		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_t*>(mResourcePtr)->view_handle());
+		}
+
+		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+
+		
+		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
+		
+		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_t*>>(mResourcePtr)));
+		}
+		
+		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+
+		throw runtime_error("Some holds_alternative calls are not implemented.");
 	}
 #pragma endregion
 
@@ -1931,7 +2104,7 @@ namespace ak
 				generic_buffer_meta::create_from_size(bufferSize));
 			// TODO: Creating a staging buffer in every read()-call is probably not optimal. => Think about alternative ways!
 
-			// TODO: What about queue ownership?! If not the device_queue_selection_strategy::prefer_everything_on_single_queue strategy is being applied, it could very well be that this fails.
+			// TODO: What about queue ownership?! If not the queue_selection_strategy::prefer_everything_on_single_queue strategy is being applied, it could very well be that this fails.
 			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 			// Sync before:
 			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
@@ -2009,7 +2182,7 @@ namespace ak
 		return result;
 	}
 	
-	owning_resource<buffer_view_t> root::create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+	buffer_view root::create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
 		buffer_view_t result;
 		// Store handles:
@@ -2042,12 +2215,12 @@ namespace ak
 		auto tmp = mCommandPool.getOwner().allocateCommandBuffersUnique(bufferAllocInfo);
 
 		// Iterate over all the "raw"-Vk objects in `tmp` and...
-		std::vector<owning_resource<command_buffer_t>> buffers;
+		std::vector<command_buffer> buffers;
 		buffers.reserve(aCount);
 		std::transform(std::begin(tmp), std::end(tmp),
 			std::back_inserter(buffers),
 			// ...transform them into `ak::command_buffer_t` objects:
-			[lUsageFlags = aUsageFlags](auto& vkCb) -> owning_resource<command_buffer_t> {
+			[lUsageFlags = aUsageFlags](auto& vkCb) -> command_buffer {
 				command_buffer_t result;
 				result.mBeginInfo = vk::CommandBufferBeginInfo()
 					.setFlags(lUsageFlags)
@@ -2269,7 +2442,7 @@ namespace ak
 #pragma endregion
 
 #pragma compute pipeline definitions
-	owning_resource<compute_pipeline_t> root::create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
+	compute_pipeline root::create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		compute_pipeline_t result;
 
@@ -2388,7 +2561,7 @@ namespace ak
 #pragma endregion
 
 #pragma region descriptor pool definitions
-	std::shared_ptr<descriptor_pool> root::create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
+	descriptor_pool root::create_descriptor_pool(vk::Device aDevice, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
 	{
 		descriptor_pool result;
 		result.mInitialCapacities = aSizeRequirements;
@@ -2402,7 +2575,7 @@ namespace ak
 			.setPPoolSizes(result.mInitialCapacities.data())
 			.setMaxSets(aNumSets) 
 			.setFlags(vk::DescriptorPoolCreateFlags()); // The structure has an optional flag similar to command pools that determines if individual descriptor sets can be freed or not: VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT. We're not going to touch the descriptor set after creating it, so we don't need this flag. [10]
-		result.mDescriptorPool = device().createDescriptorPoolUnique(createInfo);
+		result.mDescriptorPool = aDevice.createDescriptorPoolUnique(createInfo);
 		
 		AK_LOG_DEBUG("Allocated pool with flags[" + vk::to_string(createInfo.flags) + "], maxSets[" + std::to_string(createInfo.maxSets) + "], remaining-sets[" + std::to_string(result.mNumRemainingSets) + "], size-entries[" + std::to_string(createInfo.poolSizeCount) + "]");
 #if defined(_DEBUG)
@@ -2411,7 +2584,12 @@ namespace ak
 		}
 #endif
 		
-		return std::make_shared<descriptor_pool>(std::move(result));
+		return result;
+	}
+	
+	descriptor_pool root::create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
+	{
+		return create_descriptor_pool(device(), aSizeRequirements, aNumSets);
 	}
 
 	bool descriptor_pool::has_capacity_for(const descriptor_alloc_request& pRequest) const
@@ -2499,21 +2677,35 @@ namespace ak
 
 		return result;
 	}
+
+	descriptor_cache root::create_descriptor_cache(std::string_view aName)
+	{
+		descriptor_cache result;
+		result.mName = aName;
+		result.mPhysicalDevice = physical_device();
+		result.mDevice = device();
+		return result;
+	}
 #pragma endregion
 
 #pragma region descriptor set layout definitions
-	void root::allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated)
+	void root::allocate_descriptor_set_layout(vk::Device aDevice, descriptor_set_layout& aLayoutToBeAllocated)
 	{
 		if (!aLayoutToBeAllocated.mLayout) {
 			// Allocate the layout and return the result:
 			auto createInfo = vk::DescriptorSetLayoutCreateInfo()
 				.setBindingCount(static_cast<uint32_t>(aLayoutToBeAllocated.mOrderedBindings.size()))
 				.setPBindings(aLayoutToBeAllocated.mOrderedBindings.data());
-			aLayoutToBeAllocated.mLayout = device().createDescriptorSetLayoutUnique(createInfo);
+			aLayoutToBeAllocated.mLayout = aDevice.createDescriptorSetLayoutUnique(createInfo);
 		}
 		else {
 			AK_LOG_ERROR("descriptor_set_layout's handle already has a value => it most likely has already been allocated. Won't do it again.");
 		}
+	}
+	
+	void root::allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated)
+	{
+		return allocate_descriptor_set_layout(device(), aLayoutToBeAllocated);
 	}
 
 	set_of_descriptor_set_layouts set_of_descriptor_set_layouts::prepare(std::vector<binding_data> pBindings)
@@ -2591,7 +2783,7 @@ namespace ak
 
 #pragma region standard descriptor set
 
-	const descriptor_set_layout& standard_descriptor_cache::get_or_alloc_layout(root& aRoot, descriptor_set_layout aPreparedLayout)
+	const descriptor_set_layout& descriptor_cache::get_or_alloc_layout(descriptor_set_layout aPreparedLayout)
 	{
 		const auto it = mLayouts.find(aPreparedLayout);
 		if (mLayouts.end() != it) {
@@ -2599,14 +2791,14 @@ namespace ak
 			return *it;
 		}
 
-		aRoot.allocate_descriptor_set_layout(aPreparedLayout);
+		root::allocate_descriptor_set_layout(mDevice, aPreparedLayout);
 		
 		const auto result = mLayouts.insert(std::move(aPreparedLayout));
 		assert(result.second);
 		return *result.first;
 	}
 
-	std::optional<descriptor_set> standard_descriptor_cache::get_descriptor_set_from_cache(const descriptor_set& aPreparedSet)
+	std::optional<descriptor_set> descriptor_cache::get_descriptor_set_from_cache(const descriptor_set& aPreparedSet)
 	{
 		const auto it = mSets.find(aPreparedSet);
 		if (mSets.end() != it) {
@@ -2616,7 +2808,7 @@ namespace ak
 		return {};
 	}
 
-	std::vector<descriptor_set> standard_descriptor_cache::alloc_new_descriptor_sets(root& aRoot, const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts, std::vector<descriptor_set> aPreparedSets)
+	std::vector<descriptor_set> descriptor_cache::alloc_new_descriptor_sets(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts, std::vector<descriptor_set> aPreparedSets)
 	{
 		assert(aLayouts.size() == aPreparedSets.size());
 
@@ -2639,7 +2831,7 @@ namespace ak
 		std::shared_ptr<descriptor_pool> pool = nullptr;
 		std::vector<vk::DescriptorSet> setHandles;
 		
-		auto poolToTry = get_descriptor_pool_for_layouts(aRoot, allocRequest, 'stch');
+		auto poolToTry = get_descriptor_pool_for_layouts(allocRequest);
 		
 		int maxTries = 3;
 		while (!pool && maxTries-- > 0) {
@@ -2657,10 +2849,10 @@ namespace ak
 				case 1:
 					AK_LOG_INFO("Trying again with doubled size requirements...");
 					allocRequest = allocRequest.multiply_size_requirements(2u);
-					poolToTry = get_descriptor_pool_for_layouts(aRoot, allocRequest, 'stch');
+					poolToTry = get_descriptor_pool_for_layouts(allocRequest);
 				default:
 					AK_LOG_INFO("Trying again with new pool..."); // and possibly doubled size requirements, depending on whether maxTries is 2 or 0
-					poolToTry = get_descriptor_pool_for_layouts(aRoot, allocRequest, 'stch', true);
+					poolToTry = get_descriptor_pool_for_layouts(allocRequest, true);
 				}
 			}
 		}
@@ -2684,17 +2876,17 @@ namespace ak
 		return result;
 	}
 	
-	void standard_descriptor_cache::cleanup()
+	void descriptor_cache::cleanup()
 	{
 		mSets.clear();
 		mLayouts.clear();
 	}
 
-	std::shared_ptr<descriptor_pool> standard_descriptor_cache::get_descriptor_pool_for_layouts(root& aRoot, const descriptor_alloc_request& aAllocRequest, int aPoolName, bool aRequestNewPool)
+	std::shared_ptr<descriptor_pool> descriptor_cache::get_descriptor_pool_for_layouts(const descriptor_alloc_request& aAllocRequest, bool aRequestNewPool)
 	{
 		// We'll allocate the pools per (thread and name)
-		auto pId = pool_id{std::this_thread::get_id(), aPoolName};
-		auto& pools = mDescriptorPools[pId];
+		auto tId = std::this_thread::get_id();
+		auto& pools = mDescriptorPools[tId];
 
 		// First of all, do some cleanup => remove all pools which no longer exist:
 		pools.erase(std::remove_if(std::begin(pools), std::end(pools), [](const std::weak_ptr<descriptor_pool>& ptr) {
@@ -2713,32 +2905,34 @@ namespace ak
 		}
 		
 		// We weren't lucky (or new pool has been requested) => create a new pool:
-		AK_LOG_INFO("Allocating new descriptor pool for thread[" + [tid = pId.mThreadId]() { std::stringstream ss; ss << tid; return ss.str(); }() + "] and name['" + fourcc_to_string(pId.mName) + "'/" + std::to_string(pId.mName) + "]");
+		AK_LOG_INFO("Allocating new descriptor pool for thread[" + [tId]() { std::stringstream ss; ss << tId; return ss.str(); }() + "] and name['" + mName + "]");
 		
 		// TODO: On AMD, it seems that all the entries have to be multiplied as well, while on NVIDIA, only multiplying the number of sets seems to be sufficient
 		//       => How to handle this? Overallocation is as bad as underallocation. Shall we make use of exceptions? Shall we 'if' on the vendor?
 
-		const bool isNvidia = 0x12d2 == aRoot.physical_device().getProperties().vendorID;
-		auto amplifiedAllocRequest = aAllocRequest.multiply_size_requirements(sDescriptorPoolPreallocFactor);
+		const bool isNvidia = 0x12d2 == mPhysicalDevice.getProperties().vendorID;
+		auto amplifiedAllocRequest = aAllocRequest.multiply_size_requirements(prealloc_factor());
 		//if (!isNvidia) { // Let's 'if' on the vendor and see what happens...
 		//}
 
-		auto newPool = aRoot.create_descriptor_pool(
+		auto newPool = root::create_descriptor_pool(mDevice,
 			isNvidia 
 			  ? aAllocRequest.accumulated_pool_sizes()
 			  : amplifiedAllocRequest.accumulated_pool_sizes(),
 			isNvidia
-			  ? aAllocRequest.num_sets() * sDescriptorPoolPreallocFactor
-			  : aAllocRequest.num_sets() * sDescriptorPoolPreallocFactor * 2 // the last factor is a "magic number"/"educated guess"/"preemtive strike"
+			  ? aAllocRequest.num_sets() * prealloc_factor()
+			  : aAllocRequest.num_sets() * prealloc_factor() * 2 // the last factor is a "magic number"/"educated guess"/"preemtive strike"
 		);
 
+		auto newPoolPtr = std::make_shared<descriptor_pool>(std::move(newPool));
+		
 		//  However, set the stored capacities to the amplified version, to not mess up our internal "has_capacity_for-logic":
-		newPool->set_remaining_capacities(amplifiedAllocRequest.accumulated_pool_sizes());
+		newPoolPtr->set_remaining_capacities(amplifiedAllocRequest.accumulated_pool_sizes());
 		//if (!isNvidia) {
 		//}
 		
-		pools.emplace_back(newPool); // Store as a weak_ptr
-		return newPool;
+		pools.emplace_back(newPoolPtr); // Store as a weak_ptr
+		return newPoolPtr;
 	}
 #pragma endregion
 
@@ -2805,10 +2999,8 @@ namespace ak
 		mPool.get()->mDescriptorPool.getOwner().updateDescriptorSets(static_cast<uint32_t>(mOrderedDescriptorDataWrites.size()), mOrderedDescriptorDataWrites.data(), 0u, nullptr);
 	}
 	
-	std::vector<descriptor_set> root::get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings)
+	std::vector<descriptor_set> descriptor_cache::get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings)
 	{
-		auto& descriptorCache = descriptor_cache();
-		
 		std::vector<binding_data> orderedBindings;
 		uint32_t minSetId = std::numeric_limits<uint32_t>::max();
 		uint32_t maxSetId = std::numeric_limits<uint32_t>::min();
@@ -2842,10 +3034,10 @@ namespace ak
 				continue;
 			}
 
-			const auto& layout = descriptorCache.get_or_alloc_layout(*this, descriptor_set_layout::prepare(lb, ub));
+			const auto& layout = get_or_alloc_layout(descriptor_set_layout::prepare(lb, ub));
 			layouts.emplace_back(layout);
 			auto preparedSet = descriptor_set::prepare(lb, ub);
-			auto cachedSet = descriptorCache.get_descriptor_set_from_cache(preparedSet);
+			auto cachedSet = get_descriptor_set_from_cache(preparedSet);
 			if (cachedSet.has_value()) {
 				cachedSets.emplace_back(std::move(cachedSet));
 				validSets.push_back(true);
@@ -2873,7 +3065,7 @@ namespace ak
 				indexMapping.push_back(i);
 			}
 		}
-		auto nowAlsoInCache = descriptorCache.alloc_new_descriptor_sets(*this, layoutsForAlloc, std::move(toBeAlloced));
+		auto nowAlsoInCache = alloc_new_descriptor_sets(layoutsForAlloc, std::move(toBeAlloced));
 		for (size_t i = 0; i < indexMapping.size(); ++i) {
 			cachedSets[indexMapping[i]] = nowAlsoInCache[i];
 		}
@@ -2917,7 +3109,7 @@ namespace ak
 		}
 	}
 
-	ak::owning_resource<fence_t> root::create_fence(bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
+	fence root::create_fence(vk::Device aDevice, bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
 	{
 		fence_t result;
 		result.mCreateInfo = vk::FenceCreateInfo()
@@ -2931,8 +3123,13 @@ namespace ak
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mFence = device().createFenceUnique(result.mCreateInfo);
+		result.mFence = aDevice.createFenceUnique(result.mCreateInfo);
 		return result;
+	}
+
+	fence root::create_fence(bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
+	{
+		return create_fence(device(), aCreateInSignalledState, std::move(aAlterConfigBeforeCreation));
 	}
 #pragma endregion
 
@@ -2956,7 +3153,7 @@ namespace ak
 		}
 	}
 
-	owning_resource<framebuffer_t> root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		framebuffer_t result;
 		result.mRenderpass = std::move(aRenderpass);
@@ -2993,7 +3190,7 @@ namespace ak
 		return result;
 	}
 
-	owning_resource<framebuffer_t> root::create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
@@ -3004,14 +3201,14 @@ namespace ak
 		);
 	}
 
-	owning_resource<framebuffer_t> root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		assert(!aImageViews.empty());
 		auto extent = aImageViews.front()->get_image().config().extent;
 		return create_framebuffer(std::move(aRenderpass), std::move(aImageViews), extent.width, extent.height, std::move(aAlterConfigBeforeCreation));
 	}
 
-	owning_resource<framebuffer_t> root::create_framebuffer(std::vector<ak::attachment> aAttachments, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(std::vector<ak::attachment> aAttachments, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
@@ -3252,7 +3449,7 @@ namespace ak
 #pragma endregion
 
 #pragma region graphics pipeline definitions
-	owning_resource<graphics_pipeline_t> root::create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	graphics_pipeline root::create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		using namespace cpplinq;
 		using namespace cfg;
@@ -3671,7 +3868,7 @@ namespace ak
 		}
 	}
 	
-	owning_resource<image_t> root::create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers, memory_usage aMemoryUsage, image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers, memory_usage aMemoryUsage, image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		// Determine image usage flags, image layout, and memory usage flags:
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
@@ -3767,13 +3964,13 @@ namespace ak
 		return result;
 	}
 
-	owning_resource<image_t> root::create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers, memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers, memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		return create_image(aWidth, aHeight, std::make_tuple(aFormat, vk::SampleCountFlagBits::e1), aNumLayers, aMemoryUsage, aImageUsage, std::move(aAlterConfigBeforeCreation));
 	}
 
 
-	owning_resource<image_t> root::create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		// Select a suitable depth format
 		if (!aFormat) {
@@ -3797,7 +3994,7 @@ namespace ak
 		return result;
 	}
 
-	owning_resource<image_t> root::create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		// Select a suitable depth+stencil format
 		if (!aFormat) {
@@ -3960,7 +4157,7 @@ namespace ak
 #pragma endregion
 
 #pragma region image view definitions
-	owning_resource<image_view_t> root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 		
@@ -3977,7 +4174,7 @@ namespace ak
 		return result;
 	}
 
-	owning_resource<image_view_t> root::create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 		
@@ -3994,7 +4191,7 @@ namespace ak
 		return result;
 	}
 
-	owning_resource<image_view_t> root::create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 		
@@ -4011,7 +4208,7 @@ namespace ak
 		return result;
 	}
 
-	owning_resource<image_view_t> root::create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage)
+	image_view root::create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage)
 	{
 		image_view_t result;
 		
@@ -4084,7 +4281,7 @@ namespace ak
 #pragma endregion
 	
 #pragma region sampler and image sampler definitions
-	owning_resource<sampler_t> root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
+	sampler root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
 	{
 		vk::Filter magFilter;
 		vk::Filter minFilter;
@@ -4220,7 +4417,7 @@ namespace ak
 		return result;
 	}
 
-	owning_resource<image_sampler_t> root::create_image_sampler(image_view aImageView, sampler aSampler)
+	image_sampler root::create_image_sampler(image_view aImageView, sampler aSampler)
 	{
 		image_sampler_t result;
 		result.mImageView = std::move(aImageView);
@@ -4287,29 +4484,6 @@ namespace ak
 #pragma endregion
 
 #pragma memory access definitions
-	bool is_read_access(memory_access aValue)
-	{
-		return (aValue & (memory_access::indirect_command_data_read_access			
-						| memory_access::index_buffer_read_access					
-						| memory_access::vertex_buffer_read_access					
-						| memory_access::uniform_buffer_read_access					
-						| memory_access::input_attachment_read_access				
-						| memory_access::shader_buffers_and_images_read_access		
-						| memory_access::color_attachment_read_access				
-						| memory_access::depth_stencil_attachment_read_access		
-						| memory_access::transfer_read_access						
-						| memory_access::host_read_access						    
-						| memory_access::any_read_access							
-						| memory_access::transform_feedback_counter_read_access		
-						| memory_access::conditional_rendering_predicate_read_access
-						| memory_access::command_preprocess_read_access				
-						| memory_access::color_attachment_noncoherent_read_access	
-						| memory_access::shading_rate_image_read_access				
-						| memory_access::acceleration_structure_read_access			
-						| memory_access::fragment_density_map_attachment_read_access)
-				) == aValue;
-	}
-
 	read_memory_access::operator memory_access() const
 	{
 		validate_or_throw();
@@ -4480,140 +4654,467 @@ namespace ak
 		result.mQueueFamilyIndex = aQueueFamilyIndex;
 		result.mQueueIndex = aQueueIndex;
 		result.mPriority = aQueuePriority;
+		result.mPhysicalDevice = aPhysicalDevice;
+		result.mDevice = nullptr;
 		result.mQueue = nullptr;
 		return result;
 	}
 
 	void queue::assign_handle(vk::Device aDevice)
 	{
+		mDevice = aDevice;
 		mQueue = aDevice.getQueue(mQueueFamilyIndex, mQueueIndex);
 	}
+
+
+
+
+
+	
+	semaphore queue::submit_with_semaphore(command_buffer_t& aCommandBuffer)
+	{
+		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
+
+		auto sem = root::create_semaphore(mDevice);
+		
+		const auto submitInfo = vk::SubmitInfo{}
+			.setCommandBufferCount(1u)
+			.setPCommandBuffers(aCommandBuffer.handle_ptr())
+			.setSignalSemaphoreCount(1u)
+			.setPSignalSemaphores(sem->handle_addr());
+		
+		handle().submit({ submitInfo },  nullptr);
+		aCommandBuffer.invoke_post_execution_handler();
+
+		aCommandBuffer.mState = command_buffer_state::submitted;
+
+		return sem;
+	}
+
+	void queue::submit(command_buffer_t& aCommandBuffer)
+	{
+		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
+
+		const auto submitInfo = vk::SubmitInfo{}
+			.setCommandBufferCount(1u)
+			.setPCommandBuffers(aCommandBuffer.handle_ptr());
+		
+		handle().submit({ submitInfo },  nullptr);
+		aCommandBuffer.invoke_post_execution_handler();
+
+		aCommandBuffer.mState = command_buffer_state::submitted;
+	}
+	// The code between these two ^ and v is mostly copied... I know. It avoids the usage of an unneccessary
+	// temporary vector in single command buffer-case. Should, however, probably be refactored.
+	void queue::submit(std::vector<std::reference_wrapper<command_buffer_t>> aCommandBuffers)
+	{
+		std::vector<vk::CommandBuffer> handles;
+		handles.reserve(aCommandBuffers.size());
+		for (auto& cb : aCommandBuffers) {
+			assert(cb.get().state() >= command_buffer_state::finished_recording);
+			handles.push_back(cb.get().handle());
+		}
+		
+		const auto submitInfo = vk::SubmitInfo{}
+			.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
+			.setPCommandBuffers(handles.data());
+
+		handle().submit({ submitInfo }, nullptr);
+		for (auto& cb : aCommandBuffers) {
+			cb.get().invoke_post_execution_handler();
+			
+			cb.get().mState = command_buffer_state::submitted;
+		}
+	}
+
+	fence queue::submit_with_fence(command_buffer_t& aCommandBuffer, std::vector<semaphore> aWaitSemaphores)
+	{
+		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
+		
+		auto fen = root::create_fence(mDevice);
+		
+		if (0 == aWaitSemaphores.size()) {
+			// Optimized route for 0 _WaitSemaphores
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(1u)
+				.setPCommandBuffers(aCommandBuffer.handle_ptr())
+				.setWaitSemaphoreCount(0u)
+				.setPWaitSemaphores(nullptr)
+				.setPWaitDstStageMask(nullptr)
+				.setSignalSemaphoreCount(0u)
+				.setPSignalSemaphores(nullptr);
+
+			handle().submit({ submitInfo }, fen->handle());
+			aCommandBuffer.invoke_post_execution_handler();
+			
+			aCommandBuffer.mState = command_buffer_state::submitted;
+		}
+		else {
+			// Also set the wait semaphores and take care of their lifetimes
+			std::vector<vk::Semaphore> waitSemaphoreHandles;
+			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
+			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
+			waitDstStageMasks.reserve(aWaitSemaphores.size());
+			
+			for (const auto& semaphoreDependency : aWaitSemaphores) {
+				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
+				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+			}
+			
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(1u)
+				.setPCommandBuffers(aCommandBuffer.handle_ptr())
+				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
+				.setPWaitSemaphores(waitSemaphoreHandles.data())
+				.setPWaitDstStageMask(waitDstStageMasks.data())
+				.setSignalSemaphoreCount(0u)
+				.setPSignalSemaphores(nullptr);
+
+			handle().submit({ submitInfo }, fen->handle());
+			aCommandBuffer.invoke_post_execution_handler();
+			
+			aCommandBuffer.mState = command_buffer_state::submitted;
+
+			fen->set_custom_deleter([
+				lOwnedWaitSemaphores{ std::move(aWaitSemaphores) }
+			](){});	
+		}
+		
+		return fen;
+	}
+		
+	fence queue::submit_with_fence(std::vector<std::reference_wrapper<command_buffer_t>> aCommandBuffers, std::vector<semaphore> aWaitSemaphores)
+	{
+		std::vector<vk::CommandBuffer> handles;
+		handles.reserve(aCommandBuffers.size());
+		for (auto& cb : aCommandBuffers) {
+			assert(cb.get().state() >= command_buffer_state::finished_recording);
+			handles.push_back(cb.get().handle());
+		}
+		
+		auto fen = root::create_fence(mDevice);
+		
+		if (aWaitSemaphores.empty()) {
+			// Optimized route for 0 _WaitSemaphores
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
+				.setPCommandBuffers(handles.data())
+				.setWaitSemaphoreCount(0u)
+				.setPWaitSemaphores(nullptr)
+				.setPWaitDstStageMask(nullptr)
+				.setSignalSemaphoreCount(0u)
+				.setPSignalSemaphores(nullptr);
+
+			handle().submit({ submitInfo }, fen->handle());
+			for (auto& cb : aCommandBuffers) {
+				cb.get().invoke_post_execution_handler();
+				
+				cb.get().mState = command_buffer_state::submitted;
+			}
+		}
+		else {
+			// Also set the wait semaphores and take care of their lifetimes
+			std::vector<vk::Semaphore> waitSemaphoreHandles;
+			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
+			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
+			waitDstStageMasks.reserve(aWaitSemaphores.size());
+			
+			for (const auto& semaphoreDependency : aWaitSemaphores) {
+				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
+				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+			}
+			
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
+				.setPCommandBuffers(handles.data())
+				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
+				.setPWaitSemaphores(waitSemaphoreHandles.data())
+				.setPWaitDstStageMask(waitDstStageMasks.data())
+				.setSignalSemaphoreCount(0u)
+				.setPSignalSemaphores(nullptr);
+
+			handle().submit({ submitInfo }, fen->handle());
+			for (auto& cb : aCommandBuffers) {
+				cb.get().invoke_post_execution_handler();
+				
+				cb.get().mState = command_buffer_state::submitted;
+			}
+
+			fen->set_custom_deleter([
+				lOwnedWaitSemaphores{ std::move(aWaitSemaphores) }
+			](){});	
+		}
+		
+		return fen;
+	}
+	
+	semaphore queue::submit_and_handle_with_semaphore(command_buffer aCommandBuffer, std::vector<semaphore> aWaitSemaphores)
+	{
+		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
+		
+		// Create a semaphore which can, or rather, MUST be used to wait for the results
+		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice);
+		
+		if (aWaitSemaphores.empty()) {
+			// Optimized route for 0 _WaitSemaphores
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(1u)
+				.setPCommandBuffers(aCommandBuffer->handle_ptr())
+				.setWaitSemaphoreCount(0u)
+				.setPWaitSemaphores(nullptr)
+				.setPWaitDstStageMask(nullptr)
+				.setSignalSemaphoreCount(1u)
+				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
+
+			handle().submit({ submitInfo }, nullptr);
+			aCommandBuffer->invoke_post_execution_handler();
+			
+			aCommandBuffer->mState = command_buffer_state::submitted;
+
+			signalWhenCompleteSemaphore->set_custom_deleter([
+				lOwnedCommandBuffer{ std::move(aCommandBuffer) } // Take care of the command_buffer's lifetime.. OMG!
+			](){});
+		}
+		else {
+			// Also set the wait semaphores and take care of their lifetimes
+			std::vector<vk::Semaphore> waitSemaphoreHandles;
+			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
+			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
+			waitDstStageMasks.reserve(aWaitSemaphores.size());
+			
+			for (const auto& semaphoreDependency : aWaitSemaphores) {
+				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
+				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+			}
+			
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(1u)
+				.setPCommandBuffers(aCommandBuffer->handle_ptr())
+				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
+				.setPWaitSemaphores(waitSemaphoreHandles.data())
+				.setPWaitDstStageMask(waitDstStageMasks.data())
+				.setSignalSemaphoreCount(1u)
+				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
+
+			handle().submit({ submitInfo }, nullptr);
+			aCommandBuffer->invoke_post_execution_handler();
+			
+			aCommandBuffer->mState = command_buffer_state::submitted;
+
+			signalWhenCompleteSemaphore->set_custom_deleter([
+				lOwnedWaitSemaphores{ std::move(aWaitSemaphores) },
+				lOwnedCommandBuffer{ std::move(aCommandBuffer) } // Take care of the command_buffer's lifetime.. OMG!
+			](){});	
+		}
+		
+		return signalWhenCompleteSemaphore;
+	}
+	// The code between these two ^ and v is mostly copied... I know. It avoids the usage of an unneccessary
+	// temporary vector in single command buffer-case. Should, however, probably be refactored.
+	semaphore queue::submit_and_handle_with_semaphore(std::vector<command_buffer> aCommandBuffers, std::vector<semaphore> aWaitSemaphores)
+	{
+		std::vector<vk::CommandBuffer> handles;
+		handles.reserve(aCommandBuffers.size());
+		for (auto& cb : aCommandBuffers) {
+			assert(cb->state() >= command_buffer_state::finished_recording);
+			handles.push_back(cb->handle());
+		}
+		
+		// Create a semaphore which can, or rather, MUST be used to wait for the results
+		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice);
+		
+		if (aWaitSemaphores.empty()) {
+			// Optimized route for 0 _WaitSemaphores
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
+				.setPCommandBuffers(handles.data())
+				.setWaitSemaphoreCount(0u)
+				.setPWaitSemaphores(nullptr)
+				.setPWaitDstStageMask(nullptr)
+				.setSignalSemaphoreCount(1u)
+				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
+
+			handle().submit({ submitInfo }, nullptr);
+			for (auto& cb : aCommandBuffers) {
+				cb->invoke_post_execution_handler();
+				
+				cb->mState = command_buffer_state::submitted;
+			}
+
+			signalWhenCompleteSemaphore->set_custom_deleter([
+				lOwnedCommandBuffer{ std::move(aCommandBuffers) } // Take care of the command_buffer's lifetime.. OMG!
+			](){});
+		}
+		else {
+			// Also set the wait semaphores and take care of their lifetimes
+			std::vector<vk::Semaphore> waitSemaphoreHandles;
+			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
+			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
+			waitDstStageMasks.reserve(aWaitSemaphores.size());
+			
+			for (const auto& semaphoreDependency : aWaitSemaphores) {
+				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
+				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+			}
+			
+			const auto submitInfo = vk::SubmitInfo{}
+				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
+				.setPCommandBuffers(handles.data())
+				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
+				.setPWaitSemaphores(waitSemaphoreHandles.data())
+				.setPWaitDstStageMask(waitDstStageMasks.data())
+				.setSignalSemaphoreCount(1u)
+				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
+
+			handle().submit({ submitInfo }, nullptr);
+			for (auto& cb : aCommandBuffers) {
+				cb->invoke_post_execution_handler();
+				
+				cb->mState = command_buffer_state::submitted;
+			}
+
+			signalWhenCompleteSemaphore->set_custom_deleter([
+				lOwnedWaitSemaphores{ std::move(aWaitSemaphores) },
+				lOwnedCommandBuffer{ std::move(aCommandBuffers) } // Take care of the command_buffer's lifetime.. OMG!
+			](){});	
+		}
+		
+		return signalWhenCompleteSemaphore;
+	}
+
+	semaphore queue::submit_and_handle_with_semaphore(std::optional<command_buffer> aCommandBuffer, std::vector<semaphore> aWaitSemaphores)
+	{
+		if (!aCommandBuffer.has_value()) {
+			throw ak::runtime_error("std::optional<command_buffer> submitted and it has no value.");
+		}
+		return submit_and_handle_with_semaphore(std::move(aCommandBuffer.value()), std::move(aWaitSemaphores));
+	}	
 #pragma endregion
 
 #pragma region ray tracing pipeline definitions
-	triangles_hit_group triangles_hit_group::create_with_rahit_only(shader_info _AnyHitShader)
+	triangles_hit_group triangles_hit_group::create_with_rahit_only(shader_info aAnyHitShader)
 	{
-		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
 		}
-		return triangles_hit_group { std::move(_AnyHitShader), std::nullopt };
+		return triangles_hit_group { std::move(aAnyHitShader), std::nullopt };
 	}
 
-	triangles_hit_group triangles_hit_group::create_with_rchit_only(shader_info _ClosestHitShader)
+	triangles_hit_group triangles_hit_group::create_with_rchit_only(shader_info aClosestHitShader)
 	{
-		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
-		return triangles_hit_group { std::nullopt, std::move(_ClosestHitShader) };
+		return triangles_hit_group { std::nullopt, std::move(aClosestHitShader) };
 	}
 
-	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(shader_info _AnyHitShader, shader_info _ClosestHitShader)
+	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(shader_info aAnyHitShader, shader_info aClosestHitShader)
 	{
-		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
 		}
-		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
-		return triangles_hit_group { std::move(_AnyHitShader), std::move(_ClosestHitShader) };
+		return triangles_hit_group { std::move(aAnyHitShader), std::move(aClosestHitShader) };
 	}
 
-	triangles_hit_group triangles_hit_group::create_with_rahit_only(std::string _AnyHitShaderPath)
+	triangles_hit_group triangles_hit_group::create_with_rahit_only(std::string aAnyHitShaderPath)
 	{
 		return create_with_rahit_only(
-			shader_info::describe(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit)
+			shader_info::describe(std::move(aAnyHitShaderPath), "main", false, shader_type::any_hit)
 		);
 	}
 
-	triangles_hit_group triangles_hit_group::create_with_rchit_only(std::string _ClosestHitShaderPath)
+	triangles_hit_group triangles_hit_group::create_with_rchit_only(std::string aClosestHitShaderPath)
 	{
 		return create_with_rchit_only(
-			shader_info::describe(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(aClosestHitShaderPath), "main", false, shader_type::closest_hit)
 		);
 	}
 
-	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(std::string _AnyHitShaderPath, std::string _ClosestHitShaderPath)
+	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(std::string aAnyHitShaderPath, std::string aClosestHitShaderPath)
 	{
 		return create_with_rahit_and_rchit(
-			shader_info::describe(std::move(_AnyHitShaderPath), "main", false, shader_type::any_hit),
-			shader_info::describe(std::move(_ClosestHitShaderPath), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(aAnyHitShaderPath), "main", false, shader_type::any_hit),
+			shader_info::describe(std::move(aClosestHitShaderPath), "main", false, shader_type::closest_hit)
 		);
 	}
 
 
-	procedural_hit_group procedural_hit_group::create_with_rint_only(shader_info _IntersectionShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_only(shader_info aIntersectionShader)
 	{
-		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+		if (aIntersectionShader.mShaderType != shader_type::intersection) {
 			throw ak::runtime_error("Shader is not of type shader_type::intersection");
 		}
-		return procedural_hit_group { std::move(_IntersectionShader), std::nullopt, std::nullopt };
+		return procedural_hit_group { std::move(aIntersectionShader), std::nullopt, std::nullopt };
 	}
 
-	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(shader_info _IntersectionShader, shader_info _AnyHitShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(shader_info aIntersectionShader, shader_info aAnyHitShader)
 	{
-		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+		if (aIntersectionShader.mShaderType != shader_type::intersection) {
 			throw ak::runtime_error("Shader is not of type shader_type::intersection");
 		}
-		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
 		}
-		return procedural_hit_group { std::move(_IntersectionShader), std::move(_AnyHitShader), std::nullopt };
+		return procedural_hit_group { std::move(aIntersectionShader), std::move(aAnyHitShader), std::nullopt };
 	}
 
-	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(shader_info _IntersectionShader, shader_info _ClosestHitShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(shader_info aIntersectionShader, shader_info aClosestHitShader)
 	{
-		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+		if (aIntersectionShader.mShaderType != shader_type::intersection) {
 			throw ak::runtime_error("Shader is not of type shader_type::intersection");
 		}
-		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
-		return procedural_hit_group { std::move(_IntersectionShader), std::nullopt, std::move(_ClosestHitShader) };
+		return procedural_hit_group { std::move(aIntersectionShader), std::nullopt, std::move(aClosestHitShader) };
 	}
 
-	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(shader_info _IntersectionShader, shader_info _AnyHitShader, shader_info _ClosestHitShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(shader_info aIntersectionShader, shader_info aAnyHitShader, shader_info aClosestHitShader)
 	{
-		if (_IntersectionShader.mShaderType != shader_type::intersection) {
+		if (aIntersectionShader.mShaderType != shader_type::intersection) {
 			throw ak::runtime_error("Shader is not of type shader_type::intersection");
 		}
-		if (_AnyHitShader.mShaderType != shader_type::any_hit) {
+		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
 		}
-		if (_ClosestHitShader.mShaderType != shader_type::closest_hit) {
+		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
 			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
-		return procedural_hit_group { std::move(_IntersectionShader), std::move(_AnyHitShader), std::move(_ClosestHitShader) };
+		return procedural_hit_group { std::move(aIntersectionShader), std::move(aAnyHitShader), std::move(aClosestHitShader) };
 	}
 
-	procedural_hit_group procedural_hit_group::create_with_rint_only(std::string _IntersectionShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_only(std::string aIntersectionShader)
 	{
 		return create_with_rint_only(
-			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection)
+			shader_info::describe(std::move(aIntersectionShader), "main", false, shader_type::intersection)
 		);
 	}
 
-	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(std::string _IntersectionShader, std::string _AnyHitShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(std::string aIntersectionShader, std::string aAnyHitShader)
 	{
 		return create_with_rint_and_rahit(
-			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection),
-			shader_info::describe(std::move(_AnyHitShader), "main", false, shader_type::any_hit)
+			shader_info::describe(std::move(aIntersectionShader), "main", false, shader_type::intersection),
+			shader_info::describe(std::move(aAnyHitShader), "main", false, shader_type::any_hit)
 		);
 	}
 
-	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(std::string _IntersectionShader, std::string _ClosestHitShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(std::string aIntersectionShader, std::string aClosestHitShader)
 	{
 		return create_with_rint_and_rchit(
-			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection),
-			shader_info::describe(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(aIntersectionShader), "main", false, shader_type::intersection),
+			shader_info::describe(std::move(aClosestHitShader), "main", false, shader_type::closest_hit)
 		);
 	}
 
-	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(std::string _IntersectionShader, std::string _AnyHitShader, std::string _ClosestHitShader)
+	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(std::string aIntersectionShader, std::string aAnyHitShader, std::string aClosestHitShader)
 	{
 		return create_with_rint_and_rahit_and_rchit(
-			shader_info::describe(std::move(_IntersectionShader), "main", false, shader_type::intersection),
-			shader_info::describe(std::move(_AnyHitShader), "main", false, shader_type::any_hit),
-			shader_info::describe(std::move(_ClosestHitShader), "main", false, shader_type::closest_hit)
+			shader_info::describe(std::move(aIntersectionShader), "main", false, shader_type::intersection),
+			shader_info::describe(std::move(aAnyHitShader), "main", false, shader_type::any_hit),
+			shader_info::describe(std::move(aClosestHitShader), "main", false, shader_type::closest_hit)
 		);
 	}
 
@@ -4645,7 +5146,7 @@ namespace ak
 		return rtProps.maxRecursionDepth;
 	}
 
-	owning_resource<ray_tracing_pipeline_t> root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
+	ray_tracing_pipeline root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		using namespace cfg;
 		
@@ -4880,7 +5381,7 @@ using namespace cpplinq;
 		std::vector<uint32_t> mPreserveAttachments;
 	};
 
-	owning_resource<renderpass_t> root::create_renderpass(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	renderpass root::create_renderpass(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
 
@@ -5410,8 +5911,8 @@ using namespace cpplinq;
 		return *this;
 	}
 
-	ak::owning_resource<semaphore_t> root::create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
-	{ 
+	semaphore root::create_semaphore(vk::Device aDevice, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
+	{
 		semaphore_t result;
 		result.mCreateInfo = vk::SemaphoreCreateInfo{};
 
@@ -5420,8 +5921,13 @@ using namespace cpplinq;
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mSemaphore = device().createSemaphoreUnique(result.mCreateInfo);
+		result.mSemaphore = aDevice.createSemaphoreUnique(result.mCreateInfo);
 		return result;
+	}
+	
+	semaphore root::create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
+	{
+		return create_semaphore(device(), std::move(aAlterConfigBeforeCreation));
 	}
 #pragma endregion
 

@@ -3,6 +3,16 @@
 
 namespace ak
 {
+	class buffer_t;
+	class buffer_descriptor;
+	class buffer_view_t;
+	class top_level_acceleration_structure_t;
+	class image_view_t;
+	class image_view_as_input_attachment;
+	class image_view_as_storage_image;
+	class sampler_t;
+	class image_sampler_t;
+	
 	/** Configuration data for a binding, containing a set-index, binding data, 
 	*	and the shader stages where the bound resource might be used.
 	*/
@@ -13,19 +23,21 @@ namespace ak
 		std::variant<
 			std::monostate,
 			const buffer_t*,
+			const buffer_descriptor*,
+			const buffer_view_t*,
 			const top_level_acceleration_structure_t*,
 			const image_view_t*,
 			const image_view_as_input_attachment*,
 			const image_view_as_storage_image*,
-			const buffer_view_t*,
-			const ak::sampler_t*,
-			const ak::image_sampler_t*,
+			const sampler_t*,
+			const image_sampler_t*,
 			std::vector<const buffer_t*>,
+			std::vector<const buffer_descriptor*>,
+			std::vector<const buffer_view_t*>,
 			std::vector<const top_level_acceleration_structure_t*>,
 			std::vector<const image_view_t*>,
 			std::vector<const image_view_as_input_attachment*>,
 			std::vector<const image_view_as_storage_image*>,
-			std::vector<const buffer_view_t*>,
 			std::vector<const sampler_t*>,
 			std::vector<const image_sampler_t*>
 		> mResourcePtr;
@@ -71,156 +83,15 @@ namespace ak
 			return dataForBufferViews;
 		}
 
-		uint32_t descriptor_count() const
-		{
-			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_t*>>(mResourcePtr).size()); }
-			// vvv NOPE vvv There can only be ONE pNext (at least I think so)
-			//if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const ak::image_view_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_storage_image*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const ak::image_view_as_storage_image*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const ak::sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const ak::sampler_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const ak::image_sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const ak::image_sampler_t*>>(mResourcePtr).size()); }
-			if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_t*>>(mResourcePtr).size()); }
-			return 1u;
-		}
+		uint32_t descriptor_count() const;
 
-		const vk::DescriptorImageInfo* descriptor_image_info(descriptor_set& aDescriptorSet) const
-		{
-			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
-			
-			if (std::holds_alternative<const ak::image_view_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const ak::image_view_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const ak::image_view_as_input_attachment*>(mResourcePtr)) {
-				return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const ak::image_view_as_input_attachment*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const ak::image_view_as_storage_image*>(mResourcePtr)) { 
-				return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const ak::image_view_as_storage_image*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const ak::sampler_t*>(mResourcePtr)) {  
-				return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const ak::sampler_t*>(mResourcePtr)->descriptor_info());
-			}
-			if (std::holds_alternative<const ak::image_sampler_t*>(mResourcePtr)) { 
-				return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const ak::image_sampler_t*>(mResourcePtr)->descriptor_info());
-			}
+		const vk::DescriptorImageInfo* descriptor_image_info(descriptor_set& aDescriptorSet) const;
 
-			if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
+		const vk::DescriptorBufferInfo* descriptor_buffer_info(descriptor_set& aDescriptorSet) const;
 
-			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
+		const void* next_pointer(descriptor_set& aDescriptorSet) const;
 
-			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
-
-			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { 
-				return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const ak::image_view_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr)) { 
-				return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const ak::image_view_as_storage_image*>>(mResourcePtr)) { 
-				return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const ak::image_view_as_storage_image*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const ak::sampler_t*>>(mResourcePtr)) { 
-				return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const ak::sampler_t*>>(mResourcePtr)));
-			}
-			if (std::holds_alternative<std::vector<const ak::image_sampler_t*>>(mResourcePtr)) { 
-				return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const ak::image_sampler_t*>>(mResourcePtr)));
-			}
-			
-			if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-
-			throw ak::runtime_error("Some holds_alternative calls are not implemented.");
-		}
-
-		const vk::DescriptorBufferInfo* descriptor_buffer_info(descriptor_set& aDescriptorSet) const
-		{
-			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const buffer_t*>(mResourcePtr)->descriptor_info());
-			}
-			
-			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::sampler_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_sampler_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-
-			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const buffer_t*>>(mResourcePtr)));
-			}
-
-			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::sampler_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_sampler_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-			
-			throw ak::runtime_error("Some holds_alternative calls are not implemented.");
-		}
-
-		const void* next_pointer(descriptor_set& aDescriptorSet) const
-		{
-			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
-			
-			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_acceleration_structure_info(mLayoutBinding.binding, std::get<const top_level_acceleration_structure_t*>(mResourcePtr)->descriptor_info());
-			}
-			
-			if (std::holds_alternative<const ak::image_view_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::sampler_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_sampler_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-
-			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
-
-			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_acceleration_structure_infos(mLayoutBinding.binding, gather_acceleration_structure_infos(std::get<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)));
-			}
-
-			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::sampler_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_sampler_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-			
-			throw ak::runtime_error("Some holds_alternative calls are not implemented.");
-		}
-
-		const vk::BufferView* texel_buffer_view_info(descriptor_set& aDescriptorSet) const
-		{
-			if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::sampler_t*>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<const ak::image_sampler_t*>(mResourcePtr)) { return nullptr; }
-			
-			if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_t*>(mResourcePtr)->view_handle());
-			}
-
-			if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::sampler_t*>>(mResourcePtr)) { return nullptr; }
-			if (std::holds_alternative<std::vector<const ak::image_sampler_t*>>(mResourcePtr)) { return nullptr; }
-			
-			if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) {
-				return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_t*>>(mResourcePtr)));
-			}
-			
-			throw ak::runtime_error("Some holds_alternative calls are not implemented.");
-		}
+		const vk::BufferView* texel_buffer_view_info(descriptor_set& aDescriptorSet) const;
 	};
 
 	/** Compares two `binding_data` instances for equality, but only in

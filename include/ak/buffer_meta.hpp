@@ -3,10 +3,6 @@
 
 namespace ak
 {
-	/** Convenience overloads for some known data types, namely some glm types: */
-	template <typename T>
-	vk::Format format_for();
-	
 	/** Can be used to describe what kind of data a buffer member represents. */
 	enum struct content_description
 	{
@@ -53,6 +49,13 @@ namespace ak
 	class buffer_meta
 	{
 	public:
+		buffer_meta() = default;
+		buffer_meta(const buffer_meta&) = default;
+		buffer_meta(buffer_meta&&) noexcept = default;
+		buffer_meta& operator=(const buffer_meta&) = default;
+		buffer_meta& operator=(buffer_meta&&) noexcept = default;
+		virtual ~buffer_meta() = default;
+		
 		/** The size of one element in the buffer. */
 		size_t sizeof_one_element() const { return mSizeOfOneElement; }
 		/** The total number of elements in the buffer. */
@@ -179,7 +182,7 @@ namespace ak
 			return result; 
 		}
 
-		/** Describe which part of an element's member gets mapped to which shader locaton. */
+		/** Describe which part of an element's member gets mapped to which shader location. */
 		uniform_texel_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, content_description aContent = content_description::unspecified)
 		{
 #if defined(_DEBUG)
@@ -188,11 +191,11 @@ namespace ak
 			}
 #endif
 			// insert already in the right place
-			buffer_element_member_meta newElement{ 0u, aOffset, aFormat, aContent };
-			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
-				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
-					return first.mOffset < second.mOffset;
-				});
+			const buffer_element_member_meta newElement{ 0u, aOffset, aFormat, aContent };
+			const auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
+			                                 [](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
+				                                 return first.mOffset < second.mOffset;
+			                                 });
 			mOrderedMemberDescriptions.insert(it, newElement);
 			return *this;
 		}
