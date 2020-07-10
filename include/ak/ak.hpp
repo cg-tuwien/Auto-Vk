@@ -79,6 +79,12 @@ namespace ak { class sync; }
 #include <ak/descriptor_cache.hpp>
 
 #include <ak/command_buffer.hpp>
+#include <ak/command_pool.hpp>
+
+#include <ak/semaphore.hpp>
+#include <ak/fence.hpp>
+
+#include <ak/sync.hpp>
 
 #include <ak/image.hpp>
 #include <ak/image_view.hpp>
@@ -86,14 +92,9 @@ namespace ak { class sync; }
 #include <ak/image_sampler.hpp>
 #include <ak/attachment.hpp>
 
-#include <ak/semaphore.hpp>
-#include <ak/fence.hpp>
-
 #include <ak/input_description.hpp>
 #include <ak/push_constants.hpp>
 
-#include <ak/command_pool.hpp>
-#include <ak/sync.hpp>
 
 #include <ak/buffer.hpp>
 #include <ak/buffer_view.hpp>
@@ -246,7 +247,7 @@ namespace ak
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
 		{
-			assert(((aConfig.total_size() == aConfigs.total_size()) && ...));
+			//assert(((aConfig.total_size() == aConfigs.total_size()) && ...));
 			auto bufferSize = aConfig.total_size();
 			vk::MemoryPropertyFlags memoryFlags;
 			vk::MemoryAllocateFlags memoryAllocateFlags;
@@ -290,7 +291,7 @@ namespace ak
 
 			aUsage |= aConfig.buffer_usage_flags();
 			if constexpr (sizeof...(aConfigs) > 0) {
-				aUsage |= (... | aConfigs);
+				aUsage |= (... | aConfigs.buffer_usage_flags());
 			}
 
 			// Create buffer here to make use of named return value optimization.
@@ -304,16 +305,16 @@ namespace ak
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
 		{	
-			return create_buffer(physical_device(), device(), aMemoryUsage, aAdditionalUsageFlags, std::move(aConfig), std::move(aConfigs)...);
+			return create_buffer(physical_device(), device(), ak::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
 		}
 
-		template <typename Meta, typename... Metas>
-		buffer create_buffer(
-			ak::memory_usage aMemoryUsage,
-			Meta aConfig, Metas... aConfigs)
-		{
-			return create_buffer(physical_device(), device(), aMemoryUsage, {}, std::move(aConfig), std::move(aConfigs)...);
-		}
+		//template <typename Meta, typename... Metas>
+		//buffer create_buffer(
+		//	ak::memory_usage aMemoryUsage,
+		//	Meta aConfig, Metas... aConfigs)
+		//{
+		//	return create_buffer(physical_device(), device(), ak::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{}, std::move(aConfig), std::move(aConfigs)...);
+		//}
 #pragma endregion
 
 #pragma region buffer view 

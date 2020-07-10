@@ -77,40 +77,40 @@ namespace ak
 		/** Viewport position and extent */
 		struct viewport_depth_scissors_config
 		{
-			static viewport_depth_scissors_config from_pos_extend_and_depth(int32_t x, int32_t y, int32_t width, int32_t height, float minDepth, float maxDepth) 
-			{ 
+			static viewport_depth_scissors_config from_pos_extend_and_depth(int32_t x, int32_t y, uint32_t width, uint32_t height, float minDepth, float maxDepth) 
+			{
 				return viewport_depth_scissors_config{ 
-					{static_cast<float>(x), static_cast<float>(y)},
-					{static_cast<float>(width), static_cast<float>(height)}, 
+					std::array<float, 2>{{ static_cast<float>(x), static_cast<float>(y) }},
+					std::array<float, 2>{{ static_cast<float>(width), static_cast<float>(height) }}, 
 					minDepth, maxDepth,
-					{x, y},
-					{width, height},
+					vk::Offset2D{ x, y },
+					vk::Extent2D{ width, height },
 					false,
 					false
 				}; 
 			}
 
-			static viewport_depth_scissors_config from_pos_and_extent(int32_t x, int32_t y, int32_t width, int32_t height) 
+			static viewport_depth_scissors_config from_pos_and_extent(int32_t x, int32_t y, uint32_t width, uint32_t height) 
 			{ 
 				return viewport_depth_scissors_config{ 
-					{static_cast<float>(x), static_cast<float>(y)},
-					{static_cast<float>(width), static_cast<float>(height)}, 
+					std::array<float, 2>{{ static_cast<float>(x), static_cast<float>(y) }},
+					std::array<float, 2>{{ static_cast<float>(width), static_cast<float>(height) }}, 
 					0.0f, 1.0f,
-					{x, y},
-					{width, height},
+					vk::Offset2D{ x, y },
+					vk::Extent2D{ width, height },
 					false,
 					false
 				}; 
 			}
 
-			static viewport_depth_scissors_config from_extent(int32_t width, int32_t height) 
+			static viewport_depth_scissors_config from_extent(uint32_t width, uint32_t height) 
 			{ 
 				return viewport_depth_scissors_config{ 
-					{0.0f, 0.0f},
-					{static_cast<float>(width), static_cast<float>(height)}, 
+					std::array<float, 2>{{ 0.0f, 0.0f }},
+					std::array<float, 2>{{ static_cast<float>(width), static_cast<float>(height) }}, 
 					0.0f, 1.0f,
-					{0, 0},
-					{width, height},
+					vk::Offset2D{ 0, 0 },
+					vk::Extent2D{ width, height },
 					false,
 					false
 				}; 
@@ -122,11 +122,11 @@ namespace ak
 			static viewport_depth_scissors_config dynamic(bool aDynamicViewport = true, bool aDynamicScissors = true)
 			{
 				return viewport_depth_scissors_config{ 
-					{0.0f, 0.0f},
-					{0.0f, 0.0f}, 
+					std::array<float, 2>{{ 0.0f, 0.0f }},
+					std::array<float, 2>{{ 0.0f, 0.0f }}, 
 					0.0f, 1.0f,
-					{0, 0},
-					{0, 0},
+					vk::Offset2D{ 0,  0 },
+					vk::Extent2D{ 0u, 0u },
 					aDynamicViewport,
 					aDynamicScissors
 				}; 

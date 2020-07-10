@@ -2511,6 +2511,10 @@ namespace ak
 #pragma endregion
 
 #pragma descriptor alloc request
+	descriptor_alloc_request::descriptor_alloc_request()
+		: mNumSets{ 0u }
+	{}
+	
 	descriptor_alloc_request::descriptor_alloc_request(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts)
 	{
 		mNumSets = static_cast<uint32_t>(aLayouts.size());
@@ -3435,11 +3439,11 @@ namespace ak
 			const auto width = aFramebuffer.create_info().width;
 			const auto height = aFramebuffer.create_info().height;
 			return viewport_depth_scissors_config{ 
-				{0.0f, 0.0f},
-				{static_cast<float>(width), static_cast<float>(height)}, 
+				std::array<float, 2>{{ 0.0f, 0.0f }},
+				std::array<float, 2>{{ static_cast<float>(width), static_cast<float>(height)  }}, 
 				0.0f, 1.0f,		// TODO: make min/max depth configurable?!
-				{0, 0},			// TODO: support different settings for scissor?!
-				{static_cast<int32_t>(width), static_cast<int32_t>(height)},
+				vk::Offset2D{ 0, 0 },			// TODO: support different settings for scissor?!
+				vk::Extent2D{{ width, height }},
 				false,
 				false
 			}; 

@@ -11,6 +11,7 @@ namespace ak
 	class descriptor_alloc_request
 	{
 	public:
+		descriptor_alloc_request();
 		descriptor_alloc_request(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts);
 		descriptor_alloc_request(descriptor_alloc_request&&) noexcept = default;
 		descriptor_alloc_request(const descriptor_alloc_request&) = default;

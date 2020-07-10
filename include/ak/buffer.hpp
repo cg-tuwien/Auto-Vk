@@ -39,7 +39,7 @@ namespace ak
 		~buffer_t() = default; // Declaration order determines destruction order (inverse!)
 
 		template <typename Meta>
-		const Meta& meta_data(size_t aMetaDataIndex = 0) const			{ return reinterpret_cast<Meta&>(mMetaData[aMetaDataIndex]); }
+		const Meta& meta_data(size_t aMetaDataIndex = 0) const			{ return reinterpret_cast<const Meta&>(mMetaData[aMetaDataIndex]); }
 		
 		auto& config() const					{ return mCreateInfo; }
 		const auto& memory_properties() const	{ return mMemoryPropertyFlags; }
