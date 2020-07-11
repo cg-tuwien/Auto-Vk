@@ -10,7 +10,7 @@ namespace ak
 	{
 	public:
 		static command_pool sPoolToAllocCommandBuffersFrom;
-		
+		static queue* sQueueToUse;
 		
 		struct presets
 		{

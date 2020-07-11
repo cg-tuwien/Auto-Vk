@@ -30,9 +30,9 @@ namespace ak
 		const auto& handle() const { return mCommandPool.get(); }
 		const auto* handle_ptr() const { return &mCommandPool.get(); }
 
-		std::vector<command_buffer> alloc_command_buffers(uint32_t aCount, vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
+		std::vector<command_buffer> alloc_command_buffers(uint32_t aCount, vk::CommandBufferUsageFlags aUsageFlags = {}, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
 			
-		command_buffer alloc_command_buffer(vk::CommandBufferUsageFlags aUsageFlags, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
+		command_buffer alloc_command_buffer(vk::CommandBufferUsageFlags aUsageFlags = {}, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
 		
 	private:
 		uint32_t mQueueFamilyIndex;

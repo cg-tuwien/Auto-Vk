@@ -332,7 +332,6 @@ namespace ak
 		static std::enable_if_t<!std::is_pointer_v<T>, storage_texel_buffer_meta> create_from_data(const T& aData)
 		{
 			storage_texel_buffer_meta result; 
-			result.mDescriptorType = vk::DescriptorType::eStorageTexelBuffer;
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData)); 
 			result.mNumElements = how_many_elements(aData);
 			return result; 

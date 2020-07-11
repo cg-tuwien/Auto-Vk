@@ -78,8 +78,8 @@ namespace ak
 
 			It it = begin;
 			while (it != end) {
-				auto pos = std::lower_bound(std::begin(createInfos), std::end(createInfos), it->family_index(), [](vk::DeviceQueueCreateInfo& left, vk::DeviceQueueCreateInfo& right) { 
-					return left.queueFamilyIndex < right.queueFamilyIndex;
+				auto pos = std::lower_bound(std::begin(createInfos), std::end(createInfos), it->family_index(), [](const vk::DeviceQueueCreateInfo& left, uint32_t famIdx) { 
+					return left.queueFamilyIndex < famIdx;
 				});
 				const auto targetIndex = std::distance(std::begin(createInfos), pos);
 

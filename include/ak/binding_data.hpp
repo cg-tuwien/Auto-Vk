@@ -12,6 +12,8 @@ namespace ak
 	class image_view_as_storage_image;
 	class sampler_t;
 	class image_sampler_t;
+	class descriptor_set_t;
+	class descriptor_set;
 	
 	/** Configuration data for a binding, containing a set-index, binding data, 
 	*	and the shader stages where the bound resource might be used.

@@ -2,6 +2,9 @@
 
 namespace ak
 {
+	command_pool sync::sPoolToAllocCommandBuffersFrom;
+	queue* sync::sQueueToUse;
+	
 	namespace presets
 	{
 		void default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess)
@@ -242,17 +245,18 @@ namespace ak
 	
 	std::reference_wrapper<queue> sync::queue_to_use() const
 	{
-#if defined(_DEBUG) && LOG_LEVEL > 4
-		if (!mQueueToUse.has_value()) {
-			if (mQueueRecommendation.has_value()) {
-				LOG_DEBUG_MEGA_VERBOSE(fmt::format("No queue specified => will submit to queue {} which was recommended by the operation. HTH.", mQueueRecommendation.value().get().queue_index()));
-			}
-			else {
-				LOG_DEBUG_MEGA_VERBOSE("No queue specified => will submit to the graphics queue. HTH.");
-			}
-		}
-#endif
-		return mQueueToUse.value();
+//#if defined(_DEBUG) && LOG_LEVEL > 4
+//		if (!mQueueToUse.has_value()) {
+//			if (mQueueRecommendation.has_value()) {
+//				LOG_DEBUG_MEGA_VERBOSE(fmt::format("No queue specified => will submit to queue {} which was recommended by the operation. HTH.", mQueueRecommendation.value().get().queue_index()));
+//			}
+//			else {
+//				LOG_DEBUG_MEGA_VERBOSE("No queue specified => will submit to the graphics queue. HTH.");
+//			}
+//		}
+//#endif
+//		//return mQueueToUse.value();
+		return *sQueueToUse;
 	}
 
 	sync& sync::create_reusable_commandbuffer()

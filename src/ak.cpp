@@ -3043,7 +3043,7 @@ namespace ak
 			auto preparedSet = descriptor_set::prepare(lb, ub);
 			auto cachedSet = get_descriptor_set_from_cache(preparedSet);
 			if (cachedSet.has_value()) {
-				cachedSets.emplace_back(std::move(cachedSet));
+				cachedSets.emplace_back(std::move(cachedSet.value()));
 				validSets.push_back(true);
 			}
 			else {
@@ -4647,10 +4647,10 @@ namespace ak
 	)
 	{
 		auto queueFamilies = aPhysicalDevice.getQueueFamilyProperties();
-		if (queueFamilies.size() >= aQueueFamilyIndex) {
+		if (queueFamilies.size() <= aQueueFamilyIndex) {
 			throw ak::runtime_error("Invalid queue family index in queue::prepare");
 		}
-		if (queueFamilies[aQueueFamilyIndex].queueCount >= aQueueIndex) {
+		if (queueFamilies[aQueueFamilyIndex].queueCount <= aQueueIndex) {
 			throw ak::runtime_error("Queue family #" + std::to_string(aQueueFamilyIndex) + " does not provide enough queues (requested index: " + std::to_string(aQueueIndex) + ")");
 		}
 		
