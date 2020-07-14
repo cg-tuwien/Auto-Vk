@@ -27,8 +27,8 @@ namespace ak
 
 		auto queue_family_index() const { return mQueueFamilyIndex; }
 		const auto& create_info() const { return mCreateInfo; }
-		const auto& handle() const { return mCommandPool.get(); }
-		const auto* handle_ptr() const { return &mCommandPool.get(); }
+		const auto& handle() const { return mCommandPool->get(); }
+		const auto* handle_ptr() const { return &mCommandPool->get(); }
 
 		std::vector<command_buffer> alloc_command_buffers(uint32_t aCount, vk::CommandBufferUsageFlags aUsageFlags = {}, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
 			
@@ -37,7 +37,7 @@ namespace ak
 	private:
 		uint32_t mQueueFamilyIndex;
 		vk::CommandPoolCreateInfo mCreateInfo;
-		vk::UniqueCommandPool mCommandPool;
+		std::shared_ptr<vk::UniqueCommandPool> mCommandPool;
 	};
 
 	using command_pool = owning_resource<command_pool_t>;

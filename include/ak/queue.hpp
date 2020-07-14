@@ -29,9 +29,9 @@ namespace ak
 	{
 	public:
 		queue() = default;
-		queue(const queue&) = default;
+		queue(const queue&) = delete;
 		queue(queue&&) noexcept = default;
-		queue& operator=(const queue&) = default;
+		queue& operator=(const queue&) = delete;
 		queue& operator=(queue&&) noexcept = default;
 		~queue() = default;
 		
@@ -137,10 +137,10 @@ namespace ak
 		const auto* handle_ptr() const { return &mQueue; }
 
 		/** TODO */
-		semaphore submit_with_semaphore(command_buffer_t& aCommandBuffer);
+		semaphore submit_with_semaphore(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore = {});
 		
 		/** TODO */
-		void submit(command_buffer_t& aCommandBuffer);
+		void submit(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore = {});
 		
 		/** TODO */
 		void submit(std::vector<std::reference_wrapper<command_buffer_t>> aCommandBuffers);

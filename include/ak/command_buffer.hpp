@@ -185,6 +185,8 @@ namespace ak
 		std::optional<ak::unique_function<void()>> mCustomDeleter;
 
 		std::optional<ak::unique_function<void()>> mPostExecutionHandler;
+
+		std::shared_ptr<vk::UniqueCommandPool> mCommandPool;
 	};
 
 	// Typedef for a variable representing an owner of a command_buffer

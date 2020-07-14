@@ -2201,7 +2201,7 @@ namespace ak
 		command_pool_t result;
 		result.mQueueFamilyIndex = aQueueFamilyIndex;
 		result.mCreateInfo = createInfo;
-		result.mCommandPool = device().createCommandPoolUnique(createInfo);
+		result.mCommandPool = std::make_shared<vk::UniqueCommandPool>(device().createCommandPoolUnique(createInfo));
 		return result;
 	}
 
@@ -2212,7 +2212,7 @@ namespace ak
 			.setLevel(aLevel) 
 			.setCommandBufferCount(aCount);
 
-		auto tmp = mCommandPool.getOwner().allocateCommandBuffersUnique(bufferAllocInfo);
+		auto tmp = mCommandPool->getOwner().allocateCommandBuffersUnique(bufferAllocInfo);
 
 		// Iterate over all the "raw"-Vk objects in `tmp` and...
 		std::vector<command_buffer> buffers;
@@ -2220,12 +2220,13 @@ namespace ak
 		std::transform(std::begin(tmp), std::end(tmp),
 			std::back_inserter(buffers),
 			// ...transform them into `ak::command_buffer_t` objects:
-			[lUsageFlags = aUsageFlags](auto& vkCb) -> command_buffer {
+			[lUsageFlags = aUsageFlags, poolPtr = mCommandPool](auto& vkCb) -> command_buffer {
 				command_buffer_t result;
 				result.mBeginInfo = vk::CommandBufferBeginInfo()
 					.setFlags(lUsageFlags)
 					.setPInheritanceInfo(nullptr);
 				result.mCommandBuffer = std::move(vkCb);
+				result.mCommandPool = std::move(poolPtr);
 				return result;
 			});
 		return buffers;
@@ -4675,17 +4676,23 @@ namespace ak
 
 
 	
-	semaphore queue::submit_with_semaphore(command_buffer_t& aCommandBuffer)
+	semaphore queue::submit_with_semaphore(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore)
 	{
 		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
 
 		auto sem = root::create_semaphore(mDevice);
 		
-		const auto submitInfo = vk::SubmitInfo{}
+		auto submitInfo = vk::SubmitInfo{}
 			.setCommandBufferCount(1u)
 			.setPCommandBuffers(aCommandBuffer.handle_ptr())
 			.setSignalSemaphoreCount(1u)
 			.setPSignalSemaphores(sem->handle_addr());
+		if (aWaitSemaphore.has_value()) {
+			submitInfo
+				.setWaitSemaphoreCount(1u)
+				.setPWaitSemaphores(aWaitSemaphore->get().handle_addr())
+				.setPWaitDstStageMask(aWaitSemaphore->get().semaphore_wait_stage_addr());
+		}
 		
 		handle().submit({ submitInfo },  nullptr);
 		aCommandBuffer.invoke_post_execution_handler();
@@ -4695,13 +4702,19 @@ namespace ak
 		return sem;
 	}
 
-	void queue::submit(command_buffer_t& aCommandBuffer)
+	void queue::submit(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore)
 	{
 		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
 
-		const auto submitInfo = vk::SubmitInfo{}
+		auto submitInfo = vk::SubmitInfo{}
 			.setCommandBufferCount(1u)
 			.setPCommandBuffers(aCommandBuffer.handle_ptr());
+		if (aWaitSemaphore.has_value()) {
+			submitInfo
+				.setWaitSemaphoreCount(1u)
+				.setPWaitSemaphores(aWaitSemaphore->get().handle_addr())
+				.setPWaitDstStageMask(aWaitSemaphore->get().semaphore_wait_stage_addr());
+		}
 		
 		handle().submit({ submitInfo },  nullptr);
 		aCommandBuffer.invoke_post_execution_handler();
