@@ -5,28 +5,24 @@ namespace ak
 	command_pool sync::sPoolToAllocCommandBuffersFrom;
 	queue* sync::sQueueToUse;
 	
-	namespace presets
+	void sync::presets::default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess)
 	{
-		void default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess)
-		{
-			// We do not know which operation came before. Hence, we have to be overly cautious and
-			// establish a (possibly) hefty barrier w.r.t. write access that happened before.
-			aCommandBuffer.establish_global_memory_barrier_rw(
-				pipeline_stage::all_commands,							aDestinationStage,	// Wait for all previous command before continuing with the operation's command
-				write_memory_access{memory_access::any_write_access},	aDestinationAccess	// Make any write access available before making the operation's read access type visible
-			);
-		}
-		
-		void default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess)
-		{
-			// We do not know which operation comes after. Hence, we have to be overly cautious and
-			// establish a (possibly) hefty barrier w.r.t. read access that happens after.
-			aCommandBuffer.establish_global_memory_barrier_rw(
-				aSourceStage,	pipeline_stage::all_commands,							// All subsequent stages have to wait until the operation has completed
-				aSourceAccess,  read_memory_access{memory_access::any_read_access}		// Make the operation's writes available and visible to all memory stages
-			);
-		}
-		
+		// We do not know which operation came before. Hence, we have to be overly cautious and
+		// establish a (possibly) hefty barrier w.r.t. write access that happened before.
+		aCommandBuffer.establish_global_memory_barrier_rw(
+			pipeline_stage::all_commands,							aDestinationStage,	// Wait for all previous command before continuing with the operation's command
+			write_memory_access{memory_access::any_write_access},	aDestinationAccess	// Make any write access available before making the operation's read access type visible
+		);
+	}
+	
+	void sync::presets::default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess)
+	{
+		// We do not know which operation comes after. Hence, we have to be overly cautious and
+		// establish a (possibly) hefty barrier w.r.t. read access that happens after.
+		aCommandBuffer.establish_global_memory_barrier_rw(
+			aSourceStage,	pipeline_stage::all_commands,							// All subsequent stages have to wait until the operation has completed
+			aSourceAccess,  read_memory_access{memory_access::any_read_access}		// Make the operation's writes available and visible to all memory stages
+		);
 	}
 	
 	ak::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> sync::presets::image_copy::wait_for_previous_operations(ak::image_t& aSourceImage, ak::image_t& aDestinationImage)

@@ -104,7 +104,7 @@ namespace ak
 	template <typename... Ts>
 	void add_shader_table_entry(shader_table_config& aShaderTableConfig, std::string_view aShaderPath, Ts... args)
 	{
-		aShaderTableConfig.mShaderTableEntries.push_back(shader_info::create(std::string(aShaderPath)));
+		aShaderTableConfig.mShaderTableEntries.push_back(shader_info::describe(std::string(aShaderPath)));
 		add_shader_table_entry(aShaderTableConfig, std::move(args)...);
 	}
 

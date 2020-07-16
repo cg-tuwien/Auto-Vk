@@ -55,7 +55,7 @@ namespace ak
 		if (aConfig.mShaderInfo.has_value()) {
 			throw ak::logic_error("Only one shader is supported for a compute pipeline.");
 		}
-		aConfig.mShaderInfo = shader_info::create(std::string(aShaderPath));
+		aConfig.mShaderInfo = shader_info::describe(std::string(aShaderPath));
 		if (aConfig.mShaderInfo->mShaderType != shader_type::compute) {
 			throw ak::logic_error("The shader's type is not compute.");
 		}

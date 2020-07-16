@@ -8,9 +8,9 @@ namespace ak
 	vk::DescriptorType descriptor_type_of(const T*);
 
 	template<>
-	inline vk::DescriptorType descriptor_type_of<buffer_t>(const buffer_t* aBuffer) { return aBuffer->meta<buffer_meta>().descriptor_type().value(); }
+	inline vk::DescriptorType descriptor_type_of<buffer_t>(const buffer_t* aBuffer) { return aBuffer->meta_at_index<buffer_meta>(0).descriptor_type().value(); }
 	template<>
-	inline vk::DescriptorType descriptor_type_of<buffer>(const buffer* aBuffer) { return (*aBuffer)->meta<buffer_meta>().descriptor_type().value(); }
+	inline vk::DescriptorType descriptor_type_of<buffer>(const buffer* aBuffer) { return (*aBuffer)->meta_at_index<buffer_meta>(0).descriptor_type().value(); }
 
 	template<>
 	inline vk::DescriptorType descriptor_type_of<buffer_descriptor>(const buffer_descriptor* aBufferDescriptor) { return aBufferDescriptor->descriptor_type(); }

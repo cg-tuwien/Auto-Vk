@@ -3,6 +3,10 @@
 
 namespace ak
 {
+	class command_buffer_t;
+	using command_buffer = ak::owning_resource<command_buffer_t>;
+	class sync;
+	
 	/**	A helper-class representing a descriptor to a given buffer,
 	 *	containing the descriptor type and the descriptor info.
 	 *
@@ -29,6 +33,20 @@ namespace ak
 	class buffer_t
 	{
 		friend class root;
+
+		struct get_buffer_meta {
+			get_buffer_meta(const buffer_meta*& aOut) : mOut{ &aOut } {}
+			const buffer_meta** mOut = nullptr;
+			void operator()(const buffer_meta& data)				const	{ *mOut = &data; }
+			void operator()(const generic_buffer_meta& data)		const	{ *mOut = &data; }
+			void operator()(const uniform_buffer_meta& data)		const	{ *mOut = &data; }
+			void operator()(const uniform_texel_buffer_meta& data)	const	{ *mOut = &data; }
+			void operator()(const storage_buffer_meta& data)		const	{ *mOut = &data; }
+			void operator()(const storage_texel_buffer_meta& data)	const	{ *mOut = &data; }
+			void operator()(const vertex_buffer_meta& data)			const	{ *mOut = &data; }
+			void operator()(const index_buffer_meta& data)			const	{ *mOut = &data; }
+			void operator()(const instance_buffer_meta& data)		const	{ *mOut = &data; }
+		};
 		
 	public:
 		buffer_t() = default;
@@ -39,7 +57,12 @@ namespace ak
 		~buffer_t() = default; // Declaration order determines destruction order (inverse!)
 
 		template <typename Meta>
-		const Meta& meta_data(size_t aMetaDataIndex = 0) const			{ return reinterpret_cast<const Meta&>(mMetaData[aMetaDataIndex]); }
+		const Meta& meta_at_index(size_t aMetaDataIndex = 0) const
+		{
+			const buffer_meta* metaPtr = nullptr;
+			std::visit(get_buffer_meta(metaPtr), mMetaData[aMetaDataIndex]);
+			return *reinterpret_cast<const Meta*>(metaPtr);
+		}
 		
 		auto& config() const					{ return mCreateInfo; }
 		const auto& memory_properties() const	{ return mMemoryPropertyFlags; }
@@ -73,7 +96,7 @@ namespace ak
 		bool has_meta() const
 		{
 			for (const auto& m : mMetaData) {
-				if (dynamic_cast<const Meta*>(&m) != nullptr) {
+				if (std::holds_alternative<Meta>(m)) {
 					return true;
 				}
 			}
@@ -86,11 +109,11 @@ namespace ak
 		 *	@return			Index of a meta data element of type Meta, or -1
 		 */
 		template <typename Meta>
-		int meta_index(size_t aSkip = 0) const
+		int index_of_meta(size_t aSkip = 0) const
 		{
 			for (int i = 0; i < static_cast<int>(mMetaData.size()); ++i) {
 				const auto& m = mMetaData[i];
-				if (dynamic_cast<const Meta*>(&m) != nullptr) {
+				if (std::holds_alternative<Meta>(m)) {
 					if (aSkip-- > 0) { continue; }
 					return i;
 				}
@@ -107,9 +130,9 @@ namespace ak
 		const Meta& meta(size_t aSkip = 0) const
 		{
 			for (const auto& m : mMetaData) {
-				if (dynamic_cast<const Meta*>(&m) != nullptr) {
+				if (std::holds_alternative<Meta>(m)) {
 					if (aSkip-- > 0) { continue; }
-					return dynamic_cast<const Meta&>(m);
+					return std::get<Meta>(m);
 				}
 			}
 			throw ak::runtime_error(std::string("Meta data of type '") + typeid(Meta).name() + "' not found");
@@ -144,11 +167,11 @@ namespace ak
 
 		/** Fill buffer with data.
 		 */
-		std::optional<command_buffer> fill(const void* pData, size_t aMetaDataIndex = 0, sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> fill(const void* pData, size_t aMetaDataIndex, sync aSyncHandler);
 
 		/** Read data from buffer back to the CPU-side.
 		 */
-		std::optional<command_buffer> read(void* aData, size_t aMetaDataIndex = 0, sync aSyncHandler = sync::wait_idle()) const;
+		std::optional<command_buffer> read(void* aData, size_t aMetaDataIndex, sync aSyncHandler) const;
 
 		/**
 		 * Read back data from a buffer.
@@ -163,7 +186,7 @@ namespace ak
 		 * @returns				A value of type `Ret` which is returned by value.
 		 */
 		template <typename Ret>
-		Ret read(size_t aMetaDataIndex = 0, sync aSyncHandler = sync::wait_idle())
+		Ret read(size_t aMetaDataIndex, sync aSyncHandler)
 		{
 			auto memProps = memory_properties();
 			if (!ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
@@ -175,7 +198,7 @@ namespace ak
 		}		
 		
 	private:
-		std::vector<buffer_meta> mMetaData;
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> mMetaData;
 		vk::BufferCreateInfo mCreateInfo;
 		vk::MemoryPropertyFlags mMemoryPropertyFlags;
 		vk::UniqueDeviceMemory mMemory;

@@ -1458,9 +1458,9 @@ namespace ak
 
 		for (auto& pair : aGeometries) {
 			auto& vertexBuffer = pair.vertex_buffer();
-			const auto& vertexBufferMeta = vertexBuffer.meta_data<vertex_buffer_meta>();
+			const auto& vertexBufferMeta = vertexBuffer.meta<vertex_buffer_meta>();
 			auto& indexBuffer = pair.index_buffer();
-			const auto& indexBufferMeta = indexBuffer.meta_data<index_buffer_meta>();
+			const auto& indexBufferMeta = indexBuffer.meta<index_buffer_meta>();
 			
 			if (vertexBufferMeta.member_descriptions().size() == 0) {
 				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
@@ -1548,7 +1548,7 @@ namespace ak
 			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 			generic_buffer_meta::create_from_data(aGeometries)
 		);
-		aabbDataBuffer->fill(aGeometries.data()); // TODO: Do not use wait_idle!
+		aabbDataBuffer->fill(aGeometries.data(), 0, sync::wait_idle()); // TODO: Do not use wait_idle!
 		// TODO: Probably better to NOT create an entirely new buffer at every invocation ^^ 
 		
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
@@ -1941,9 +1941,19 @@ namespace ak
 #pragma endregion
 
 #pragma region buffer definitions
-	buffer root::create_buffer(const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const buffer_meta& aMetaData, vk::BufferUsageFlags aBufferUsage, vk::MemoryPropertyFlags aMemoryProperties, vk::MemoryAllocateFlags aMemoryAllocateFlags)
+	buffer root::create_buffer(
+		const vk::PhysicalDevice& aPhysicalDevice, 
+		const vk::Device& aDevice, 
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData, 
+		vk::BufferUsageFlags aBufferUsage, 
+		vk::MemoryPropertyFlags aMemoryProperties, 
+		vk::MemoryAllocateFlags aMemoryAllocateFlags
+	)
 	{
-		auto bufferSize = aMetaData.total_size();
+		assert (aMetaData.size() > 0);
+		buffer_t result;
+		result.mMetaData = std::move(aMetaData);
+		auto bufferSize = result.meta_at_index<buffer_meta>(0).total_size();
 
 		// Create (possibly multiple) buffer(s):
 		auto bufferCreateInfo = vk::BufferCreateInfo()
@@ -1981,8 +1991,6 @@ namespace ak
 		aDevice.bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
 		// TODO: if(!succeeded) { throw ak::runtime_error("Binding memory to buffer failed."); }
 
-		buffer_t result;
-		result.mMetaData.push_back(aMetaData);
 		result.mCreateInfo = bufferCreateInfo;
 		result.mMemoryPropertyFlags = aMemoryProperties;
 		result.mMemory = std::move(vkMemory);
@@ -1999,7 +2007,7 @@ namespace ak
 	
 	std::optional<command_buffer> buffer_t::fill(const void* pData, size_t aMetaDataIndex, sync aSyncHandler)
 	{
-		auto metaData = meta_data<buffer_meta>(aMetaDataIndex);
+		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		auto memProps = memory_properties();
 		auto device = mBuffer.getOwner();
@@ -2038,7 +2046,7 @@ namespace ak
 				vk::BufferUsageFlagBits::eTransferSrc,
 				generic_buffer_meta::create_from_size(bufferSize)
 			);
-			stagingBuffer->fill(pData); // Recurse into the other if-branch
+			stagingBuffer->fill(pData, 0, sync::wait_idle()); // Recurse into the other if-branch
 
 			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 			// Sync before:
@@ -2066,7 +2074,7 @@ namespace ak
 
 	std::optional<command_buffer> buffer_t::read(void* aData, size_t aMetaDataIndex, sync aSyncHandler) const
 	{
-		auto metaData = meta_data<buffer_meta>(aMetaDataIndex);
+		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		auto memProps = memory_properties();
 		auto device = mBuffer.getOwner();
@@ -2160,7 +2168,7 @@ namespace ak
 		throw ak::runtime_error("Which descriptor type?");
 	}
 	
-	buffer_view root::create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+	buffer_view root::create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat, size_t aMetaDataIndex, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
 		buffer_view_t result;
 		vk::Format format;
@@ -2168,13 +2176,13 @@ namespace ak
 			format = aViewFormat.value();
 		}
 		else {
-			if (aBufferToOwn->meta_data<buffer_meta>().member_descriptions().size() == 0) {
-				throw ak::runtime_error("No _ViewFormat passed and ak::uniform_texel_buffer contains no member descriptions");
+			if (aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().size() == 0) {
+				throw ak::runtime_error("No view format passed and ak::uniform_texel_buffer contains no member descriptions");
 			}
-			if (aBufferToOwn->meta_data<buffer_meta>().member_descriptions().size() > 1) {
-				AK_LOG_WARNING("No aViewFormat passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
+			if (aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().size() > 1) {
+				AK_LOG_WARNING("No view format passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
 			}
-			format = aBufferToOwn->meta_data<buffer_meta>().member_descriptions().front().mFormat;
+			format = aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().front().mFormat;
 		}
 		// Transfer ownership:
 		result.mBuffer = std::move(aBufferToOwn);
@@ -2182,7 +2190,7 @@ namespace ak
 		return result;
 	}
 	
-	buffer_view root::create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+	buffer_view root::create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, size_t aMetaDataIndex, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
 		buffer_view_t result;
 		// Store handles:
@@ -2683,10 +2691,15 @@ namespace ak
 		return result;
 	}
 
-	descriptor_cache root::create_descriptor_cache(std::string_view aName)
+	descriptor_cache root::create_descriptor_cache(std::string aName)
 	{
+		if (aName.empty()) {
+			static int sDescCacheId = 1;
+			aName = "Descriptor Cache #" + std::to_string(sDescCacheId++);
+		}
+		
 		descriptor_cache result;
-		result.mName = aName;
+		result.mName = std::move(aName);
 		result.mPhysicalDevice = physical_device();
 		result.mDevice = device();
 		return result;

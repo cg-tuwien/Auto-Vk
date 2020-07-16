@@ -628,145 +628,145 @@ namespace ak
 
 	// Add a specific pipeline setting to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::pipeline_settings _Setting, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::pipeline_settings aSetting, Ts... args)
 	{
-		aConfig.mPipelineSettings |= _Setting;
+		aConfig.mPipelineSettings |= aSetting;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add a complete render pass to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, renderpass _RenderPass, uint32_t _Subpass, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, renderpass aRenderPass, uint32_t aSubpass, Ts... args)
 	{
-		aConfig.mRenderPassSubpass = std::move(std::make_tuple(std::move(_RenderPass), _Subpass));
+		aConfig.mRenderPassSubpass = std::move(std::make_tuple(std::move(aRenderPass), aSubpass));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add a complete render pass to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, renderpass _RenderPass, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, renderpass aRenderPass, Ts... args)
 	{
-		aConfig.mRenderPassSubpass = std::move(std::make_tuple(std::move(_RenderPass), 0u)); // Default to the first subpass if none is specified
+		aConfig.mRenderPassSubpass = std::move(std::make_tuple(std::move(aRenderPass), 0u)); // Default to the first subpass if none is specified
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add a renderpass attachment to the (temporary) attachments vector and build renderpass afterwards
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, ak::attachment _Attachment, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, ak::attachment aAttachment, Ts... args)
 	{
-		aAttachments.push_back(std::move(_Attachment));
+		aAttachments.push_back(std::move(aAttachment));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add an input binding location to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, input_binding_location_data _InputBinding, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, input_binding_location_data aInputBinding, Ts... args)
 	{
-		aConfig.mInputBindingLocations.push_back(std::move(_InputBinding));
+		aConfig.mInputBindingLocations.push_back(std::move(aInputBinding));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Set the topology of the input attributes
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::primitive_topology _Topology, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::primitive_topology aTopology, Ts... args)
 	{
-		aConfig.mPrimitiveTopology = _Topology;
+		aConfig.mPrimitiveTopology = aTopology;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add a shader to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, shader_info _ShaderInfo, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, shader_info aShaderInfo, Ts... args)
 	{
-		aConfig.mShaderInfos.push_back(std::move(_ShaderInfo));
+		aConfig.mShaderInfos.push_back(std::move(aShaderInfo));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Accept a string and assume it refers to a shader file
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, std::string_view _ShaderPath, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, std::string_view aShaderPath, Ts... args)
 	{
-		aConfig.mShaderInfos.push_back(shader_info::create(std::string(_ShaderPath)));
+		aConfig.mShaderInfos.push_back(shader_info::describe(std::string(aShaderPath)));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Set the depth test behavior in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_test _DepthTestConfig, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_test aDepthTestConfig, Ts... args)
 	{
-		aConfig.mDepthTestConfig = std::move(_DepthTestConfig);
+		aConfig.mDepthTestConfig = std::move(aDepthTestConfig);
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Set the depth write behavior in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_write _DepthWriteConfig, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_write aDepthWriteConfig, Ts... args)
 	{
-		aConfig.mDepthWriteConfig = std::move(_DepthWriteConfig);
+		aConfig.mDepthWriteConfig = std::move(aDepthWriteConfig);
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add a viewport, depth, and scissors entry to the pipeline configuration
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::viewport_depth_scissors_config _ViewportDepthScissorsConfig, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::viewport_depth_scissors_config aViewportDepthScissorsConfig, Ts... args)
 	{
-		aConfig.mViewportDepthConfig.push_back(std::move(_ViewportDepthScissorsConfig));
+		aConfig.mViewportDepthConfig.push_back(std::move(aViewportDepthScissorsConfig));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Set the culling mode in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::culling_mode _CullingMode, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::culling_mode aCullingMode, Ts... args)
 	{
-		aConfig.mCullingMode = _CullingMode;
+		aConfig.mCullingMode = aCullingMode;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Set the definition of front faces in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::front_face _FrontFace, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::front_face aFrontFace, Ts... args)
 	{
-		aConfig.mFrontFaceWindingOrder = std::move(_FrontFace);
+		aConfig.mFrontFaceWindingOrder = std::move(aFrontFace);
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Set how to draw polygons in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::polygon_drawing _PolygonDrawingConfig, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::polygon_drawing aPolygonDrawingConfig, Ts... args)
 	{
-		aConfig.mPolygonDrawingModeAndConfig = std::move(_PolygonDrawingConfig);
+		aConfig.mPolygonDrawingModeAndConfig = std::move(aPolygonDrawingConfig);
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Set how the rasterizer handles geometry in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::rasterizer_geometry_mode _RasterizerGeometryMode, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::rasterizer_geometry_mode aRasterizerGeometryMode, Ts... args)
 	{
-		aConfig.mRasterizerGeometryMode = _RasterizerGeometryMode;
+		aConfig.mRasterizerGeometryMode = aRasterizerGeometryMode;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Sets if there should be some special depth handling in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_clamp_bias _DepthSettings, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_clamp_bias aDepthSettings, Ts... args)
 	{
-		aConfig.mDepthClampBiasConfig = _DepthSettings;
+		aConfig.mDepthClampBiasConfig = aDepthSettings;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Sets some color blending parameters in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::color_blending_settings _ColorBlendingSettings, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::color_blending_settings aColorBlendingSettings, Ts... args)
 	{
-		aConfig.mColorBlendingSettings = _ColorBlendingSettings;
+		aConfig.mColorBlendingSettings = aColorBlendingSettings;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Sets some color blending parameters in the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::color_blending_config _ColorBlendingConfig, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::color_blending_config aColorBlendingConfig, Ts... args)
 	{
-		aConfig.mColorBlendingPerAttachment.push_back(std::move(_ColorBlendingConfig));
+		aConfig.mColorBlendingPerAttachment.push_back(std::move(aColorBlendingConfig));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
@@ -796,25 +796,25 @@ namespace ak
 
 	// Add a resource binding to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, binding_data _ResourceBinding, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, binding_data aResourceBinding, Ts... args)
 	{
-		aConfig.mResourceBindings.push_back(std::move(_ResourceBinding));
+		aConfig.mResourceBindings.push_back(std::move(aResourceBinding));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add a push constants binding to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, push_constant_binding_data _PushConstBinding, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, push_constant_binding_data aPushConstBinding, Ts... args)
 	{
-		aConfig.mPushConstantsBindings.push_back(std::move(_PushConstBinding));
+		aConfig.mPushConstantsBindings.push_back(std::move(aPushConstBinding));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
 	// Add an config-alteration function to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, std::function<void(graphics_pipeline_t&)> _AlterConfigBeforeCreation, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<ak::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation, Ts... args)
 	{
-		aFunc = std::move(_AlterConfigBeforeCreation);
+		aFunc = std::move(aAlterConfigBeforeCreation);
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 }

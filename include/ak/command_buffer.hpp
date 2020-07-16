@@ -111,16 +111,16 @@ namespace ak
 			handle().bindVertexBuffers(0u, { aVertexBuffers.buffer_handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... });
 			//											Make use of the discarding behavior of the comma operator ^, see: https://stackoverflow.com/a/61098748/387023
 
-			// TODO: I have no idea why ak::to_vk_index_type can not be found during compilation time
-			vk::IndexType indexType = vk::IndexType::eNoneKHR;
-			switch (aIndexBuffer.meta_data().sizeof_one_element()) {
+			const auto& indexMeta = aIndexBuffer.template meta<ak::index_buffer_meta>();
+			vk::IndexType indexType;
+			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
 				case sizeof(uint32_t): indexType = vk::IndexType::eUint32; break;
-				default: LOG_ERROR(fmt::format("The given size[{}] does not correspond to a valid vk::IndexType", aIndexBuffer.meta_data().sizeof_one_element())); break;
+				default: AK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
 			}
 			
 			handle().bindIndexBuffer(aIndexBuffer.buffer_handle(), 0u, indexType);
-			handle().drawIndexed(aIndexBuffer.meta_data().num_elements(), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
+			handle().drawIndexed(indexMeta.num_elements(), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 		}
 		
 		template <typename IdxBfr, typename... Bfrs>

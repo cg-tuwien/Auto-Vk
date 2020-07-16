@@ -78,6 +78,9 @@ namespace ak { class sync; }
 #include <ak/set_of_descriptor_set_layouts.hpp>
 #include <ak/descriptor_cache.hpp>
 
+
+#include <ak/buffer.hpp>
+
 #include <ak/command_buffer.hpp>
 #include <ak/command_pool.hpp>
 
@@ -96,7 +99,6 @@ namespace ak { class sync; }
 #include <ak/push_constants.hpp>
 
 
-#include <ak/buffer.hpp>
 #include <ak/buffer_view.hpp>
 #include <ak/vertex_index_buffer_pair.hpp>
 #include <ak/queue.hpp>
@@ -233,11 +235,22 @@ namespace ak
 #pragma endregion 
 
 #pragma region buffer
-		static buffer create_buffer(const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const buffer_meta& aMetaData, vk::BufferUsageFlags aBufferUsage, vk::MemoryPropertyFlags aMemoryProperties, vk::MemoryAllocateFlags aMemoryAllocateFlags);
+		static buffer create_buffer(
+			const vk::PhysicalDevice& aPhysicalDevice, 
+			const vk::Device& aDevice, 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData, 
+			vk::BufferUsageFlags aBufferUsage, 
+			vk::MemoryPropertyFlags aMemoryProperties, 
+			vk::MemoryAllocateFlags aMemoryAllocateFlags
+		);
 		
-		buffer create_buffer(const buffer_meta& aMetaData, vk::BufferUsageFlags aBufferUsage, vk::MemoryPropertyFlags aMemoryProperties, vk::MemoryAllocateFlags aMemoryAllocateFlags)
+		buffer create_buffer(
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData, 
+			vk::BufferUsageFlags aBufferUsage, 
+			vk::MemoryPropertyFlags aMemoryProperties,
+			vk::MemoryAllocateFlags aMemoryAllocateFlags)
 		{
-			return create_buffer(physical_device(), device(), aMetaData, aBufferUsage, aMemoryProperties, aMemoryAllocateFlags);
+			return create_buffer(physical_device(), device(), std::move(aMetaData), aBufferUsage, aMemoryProperties, aMemoryAllocateFlags);
 		}
 
 		template <typename Meta, typename... Metas>
@@ -289,14 +302,17 @@ namespace ak
 				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddress;
 			}
 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> metas;
+			metas.push_back(aConfig);
 			aUsage |= aConfig.buffer_usage_flags();
 			if constexpr (sizeof...(aConfigs) > 0) {
 				aUsage |= (... | aConfigs.buffer_usage_flags());
+				(metas.push_back(aConfigs), ...);
 			}
 
 			// Create buffer here to make use of named return value optimization.
 			// How it will be filled depends on where the memory is located at.
-			return create_buffer(aPhysicalDevice, aDevice, aConfig, aUsage, memoryFlags, memoryAllocateFlags);
+			return create_buffer(aPhysicalDevice, aDevice, metas, aUsage, memoryFlags, memoryAllocateFlags);
 		}
 		
 		template <typename Meta, typename... Metas>
@@ -317,9 +333,10 @@ namespace ak
 		//}
 #pragma endregion
 
-#pragma region buffer view 
-		buffer_view create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat = {}, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
-		buffer_view create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
+#pragma region buffer view
+		// TODO: Support meta-type instead/in addition to  size_t aMetaDataIndex = 0?!
+		buffer_view create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat = {}, size_t aMetaDataIndex = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
+		buffer_view create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, size_t aMetaDataIndex = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region command pool and command buffer
@@ -359,7 +376,7 @@ namespace ak
 #pragma region descriptor pool
 		static descriptor_pool create_descriptor_pool(vk::Device aDevice, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
 		descriptor_pool create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
-		descriptor_cache create_descriptor_cache(std::string_view aName);
+		descriptor_cache create_descriptor_cache(std::string aName = "");
 #pragma endregion
 
 #pragma region descriptor set layout and set of descriptor set layouts
