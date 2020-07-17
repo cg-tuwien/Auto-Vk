@@ -24,9 +24,9 @@ namespace ak
 		}
 
 		vertex_index_buffer_pair(vertex_index_buffer_pair&&) noexcept = default;
-		vertex_index_buffer_pair(const vertex_index_buffer_pair&) = delete;
+		vertex_index_buffer_pair(const vertex_index_buffer_pair&) = default;
 		vertex_index_buffer_pair& operator=(vertex_index_buffer_pair&&) noexcept = default;
-		framebuffer_t& operator=(const vertex_index_buffer_pair&) = delete;
+		vertex_index_buffer_pair& operator=(const vertex_index_buffer_pair&) = default;
 		~vertex_index_buffer_pair() = default;
 
 		const buffer_t& vertex_buffer() const { return mVertexBuffer; }

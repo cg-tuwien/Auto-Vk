@@ -42,6 +42,7 @@
 #include <ak/ak_error.hpp>
 #include <ak/cpp_utils.hpp>
 
+#define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
 
@@ -428,117 +429,117 @@ namespace ak
 
 		
 	/**	Convenience function for gathering the graphic pipeline's configuration.
-		 *	
-		 *	It supports the following types 
-		 *
-		 *
-		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref graphics_pipeline_t::create
-		 */
-		template <typename... Ts>
-		graphics_pipeline create_graphics_pipeline_for(Ts... args)
-		{
-			// 1. GATHER CONFIG
-			std::vector<ak::attachment> renderPassAttachments;
-			std::function<void(graphics_pipeline_t&)> alterConfigFunction;
-			graphics_pipeline_config config;
-			add_config(config, renderPassAttachments, alterConfigFunction, std::move(args)...);
+	 *	
+	 *	It supports the following types 
+	 *
+	 *
+	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref graphics_pipeline_t::create
+	 */
+	template <typename... Ts>
+	graphics_pipeline create_graphics_pipeline_for(Ts... args)
+	{
+		// 1. GATHER CONFIG
+		std::vector<ak::attachment> renderPassAttachments;
+		std::function<void(graphics_pipeline_t&)> alterConfigFunction;
+		graphics_pipeline_config config;
+		add_config(config, renderPassAttachments, alterConfigFunction, std::move(args)...);
 
-			// Check if render pass attachments are in renderPassAttachments XOR config => only in that case, it is clear how to proceed, fail in other cases
-			if (renderPassAttachments.size() > 0 == (config.mRenderPassSubpass.has_value() && nullptr != std::get<renderpass>(*config.mRenderPassSubpass)->handle())) {
-				if (renderPassAttachments.size() == 0) {
-					throw ak::runtime_error("No renderpass config provided! Please provide a renderpass or attachments!");
-				}
-				throw ak::runtime_error("Ambiguous renderpass config! Either set a renderpass XOR provide attachments!");
+		// Check if render pass attachments are in renderPassAttachments XOR config => only in that case, it is clear how to proceed, fail in other cases
+		if (renderPassAttachments.size() > 0 == (config.mRenderPassSubpass.has_value() && nullptr != std::get<renderpass>(*config.mRenderPassSubpass)->handle())) {
+			if (renderPassAttachments.size() == 0) {
+				throw ak::runtime_error("No renderpass config provided! Please provide a renderpass or attachments!");
 			}
-			// ^ that was the sanity check. See if we have to build the renderpass from the attachments:
-			if (renderPassAttachments.size() > 0) {
-				add_config(config, renderPassAttachments, alterConfigFunction, create_renderpass(std::move(renderPassAttachments)));
-			}
-
-			// 2. CREATE PIPELINE according to the config
-			// ============================================ Vk ============================================ 
-			//    => VULKAN CODE HERE:
-			return create_graphics_pipeline(std::move(config), std::move(alterConfigFunction));
-			// ============================================================================================ 
+			throw ak::runtime_error("Ambiguous renderpass config! Either set a renderpass XOR provide attachments!");
 		}
+		// ^ that was the sanity check. See if we have to build the renderpass from the attachments:
+		if (renderPassAttachments.size() > 0) {
+			add_config(config, renderPassAttachments, alterConfigFunction, create_renderpass(std::move(renderPassAttachments)));
+		}
+
+		// 2. CREATE PIPELINE according to the config
+		// ============================================ Vk ============================================ 
+		//    => VULKAN CODE HERE:
+		return create_graphics_pipeline(std::move(config), std::move(alterConfigFunction));
+		// ============================================================================================ 
+	}
 #pragma endregion
 
 #pragma region image
-		/** Creates a new image
-		 *	@param	aWidth						The width of the image to be created
-		 *	@param	aHeight						The height of the image to be created
-		 *	@param	aFormatAndSamples			The image format and the number of samples of the image to be created
-		 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-		 *	@param	aImageUsage					How this image is intended to being used.
-		 *	@param	aNumLayers					How many layers the image to be created shall contain.
-		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-		 *	@return	Returns a newly created image.
-		 */
-		image create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
-		
-		/** Creates a new image
-		 *	@param	aWidth						The width of the image to be created
-		 *	@param	aHeight						The height of the image to be created
-		 *	@param	aFormat						The image format of the image to be created
-		 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-		 *	@param	aImageUsage					How this image is intended to being used.
-		 *	@param	aNumLayers					How many layers the image to be created shall contain.
-		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-		 *	@return	Returns a newly created image.
-		 */
-		image create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+	/** Creates a new image
+	 *	@param	aWidth						The width of the image to be created
+	 *	@param	aHeight						The height of the image to be created
+	 *	@param	aFormatAndSamples			The image format and the number of samples of the image to be created
+	 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+	 *	@param	aImageUsage					How this image is intended to being used.
+	 *	@param	aNumLayers					How many layers the image to be created shall contain.
+	 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+	 *	@return	Returns a newly created image.
+	 */
+	image create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+	
+	/** Creates a new image
+	 *	@param	aWidth						The width of the image to be created
+	 *	@param	aHeight						The height of the image to be created
+	 *	@param	aFormat						The image format of the image to be created
+	 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+	 *	@param	aImageUsage					How this image is intended to being used.
+	 *	@param	aNumLayers					How many layers the image to be created shall contain.
+	 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+	 *	@return	Returns a newly created image.
+	 */
+	image create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
-		/** Creates a new image
-		*	@param	aWidth						The width of the depth buffer to be created
-		*	@param	aHeight						The height of the depth buffer to be created
-		*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
-		*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-		*	@param	aNumLayers					How many layers the image to be created shall contain.
-		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-		*	@return	Returns a newly created depth buffer.
-		*/
-		image create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+	/** Creates a new image
+	*	@param	aWidth						The width of the depth buffer to be created
+	*	@param	aHeight						The height of the depth buffer to be created
+	*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
+	*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+	*	@param	aNumLayers					How many layers the image to be created shall contain.
+	*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+	*	@return	Returns a newly created depth buffer.
+	*/
+	image create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
-		/** Creates a new image
-		*	@param	aWidth						The width of the depth+stencil buffer to be created
-		*	@param	aHeight						The height of the depth+stencil buffer to be created
-		*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
-		*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-		*	@param	aNumLayers					How many layers the image to be created shall contain.
-		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-		*	@return	Returns a newly created depth+stencil buffer.
-		*/
-		image create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+	/** Creates a new image
+	*	@param	aWidth						The width of the depth+stencil buffer to be created
+	*	@param	aHeight						The height of the depth+stencil buffer to be created
+	*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
+	*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+	*	@param	aNumLayers					How many layers the image to be created shall contain.
+	*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+	*	@return	Returns a newly created depth+stencil buffer.
+	*/
+	image create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, ak::image_usage aImageUsage = ak::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
-		image_t wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, ak::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags);
+	image_t wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, ak::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags);
 #pragma endregion
 
 #pragma region image view
-		/** Creates a new image view upon a given image
-		*	@param	aImageToOwn					The image which to create an image view for
-		*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
-		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.config()` to access the configuration structure!
-		*	@return	Returns a newly created image.
-		*/
-		image_view create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		image_view create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		image_view create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+	/** Creates a new image view upon a given image
+	*	@param	aImageToOwn					The image which to create an image view for
+	*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
+	*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.config()` to access the configuration structure!
+	*	@return	Returns a newly created image.
+	*/
+	image_view create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+	image_view create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+	image_view create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
 
-		image_view create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {});
+	image_view create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<ak::image_usage> aImageViewUsage = {});
 
-		void finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation);
+	void finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation);
 #pragma endregion
 
 #pragma region sampler and image sampler
-		/**	Create a new sampler with the given configuration parameters
-		 *	@param	aFilterMode					Filtering strategy for the sampler to be created
-		 *	@param	aBorderHandlingMode			Border handling strategy for the sampler to be created
-		 *	@param	aMipMapMaxLod				Default value = house number
-		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
-		 */                                                                                               // TODO: vvv Which value by default? vvv
-		sampler create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
+	/**	Create a new sampler with the given configuration parameters
+	 *	@param	aFilterMode					Filtering strategy for the sampler to be created
+	 *	@param	aBorderHandlingMode			Border handling strategy for the sampler to be created
+	 *	@param	aMipMapMaxLod				Default value = house number
+	 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
+	 */                                                                                               // TODO: vvv Which value by default? vvv
+	sampler create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
 
-		image_sampler create_image_sampler(image_view aImageView, sampler aSampler);
+	image_sampler create_image_sampler(image_view aImageView, sampler aSampler);
 #pragma endregion
 
 #pragma region ray tracing pipeline
@@ -561,7 +562,7 @@ namespace ak
 	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref ray_tracing_pipeline_t::create
 	 */
 	template <typename... Ts>
-	ray_tracing_pipeline ray_tracing_pipeline_for(Ts... args)
+	ray_tracing_pipeline create_ray_tracing_pipeline_for(Ts... args)
 	{
 		// 1. GATHER CONFIG
 		std::function<void(ray_tracing_pipeline_t&)> alterConfigFunction;
@@ -571,7 +572,7 @@ namespace ak
 		// 2. CREATE PIPELINE according to the config
 		// ============================================ Vk ============================================ 
 		//    => VULKAN CODE HERE:
-		return ray_tracing_pipeline_t::create(std::move(config), std::move(alterConfigFunction));
+		return create_ray_tracing_pipeline(std::move(config), std::move(alterConfigFunction));
 		// ============================================================================================ 
 	}
 #pragma endregion
