@@ -105,11 +105,11 @@ namespace ak
 			handle().draw(aVertexBuffer.mVertexCount, aNumberOfInstances, aFirstVertex, aFirstInstance);                      
 		}
 
-		template <typename IdxBfr, typename... Bfrs>
-		void draw_indexed(const IdxBfr& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
+		template <typename... Bfrs>
+		void draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
 			handle().bindVertexBuffers(0u, { aVertexBuffers.buffer_handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... });
-			//											Make use of the discarding behavior of the comma operator ^, see: https://stackoverflow.com/a/61098748/387023
+			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
 
 			const auto& indexMeta = aIndexBuffer.template meta<ak::index_buffer_meta>();
 			vk::IndexType indexType;
@@ -123,8 +123,8 @@ namespace ak
 			handle().drawIndexed(indexMeta.num_elements(), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 		}
 		
-		template <typename IdxBfr, typename... Bfrs>
-		void draw_indexed(const IdxBfr& aIndexBuffer, const Bfrs&... aVertexBuffers)
+		template <typename... Bfrs>
+		void draw_indexed(const buffer_t& aIndexBuffer, const Bfrs&... aVertexBuffers)
 		{
 			draw_indexed(aIndexBuffer, 1u, 0u, 0u, 0u, aVertexBuffers ...);
 		}
