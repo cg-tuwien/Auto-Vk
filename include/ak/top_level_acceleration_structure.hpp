@@ -13,11 +13,11 @@ namespace ak
 		top_level_acceleration_structure_t(const top_level_acceleration_structure_t&) = delete;
 		top_level_acceleration_structure_t& operator=(top_level_acceleration_structure_t&&) noexcept = default;
 		top_level_acceleration_structure_t& operator=(const top_level_acceleration_structure_t&) = delete;
-		~top_level_acceleration_structure_t() = default;
+		~top_level_acceleration_structure_t();
 
 		const auto& config() const { return mCreateInfo; }
-		const auto& acceleration_structure_handle() const { return mAccStructure.get(); }
-		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.get(); }
+		const auto& acceleration_structure_handle() const { return mAccStructure.mHandle; }
+		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.mHandle; }
 		const auto& memory_handle() const { return mMemory.get(); }
 		const auto* memory_handle_ptr() const { return &mMemory.get(); }
 		auto device_address() const { return mDeviceAddress; }
@@ -52,7 +52,9 @@ namespace ak
 
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
 		vk::PhysicalDevice mPhysicalDevice;
-		vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic>>::type mAccStructure;
+		vk::Device mDevice;
+		//vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic>>::type mAccStructure;
+		ak::handle_wrapper<vk::AccelerationStructureKHR> mAccStructure;
 		vk::DispatchLoaderDynamic mDynamicDispatch;
 		vk::DeviceAddress mDeviceAddress;
 

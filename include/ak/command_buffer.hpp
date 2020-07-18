@@ -175,6 +175,8 @@ namespace ak
 			AK_LOG_WARNING("No vk::PushConstantRange entry found that matches the dataSize[" + std::to_string(dataSize) + "]");
 		}
 
+		void trace_rays(ray_tracing_pipeline_t& aPipe, vk::DispatchLoaderDynamic aDynamicDispatch, std::optional<size_t> aRaygenIndex, std::optional<size_t> aMissIndex, std::optional<size_t> aHitIndex, std::optional<size_t> aCallableIndex, uint32_t aWidth, uint32_t aHeight, uint32_t aDepth);
+
 	private:
 		command_buffer_state mState;
 		vk::CommandBufferBeginInfo mBeginInfo;

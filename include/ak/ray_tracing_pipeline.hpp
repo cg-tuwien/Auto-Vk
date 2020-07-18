@@ -3,6 +3,26 @@
 
 namespace ak
 {
+	struct shader_group_info
+	{
+		/** Number of shader records in this group */
+		size_t mNumEntries;
+		/** Entry-offset (not byte-offset) within the Shader Binding Table to the start of this group */
+		vk::DeviceSize mOffset;
+		/** Byte-offset (not entry-offset) within the Shader Binding Table to the start of this group */
+		vk::DeviceSize mByteOffset;
+	};
+	
+	struct shader_binding_table_groups_info
+	{
+		std::vector<shader_group_info> mRaygenGroupsInfo;
+		std::vector<shader_group_info> mMissGroupsInfo;
+		std::vector<shader_group_info> mHitGroupsInfo;
+		std::vector<shader_group_info> mCallableGroupsInfo;
+		vk::DeviceSize mEndOffset;
+		vk::DeviceSize mTotalSize;
+	};
+	
 	/** Represents data for a vulkan ray tracing pipeline */
 	class ray_tracing_pipeline_t
 	{
@@ -18,11 +38,13 @@ namespace ak
 
 		const auto& layout_handle() const { return mPipelineLayout.get(); }
 		std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> layout() const { return std::make_tuple(this, layout_handle(), &mPushConstantRanges); }
-		const auto& handle() const { return mPipeline; }
+		const auto& handle() const { return mPipeline.mHandle; }
+		vk::DeviceSize table_offset_size() const { return static_cast<vk::DeviceSize>(mShaderGroupBaseAlignment); }
 		vk::DeviceSize table_entry_size() const { return static_cast<vk::DeviceSize>(mShaderGroupHandleSize); }
-		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta<buffer_meta>().total_size()); }
+		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size()); }
 		const auto& shader_binding_table_handle() const { return mShaderBindingTable->buffer_handle(); }
-
+		const auto& shader_binding_table_groups() const { return mShaderBindingTableGroupsInfo; }
+		
 	private:
 		// TODO: What to do with flags?
 		vk::PipelineCreateFlags mPipelineCreateFlags;
@@ -33,6 +55,9 @@ namespace ak
 
 		// Shader table a.k.a. shader groups:
 		std::vector<vk::RayTracingShaderGroupCreateInfoKHR> mShaderGroupCreateInfos;
+
+		// Info about the groups in the shader binding table:
+		shader_binding_table_groups_info mShaderBindingTableGroupsInfo;
 
 		// Maximum recursion depth:
 		uint32_t mMaxRecursionDepth;
@@ -48,10 +73,11 @@ namespace ak
 		// Handles:
 		vk::UniquePipelineLayout mPipelineLayout;
 		//vk::ResultValueType<vk::UniqueHandle<vk::Pipeline, vk::DispatchLoaderDynamic>>::type mPipeline;
-		vk::Pipeline mPipeline;
+		ak::handle_wrapper<vk::Pipeline> mPipeline;
 
-		size_t mShaderGroupHandleSize;
-		buffer mShaderBindingTable; // TODO: support more than one shader binding table
+		uint32_t mShaderGroupBaseAlignment;
+		uint32_t mShaderGroupHandleSize;
+		buffer mShaderBindingTable; // TODO: support more than one shader binding table?
 	};
 
 	using ray_tracing_pipeline = ak::owning_resource<ray_tracing_pipeline_t>;

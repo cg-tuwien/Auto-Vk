@@ -15,6 +15,7 @@ namespace ak
 		// only concern ourselves with the type of memory and not the heap it comes from, but you can 
 		// imagine that this can affect performance. (Source: https://vulkan-tutorial.com/)
 		auto memProperties = aPhysicalDevice.getMemoryProperties();
+
 		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
 			if ((aMemoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & aMemoryProperties) == aMemoryProperties) {
 				return i;
@@ -1417,7 +1418,7 @@ namespace ak
 		}
 
 		// 4. Create it
-		result.mAccStructure = device().createAccelerationStructureKHRUnique(result.mCreateInfo, nullptr, dynamic_dispatch());
+		result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
 
 		// Steps 5. to 10. in here:
 		finish_acceleration_structure_creation(result, std::move(aAlterConfigBeforeMemoryAlloc));
@@ -1425,11 +1426,19 @@ namespace ak
 		return result;
 	}
 
+	bottom_level_acceleration_structure_t::~bottom_level_acceleration_structure_t()
+	{
+		if (acceleration_structure_handle()) {
+			mDevice.destroyAccelerationStructureKHR(acceleration_structure_handle(), nullptr, mDynamicDispatch);
+			mAccStructure.reset();
+		}
+	}
+	
 	buffer_t& bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mAccStructure.getOwner(),
+				mPhysicalDevice, mDevice,
 				ak::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
@@ -1475,7 +1484,10 @@ namespace ak
 			if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
 				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
 			}
-	
+
+			assert(vertexBuffer.has_device_address());
+			assert(indexBuffer.has_device_address());
+			
 			accStructureGeometries.emplace_back()
 				.setGeometryType(vk::GeometryTypeKHR::eTriangles)
 				.setGeometry(vk::AccelerationStructureGeometryTrianglesDataKHR{}
@@ -1504,7 +1516,7 @@ namespace ak
 			.setFlags(mCreateInfo.flags) // TODO: support individual flags per geometry?
 			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
 			.setSrcAccelerationStructure(nullptr) // TODO: support different src acceleration structure?!
-			.setDstAccelerationStructure(mAccStructure.get())
+			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray)
@@ -1543,7 +1555,7 @@ namespace ak
 	{
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
-			mPhysicalDevice, mAccStructure.getOwner(),
+			mPhysicalDevice, mDevice,
 			memory_usage::device,
 			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 			generic_buffer_meta::create_from_data(aGeometries)
@@ -1588,7 +1600,7 @@ namespace ak
 			.setFlags(mCreateInfo.flags) // TODO: support individual flags per geometry?
 			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
 			.setSrcAccelerationStructure(nullptr) // TODO: support different src acceleration structure?!
-			.setDstAccelerationStructure(mAccStructure.get())
+			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray)
@@ -1654,7 +1666,7 @@ namespace ak
 		}
 
 		// 4. Create it
-		result.mAccStructure = device().createAccelerationStructureKHRUnique(result.mCreateInfo, nullptr, dynamic_dispatch());
+		result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
 
 		// Steps 5. to 10. in here:
 		finish_acceleration_structure_creation(result, std::move(aAlterConfigBeforeMemoryAlloc));
@@ -1662,11 +1674,19 @@ namespace ak
 		return result;
 	}
 
+	top_level_acceleration_structure_t::~top_level_acceleration_structure_t()
+	{
+		if (acceleration_structure_handle()) {
+			mDevice.destroyAccelerationStructureKHR(acceleration_structure_handle(), nullptr, mDynamicDispatch);
+			mAccStructure.reset();
+		}
+	}
+	
 	buffer_t& top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mAccStructure.getOwner(),
+				mPhysicalDevice, mDevice,
 				ak::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
@@ -1695,7 +1715,7 @@ namespace ak
 		
 		// TODO: Retain this buffer, don't always create a new one
 		auto geomInstBuffer = root::create_buffer(
-			mPhysicalDevice, mAccStructure.getOwner(),
+			mPhysicalDevice, mDevice,
 			memory_usage::host_coherent,
 			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR, // <--- TODO: Which eShaderDeviceAddress*  flag??
 			generic_buffer_meta::create_from_data(geomInstances) 
@@ -1732,7 +1752,7 @@ namespace ak
 			.setFlags(mCreateInfo.flags)
 			.setUpdate(aBuildAction == tlas_action::build ? VK_FALSE : VK_TRUE)
 			.setSrcAccelerationStructure(nullptr) // TODO: support different src acceleration structure?!
-			.setDstAccelerationStructure(mAccStructure.get())
+			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(1u) // TODO: Correct?
 			.setPpGeometries(&pointerToAnArray)
@@ -2447,6 +2467,50 @@ namespace ak
 
 			descIdx += count;
 		}
+	}
+
+	void command_buffer_t::trace_rays(ray_tracing_pipeline_t& aPipe, vk::DispatchLoaderDynamic aDynamicDispatch, std::optional<size_t> aRaygenIndex, std::optional<size_t> aMissIndex, std::optional<size_t> aHitIndex, std::optional<size_t> aCallableIndex, uint32_t aWidth, uint32_t aHeight, uint32_t aDepth)
+	{
+		const auto sbtHandle = aPipe.shader_binding_table_handle();
+		const auto entrySize = aPipe.table_entry_size();
+		auto& sbtGroups = aPipe.shader_binding_table_groups();
+		assert(!aRaygenIndex.has_value()   || sbtGroups.mRaygenGroupsInfo.size()   > aRaygenIndex.value()   );
+		assert(!aMissIndex.has_value()     || sbtGroups.mMissGroupsInfo.size()     > aMissIndex.value()     );
+		assert(!aHitIndex.has_value()      || sbtGroups.mHitGroupsInfo.size()      > aHitIndex.value()      );
+		assert(!aCallableIndex.has_value() || sbtGroups.mCallableGroupsInfo.size() > aCallableIndex.value() );
+		auto raygen  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+		auto raymiss = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+		auto rayhit  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+		auto callable= vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+		if (aRaygenIndex.has_value()) {
+			raygen.setBuffer(sbtHandle)
+			      .setOffset(sbtGroups.mRaygenGroupsInfo[aRaygenIndex.value()].mByteOffset)
+			      .setStride(entrySize)
+			      .setSize(sbtGroups.mRaygenGroupsInfo[aRaygenIndex.value()].mNumEntries * entrySize);
+		}
+		if (aMissIndex.has_value()) {
+			raymiss.setBuffer(sbtHandle)
+			       .setOffset(sbtGroups.mMissGroupsInfo[aMissIndex.value()].mByteOffset)
+			       .setStride(entrySize)
+			       .setSize(sbtGroups.mMissGroupsInfo[aMissIndex.value()].mNumEntries * entrySize);
+		}
+		if (aHitIndex.has_value()) {
+			rayhit.setBuffer(sbtHandle)
+			      .setOffset(sbtGroups.mHitGroupsInfo[aHitIndex.value()].mByteOffset)
+			      .setStride(entrySize)
+			      .setSize(sbtGroups.mHitGroupsInfo[aHitIndex.value()].mNumEntries * entrySize);
+		}
+		if (aCallableIndex.has_value()) {
+			callable.setBuffer(sbtHandle)
+			        .setOffset(sbtGroups.mCallableGroupsInfo[aCallableIndex.value()].mByteOffset)
+			        .setStride(entrySize)
+			        .setSize(sbtGroups.mCallableGroupsInfo[aCallableIndex.value()].mNumEntries * entrySize);
+		}
+		handle().traceRaysKHR(
+			&raygen, &raymiss, &rayhit, &callable, 
+			aWidth, aHeight, aDepth,
+			aDynamicDispatch
+		);
 	}
 #pragma endregion
 
@@ -5189,6 +5253,17 @@ namespace ak
 			result.mPipelineCreateFlags |= vk::PipelineCreateFlagBits::eDisableOptimization;
 		}
 
+		// Get the offsets. We'll really need them in step 10. but already in step 3., we are gathering the correct byte offsets:
+		{
+			vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
+			vk::PhysicalDeviceProperties2 props2;
+			props2.pNext = &rtProps;
+			physical_device().getProperties2(&props2);
+
+			result.mShaderGroupBaseAlignment = static_cast<uint32_t>(rtProps.shaderGroupBaseAlignment);
+			result.mShaderGroupHandleSize = static_cast<uint32_t>(rtProps.shaderGroupHandleSize);
+		}
+
 		// 2. Gather and build shaders
 		// First of all, gather unique shaders and build them
 		std::vector<shader_info> orderedUniqueShaderInfos;
@@ -5242,15 +5317,33 @@ namespace ak
 #endif
 
 		// 3. Create the shader table (with references to the shaders from step 2.)
-		// Iterate over the shader table... AGAIN!
+		// Iterate over the shader table... AGAIN! ...But this time, build the shader groups for Vulkan's Ray Tracing Pipeline:
 		result.mShaderGroupCreateInfos.reserve(aConfig.mShaderTableConfig.mShaderTableEntries.size());
+
+		// During iterating, also compile the data for the shader binding table groups information:
+		result.mShaderBindingTableGroupsInfo = {};
+		enum struct group_type { none, raygen, miss, hit, callable };
+		group_type prevType = group_type::none;
+		vk::DeviceSize groupOffset = 0;
+		vk::DeviceSize byteOffset = 0;
+		shader_group_info* curEdited = nullptr;
+		
 		for (auto& tableEntry : aConfig.mShaderTableConfig.mShaderTableEntries) {
-			// ...But this time, build the shader groups for Vulkan's Ray Tracing Pipeline:
+			group_type curType = group_type::none;
+
 			if (std::holds_alternative<shader_info>(tableEntry)) {
+				const auto& shaderInfo = std::get<shader_info>(tableEntry);
+				switch (shaderInfo.mShaderType) {
+				case shader_type::ray_generation: curType = group_type::raygen;   break;
+				case shader_type::miss:           curType = group_type::miss;     break;
+				case shader_type::callable:       curType = group_type::callable; break;
+				default: throw ak::runtime_error("Invalid shader type passed to create_ray_tracing_pipeline, recognized during gathering of SBT infos");
+				}
+				
 				// The shader indices are actually indices into `result.mShaders` not into
 				// `orderedUniqueShaderInfos`. However, both vectors are aligned perfectly,
 				// so we are just using `orderedUniqueShaderInfos` for convenience.
-				const uint32_t generalShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, std::get<shader_info>(tableEntry)));
+				const uint32_t generalShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, shaderInfo));
 				result.mShaderGroupCreateInfos.emplace_back()
 					.setType(vk::RayTracingShaderGroupTypeNV::eGeneral)
 					.setGeneralShader(generalShaderIndex)
@@ -5259,6 +5352,8 @@ namespace ak
 					.setClosestHitShader(VK_SHADER_UNUSED_KHR);
 			}
 			else if (std::holds_alternative<triangles_hit_group>(tableEntry)) {
+				curType = group_type::hit;
+				
 				const auto& hitGroup = std::get<triangles_hit_group>(tableEntry);
 				uint32_t rahitShaderIndex = VK_SHADER_UNUSED_KHR;
 				if (hitGroup.mAnyHitShader.has_value()) {
@@ -5276,6 +5371,8 @@ namespace ak
 					.setClosestHitShader(rchitShaderIndex);
 			}
 			else if (std::holds_alternative<procedural_hit_group>(tableEntry)) {
+				curType = group_type::hit;
+
 				const auto& hitGroup = std::get<procedural_hit_group>(tableEntry);
 				uint32_t rintShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mIntersectionShader));
 				uint32_t rahitShaderIndex = VK_SHADER_UNUSED_KHR;
@@ -5296,7 +5393,47 @@ namespace ak
 			else {
 				throw ak::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
 			}
+
+			// Set that shader binding table groups information:
+			byteOffset += result.mShaderGroupHandleSize;
+			assert (group_type::none != curType);
+			if (curType == prevType) {
+				// same same is easy
+				assert (nullptr != curEdited);
+				curEdited->mNumEntries += 1;
+			}
+			else {
+				// different => create new entry
+				switch (curType) {
+				case group_type::raygen:
+					curEdited = &result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.emplace_back();
+					break;	
+				case group_type::miss:
+					curEdited = &result.mShaderBindingTableGroupsInfo.mMissGroupsInfo.emplace_back();
+					break;
+				case group_type::hit:
+					curEdited = &result.mShaderBindingTableGroupsInfo.mHitGroupsInfo.emplace_back();
+					break;
+				case group_type::callable:
+					curEdited = &result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.emplace_back();
+					break;
+				default: throw ak::runtime_error("Can't be!");
+				}
+				assert (nullptr != curEdited);
+				curEdited->mOffset = groupOffset;
+				curEdited->mNumEntries = 1;
+				
+				// A new shader group must start at a multiple of result.mShaderGroupBaseAlignment
+				if (byteOffset % static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment) != 0) {
+					byteOffset = (byteOffset / static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment) + 1) * static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment);
+				}
+				curEdited->mByteOffset = byteOffset;
+			}
+
+			++groupOffset;
 		}
+		result.mShaderBindingTableGroupsInfo.mEndOffset = groupOffset;
+		result.mShaderBindingTableGroupsInfo.mTotalSize = byteOffset;
 
 		// 4. Maximum recursion depth:
 		result.mMaxRecursionDepth = aConfig.mMaxRecursionDepth.mMaxRecursionDepth;
@@ -5342,25 +5479,23 @@ namespace ak
 			.setPLibraryInterface(nullptr)
 			.setMaxRecursionDepth(result.mMaxRecursionDepth)
 			.setLayout(result.layout_handle());
+		
 		auto pipeCreationResult = device().createRayTracingPipelineKHR(
 			nullptr,
 			pipelineCreateInfo,
 			nullptr,
 			dynamic_dispatch());
+		
 		result.mPipeline = pipeCreationResult.value;
-		//result.mPipeline = std::move(pipeCreationResult.value);
 
+		//result.mPipeline = std::move(pipeCreationResult.value);
 		// TODO: This ^ will be fixed with vulkan headers v 136
 		
 		// 10. Build the shader binding table
 		{
-			vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
-			vk::PhysicalDeviceProperties2 props2;
-			props2.pNext = &rtProps;
-			physical_device().getProperties2(&props2);
-
-			result.mShaderGroupHandleSize = static_cast<size_t>(rtProps.shaderGroupHandleSize);
-			size_t shaderBindingTableSize = result.mShaderGroupHandleSize * result.mShaderGroupCreateInfos.size();
+			// According to https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable this is the way:
+			const size_t groupCount = result.mShaderGroupCreateInfos.size();
+			const size_t shaderBindingTableSize = result.mShaderBindingTableGroupsInfo.mTotalSize;
 
 			// TODO: All of this SBT-stuff probably needs some refactoring
 			result.mShaderBindingTable = create_buffer(
@@ -5368,15 +5503,58 @@ namespace ak
 				vk::BufferUsageFlagBits::eRayTracingKHR,				
 				generic_buffer_meta::create_from_size(shaderBindingTableSize)
 			);
-			const auto sbtBufferSize = result.mShaderBindingTable->meta<buffer_meta>().total_size();
-			void* mapped = device().mapMemory(result.mShaderBindingTable->memory_handle(), 0, sbtBufferSize);
-			// Transfer something into the buffer's memory...
-			device().getRayTracingShaderGroupHandlesKHR(
-				result.handle(), 
-				0, static_cast<uint32_t>(result.mShaderGroupCreateInfos.size()), 
-				sbtBufferSize, 
-				mapped, 
-				dynamic_dispatch());
+
+			assert(result.mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size() == shaderBindingTableSize);
+
+			// Copy to temporary buffer:
+			std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
+			device().getRayTracingShaderGroupHandlesKHR(result.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
+			
+			void* mapped = device().mapMemory(result.mShaderBindingTable->memory_handle(), 0, shaderBindingTableSize);
+			// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
+			vk::DeviceSize off = 0;
+			size_t iRaygen = 0;
+			size_t iMiss = 0;
+			size_t iHit = 0;
+			size_t iCallable = 0;
+			auto* pData  = reinterpret_cast<uint8_t*>(mapped);
+			size_t srcByteOffset = 0;
+			while (off < result.mShaderBindingTableGroupsInfo.mEndOffset) {
+				size_t dstOffset = 0;
+				size_t copySize = 0;
+
+				if (iRaygen < result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
+					dstOffset = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset;
+					copySize = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries * result.mShaderGroupHandleSize;
+					++iRaygen;
+				}
+				else if (iMiss < result.mShaderBindingTableGroupsInfo.mMissGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mOffset == off) {
+					dstOffset = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset;
+					copySize = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries * result.mShaderGroupHandleSize;
+					++iMiss;
+				}
+				else if (iHit < result.mShaderBindingTableGroupsInfo.mHitGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mOffset == off) {
+					dstOffset = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mByteOffset;
+					copySize = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries * result.mShaderGroupHandleSize;
+					++iHit;
+				}
+				else if (iCallable < result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mOffset == off) {
+					dstOffset = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset;
+					copySize = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries * result.mShaderGroupHandleSize;
+					++iCallable;
+				}
+				else {
+					throw ak::runtime_error("Can't be");
+				}
+				
+				memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
+				srcByteOffset += copySize;
+
+				++off;
+			}
+			for(uint32_t g = 0; g < groupCount; g++)
+			{
+			}
 			device().unmapMemory(result.mShaderBindingTable->memory_handle());
 		}
 
@@ -5385,8 +5563,9 @@ namespace ak
 
 	ray_tracing_pipeline_t::~ray_tracing_pipeline_t()
 	{
-		if (mPipelineLayout) {
-			mPipelineLayout.getOwner().destroy(mPipeline);
+		if (handle() && mPipelineLayout) {
+			mPipelineLayout.getOwner().destroy(handle());
+			mPipeline.reset();
 		}
 	}
 #pragma endregion

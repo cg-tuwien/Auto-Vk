@@ -18,8 +18,8 @@ namespace ak
 				assert(bfr1.has_meta<ak::index_buffer_meta>());
 			}
 			else {
-				assert(bfr1.has_meta<ak::index_buffer_meta>());
-				assert(bfr2.has_meta<ak::vertex_buffer_meta>());
+				assert(bfr2.has_meta<ak::index_buffer_meta>());
+				assert(bfr1.has_meta<ak::vertex_buffer_meta>());
 			}
 		}
 

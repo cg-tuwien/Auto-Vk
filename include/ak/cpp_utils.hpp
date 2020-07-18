@@ -576,4 +576,46 @@ namespace ak
 		fourccBuf[4] = 0;
 		return std::string(fourccBuf);
 	}
+
+	template <typename T>
+	struct handle_wrapper
+	{
+		handle_wrapper()
+			: mHandle{ nullptr }
+		{ }
+		
+		handle_wrapper(T aHandle)
+			: mHandle{ std::move(aHandle) }
+		{ }
+
+		handle_wrapper(handle_wrapper&& aOther) noexcept
+			: mHandle{ std::move(aOther.mHandle) }
+		{
+			aOther.reset();
+		}
+		
+		handle_wrapper(const handle_wrapper& aOther)
+			: mHandle{ aOther.mHandle }
+		{ }
+		
+		handle_wrapper& operator=(handle_wrapper&& aOther) noexcept
+		{
+			mHandle = std::move(aOther.mHandle);
+			aOther.reset();
+			return *this;
+		}
+
+		handle_wrapper& operator=(const handle_wrapper& aOther)
+		{
+			mHandle = aOther.mHandle;
+			return *this;
+		}
+
+		void reset()
+		{
+			mHandle = nullptr;
+		}
+
+		T mHandle;
+	};
 }

@@ -217,6 +217,8 @@ namespace ak
 			auto addressInfo = vk::AccelerationStructureDeviceAddressInfoKHR{}
 				.setAccelerationStructure(result.acceleration_structure_handle());
 
+			result.mPhysicalDevice = physical_device();
+			result.mDevice = device();
 			result.mDynamicDispatch = dynamic_dispatch();
 			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dynamic_dispatch());
 		}
