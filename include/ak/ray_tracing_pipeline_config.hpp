@@ -66,7 +66,7 @@ namespace ak
 		/** Disable recursions, i.e. set to zero. */
 		static max_recursion_depth disable_recursion();
 		/** Set the maximum recursion depth to a specific value. */
-		static max_recursion_depth set_to(uint32_t _Value);
+		static max_recursion_depth set_to(uint32_t aValue);
 
 		uint32_t mMaxRecursionDepth;
 	};

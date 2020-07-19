@@ -545,7 +545,7 @@ namespace ak
 #pragma endregion
 
 #pragma region ray tracing pipeline
-	uint32_t get_max_ray_tracing_recursion_depth();
+	max_recursion_depth get_max_ray_tracing_recursion_depth();
 		
 	ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
 		

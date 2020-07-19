@@ -2183,7 +2183,7 @@ namespace ak
 	{
 		if (std::holds_alternative<buffer>(mBuffer)) {
 			// meta<buffer_meta> should evaluate true for EVERY meta data there is. 
-			return std::get<buffer>(mBuffer)->meta<buffer_meta>(aMetaDataIndex).descriptor_type().value();
+			return std::get<buffer>(mBuffer)->meta_at_index<buffer_meta>(aMetaDataIndex).descriptor_type().value();
 		}
 		throw ak::runtime_error("Which descriptor type?");
 	}
@@ -5218,9 +5218,9 @@ namespace ak
 		return max_recursion_depth { 0u };
 	}
 
-	max_recursion_depth max_recursion_depth::set_to(uint32_t _Value)
+	max_recursion_depth max_recursion_depth::set_to(uint32_t aValue)
 	{
-		return max_recursion_depth { _Value };
+		return max_recursion_depth { aValue };
 	}
 
 
@@ -5231,13 +5231,13 @@ namespace ak
 	{
 	}
 	
-	uint32_t root::get_max_ray_tracing_recursion_depth()
+	max_recursion_depth root::get_max_ray_tracing_recursion_depth()
 	{
 		vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
 		vk::PhysicalDeviceProperties2 props2;
 		props2.pNext = &rtProps;
 		physical_device().getProperties2(&props2);
-		return rtProps.maxRecursionDepth;
+		return max_recursion_depth{ rtProps.maxRecursionDepth };
 	}
 
 	ray_tracing_pipeline root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
@@ -5429,7 +5429,7 @@ namespace ak
 				}
 				curEdited->mByteOffset = byteOffset;
 			}
-
+			prevType = curType;
 			++groupOffset;
 		}
 		result.mShaderBindingTableGroupsInfo.mEndOffset = groupOffset;
@@ -5523,24 +5523,28 @@ namespace ak
 				size_t dstOffset = 0;
 				size_t copySize = 0;
 
-				if (iRaygen < result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
+				if (iRaygen   < result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
 					dstOffset = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset;
-					copySize = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries * result.mShaderGroupHandleSize;
+					off      += result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries;
+					copySize  = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries * result.mShaderGroupHandleSize;
 					++iRaygen;
 				}
 				else if (iMiss < result.mShaderBindingTableGroupsInfo.mMissGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mOffset == off) {
-					dstOffset = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset;
-					copySize = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries * result.mShaderGroupHandleSize;
+					dstOffset  = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset;
+					off       += result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries;
+					copySize   = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries * result.mShaderGroupHandleSize;
 					++iMiss;
 				}
 				else if (iHit < result.mShaderBindingTableGroupsInfo.mHitGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mOffset == off) {
 					dstOffset = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mByteOffset;
-					copySize = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries * result.mShaderGroupHandleSize;
+					off      += result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries;
+					copySize  = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries * result.mShaderGroupHandleSize;
 					++iHit;
 				}
 				else if (iCallable < result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mOffset == off) {
 					dstOffset = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset;
-					copySize = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries * result.mShaderGroupHandleSize;
+					off      += result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries;
+					copySize  = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries * result.mShaderGroupHandleSize;
 					++iCallable;
 				}
 				else {
@@ -5549,8 +5553,6 @@ namespace ak
 				
 				memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
 				srcByteOffset += copySize;
-
-				++off;
 			}
 			for(uint32_t g = 0; g < groupCount; g++)
 			{
