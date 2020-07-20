@@ -1,18 +1,34 @@
 #pragma once
+#include <ak/ak.hpp>
 
-namespace ak // ========================== TODO/WIP =================================
+namespace ak 
 {
-	struct shader_binding_table
+	struct shader_group_info
 	{
-		friend class root;
-		
-		shader_binding_table();
-		shader_binding_table(size_t, const vk::BufferUsageFlags&, const vk::Buffer&, const vk::MemoryPropertyFlags&, const vk::DeviceMemory&) noexcept;
-		shader_binding_table(const sampler&) = delete;
-		shader_binding_table(shader_binding_table&&) noexcept;
-		shader_binding_table& operator=(const shader_binding_table&) = delete;
-		shader_binding_table& operator=(shader_binding_table&&) noexcept;
-		~shader_binding_table();
-
+		/** Number of shader records in this group */
+		size_t mNumEntries;
+		/** Entry-offset (not byte-offset) within the Shader Binding Table to the start of this group */
+		vk::DeviceSize mOffset;
+		/** Byte-offset (not entry-offset) within the Shader Binding Table to the start of this group */
+		vk::DeviceSize mByteOffset;
 	};
+	
+	struct shader_binding_table_groups_info
+	{
+		std::vector<shader_group_info> mRaygenGroupsInfo;
+		std::vector<shader_group_info> mMissGroupsInfo;
+		std::vector<shader_group_info> mHitGroupsInfo;
+		std::vector<shader_group_info> mCallableGroupsInfo;
+		vk::DeviceSize mEndOffset;
+		vk::DeviceSize mTotalSize;
+	};
+
+	struct shader_binding_table_ref
+	{
+		vk::Buffer mSbtBufferHandle;
+		vk::DeviceSize mSbtEntrySize;
+		std::reference_wrapper<const shader_binding_table_groups_info> mSbtGroupsInfo;
+		vk::DispatchLoaderDynamic mDynamicDispatch;
+	};
+	
 }

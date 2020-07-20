@@ -82,6 +82,7 @@ namespace ak { class sync; }
 
 #include <ak/buffer.hpp>
 
+#include <ak/shader_binding_table.hpp>
 #include <ak/command_buffer.hpp>
 #include <ak/command_pool.hpp>
 

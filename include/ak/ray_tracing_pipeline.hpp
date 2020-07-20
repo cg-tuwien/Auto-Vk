@@ -3,26 +3,6 @@
 
 namespace ak
 {
-	struct shader_group_info
-	{
-		/** Number of shader records in this group */
-		size_t mNumEntries;
-		/** Entry-offset (not byte-offset) within the Shader Binding Table to the start of this group */
-		vk::DeviceSize mOffset;
-		/** Byte-offset (not entry-offset) within the Shader Binding Table to the start of this group */
-		vk::DeviceSize mByteOffset;
-	};
-	
-	struct shader_binding_table_groups_info
-	{
-		std::vector<shader_group_info> mRaygenGroupsInfo;
-		std::vector<shader_group_info> mMissGroupsInfo;
-		std::vector<shader_group_info> mHitGroupsInfo;
-		std::vector<shader_group_info> mCallableGroupsInfo;
-		vk::DeviceSize mEndOffset;
-		vk::DeviceSize mTotalSize;
-	};
-	
 	/** Represents data for a vulkan ray tracing pipeline */
 	class ray_tracing_pipeline_t
 	{
@@ -42,8 +22,19 @@ namespace ak
 		vk::DeviceSize table_offset_size() const { return static_cast<vk::DeviceSize>(mShaderGroupBaseAlignment); }
 		vk::DeviceSize table_entry_size() const { return static_cast<vk::DeviceSize>(mShaderGroupHandleSize); }
 		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size()); }
+		
 		const auto& shader_binding_table_handle() const { return mShaderBindingTable->buffer_handle(); }
 		const auto& shader_binding_table_groups() const { return mShaderBindingTableGroupsInfo; }
+		shader_binding_table_ref shader_binding_table() const
+		{
+			return shader_binding_table_ref{ shader_binding_table_handle(), table_entry_size(), std::cref(shader_binding_table_groups()), mDynamicDispatch };
+		}
+
+		size_t num_raygen_groups_in_shader_binding_table() const;
+		size_t num_miss_groups_in_shader_binding_table() const;
+		size_t num_hit_groups_in_shader_binding_table() const;
+		size_t num_callable_groups_in_shader_binding_table() const;
+		void print_shader_binding_table_groups() const;
 		
 	private:
 		// TODO: What to do with flags?
@@ -78,6 +69,8 @@ namespace ak
 		uint32_t mShaderGroupBaseAlignment;
 		uint32_t mShaderGroupHandleSize;
 		buffer mShaderBindingTable; // TODO: support more than one shader binding table?
+
+		vk::DispatchLoaderDynamic mDynamicDispatch;
 	};
 
 	using ray_tracing_pipeline = ak::owning_resource<ray_tracing_pipeline_t>;

@@ -21,6 +21,30 @@ namespace ak
 		submitted
 	};
 
+	struct using_raygen_group_at_index
+	{
+		using_raygen_group_at_index(uint32_t aGroupIndex) : mGroupIndex{ aGroupIndex } {}
+		uint32_t mGroupIndex;
+	};
+
+	struct using_miss_group_at_index
+	{
+		using_miss_group_at_index(uint32_t aGroupIndex) : mGroupIndex{ aGroupIndex } {}
+		uint32_t mGroupIndex;
+	};
+
+	struct using_hit_group_at_index
+	{
+		using_hit_group_at_index(uint32_t aGroupIndex) : mGroupIndex{ aGroupIndex } {}
+		uint32_t mGroupIndex;
+	};
+
+	struct using_callable_group_at_index
+	{
+		using_callable_group_at_index(uint32_t aGroupIndex) : mGroupIndex{ aGroupIndex } {}
+		uint32_t mGroupIndex;
+	};
+
 	/** A command buffer which has been created for a certain queue family */
 	class command_buffer_t
 	{
@@ -175,8 +199,77 @@ namespace ak
 			AK_LOG_WARNING("No vk::PushConstantRange entry found that matches the dataSize[" + std::to_string(dataSize) + "]");
 		}
 
-		void trace_rays(ray_tracing_pipeline_t& aPipe, vk::DispatchLoaderDynamic aDynamicDispatch, std::optional<size_t> aRaygenIndex, std::optional<size_t> aMissIndex, std::optional<size_t> aHitIndex, std::optional<size_t> aCallableIndex, uint32_t aWidth, uint32_t aHeight, uint32_t aDepth);
+		void trace_rays(
+			vk::Extent3D aRaygenDimensions, 
+			const shader_binding_table_ref& aShaderBindingTableRef, 
+			vk::DispatchLoaderDynamic aDynamicDispatch, 
+			const vk::StridedBufferRegionKHR& aRaygenSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
+			const vk::StridedBufferRegionKHR& aRaymissSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
+			const vk::StridedBufferRegionKHR& aRayhitSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
+			const vk::StridedBufferRegionKHR& aCallableSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0}
+		);
 
+		// End of recursive variadic template handling
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable) { /* We're done here. */ }
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_raygen_group_at_index& aRaygenGroupAtIndex, const Ts&... args)
+		{
+			aRaygen.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mByteOffset)
+				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
+				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_miss_group_at_index& aMissGroupAtIndex, const Ts&... args)
+		{
+			aRaymiss.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mByteOffset)
+				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
+				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_hit_group_at_index& aHitGroupAtIndex, const Ts&... args)
+		{
+			aRayhit.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mByteOffset)
+				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
+				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_callable_group_at_index& aCallableGroupAtIndex, const Ts&... args)
+		{
+			aCallable.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mByteOffset)
+				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
+				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+		
+		template <typename... Ts>
+		void trace_rays(vk::Extent3D aRaygenDimensions, const shader_binding_table_ref& aShaderBindingTableRef, const Ts&... args)
+		{
+			// 1. GATHER CONFIG
+			auto raygen  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto raymiss = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto rayhit  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto callable= vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			add_config(aShaderBindingTableRef, raygen, raymiss, rayhit, callable, args...);
+
+			// 2. TRACE. RAYS.
+			return trace_rays(aRaygenDimensions, aShaderBindingTableRef, aShaderBindingTableRef.mDynamicDispatch, raygen, raymiss, rayhit, callable);
+		}
+		
 	private:
 		command_buffer_state mState;
 		vk::CommandBufferBeginInfo mBeginInfo;

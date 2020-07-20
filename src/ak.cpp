@@ -2469,46 +2469,21 @@ namespace ak
 		}
 	}
 
-	void command_buffer_t::trace_rays(ray_tracing_pipeline_t& aPipe, vk::DispatchLoaderDynamic aDynamicDispatch, std::optional<size_t> aRaygenIndex, std::optional<size_t> aMissIndex, std::optional<size_t> aHitIndex, std::optional<size_t> aCallableIndex, uint32_t aWidth, uint32_t aHeight, uint32_t aDepth)
+	void command_buffer_t::trace_rays(
+		vk::Extent3D aRaygenDimensions, 
+		const shader_binding_table_ref& aShaderBindingTableRef, 
+		vk::DispatchLoaderDynamic aDynamicDispatch, 
+		const vk::StridedBufferRegionKHR& aRaygenSbtRef,
+		const vk::StridedBufferRegionKHR& aRaymissSbtRef,
+		const vk::StridedBufferRegionKHR& aRayhitSbtRef,
+		const vk::StridedBufferRegionKHR& aCallableSbtRef
+	)
 	{
-		const auto sbtHandle = aPipe.shader_binding_table_handle();
-		const auto entrySize = aPipe.table_entry_size();
-		auto& sbtGroups = aPipe.shader_binding_table_groups();
-		assert(!aRaygenIndex.has_value()   || sbtGroups.mRaygenGroupsInfo.size()   > aRaygenIndex.value()   );
-		assert(!aMissIndex.has_value()     || sbtGroups.mMissGroupsInfo.size()     > aMissIndex.value()     );
-		assert(!aHitIndex.has_value()      || sbtGroups.mHitGroupsInfo.size()      > aHitIndex.value()      );
-		assert(!aCallableIndex.has_value() || sbtGroups.mCallableGroupsInfo.size() > aCallableIndex.value() );
-		auto raygen  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-		auto raymiss = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-		auto rayhit  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-		auto callable= vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-		if (aRaygenIndex.has_value()) {
-			raygen.setBuffer(sbtHandle)
-			      .setOffset(sbtGroups.mRaygenGroupsInfo[aRaygenIndex.value()].mByteOffset)
-			      .setStride(entrySize)
-			      .setSize(sbtGroups.mRaygenGroupsInfo[aRaygenIndex.value()].mNumEntries * entrySize);
-		}
-		if (aMissIndex.has_value()) {
-			raymiss.setBuffer(sbtHandle)
-			       .setOffset(sbtGroups.mMissGroupsInfo[aMissIndex.value()].mByteOffset)
-			       .setStride(entrySize)
-			       .setSize(sbtGroups.mMissGroupsInfo[aMissIndex.value()].mNumEntries * entrySize);
-		}
-		if (aHitIndex.has_value()) {
-			rayhit.setBuffer(sbtHandle)
-			      .setOffset(sbtGroups.mHitGroupsInfo[aHitIndex.value()].mByteOffset)
-			      .setStride(entrySize)
-			      .setSize(sbtGroups.mHitGroupsInfo[aHitIndex.value()].mNumEntries * entrySize);
-		}
-		if (aCallableIndex.has_value()) {
-			callable.setBuffer(sbtHandle)
-			        .setOffset(sbtGroups.mCallableGroupsInfo[aCallableIndex.value()].mByteOffset)
-			        .setStride(entrySize)
-			        .setSize(sbtGroups.mCallableGroupsInfo[aCallableIndex.value()].mNumEntries * entrySize);
-		}
+		const auto sbtHandle = aShaderBindingTableRef.mSbtBufferHandle;
+		const auto entrySize = aShaderBindingTableRef.mSbtEntrySize;
 		handle().traceRaysKHR(
-			&raygen, &raymiss, &rayhit, &callable, 
-			aWidth, aHeight, aDepth,
+			&aRaygenSbtRef, &aRaymissSbtRef, &aRayhitSbtRef, &aCallableSbtRef, 
+			aRaygenDimensions.width, aRaygenDimensions.height, aRaygenDimensions.depth,
 			aDynamicDispatch
 		);
 	}
@@ -5245,6 +5220,7 @@ namespace ak
 		using namespace cfg;
 		
 		ray_tracing_pipeline_t result;
+		result.mDynamicDispatch = dynamic_dispatch();
 
 		// 1. Set pipeline flags 
 		result.mPipelineCreateFlags = {};
@@ -5570,6 +5546,136 @@ namespace ak
 			mPipeline.reset();
 		}
 	}
+
+	size_t ray_tracing_pipeline_t::num_raygen_groups_in_shader_binding_table() const
+	{
+		return shader_binding_table_groups().mRaygenGroupsInfo.size();
+	}
+	
+	size_t ray_tracing_pipeline_t::num_miss_groups_in_shader_binding_table() const
+	{
+		return shader_binding_table_groups().mMissGroupsInfo.size();
+	}
+	
+	size_t ray_tracing_pipeline_t::num_hit_groups_in_shader_binding_table() const
+	{
+		return shader_binding_table_groups().mHitGroupsInfo.size();
+	}
+	
+	size_t ray_tracing_pipeline_t::num_callable_groups_in_shader_binding_table() const
+	{
+		return shader_binding_table_groups().mCallableGroupsInfo.size();
+	}
+	
+	void ray_tracing_pipeline_t::print_shader_binding_table_groups() const
+	{
+		vk::DeviceSize off = 0;
+		size_t iRaygen = 0;
+		size_t iMiss = 0;
+		size_t iHit = 0;
+		size_t iCallable = 0;
+		auto printRow = [](std::string aOffset, std::string aShaders, std::string aRaygen, std::string aMiss, std::string aHit, std::string aCallable){
+			static const std::string offsetStr	 = "      ";
+			static const std::string shadersStr	 = "                                               ";
+			static const std::string raygenStr	 = "          ";
+			static const std::string missStr	 = "          ";
+			static const std::string hitStr		 = "         ";
+			static const std::string callableStr = "          ";
+			if (aOffset.empty())	{ aOffset = offsetStr; }
+			if (aShaders.empty())	{ aShaders = shadersStr; }
+			if (aRaygen.empty())	{ aRaygen = raygenStr; }
+			if (aMiss.empty())		{ aMiss = missStr; }
+			if (aHit.empty())		{ aHit = hitStr; }
+			if (aCallable.empty())	{ aCallable = callableStr; }
+			if (aOffset.length() < offsetStr.length())		{ aOffset = offsetStr		+ aOffset; }
+			if (aShaders.length() < shadersStr.length())	{ aShaders = shadersStr		+ aShaders; }
+			if (aRaygen.length() < raygenStr.length())		{ aRaygen = raygenStr		+ aRaygen; }
+			if (aMiss.length() < missStr.length())			{ aMiss = missStr			+ aMiss; }
+			if (aHit.length() < hitStr.length())			{ aHit = hitStr				+ aHit; }
+			if (aCallable.length() < callableStr.length())	{ aCallable = callableStr	+ aCallable; }
+			if (aOffset.length() > offsetStr.length())		{ aOffset = aOffset.substr(aOffset.length() - offsetStr.length()); }
+			if (aShaders.length() > shadersStr.length())	{ aShaders = aShaders.substr(aShaders.length() - shadersStr.length()); }
+			if (aRaygen.length() > raygenStr.length())		{ aRaygen = aRaygen.substr(aRaygen.length() - raygenStr.length()); }
+			if (aMiss.length() > missStr.length())			{ aMiss =   aMiss.substr(aMiss.length()   - missStr.length()); }
+			if (aHit.length() > hitStr.length())			{ aHit =    aHit.substr(aHit.length()    - hitStr.length()); }
+			if (aCallable.length() > callableStr.length())	{ aCallable = aCallable.substr(aCallable.length() - callableStr.length()); }
+			AK_LOG_INFO("| " + aOffset + " | " + aShaders + " | " + aRaygen + " | " + aMiss + " | " + aHit + " | " + aCallable + " |");
+		};
+		auto getShaderName = [this](uint32_t aIndex, bool aPrintFileExt = true){
+			auto filename = ak::extract_file_name(mShaders[aIndex].info().mPath);
+			const auto spvPos = filename.find(".spv");
+			if (spvPos != std::string::npos) {
+				filename = filename.substr(0, spvPos);
+			}
+			if (!aPrintFileExt) {
+				const auto dotPos = filename.find_first_of('.');
+				if (dotPos != std::string::npos) {
+					return filename.substr(0, dotPos);
+				}
+			}
+			return filename;
+		};
+		AK_LOG_INFO("+=============================================================================================================+");
+		AK_LOG_INFO("|                          +++++++++++++ SHADER BINDING TABLE +++++++++++++                                   |");
+		AK_LOG_INFO("|                          BYTE-OFFSETS, SHADERS, and GROUP-INDICES (G.IDX)                                   |");
+		AK_LOG_INFO("+=============================================================================================================+");
+		AK_LOG_INFO("| OFFSET | SHADERS: GENERAL or INTERS.|ANY-HIT|CLOSEST-HIT | RGEN G.IDX | MISS G.IDX | HIT G.IDX | CALL G.IDX |");
+		while (off < mShaderBindingTableGroupsInfo.mEndOffset) {
+			AK_LOG_INFO("+-------------------------------------------------------------------------------------------------------------+");
+			if (iRaygen   < mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
+				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset);
+				std::string grpIdx = "[" + std::to_string(iRaygen) + "]";
+				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries; ++i) {
+					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + iRaygen + i].generalShader) + ": " + std::to_string(i), grpIdx, "", "", "");
+					byteOff = ""; grpIdx = "";
+				}
+				off      += mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries;
+				++iRaygen;
+			}
+			else if (iMiss < mShaderBindingTableGroupsInfo.mMissGroupsInfo.size() && mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mOffset == off) {
+				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset);
+				std::string grpIdx = "[" + std::to_string(iMiss) + "]";
+				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries; ++i) {
+					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + iMiss + i].generalShader) + ": " + std::to_string(i), "", grpIdx, "", "");
+					byteOff = ""; grpIdx = "";
+				}
+				off       += mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries;
+				++iMiss;
+			}
+			else if (iHit < mShaderBindingTableGroupsInfo.mHitGroupsInfo.size() && mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mOffset == off) {
+				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mByteOffset);
+				std::string grpIdx = "[" + std::to_string(iHit) + "]";
+				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries; ++i) {
+					assert(vk::RayTracingShaderGroupTypeKHR::eGeneral != mShaderGroupCreateInfos[off + iHit].type);
+					std::string hitInfo;
+					hitInfo += mShaderGroupCreateInfos[off + iHit].intersectionShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + iHit + i].intersectionShader, false) : "--";
+					hitInfo += "|";
+					hitInfo += mShaderGroupCreateInfos[off + iHit].anyHitShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + iHit + i].anyHitShader, false) : "--";
+					hitInfo += "|";
+					hitInfo += mShaderGroupCreateInfos[off + iHit].closestHitShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + iHit + i].closestHitShader, false) : "--";
+					printRow(byteOff, hitInfo + ": " + std::to_string(i), "", "", grpIdx, "");
+					byteOff = ""; grpIdx = "";
+				}
+				off      += mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries;
+				++iHit;
+			}
+			else if (iCallable < mShaderBindingTableGroupsInfo.mCallableGroupsInfo.size() && mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mOffset == off) {
+				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset);
+				std::string grpIdx = "[" + std::to_string(iCallable) + "]";
+				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries; ++i) {
+					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + iCallable + i].generalShader) + ": " + std::to_string(i), "", "", "", grpIdx);
+					byteOff = ""; grpIdx = "";
+				}
+				off      += mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries;
+				++iCallable;
+			}
+			else {
+				throw ak::runtime_error("Can't be");
+			}
+		}
+		AK_LOG_INFO("+-------------------------------------------------------------------------------------------------------------+");
+	}
+	
 #pragma endregion
 
 #pragma region renderpass definitions
