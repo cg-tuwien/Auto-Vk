@@ -1515,7 +1515,7 @@ namespace ak
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 			.setFlags(mCreateInfo.flags) // TODO: support individual flags per geometry?
 			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
-			.setSrcAccelerationStructure(nullptr) // TODO: support different src acceleration structure?!
+			.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle()) 
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
@@ -1751,7 +1751,7 @@ namespace ak
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
 			.setFlags(mCreateInfo.flags)
 			.setUpdate(aBuildAction == tlas_action::build ? VK_FALSE : VK_TRUE)
-			.setSrcAccelerationStructure(nullptr) // TODO: support different src acceleration structure?!
+			.setSrcAccelerationStructure(aBuildAction == tlas_action::build ? nullptr : acceleration_structure_handle())
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(1u) // TODO: Correct?
