@@ -1556,13 +1556,26 @@ namespace ak
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
 			mPhysicalDevice, mDevice,
-			memory_usage::device,
-			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
-			generic_buffer_meta::create_from_data(aGeometries)
+			memory_usage::device, {},			
+			aabb_buffer_meta::create_from_data(aGeometries)
 		);
 		aabbDataBuffer->fill(aGeometries.data(), 0, sync::wait_idle()); // TODO: Do not use wait_idle!
-		// TODO: Probably better to NOT create an entirely new buffer at every invocation ^^ 
+		// TODO: Probably better to NOT create an entirely new buffer at every invocation ^^
+
+		auto result = build_or_update(aabbDataBuffer, aScratchBuffer, std::move(aSyncHandler), aBuildAction);
+		if (result.has_value()) {
+			// Handle lifetime:
+			result.value()->set_custom_deleter([lOwnedAabbBuffer = std::move(aabbDataBuffer)](){});
+		}
+		else {
+			AK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
+			mDevice.waitIdle();
+		}
+		return result;
+	}
 		
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
+	{
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
 		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
 
@@ -1580,13 +1593,13 @@ namespace ak
 		accStructureGeometries.emplace_back()
 			.setGeometryType(vk::GeometryTypeKHR::eAabbs)
 			.setGeometry(vk::AccelerationStructureGeometryAabbsDataKHR{}
-				.setData(vk::DeviceOrHostAddressConstKHR{ aabbDataBuffer->device_address() })
+				.setData(vk::DeviceOrHostAddressConstKHR{ aGeometriesBuffer->device_address() })
 				.setStride(0)
 			)
 			.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
 		auto& boi = buildOffsetInfos.emplace_back()
-			.setPrimitiveCount(static_cast<uint32_t>(aGeometries.size()))
+			.setPrimitiveCount(static_cast<uint32_t>(aGeometriesBuffer->meta<aabb_buffer_meta>().num_elements()))
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
@@ -1620,9 +1633,6 @@ namespace ak
 
 		// Sync after:
 		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
-
-		// Handle lifetime:
-		commandBuffer.set_custom_deleter([lOwnedAabbBuffer = std::move(aabbDataBuffer)](){});
 		
 		// Finish him:
 		return aSyncHandler.submit_and_sync();
@@ -1637,6 +1647,17 @@ namespace ak
 	{
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
+
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	{
+		return build_or_update(aGeometriesBuffer, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
+	}
+	
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	{
+		return build_or_update(aGeometriesBuffer, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
+	}
+
 
 	top_level_acceleration_structure root::create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
 	{
@@ -1964,7 +1985,7 @@ namespace ak
 	buffer root::create_buffer(
 		const vk::PhysicalDevice& aPhysicalDevice, 
 		const vk::Device& aDevice, 
-		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData, 
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> aMetaData, 
 		vk::BufferUsageFlags aBufferUsage, 
 		vk::MemoryPropertyFlags aMemoryProperties, 
 		vk::MemoryAllocateFlags aMemoryAllocateFlags
@@ -2479,6 +2500,10 @@ namespace ak
 		const vk::StridedBufferRegionKHR& aCallableSbtRef
 	)
 	{
+		assert(nullptr == aRaygenSbtRef.buffer   || aRaygenSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
+		assert(nullptr == aRaymissSbtRef.buffer  || aRaymissSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
+		assert(nullptr == aRayhitSbtRef.buffer   || aRayhitSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
+		assert(nullptr == aCallableSbtRef.buffer || aCallableSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
 		const auto sbtHandle = aShaderBindingTableRef.mSbtBufferHandle;
 		const auto entrySize = aShaderBindingTableRef.mSbtEntrySize;
 		handle().traceRaysKHR(

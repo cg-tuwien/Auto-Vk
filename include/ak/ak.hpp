@@ -242,14 +242,14 @@ namespace ak
 		static buffer create_buffer(
 			const vk::PhysicalDevice& aPhysicalDevice, 
 			const vk::Device& aDevice, 
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData, 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> aMetaData, 
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties, 
 			vk::MemoryAllocateFlags aMemoryAllocateFlags
 		);
 		
 		buffer create_buffer(
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData, 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> aMetaData, 
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties,
 			vk::MemoryAllocateFlags aMemoryAllocateFlags)
@@ -298,20 +298,20 @@ namespace ak
 				break;
 			}
 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> metas;
+			metas.push_back(aConfig);
+			aUsage |= aConfig.buffer_usage_flags();
+			if constexpr (sizeof...(aConfigs) > 0) {
+				aUsage |= (... | aConfigs.buffer_usage_flags());
+				(metas.push_back(aConfigs), ...);
+			}
+			
 			// If buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR bit set, memory must have been allocated with the 
 			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR bit set. The Vulkan spec states: If the VkPhysicalDeviceBufferDeviceAddressFeatures::bufferDeviceAddress
 			// feature is enabled and buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT bit set, memory must have been allocated with the
 			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT bit set
 			if (ak::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress) || ak::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || ak::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
 				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddress;
-			}
-
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> metas;
-			metas.push_back(aConfig);
-			aUsage |= aConfig.buffer_usage_flags();
-			if constexpr (sizeof...(aConfigs) > 0) {
-				aUsage |= (... | aConfigs.buffer_usage_flags());
-				(metas.push_back(aConfigs), ...);
 			}
 
 			// Create buffer here to make use of named return value optimization.
@@ -353,13 +353,14 @@ namespace ak
 		/**	Convenience function for gathering the compute pipeline's configuration.
 		 *
 		 *	It supports the following types
-		 *		- ak::cfg::pipeline_settings
-		 *		- ak::shader_info or std::string_view
-		 *		- ak::binding_data
-		 *		- ak::push_constant_binding_data
-		 *		- ak::context_specific_function<void(compute_pipeline_t&)>
+		 *	 - cfg::pipeline_settings
+		 *   - shader_info
+		 *   - std::string_view (path to shaders, alternative to shader_info)
+		 *   - binding_data (data that is to be bound via descriptors)
+		 *   - push_constant_binding_data
+		 *   - std::function<void(compute_pipeline_t&)> (a function to alter the pipeline config before it is created)
 		 *
-		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref compute_pipeline_t::create
+		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_compute_pipeline
 		 */
 		template <typename... Ts>
 		compute_pipeline create_compute_pipeline_for(Ts... args)
@@ -433,10 +434,32 @@ namespace ak
 		
 	/**	Convenience function for gathering the graphic pipeline's configuration.
 	 *	
-	 *	It supports the following types 
+	 *	It supports the following types: 
+	 *   - cfg::pipeline_settings (flags)
+	 *   - renderpass
+	 *   - ak::attachment (use either attachments or renderpass!)
+	 *   - input_binding_location_data (vertex input)
+	 *   - cfg::primitive_topology
+	 *   - shader_info
+	 *   - std::string_view (path to shaders, alternative to shader_info)
+	 *   - cfg::depth_test
+	 *   - cfg::depth_write
+	 *   - cfg::viewport_depth_scissors_config
+	 *   - cfg::culling_mode
+	 *   - cfg::front_face
+	 *   - cfg::polygon_drawing
+	 *   - cfg::rasterizer_geometry_mode
+	 *   - cfg::depth_clamp_bias
+	 *   - cfg::color_blending_settings
+	 *   - cfg::color_blending_config
+	 *   - cfg::tessellation_patch_control_points
+	 *   - cfg::per_sample_shading_config
+	 *   - cfg::stencil_test
+	 *   - binding_data (data that is to be bound via descriptors)
+	 *   - push_constant_binding_data
+	 *   - std::function<void(graphics_pipeline_t&)> (a function to alter the pipeline config before it is created)
 	 *
-	 *
-	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref graphics_pipeline_t::create
+	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_graphics_pipeline
 	 */
 	template <typename... Ts>
 	graphics_pipeline create_graphics_pipeline_for(Ts... args)
@@ -553,16 +576,22 @@ namespace ak
 	/**	Convenience function for gathering the ray tracing pipeline's configuration.
 	 *
 	 *	It supports the following types:
-	 *		- ak::cfg::pipeline_settings
-	 *		- ak::shader_table_config (hint: use `ak::define_shader_table`)
-	 *		- ak::max_recursion_depth
-	 *		- ak::binding_data
-	 *		- ak::push_constant_binding_data
-	 *		- ak::std::function<void(ray_tracing_pipeline_t&)>
+	 *	 - cfg::pipeline_settings
+	 *	 - shader_table_config => use: define_shader_table() which takes the following types:
+	 *	    - shader_info
+	 *	    - std::string_view (alternative to shader_info; both defining a group with one "general" shader only --- be it raygen, miss, or callable)
+	 *	    - triangles_hit_group
+	 *	    - procedural_hit_group
+	 *	 - max_recursion_depth
+	 *   - shader_info
+	 *   - std::string_view (path to shaders, alternative to shader_info)
+	 *   - binding_data (data that is to be bound via descriptors)
+	 *   - push_constant_binding_data
+	 *   - std::function<void(compute_pipeline_t&)> (a function to alter the pipeline config before it is created)
 	 *
 	 *	For building the shader table in a convenient fashion, use the `ak::define_shader_table` function!
 	 *	
-	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref ray_tracing_pipeline_t::create
+	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_ray_tracing_pipeline
 	 */
 	template <typename... Ts>
 	ray_tracing_pipeline create_ray_tracing_pipeline_for(Ts... args)

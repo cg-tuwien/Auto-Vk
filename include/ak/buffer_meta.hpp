@@ -628,4 +628,42 @@ namespace ak
 		}
 #endif
 	};
+
+	/**	This struct contains information for a buffer which is intended to be used as 
+	*	geometries buffer for real-time ray tracing, containing AABB data.
+	*/
+	class aabb_buffer_meta : public buffer_meta
+	{
+	public:
+		/** Gets buffer usage flags for this kind of buffer. */
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR; }
+		
+		static aabb_buffer_meta create_from_num_elements(size_t aNumElements) 
+		{ 
+			aabb_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(aabb);
+			result.mNumElements = aNumElements;
+			return result; 
+		}
+
+		static aabb_buffer_meta create_from_total_size(size_t aTotalSize) 
+		{ 
+			aabb_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(aabb);
+			assert(aTotalSize % result.mSizeOfOneElement == 0);
+			result.mNumElements = aTotalSize / result.mSizeOfOneElement;
+			return result; 
+		}
+
+		template <typename T>
+		static std::enable_if_t<!std::is_pointer_v<T>, aabb_buffer_meta> create_from_data(const T& aData)
+		{
+			aabb_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
+			assert(sizeof(first_or_only_element(aData)) == sizeof(aabb));
+			result.mNumElements = how_many_elements(aData);
+			return result; 
+		}
+	};
+
 }

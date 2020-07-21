@@ -7,6 +7,15 @@ namespace ak
 	{
 		static acceleration_structure_size_requirements from_buffers(vertex_index_buffer_pair aPair);
 
+		static acceleration_structure_size_requirements from_aabbs(uint32_t aNumAabbs)
+		{
+			return acceleration_structure_size_requirements {
+				vk::GeometryTypeKHR::eAabbs,
+				aNumAabbs,
+				0, 0u, {}
+			};
+		}
+		
 		template <typename T>
 		static acceleration_structure_size_requirements from_aabbs(const T& aCollection) // TODO: This probably needs some refactoring
 		{

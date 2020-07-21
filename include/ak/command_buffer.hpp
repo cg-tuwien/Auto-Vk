@@ -199,6 +199,21 @@ namespace ak
 			AK_LOG_WARNING("No vk::PushConstantRange entry found that matches the dataSize[" + std::to_string(dataSize) + "]");
 		}
 
+		/**	Issue a trace rays call.
+		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
+		 *	@param	aShaderBindingTableRef		Reference to the shader binding table (SBT) to be used for this trace rays call.
+		 *	@param	aDynamicDispatch			vk::DispatchLoaderDynamic to be used for the trace rays call.
+		 *	@param	aRaygenSbtRef				Offset, stride, and size about which SBT entries to use for the ray generation shaders.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *	@param	aRaymissSbtRef				Offset, stride, and size about which SBT entries to use for the miss shaders.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *	@param	aRayhitSbtRef				Offset, stride, and size about which SBT entries to use for the (triangle|procedural) hit groups.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *	@param	aCallableSbtRef				Offset, stride, and size about which SBT entries to use for the callable shaders.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *
+		 *	Hint: You can display information about the shader binding table and its groups via `ray_tracing_pipeline_t::print_shader_binding_table_groups`
+		 */
 		void trace_rays(
 			vk::Extent3D aRaygenDimensions, 
 			const shader_binding_table_ref& aShaderBindingTableRef, 
@@ -255,7 +270,23 @@ namespace ak
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
 		}
-		
+
+		/**	Issue a trace rays call.
+		 *
+		 *	First two parameters are mandatory explicitely:
+		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
+		 *	@param	aShaderBindingTableRef		Reference to the shader binding table to be used for this trace rays call.
+		 *
+		 *	Further parameters are mandatory implicitely - i.e. there must be at least some information given about which
+		 *	shader binding table entries to be used from the given shader binding table during this trace rays call.
+		 *	@param args							Possible values:
+		 *											- using_raygen_group_at_index
+		 *											- using_miss_group_at_index
+		 *											- using_hit_group_at_index
+		 *											- using_callable_group_at_index
+		 *
+		 *	Hint: You can display information about the shader binding table and its groups via `ray_tracing_pipeline_t::print_shader_binding_table_groups`
+		 */
 		template <typename... Ts>
 		void trace_rays(vk::Extent3D aRaygenDimensions, const shader_binding_table_ref& aShaderBindingTableRef, const Ts&... args)
 		{

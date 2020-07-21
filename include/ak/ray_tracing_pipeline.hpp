@@ -3,7 +3,7 @@
 
 namespace ak
 {
-	/** Represents data for a vulkan ray tracing pipeline */
+	/** Represents data for a Vulkan ray tracing pipeline */
 	class ray_tracing_pipeline_t
 	{
 		friend class root;

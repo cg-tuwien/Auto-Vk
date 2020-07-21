@@ -46,6 +46,7 @@ namespace ak
 			void operator()(const vertex_buffer_meta& data)			const	{ *mOut = &data; }
 			void operator()(const index_buffer_meta& data)			const	{ *mOut = &data; }
 			void operator()(const instance_buffer_meta& data)		const	{ *mOut = &data; }
+			void operator()(const aabb_buffer_meta& data)			const	{ *mOut = &data; }
 		};
 		
 	public:
@@ -198,7 +199,7 @@ namespace ak
 		}		
 		
 	private:
-		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> mMetaData;
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> mMetaData;
 		vk::BufferCreateInfo mCreateInfo;
 		vk::MemoryPropertyFlags mMemoryPropertyFlags;
 		vk::UniqueDeviceMemory mMemory;

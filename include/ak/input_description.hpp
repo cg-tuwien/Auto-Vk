@@ -133,6 +133,13 @@ namespace ak
 		};
 	}
 
+	// TODO: Figure out how to use this best
+	template <class M>
+	inline input_binding_location_data instance_input_location(uint32_t aLocation, const M&)
+	{
+		return instance_input_location(aLocation, 0, format_for<M>(), sizeof(M));
+	}
+
 #if defined(_MSC_VER) && defined(__cplusplus)
 
 	/** Describe an input location for a pipeline's instance input.

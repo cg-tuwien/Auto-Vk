@@ -29,11 +29,14 @@ namespace ak
 		std::optional<command_buffer> update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
 		std::optional<command_buffer> build(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
 		std::optional<command_buffer> update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> build(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
 		
 	private:
 		enum struct blas_action { build, update };
 		std::optional<command_buffer> build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction);
 		std::optional<command_buffer> build_or_update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction);
+		std::optional<command_buffer> build_or_update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction);
 		buffer_t& get_and_possibly_create_scratch_buffer();
 		
 		vk::MemoryRequirements2KHR mMemoryRequirementsForAccelerationStructure;

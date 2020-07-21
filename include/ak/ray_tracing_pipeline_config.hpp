@@ -124,7 +124,26 @@ namespace ak
 		add_shader_table_entry(aShaderTableConfig, std::move(args)...);
 	}
 
-	// Define a shader table which is to be used with a ray tracing pipeline
+	/**	Define a shader table which is to be used with a ray tracing pipeline
+	 *
+	 *	To define a ray generation shader entry, use:
+	 *	 - shader_info
+	 *	 - std::string_view (path to shader)
+	 *
+	 *	To define a miss shader entry, use:
+	 *	 - shader_info
+	 *	 - std::string_view (path to shader)
+	 *
+	 *	To define a callable shader entry, use:
+	 *	 - shader_info
+	 *	 - std::string_view (path to shader)
+	 *
+	 *	To define a triangles hit group, use:
+	 *	 - triangles_hit_group
+	 *
+	 *	To define a procedural hit group, use:
+	 *	 - procedural_hit_group
+	 */
 	template <typename... Ts>
 	shader_table_config define_shader_table(Ts... args)
 	{
