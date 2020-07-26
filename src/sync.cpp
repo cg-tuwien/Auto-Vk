@@ -1,6 +1,6 @@
-#include <exekutor.hpp>
+#include <gvk.hpp>
 
-namespace ak
+namespace avk
 {
 	command_pool sync::sPoolToAllocCommandBuffersFrom;
 	queue* sync::sQueueToUse;
@@ -25,7 +25,7 @@ namespace ak
 		);
 	}
 	
-	ak::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> sync::presets::image_copy::wait_for_previous_operations(ak::image_t& aSourceImage, ak::image_t& aDestinationImage)
+	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> sync::presets::image_copy::wait_for_previous_operations(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
 	{
 		return [&aSourceImage, &aDestinationImage](command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess) {
 			// Must transfer the swap chain image's layout:
@@ -49,7 +49,7 @@ namespace ak
 		};
 	}
 
-	ak::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> sync::presets::image_copy::let_subsequent_operations_wait(ak::image_t& aSourceImage, ak::image_t& aDestinationImage)
+	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> sync::presets::image_copy::let_subsequent_operations_wait(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
 	{
 		return [&aSourceImage, &aDestinationImage, originalLayout = aDestinationImage.current_layout()](command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess){
 			assert(vk::ImageLayout::eTransferDstOptimal == aDestinationImage.current_layout());
@@ -64,7 +64,7 @@ namespace ak
 		};
 	}
 
-	ak::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> sync::presets::image_copy::directly_into_present(ak::image_t& aSourceImage, ak::image_t& aDestinationImage)
+	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> sync::presets::image_copy::directly_into_present(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
 	{
 		return [&aSourceImage, &aDestinationImage](command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess){
 			assert(vk::ImageLayout::eTransferDstOptimal == aDestinationImage.current_layout());
@@ -368,11 +368,11 @@ namespace ak
 			break;
 		case sync_type::not_required:
 			assert(false);
-			throw ak::runtime_error("You were wrong with your assumption that there was no sync required! => Provide a concrete sync strategy!");
+			throw avk::runtime_error("You were wrong with your assumption that there was no sync required! => Provide a concrete sync strategy!");
 		case sync_type::by_return:
 		{
 			if (!mCommandBuffer.has_value()) {
-				throw ak::runtime_error("Something went wrong. There is no command buffer.");
+				throw avk::runtime_error("Something went wrong. There is no command buffer.");
 			}
 			mCommandBuffer.value()->end_recording();		// What started in get_or_create_command_buffer() ends here.
 			auto tmp = std::move(mCommandBuffer.value());
@@ -384,7 +384,7 @@ namespace ak
 			return {};
 		default:
 			assert(false);
-			throw ak::logic_error("unknown syncType");
+			throw avk::logic_error("unknown syncType");
 		}
 
 		assert(!mCommandBuffer.has_value());

@@ -1,10 +1,10 @@
 #pragma once
 
 #define NOMINMAX
-#include <ak/ak_log.hpp>
-#include <ak/ak.hpp>
+#include <avk/avk_log.hpp>
+#include <avk/avk.hpp>
 
-namespace ak
+namespace avk
 {
 #pragma region root definitions
 	uint32_t root::find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
@@ -21,7 +21,7 @@ namespace ak
 				return i;
 			}
 		}
-		throw ak::runtime_error("failed to find suitable memory type!");
+		throw avk::runtime_error("failed to find suitable memory type!");
 	}
 	
 	uint32_t root::find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
@@ -91,22 +91,22 @@ namespace ak
 #pragma region ak_error definitions
 	runtime_error::runtime_error (const std::string& what_arg) : std::runtime_error(what_arg)
 	{
-		AK_LOG_ERROR("!RUNTIME ERROR! " + what_arg);
+		AVK_LOG_ERROR("!RUNTIME ERROR! " + what_arg);
 	}
 	
 	runtime_error::runtime_error (const char* what_arg) : std::runtime_error(what_arg)
 	{
-		AK_LOG_ERROR("!RUNTIME ERROR! " + std::string(what_arg));
+		AVK_LOG_ERROR("!RUNTIME ERROR! " + std::string(what_arg));
 	}
 
 	logic_error::logic_error (const std::string& what_arg) : std::logic_error(what_arg)
 	{
-		AK_LOG_ERROR("!LOGIC ERROR! " + what_arg);
+		AVK_LOG_ERROR("!LOGIC ERROR! " + what_arg);
 	}
 	
 	logic_error::logic_error (const char* what_arg) : std::logic_error(what_arg)
 	{
-		AK_LOG_ERROR("!LOGIC ERROR! " + std::string(what_arg));
+		AVK_LOG_ERROR("!LOGIC ERROR! " + std::string(what_arg));
 	}
 #pragma endregion
 
@@ -680,84 +680,84 @@ namespace ak
 		return is_unorm_format(aImageFormat) || is_snorm_format(aImageFormat) || is_srgb_format(aImageFormat);
 	}
 
-	std::tuple<vk::ImageUsageFlags, vk::ImageLayout, vk::ImageTiling, vk::ImageCreateFlags> determine_usage_layout_tiling_flags_based_on_image_usage(ak::image_usage aImageUsageFlags)
+	std::tuple<vk::ImageUsageFlags, vk::ImageLayout, vk::ImageTiling, vk::ImageCreateFlags> determine_usage_layout_tiling_flags_based_on_image_usage(avk::image_usage aImageUsageFlags)
 	{
 		vk::ImageUsageFlags imageUsage{};
 
-		bool isReadOnly = ak::has_flag(aImageUsageFlags, ak::image_usage::read_only);
-		ak::image_usage cleanedUpUsageFlagsForReadOnly = exclude(aImageUsageFlags, ak::image_usage::transfer_source | ak::image_usage::transfer_destination | ak::image_usage::sampled | ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected); // TODO: To be verified, it's just a guess.
+		bool isReadOnly = avk::has_flag(aImageUsageFlags, avk::image_usage::read_only);
+		avk::image_usage cleanedUpUsageFlagsForReadOnly = exclude(aImageUsageFlags, avk::image_usage::transfer_source | avk::image_usage::transfer_destination | avk::image_usage::sampled | avk::image_usage::read_only | avk::image_usage::presentable | avk::image_usage::shared_presentable | avk::image_usage::tiling_optimal | avk::image_usage::tiling_linear | avk::image_usage::sparse_memory_binding | avk::image_usage::cube_compatible | avk::image_usage::is_protected); // TODO: To be verified, it's just a guess.
 
 		auto targetLayout = isReadOnly ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eGeneral; // General Layout or Shader Read Only Layout is the default
 		auto imageTiling = vk::ImageTiling::eOptimal; // Optimal is the default
 		vk::ImageCreateFlags imageCreateFlags{};
 
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::transfer_source)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::transfer_source)) {
 			imageUsage |= vk::ImageUsageFlagBits::eTransferSrc;
-			ak::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected | ak::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
-			if (ak::image_usage::transfer_source == cleanedUpUsageFlags) {
+			avk::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, avk::image_usage::read_only | avk::image_usage::presentable | avk::image_usage::shared_presentable | avk::image_usage::tiling_optimal | avk::image_usage::tiling_linear | avk::image_usage::sparse_memory_binding | avk::image_usage::cube_compatible | avk::image_usage::is_protected | avk::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
+			if (avk::image_usage::transfer_source == cleanedUpUsageFlags) {
 				targetLayout = vk::ImageLayout::eTransferSrcOptimal;
 			}
 			else {
 				targetLayout = vk::ImageLayout::eGeneral;
 			}
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::transfer_destination)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::transfer_destination)) {
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst;
-			ak::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, ak::image_usage::read_only | ak::image_usage::presentable | ak::image_usage::shared_presentable | ak::image_usage::tiling_optimal | ak::image_usage::tiling_linear | ak::image_usage::sparse_memory_binding | ak::image_usage::cube_compatible | ak::image_usage::is_protected | ak::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
-			if (ak::image_usage::transfer_destination == cleanedUpUsageFlags) {
+			avk::image_usage cleanedUpUsageFlags = exclude(aImageUsageFlags, avk::image_usage::read_only | avk::image_usage::presentable | avk::image_usage::shared_presentable | avk::image_usage::tiling_optimal | avk::image_usage::tiling_linear | avk::image_usage::sparse_memory_binding | avk::image_usage::cube_compatible | avk::image_usage::is_protected | avk::image_usage::mip_mapped); // TODO: To be verified, it's just a guess.
+			if (avk::image_usage::transfer_destination == cleanedUpUsageFlags) {
 				targetLayout = vk::ImageLayout::eTransferDstOptimal;
 			}
 			else {
 				targetLayout = vk::ImageLayout::eGeneral;
 			}
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::sampled)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::sampled)) {
 			imageUsage |= vk::ImageUsageFlagBits::eSampled;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::color_attachment)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::color_attachment)) {
 			imageUsage |= vk::ImageUsageFlagBits::eColorAttachment;
 			targetLayout = vk::ImageLayout::eColorAttachmentOptimal;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::depth_stencil_attachment)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::depth_stencil_attachment)) {
 			imageUsage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-			if (isReadOnly && ak::image_usage::depth_stencil_attachment == cleanedUpUsageFlagsForReadOnly) {
+			if (isReadOnly && avk::image_usage::depth_stencil_attachment == cleanedUpUsageFlagsForReadOnly) {
 				targetLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 			}
 			else {
 				targetLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 			}
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::input_attachment)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::input_attachment)) {
 			imageUsage |= vk::ImageUsageFlagBits::eInputAttachment;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shading_rate_image)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::shading_rate_image)) {
 			imageUsage |= vk::ImageUsageFlagBits::eShadingRateImageNV;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::presentable)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::presentable)) {
 			targetLayout = vk::ImageLayout::ePresentSrcKHR; // TODO: This probably needs some further action(s) => implement that further action(s)
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shared_presentable)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::shared_presentable)) {
 			targetLayout = vk::ImageLayout::eSharedPresentKHR; // TODO: This probably needs some further action(s) => implement that further action(s)
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::tiling_optimal)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::tiling_optimal)) {
 			imageTiling = vk::ImageTiling::eOptimal;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::tiling_linear)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::tiling_linear)) {
 			imageTiling = vk::ImageTiling::eLinear;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::sparse_memory_binding)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::sparse_memory_binding)) {
 			imageCreateFlags |= vk::ImageCreateFlagBits::eSparseBinding;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::cube_compatible)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::cube_compatible)) {
 			imageCreateFlags |= vk::ImageCreateFlagBits::eCubeCompatible;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::is_protected)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::is_protected)) {
 			imageCreateFlags |= vk::ImageCreateFlagBits::eProtected;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::mutable_format)) {
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::mutable_format)) {
 			imageCreateFlags |= vk::ImageCreateFlagBits::eMutableFormat;
 		}
-		if (ak::has_flag(aImageUsageFlags, ak::image_usage::shader_storage)) { 
+		if (avk::has_flag(aImageUsageFlags, avk::image_usage::shader_storage)) { 
 			imageUsage |= vk::ImageUsageFlagBits::eStorage;	
 			// Can not be Shader Read Only Layout
 			targetLayout = vk::ImageLayout::eGeneral; // TODO: Verify that this should always be in general layout!
@@ -776,7 +776,7 @@ namespace ak
 		if (aSize == sizeof(uint32_t)) {
 			return vk::IndexType::eUint32;
 		}
-		AK_LOG_ERROR("The given size[" + std::to_string(aSize) + "] does not correspond to a valid vk::IndexType");
+		AVK_LOG_ERROR("The given size[" + std::to_string(aSize) + "] does not correspond to a valid vk::IndexType");
 		return vk::IndexType::eNoneKHR;
 	}
 
@@ -788,82 +788,82 @@ namespace ak
 	vk::ShaderStageFlagBits to_vk_shader_stage(shader_type aType)
 	{
 		switch (aType) {
-		case ak::shader_type::vertex:
+		case avk::shader_type::vertex:
 			return vk::ShaderStageFlagBits::eVertex;
-		case ak::shader_type::tessellation_control:
+		case avk::shader_type::tessellation_control:
 			return vk::ShaderStageFlagBits::eTessellationControl;
-		case ak::shader_type::tessellation_evaluation:
+		case avk::shader_type::tessellation_evaluation:
 			return vk::ShaderStageFlagBits::eTessellationEvaluation;
-		case ak::shader_type::geometry:
+		case avk::shader_type::geometry:
 			return vk::ShaderStageFlagBits::eGeometry;
-		case ak::shader_type::fragment:
+		case avk::shader_type::fragment:
 			return vk::ShaderStageFlagBits::eFragment;
-		case ak::shader_type::compute:
+		case avk::shader_type::compute:
 			return vk::ShaderStageFlagBits::eCompute;
-		case ak::shader_type::ray_generation:
+		case avk::shader_type::ray_generation:
 			return vk::ShaderStageFlagBits::eRaygenKHR;
-		case ak::shader_type::any_hit:
+		case avk::shader_type::any_hit:
 			return vk::ShaderStageFlagBits::eAnyHitKHR;
-		case ak::shader_type::closest_hit:
+		case avk::shader_type::closest_hit:
 			return vk::ShaderStageFlagBits::eClosestHitKHR;
-		case ak::shader_type::miss:
+		case avk::shader_type::miss:
 			return vk::ShaderStageFlagBits::eMissKHR;
-		case ak::shader_type::intersection:
+		case avk::shader_type::intersection:
 			return vk::ShaderStageFlagBits::eIntersectionKHR;
-		case ak::shader_type::callable:
+		case avk::shader_type::callable:
 			return vk::ShaderStageFlagBits::eCallableKHR;
-		case ak::shader_type::task:
+		case avk::shader_type::task:
 			return vk::ShaderStageFlagBits::eTaskNV;
-		case ak::shader_type::mesh:
+		case avk::shader_type::mesh:
 			return vk::ShaderStageFlagBits::eMeshNV;
 		default:
-			throw ak::runtime_error("Invalid shader_type");
+			throw avk::runtime_error("Invalid shader_type");
 		}
 	}
 
 	vk::ShaderStageFlags to_vk_shader_stages(shader_type aType)
 	{
 		vk::ShaderStageFlags result;
-		if ((aType & ak::shader_type::vertex) == ak::shader_type::vertex) {
+		if ((aType & avk::shader_type::vertex) == avk::shader_type::vertex) {
 			result |= vk::ShaderStageFlagBits::eVertex;
 		}
-		if ((aType & ak::shader_type::tessellation_control) == ak::shader_type::tessellation_control) {
+		if ((aType & avk::shader_type::tessellation_control) == avk::shader_type::tessellation_control) {
 			result |= vk::ShaderStageFlagBits::eTessellationControl;
 		}
-		if ((aType & ak::shader_type::tessellation_evaluation) == ak::shader_type::tessellation_evaluation) {
+		if ((aType & avk::shader_type::tessellation_evaluation) == avk::shader_type::tessellation_evaluation) {
 			result |= vk::ShaderStageFlagBits::eTessellationEvaluation;
 		}
-		if ((aType & ak::shader_type::geometry) == ak::shader_type::geometry) {
+		if ((aType & avk::shader_type::geometry) == avk::shader_type::geometry) {
 			result |= vk::ShaderStageFlagBits::eGeometry;
 		}
-		if ((aType & ak::shader_type::fragment) == ak::shader_type::fragment) {
+		if ((aType & avk::shader_type::fragment) == avk::shader_type::fragment) {
 			result |= vk::ShaderStageFlagBits::eFragment;
 		}
-		if ((aType & ak::shader_type::compute) == ak::shader_type::compute) {
+		if ((aType & avk::shader_type::compute) == avk::shader_type::compute) {
 			result |= vk::ShaderStageFlagBits::eCompute;
 		}
-		if ((aType & ak::shader_type::ray_generation) == ak::shader_type::ray_generation) {
+		if ((aType & avk::shader_type::ray_generation) == avk::shader_type::ray_generation) {
 			result |= vk::ShaderStageFlagBits::eRaygenKHR;
 		}
-		if ((aType & ak::shader_type::any_hit) == ak::shader_type::any_hit) {
+		if ((aType & avk::shader_type::any_hit) == avk::shader_type::any_hit) {
 			result |= vk::ShaderStageFlagBits::eAnyHitKHR;
 		}
-		if ((aType & ak::shader_type::closest_hit) == ak::shader_type::closest_hit) {
+		if ((aType & avk::shader_type::closest_hit) == avk::shader_type::closest_hit) {
 			result |= vk::ShaderStageFlagBits::eClosestHitKHR;
 		}
-		if ((aType & ak::shader_type::miss) == ak::shader_type::miss) {
+		if ((aType & avk::shader_type::miss) == avk::shader_type::miss) {
 			result |= vk::ShaderStageFlagBits::eMissKHR;
 		}
-		if ((aType & ak::shader_type::intersection) == ak::shader_type::intersection) {
+		if ((aType & avk::shader_type::intersection) == avk::shader_type::intersection) {
 			result |= vk::ShaderStageFlagBits::eIntersectionKHR;
 		}
-		if ((aType & ak::shader_type::callable) == ak::shader_type::callable) {
+		if ((aType & avk::shader_type::callable) == avk::shader_type::callable) {
 			result |= vk::ShaderStageFlagBits::eCallableKHR;
 		}
-		if ((aType & ak::shader_type::task) == ak::shader_type::task) {
+		if ((aType & avk::shader_type::task) == avk::shader_type::task) {
 			result |= vk::ShaderStageFlagBits::eTaskNV;
 		}
-		if ((aType & ak::shader_type::mesh) == ak::shader_type::mesh) {
+		if ((aType & avk::shader_type::mesh) == avk::shader_type::mesh) {
 			result |= vk::ShaderStageFlagBits::eMeshNV;
 		}
 		return result;
@@ -1144,44 +1144,44 @@ namespace ak
 		}
 	}
 
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(ak::pipeline_stage aValue)
+	vk::PipelineStageFlags to_vk_pipeline_stage_flags(avk::pipeline_stage aValue)
 	{
 		vk::PipelineStageFlags result;
 		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (ak::is_included(aValue, ak::pipeline_stage::top_of_pipe					)) { result |= vk::PipelineStageFlagBits::eTopOfPipe					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::draw_indirect					)) { result |= vk::PipelineStageFlagBits::eDrawIndirect					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::vertex_input					)) { result |= vk::PipelineStageFlagBits::eVertexInput					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::vertex_shader					)) { result |= vk::PipelineStageFlagBits::eVertexShader					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_control_shader	)) { result |= vk::PipelineStageFlagBits::eTessellationControlShader	; }
-		if (ak::is_included(aValue, ak::pipeline_stage::tessellation_evaluation_shader)) { result |= vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
-		if (ak::is_included(aValue, ak::pipeline_stage::geometry_shader				)) { result |= vk::PipelineStageFlagBits::eGeometryShader				; }
-		if (ak::is_included(aValue, ak::pipeline_stage::fragment_shader				)) { result |= vk::PipelineStageFlagBits::eFragmentShader				; }
-		if (ak::is_included(aValue, ak::pipeline_stage::early_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::late_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eLateFragmentTests			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::color_attachment_output		)) { result |= vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
-		if (ak::is_included(aValue, ak::pipeline_stage::compute_shader				)) { result |= vk::PipelineStageFlagBits::eComputeShader				; }
-		if (ak::is_included(aValue, ak::pipeline_stage::transfer						)) { result |= vk::PipelineStageFlagBits::eTransfer						; }
-		if (ak::is_included(aValue, ak::pipeline_stage::bottom_of_pipe				)) { result |= vk::PipelineStageFlagBits::eBottomOfPipe					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::host							)) { result |= vk::PipelineStageFlagBits::eHost							; }
-		if (ak::is_included(aValue, ak::pipeline_stage::all_graphics			)) { result |= vk::PipelineStageFlagBits::eAllGraphics					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::all_commands					)) { result |= vk::PipelineStageFlagBits::eAllCommands					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::transform_feedback			)) { result |= vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::conditional_rendering			)) { result |= vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
+		if (avk::is_included(aValue, avk::pipeline_stage::top_of_pipe					)) { result |= vk::PipelineStageFlagBits::eTopOfPipe					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::draw_indirect					)) { result |= vk::PipelineStageFlagBits::eDrawIndirect					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::vertex_input					)) { result |= vk::PipelineStageFlagBits::eVertexInput					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::vertex_shader					)) { result |= vk::PipelineStageFlagBits::eVertexShader					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_control_shader	)) { result |= vk::PipelineStageFlagBits::eTessellationControlShader	; }
+		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_evaluation_shader)) { result |= vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
+		if (avk::is_included(aValue, avk::pipeline_stage::geometry_shader				)) { result |= vk::PipelineStageFlagBits::eGeometryShader				; }
+		if (avk::is_included(aValue, avk::pipeline_stage::fragment_shader				)) { result |= vk::PipelineStageFlagBits::eFragmentShader				; }
+		if (avk::is_included(aValue, avk::pipeline_stage::early_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::late_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eLateFragmentTests			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::color_attachment_output		)) { result |= vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
+		if (avk::is_included(aValue, avk::pipeline_stage::compute_shader				)) { result |= vk::PipelineStageFlagBits::eComputeShader				; }
+		if (avk::is_included(aValue, avk::pipeline_stage::transfer						)) { result |= vk::PipelineStageFlagBits::eTransfer						; }
+		if (avk::is_included(aValue, avk::pipeline_stage::bottom_of_pipe				)) { result |= vk::PipelineStageFlagBits::eBottomOfPipe					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::host							)) { result |= vk::PipelineStageFlagBits::eHost							; }
+		if (avk::is_included(aValue, avk::pipeline_stage::all_graphics			)) { result |= vk::PipelineStageFlagBits::eAllGraphics					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::all_commands					)) { result |= vk::PipelineStageFlagBits::eAllCommands					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::transform_feedback			)) { result |= vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::conditional_rendering			)) { result |= vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
 #if VK_HEADER_VERSION >= 135
-		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
 #else 
 		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
 #endif
-		if (ak::is_included(aValue, ak::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
-		if (ak::is_included(aValue, ak::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
-		if (ak::is_included(aValue, ak::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
-		if (ak::is_included(aValue, ak::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
+		if (avk::is_included(aValue, avk::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
+		if (avk::is_included(aValue, avk::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
 		return result;
 	}
 	
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<ak::pipeline_stage> aValue)
+	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<avk::pipeline_stage> aValue)
 	{
 		if (aValue.has_value()) {
 			return to_vk_pipeline_stage_flags(aValue.value());
@@ -1189,48 +1189,48 @@ namespace ak
 		return vk::PipelineStageFlags{};
 	}
 
-	vk::AccessFlags to_vk_access_flags(ak::memory_access aValue)
+	vk::AccessFlags to_vk_access_flags(avk::memory_access aValue)
 	{
 		vk::AccessFlags result;
 		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (ak::is_included(aValue, ak::memory_access::indirect_command_data_read_access			)) { result |= vk::AccessFlagBits::eIndirectCommandRead; }
-		if (ak::is_included(aValue, ak::memory_access::index_buffer_read_access					)) { result |= vk::AccessFlagBits::eIndexRead; }
-		if (ak::is_included(aValue, ak::memory_access::vertex_buffer_read_access					)) { result |= vk::AccessFlagBits::eVertexAttributeRead; }
-		if (ak::is_included(aValue, ak::memory_access::uniform_buffer_read_access					)) { result |= vk::AccessFlagBits::eUniformRead; }
-		if (ak::is_included(aValue, ak::memory_access::input_attachment_read_access				)) { result |= vk::AccessFlagBits::eInputAttachmentRead; }
-		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_read_access		)) { result |= vk::AccessFlagBits::eShaderRead; }
-		if (ak::is_included(aValue, ak::memory_access::shader_buffers_and_images_write_access		)) { result |= vk::AccessFlagBits::eShaderWrite; }
-		if (ak::is_included(aValue, ak::memory_access::color_attachment_read_access				)) { result |= vk::AccessFlagBits::eColorAttachmentRead; }
-		if (ak::is_included(aValue, ak::memory_access::color_attachment_write_access				)) { result |= vk::AccessFlagBits::eColorAttachmentWrite; }
-		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_read_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentRead; }
-		if (ak::is_included(aValue, ak::memory_access::depth_stencil_attachment_write_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; }
-		if (ak::is_included(aValue, ak::memory_access::transfer_read_access						)) { result |= vk::AccessFlagBits::eTransferRead; }
-		if (ak::is_included(aValue, ak::memory_access::transfer_write_access						)) { result |= vk::AccessFlagBits::eTransferWrite; }
-		if (ak::is_included(aValue, ak::memory_access::host_read_access							)) { result |= vk::AccessFlagBits::eHostRead; }
-		if (ak::is_included(aValue, ak::memory_access::host_write_access							)) { result |= vk::AccessFlagBits::eHostWrite; }
-		if (ak::is_included(aValue, ak::memory_access::any_read_access							)) { result |= vk::AccessFlagBits::eMemoryRead; }
-		if (ak::is_included(aValue, ak::memory_access::any_write_access					 		)) { result |= vk::AccessFlagBits::eMemoryWrite; }
-		if (ak::is_included(aValue, ak::memory_access::transform_feedback_write_access			)) { result |= vk::AccessFlagBits::eTransformFeedbackWriteEXT; }
-		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_read_access		)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterReadEXT; }
-		if (ak::is_included(aValue, ak::memory_access::transform_feedback_counter_write_access	)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterWriteEXT; }
-		if (ak::is_included(aValue, ak::memory_access::conditional_rendering_predicate_read_access)) { result |= vk::AccessFlagBits::eConditionalRenderingReadEXT; }
+		if (avk::is_included(aValue, avk::memory_access::indirect_command_data_read_access			)) { result |= vk::AccessFlagBits::eIndirectCommandRead; }
+		if (avk::is_included(aValue, avk::memory_access::index_buffer_read_access					)) { result |= vk::AccessFlagBits::eIndexRead; }
+		if (avk::is_included(aValue, avk::memory_access::vertex_buffer_read_access					)) { result |= vk::AccessFlagBits::eVertexAttributeRead; }
+		if (avk::is_included(aValue, avk::memory_access::uniform_buffer_read_access					)) { result |= vk::AccessFlagBits::eUniformRead; }
+		if (avk::is_included(aValue, avk::memory_access::input_attachment_read_access				)) { result |= vk::AccessFlagBits::eInputAttachmentRead; }
+		if (avk::is_included(aValue, avk::memory_access::shader_buffers_and_images_read_access		)) { result |= vk::AccessFlagBits::eShaderRead; }
+		if (avk::is_included(aValue, avk::memory_access::shader_buffers_and_images_write_access		)) { result |= vk::AccessFlagBits::eShaderWrite; }
+		if (avk::is_included(aValue, avk::memory_access::color_attachment_read_access				)) { result |= vk::AccessFlagBits::eColorAttachmentRead; }
+		if (avk::is_included(aValue, avk::memory_access::color_attachment_write_access				)) { result |= vk::AccessFlagBits::eColorAttachmentWrite; }
+		if (avk::is_included(aValue, avk::memory_access::depth_stencil_attachment_read_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentRead; }
+		if (avk::is_included(aValue, avk::memory_access::depth_stencil_attachment_write_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; }
+		if (avk::is_included(aValue, avk::memory_access::transfer_read_access						)) { result |= vk::AccessFlagBits::eTransferRead; }
+		if (avk::is_included(aValue, avk::memory_access::transfer_write_access						)) { result |= vk::AccessFlagBits::eTransferWrite; }
+		if (avk::is_included(aValue, avk::memory_access::host_read_access							)) { result |= vk::AccessFlagBits::eHostRead; }
+		if (avk::is_included(aValue, avk::memory_access::host_write_access							)) { result |= vk::AccessFlagBits::eHostWrite; }
+		if (avk::is_included(aValue, avk::memory_access::any_read_access							)) { result |= vk::AccessFlagBits::eMemoryRead; }
+		if (avk::is_included(aValue, avk::memory_access::any_write_access					 		)) { result |= vk::AccessFlagBits::eMemoryWrite; }
+		if (avk::is_included(aValue, avk::memory_access::transform_feedback_write_access			)) { result |= vk::AccessFlagBits::eTransformFeedbackWriteEXT; }
+		if (avk::is_included(aValue, avk::memory_access::transform_feedback_counter_read_access		)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterReadEXT; }
+		if (avk::is_included(aValue, avk::memory_access::transform_feedback_counter_write_access	)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterWriteEXT; }
+		if (avk::is_included(aValue, avk::memory_access::conditional_rendering_predicate_read_access)) { result |= vk::AccessFlagBits::eConditionalRenderingReadEXT; }
 #if VK_HEADER_VERSION >= 135
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
+		if (avk::is_included(aValue, avk::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
+		if (avk::is_included(aValue, avk::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
 #else
 		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
 		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
 #endif
-		if (ak::is_included(aValue, ak::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
-		if (ak::is_included(aValue, ak::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
-		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
-		if (ak::is_included(aValue, ak::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
-		if (ak::is_included(aValue, ak::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
+		if (avk::is_included(aValue, avk::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
+		if (avk::is_included(aValue, avk::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
+		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
+		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
+		if (avk::is_included(aValue, avk::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
 
 		return result;
 	}
 
-	vk::AccessFlags to_vk_access_flags(std::optional<ak::memory_access> aValue)
+	vk::AccessFlags to_vk_access_flags(std::optional<avk::memory_access> aValue)
 	{
 		if (aValue.has_value()) {
 			return to_vk_access_flags(aValue.value());
@@ -1238,12 +1238,12 @@ namespace ak
 		return vk::AccessFlags{};
 	}
 
-	ak::memory_access to_memory_access(ak::read_memory_access aValue)
+	avk::memory_access to_memory_access(avk::read_memory_access aValue)
 	{
-		return static_cast<ak::memory_access>(aValue);
+		return static_cast<avk::memory_access>(aValue);
 	}
 	
-	std::optional<ak::memory_access> to_memory_access(std::optional<ak::read_memory_access> aValue)
+	std::optional<avk::memory_access> to_memory_access(std::optional<avk::read_memory_access> aValue)
 	{
 		if (aValue.has_value()) {
 			return to_memory_access(aValue.value());
@@ -1251,12 +1251,12 @@ namespace ak
 		return {};
 	}
 	
-	ak::memory_access to_memory_access(ak::write_memory_access aValue)
+	avk::memory_access to_memory_access(avk::write_memory_access aValue)
 	{
-		return static_cast<ak::memory_access>(aValue);
+		return static_cast<avk::memory_access>(aValue);
 	}
 	
-	std::optional<ak::memory_access> to_memory_access(std::optional<ak::write_memory_access> aValue)
+	std::optional<avk::memory_access> to_memory_access(std::optional<avk::write_memory_access> aValue)
 	{
 		if (aValue.has_value()) {
 			return to_memory_access(aValue.value());
@@ -1264,33 +1264,33 @@ namespace ak
 		return {};
 	}
 
-	ak::filter_mode to_vk_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
+	avk::filter_mode to_vk_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
 	{
 		if (aMipMappingAvailable) {
 			if (aVulkanAnisotropy > 1.0f) {
 				if (std::fabs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_16x;
+					return avk::filter_mode::anisotropic_16x;
 				}
 				if (std::fabs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_8x;
+					return avk::filter_mode::anisotropic_8x;
 				}
 				if (std::fabs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_4x;
+					return avk::filter_mode::anisotropic_4x;
 				}
 				if (std::fabs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_2x;
+					return avk::filter_mode::anisotropic_2x;
 				}
 				if (std::fabs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_32x;
+					return avk::filter_mode::anisotropic_32x;
 				}
 				if (std::fabs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
-					return ak::filter_mode::anisotropic_64x;
+					return avk::filter_mode::anisotropic_64x;
 				}
-				AK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
+				AVK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
 			}
-			return ak::filter_mode::trilinear;
+			return avk::filter_mode::trilinear;
 		}
-		return ak::filter_mode::bilinear;
+		return avk::filter_mode::bilinear;
 	}
 
 	vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info)
@@ -1314,7 +1314,7 @@ namespace ak
 		case vk::ImageType::e3D:
 			return vk::ImageViewType::e3D;
 		}
-		throw new ak::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
+		throw new avk::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
 	}
 #pragma endregion
 
@@ -1337,7 +1337,7 @@ namespace ak
 		return declare({aFormat, vk::SampleCountFlagBits::e1}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
 	}
 	
-	attachment attachment::declare_for(const image_view_t& aImageView, ak::on_load aLoadOp, ak::usage_desc aUsageInSubpasses, ak::on_store aStoreOp)
+	attachment attachment::declare_for(const image_view_t& aImageView, avk::on_load aLoadOp, avk::usage_desc aUsageInSubpasses, avk::on_store aStoreOp)
 	{
 		const auto& imageConfig = aImageView.get_image().config();
 		const auto format = imageConfig.format;
@@ -1359,7 +1359,7 @@ namespace ak
 		// Perform two sanity checks, because we really need the member descriptions to know where to find the positions.
 		// 1st check:
 		if (vertexBufferMeta.member_descriptions().size() == 0) {
-			throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
+			throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
 		}
 
 		// Find member representing the positions, and...
@@ -1370,7 +1370,7 @@ namespace ak
 			});
 		// ... perform 2nd check:
 		if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
-			throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
+			throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
 		}
 		
 		return acceleration_structure_size_requirements{
@@ -1382,7 +1382,7 @@ namespace ak
 		};
 	}
 	
-	bottom_level_acceleration_structure root::create_bottom_level_acceleration_structure(std::vector<ak::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
+	bottom_level_acceleration_structure root::create_bottom_level_acceleration_structure(std::vector<avk::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
 	{
 		bottom_level_acceleration_structure_t result;
 		result.mGeometryInfos.reserve(aGeometryDescriptions.size());
@@ -1396,7 +1396,7 @@ namespace ak
 				.setVertexFormat(gd.mVertexFormat)
 				.setAllowsTransforms(VK_FALSE); // TODO: Add support for transforms (allowsTransforms indicates whether transform data can be used by this acceleration structure or not, when geometryType is VK_GEOMETRY_TYPE_TRIANGLES_KHR.)
 			if (vk::GeometryTypeKHR::eTriangles == gd.mGeometryType) {
-				back.setIndexType(ak::to_vk_index_type(gd.mIndexTypeSize));
+				back.setIndexType(avk::to_vk_index_type(gd.mIndexTypeSize));
 				// TODO: Support non-indexed geometry
 			}
 		} // for each geometry description
@@ -1439,9 +1439,9 @@ namespace ak
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
 				mPhysicalDevice, mDevice,
-				ak::memory_usage::device,
+				avk::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
-				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
+				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
 		}
 		return mScratchBuffer.value();
@@ -1449,7 +1449,7 @@ namespace ak
 	
 	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
 	{
-		// TODO: into ak::commands
+		// TODO: into avk::commands
 		
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
 		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
@@ -1472,7 +1472,7 @@ namespace ak
 			const auto& indexBufferMeta = indexBuffer.meta<index_buffer_meta>();
 			
 			if (vertexBufferMeta.member_descriptions().size() == 0) {
-				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
+				throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
 			}
 			// Find member representing the positions, and...
 			auto posMember = std::find_if(
@@ -1482,7 +1482,7 @@ namespace ak
 				});
 			// ... perform 2nd check:
 			if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
-				throw ak::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
+				throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
 			}
 
 			assert(vertexBuffer.has_device_address());
@@ -1494,7 +1494,7 @@ namespace ak
 					.setVertexFormat(posMember->mFormat)
 					.setVertexData(vk::DeviceOrHostAddressConstKHR{ vertexBuffer.device_address() }) // TODO: Support host addresses
 					.setVertexStride(static_cast<vk::DeviceSize>(vertexBufferMeta.sizeof_one_element()))
-					.setIndexType(ak::to_vk_index_type(indexBufferMeta.sizeof_one_element()))
+					.setIndexType(avk::to_vk_index_type(indexBufferMeta.sizeof_one_element()))
 					.setIndexData(vk::DeviceOrHostAddressConstKHR{ indexBuffer.device_address() }) // TODO: Support host addresses
 					.setTransformData(nullptr)
 				)
@@ -1551,7 +1551,7 @@ namespace ak
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<avk::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
 	{
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
@@ -1568,7 +1568,7 @@ namespace ak
 			result.value()->set_custom_deleter([lOwnedAabbBuffer = std::move(aabbDataBuffer)](){});
 		}
 		else {
-			AK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
+			AVK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
 			mDevice.waitIdle();
 		}
 		return result;
@@ -1638,12 +1638,12 @@ namespace ak
 		return aSyncHandler.submit_and_sync();
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<avk::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
 	}
 	
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<ak::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<avk::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
@@ -1708,9 +1708,9 @@ namespace ak
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
 				mPhysicalDevice, mDevice,
-				ak::memory_usage::device,
+				avk::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
-				ak::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
+				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
 		}
 		return mScratchBuffer.value();
@@ -2030,7 +2030,7 @@ namespace ak
 
 		// If memory allocation was successful, then we can now associate this memory with the buffer
 		aDevice.bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
-		// TODO: if(!succeeded) { throw ak::runtime_error("Binding memory to buffer failed."); }
+		// TODO: if(!succeeded) { throw avk::runtime_error("Binding memory to buffer failed."); }
 
 		result.mCreateInfo = bufferCreateInfo;
 		result.mMemoryPropertyFlags = aMemoryProperties;
@@ -2039,7 +2039,7 @@ namespace ak
 		result.mPhysicalDevice = aPhysicalDevice;
 		result.mBuffer = std::move(vkBuffer);
 
-		if (ak::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || ak::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || ak::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
 			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
 		}
 		
@@ -2054,11 +2054,11 @@ namespace ak
 		auto device = mBuffer.getOwner();
 
 		// #1: Is our memory on the CPU-SIDE? 
-		if (ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
+		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
 			void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
 			memcpy(mapped, pData, bufferSize);
 			// Coherent memory is done; non-coherent memory not yet
-			if (!ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
+			if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
 				// Setup the range 
 				auto range = vk::MappedMemoryRange()
 					.setMemory(memory_handle())
@@ -2076,14 +2076,14 @@ namespace ak
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
 		else {
-			assert(ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
+			assert(avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
 			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via sync
 			auto stagingBuffer = root::create_buffer(
 				mPhysicalDevice, device,
-				ak::memory_usage::host_coherent,
+				avk::memory_usage::host_coherent,
 				vk::BufferUsageFlagBits::eTransferSrc,
 				generic_buffer_meta::create_from_size(bufferSize)
 			);
@@ -2121,10 +2121,10 @@ namespace ak
 		auto device = mBuffer.getOwner();
 		
 		// #1: Is our memory accessible on the CPU-SIDE? 
-		if (ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
+		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
 			
 			const void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
-			if (!ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
+			if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
 				// Setup the range 
 				auto range = vk::MappedMemoryRange()
 					.setMemory(memory_handle())
@@ -2141,14 +2141,14 @@ namespace ak
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
 		else {
-			assert(ak::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
+			assert(avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
 			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
 			// "somewhat temporary" means that it can not be deleted in this function, but only
-			//						after the transfer operation has completed => handle via ak::sync!
+			//						after the transfer operation has completed => handle via avk::sync!
 			auto stagingBuffer = root::create_buffer(
 				mPhysicalDevice, device,
-				ak::memory_usage::host_coherent,
+				avk::memory_usage::host_coherent,
 				vk::BufferUsageFlagBits::eTransferDst,
 				generic_buffer_meta::create_from_size(bufferSize));
 			// TODO: Creating a staging buffer in every read()-call is probably not optimal. => Think about alternative ways!
@@ -2206,7 +2206,7 @@ namespace ak
 			// meta<buffer_meta> should evaluate true for EVERY meta data there is. 
 			return std::get<buffer>(mBuffer)->meta_at_index<buffer_meta>(aMetaDataIndex).descriptor_type().value();
 		}
-		throw ak::runtime_error("Which descriptor type?");
+		throw avk::runtime_error("Which descriptor type?");
 	}
 	
 	buffer_view root::create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat, size_t aMetaDataIndex, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
@@ -2218,10 +2218,10 @@ namespace ak
 		}
 		else {
 			if (aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().size() == 0) {
-				throw ak::runtime_error("No view format passed and ak::uniform_texel_buffer contains no member descriptions");
+				throw avk::runtime_error("No view format passed and ak::uniform_texel_buffer contains no member descriptions");
 			}
 			if (aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().size() > 1) {
-				AK_LOG_WARNING("No view format passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
+				AVK_LOG_WARNING("No view format passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
 			}
 			format = aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().front().mFormat;
 		}
@@ -2344,7 +2344,7 @@ namespace ak
 #ifdef _DEBUG
 		bool hadToEnable = false;
 #endif
-		std::vector<ak::image_view> imageViews;
+		std::vector<avk::image_view> imageViews;
 		for (auto& view : aFramebuffer.image_views()) {
 			if (!view.is_shared_ownership_enabled()) {
 				view.enable_shared_ownership();
@@ -2356,7 +2356,7 @@ namespace ak
 		}
 #ifdef _DEBUG
 		if (hadToEnable) {
-			AK_LOG_DEBUG("Had to enable shared ownership on all the framebuffers' views in command_buffer_t::begin_render_pass_for_framebuffer, fyi.");
+			AVK_LOG_DEBUG("Had to enable shared ownership on all the framebuffers' views in command_buffer_t::begin_render_pass_for_framebuffer, fyi.");
 		}
 #endif
 		set_post_execution_handler([lAttachmentDescs = aRenderpass.attachment_descriptions(), lImageViews = std::move(imageViews)] () {
@@ -2454,7 +2454,7 @@ namespace ak
 	void command_buffer_t::bind_descriptors(vk::PipelineBindPoint aBindingPoint, vk::PipelineLayout aLayoutHandle, std::vector<descriptor_set> aDescriptorSets)
 	{
 		if (aDescriptorSets.size() == 0) {
-			AK_LOG_WARNING("command_buffer_t::bind_descriptors has been called, but there are no descriptor sets to be bound.");
+			AVK_LOG_WARNING("command_buffer_t::bind_descriptors has been called, but there are no descriptor sets to be bound.");
 			return;
 		}
 
@@ -2521,7 +2521,7 @@ namespace ak
 
 		// 1. Compile and store the one and only shader:
 		if (!aConfig.mShaderInfo.has_value()) {
-			throw ak::logic_error("Shader missing in compute_pipeline_config! A compute pipeline can not be constructed without a shader.");
+			throw avk::logic_error("Shader missing in compute_pipeline_config! A compute pipeline can not be constructed without a shader.");
 		}
 		//    Compile the shader
 		result.mShader = create_shader(aConfig.mShaderInfo.value());
@@ -2654,10 +2654,10 @@ namespace ak
 			.setFlags(vk::DescriptorPoolCreateFlags()); // The structure has an optional flag similar to command pools that determines if individual descriptor sets can be freed or not: VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT. We're not going to touch the descriptor set after creating it, so we don't need this flag. [10]
 		result.mDescriptorPool = aDevice.createDescriptorPoolUnique(createInfo);
 		
-		AK_LOG_DEBUG("Allocated pool with flags[" + vk::to_string(createInfo.flags) + "], maxSets[" + std::to_string(createInfo.maxSets) + "], remaining-sets[" + std::to_string(result.mNumRemainingSets) + "], size-entries[" + std::to_string(createInfo.poolSizeCount) + "]");
+		AVK_LOG_DEBUG("Allocated pool with flags[" + vk::to_string(createInfo.flags) + "], maxSets[" + std::to_string(createInfo.maxSets) + "], remaining-sets[" + std::to_string(result.mNumRemainingSets) + "], size-entries[" + std::to_string(createInfo.poolSizeCount) + "]");
 #if defined(_DEBUG)
 		for (size_t i=0; i < aSizeRequirements.size(); ++i) {
-			AK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: descriptorCount[" + std::to_string(aSizeRequirements[i].descriptorCount) + "], descriptorType[" + vk::to_string(aSizeRequirements[i].type) + "]");
+			AVK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: descriptorCount[" + std::to_string(aSizeRequirements[i].descriptorCount) + "], descriptorType[" + vk::to_string(aSizeRequirements[i].type) + "]");
 		}
 #endif
 		
@@ -2711,23 +2711,23 @@ namespace ak
 			.setDescriptorSetCount(static_cast<uint32_t>(setLayouts.size()))
 			.setPSetLayouts(setLayouts.data());
 
-		AK_LOG_DEBUG_VERBOSE("Allocated pool with remaining-sets[" + std::to_string(mNumRemainingSets) + "] and remaining-capacities:");
+		AVK_LOG_DEBUG_VERBOSE("Allocated pool with remaining-sets[" + std::to_string(mNumRemainingSets) + "] and remaining-capacities:");
 #if defined(_DEBUG)
 		for (size_t i=0; i < mRemainingCapacities.size(); ++i) {
-			AK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: descriptorCount[" + std::to_string(mRemainingCapacities[i].descriptorCount) + "], descriptorType[" + vk::to_string(mRemainingCapacities[i].type) + "]");
+			AVK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: descriptorCount[" + std::to_string(mRemainingCapacities[i].descriptorCount) + "], descriptorType[" + vk::to_string(mRemainingCapacities[i].type) + "]");
 		}
 #endif
-		AK_LOG_DEBUG_VERBOSE("...going to allocate " + std::to_string(aLayouts.size()) + " set(s) of the following:");
+		AVK_LOG_DEBUG_VERBOSE("...going to allocate " + std::to_string(aLayouts.size()) + " set(s) of the following:");
 #if defined(_DEBUG)
 		for (size_t i=0; i < aLayouts.size(); ++i) {
-			AK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: number_of_bindings[" + std::to_string(aLayouts[i].get().number_of_bindings()) + "]");
+			AVK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: number_of_bindings[" + std::to_string(aLayouts[i].get().number_of_bindings()) + "]");
 			for (size_t j=0; j < aLayouts[i].get().number_of_bindings(); j++) {
-				AK_LOG_DEBUG_VERBOSE("               [" + std::to_string(j) + "]: descriptorCount[" + std::to_string(aLayouts[i].get().binding_at(j).descriptorCount) + "], descriptorType[" + vk::to_string(aLayouts[i].get().binding_at(j).descriptorType) + "]");
+				AVK_LOG_DEBUG_VERBOSE("               [" + std::to_string(j) + "]: descriptorCount[" + std::to_string(aLayouts[i].get().binding_at(j).descriptorCount) + "], descriptorType[" + vk::to_string(aLayouts[i].get().binding_at(j).descriptorType) + "]");
 			}
-			AK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: required pool sizes (whatever the difference to 'bindings' is)");
+			AVK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: required pool sizes (whatever the difference to 'bindings' is)");
 			auto& rps = aLayouts[i].get().required_pool_sizes();
 			for (size_t j=0; j < rps.size(); j++) {
-				AK_LOG_DEBUG_VERBOSE("               [" + std::to_string(j) + "]: descriptorCount[" + std::to_string(rps[j].descriptorCount) + "], descriptorType[" + vk::to_string(rps[j].type) + "]");
+				AVK_LOG_DEBUG_VERBOSE("               [" + std::to_string(j) + "]: descriptorCount[" + std::to_string(rps[j].descriptorCount) + "], descriptorType[" + vk::to_string(rps[j].type) + "]");
 			}
 		}
 #endif
@@ -2742,7 +2742,7 @@ namespace ak
 					return el.type == dps.type;
 				});
 				if (std::end(mRemainingCapacities) == it) {
-					AK_LOG_WARNING("Couldn't find the descriptor type that we have just allocated in mRemainingCapacities. How could this have happened?");
+					AVK_LOG_WARNING("Couldn't find the descriptor type that we have just allocated in mRemainingCapacities. How could this have happened?");
 				}
 				else {
 					it->descriptorCount -= std::min(dps.descriptorCount, it->descriptorCount);
@@ -2781,7 +2781,7 @@ namespace ak
 			aLayoutToBeAllocated.mLayout = aDevice.createDescriptorSetLayoutUnique(createInfo);
 		}
 		else {
-			AK_LOG_ERROR("descriptor_set_layout's handle already has a value => it most likely has already been allocated. Won't do it again.");
+			AVK_LOG_ERROR("descriptor_set_layout's handle already has a value => it most likely has already been allocated. Won't do it again.");
 		}
 	}
 	
@@ -2926,14 +2926,14 @@ namespace ak
 				pool = poolToTry;
 			}
 			catch (vk::OutOfPoolMemoryError& fail) {
-				AK_LOG_ERROR(std::string("Failed to allocate descriptor sets from pool: ") + fail.what());
+				AVK_LOG_ERROR(std::string("Failed to allocate descriptor sets from pool: ") + fail.what());
 				switch (maxTries) {
 				case 1:
-					AK_LOG_INFO("Trying again with doubled size requirements...");
+					AVK_LOG_INFO("Trying again with doubled size requirements...");
 					allocRequest = allocRequest.multiply_size_requirements(2u);
 					poolToTry = get_descriptor_pool_for_layouts(allocRequest);
 				default:
-					AK_LOG_INFO("Trying again with new pool..."); // and possibly doubled size requirements, depending on whether maxTries is 2 or 0
+					AVK_LOG_INFO("Trying again with new pool..."); // and possibly doubled size requirements, depending on whether maxTries is 2 or 0
 					poolToTry = get_descriptor_pool_for_layouts(allocRequest, true);
 				}
 			}
@@ -2987,7 +2987,7 @@ namespace ak
 		}
 		
 		// We weren't lucky (or new pool has been requested) => create a new pool:
-		AK_LOG_INFO("Allocating new descriptor pool for thread[" + [tId]() { std::stringstream ss; ss << tId; return ss.str(); }() + "] and name['" + mName + "]");
+		AVK_LOG_INFO("Allocating new descriptor pool for thread[" + [tId]() { std::stringstream ss; ss << tId; return ss.str(); }() + "] and name['" + mName + "]");
 		
 		// TODO: On AMD, it seems that all the entries have to be multiplied as well, while on NVIDIA, only multiplying the number of sets seems to be sufficient
 		//       => How to handle this? Overallocation is as bad as underallocation. Shall we make use of exceptions? Shall we 'if' on the vendor?
@@ -3219,14 +3219,14 @@ namespace ak
 	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<image_view>& aImageViews)
 	{
 		if (aAttachments.size() != aImageViews.size()) {
-			throw ak::runtime_error("Incomplete config for framebuffer creation: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
+			throw avk::runtime_error("Incomplete config for framebuffer creation: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
 		}
 		auto n = aAttachments.size();
 		for (size_t i = 0; i < n; ++i) {
 			auto& a = aAttachments[i];
 			auto& v = aImageViews[i];
 			if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
-				AK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
+				AVK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
 			}
 			// TODO: Maybe further checks?
 			if (!a.mImageUsageHintBefore.has_value() && !a.mImageUsageHintAfter.has_value()) {
@@ -3235,7 +3235,7 @@ namespace ak
 		}
 	}
 
-	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<avk::image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		framebuffer_t result;
 		result.mRenderpass = std::move(aRenderpass);
@@ -3283,14 +3283,14 @@ namespace ak
 		);
 	}
 
-	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<avk::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		assert(!aImageViews.empty());
 		auto extent = aImageViews.front()->get_image().config().extent;
 		return create_framebuffer(std::move(aRenderpass), std::move(aImageViews), extent.width, extent.height, std::move(aAlterConfigBeforeCreation));
 	}
 
-	framebuffer root::create_framebuffer(std::vector<ak::attachment> aAttachments, std::vector<ak::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(std::vector<avk::attachment> aAttachments, std::vector<avk::image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
@@ -3478,7 +3478,7 @@ namespace ak
 	std::vector<VkAccelerationStructureInstanceKHR> convert_for_gpu_usage(const std::vector<geometry_instance>& aGeomInstances)
 	{
 		if (aGeomInstances.empty()) {
-			AK_LOG_WARNING("Empty vector of geometry instances passed to convert_for_gpu_usage");
+			AVK_LOG_WARNING("Empty vector of geometry instances passed to convert_for_gpu_usage");
 		}
 
 		std::vector<VkAccelerationStructureInstanceKHR> instancesGpu;
@@ -3563,7 +3563,7 @@ namespace ak
 						return _GeneralData.mBinding == bindingId;
 					});
 				if (1 != numRecordsWithSameBinding) {
-					throw ak::runtime_error("The input binding #" + std::to_string(bindingData.mBinding) + " is defined in different ways. Make sure to define it uniformly across different bindings/attribute descriptions!");
+					throw avk::runtime_error("The input binding #" + std::to_string(bindingData.mBinding) + " is defined in different ways. Make sure to define it uniformly across different bindings/attribute descriptions!");
 				}
 
 				result.mVertexInputBindingDescriptions.push_back(vk::VertexInputBindingDescription()
@@ -3606,7 +3606,7 @@ namespace ak
 		for (auto& shaderInfo : aConfig.mShaderInfos) {
 			// 5.0 Sanity check
 			if (result.mShaders.end() != std::find_if(std::begin(result.mShaders), std::end(result.mShaders), [&shaderInfo](const shader& existing) { return existing.info().mShaderType == shaderInfo.mShaderType; })) {
-				throw ak::runtime_error("There's already a " + vk::to_string(to_vk_shader_stages(shaderInfo.mShaderType)) + "-type shader contained in this graphics pipeline. Can not add another one of the same type.");
+				throw avk::runtime_error("There's already a " + vk::to_string(to_vk_shader_stages(shaderInfo.mShaderType)) + "-type shader contained in this graphics pipeline. Can not add another one of the same type.");
 			}
 			// 5.1 Compile the shader
 			result.mShaders.push_back(create_shader(shaderInfo));
@@ -3689,13 +3689,13 @@ namespace ak
 				>> to_vector();
 
 			if (universalConfig.size() > 1) {
-				throw ak::runtime_error("Ambiguous 'universal' color blending configurations. Either provide only one 'universal' "
+				throw avk::runtime_error("Ambiguous 'universal' color blending configurations. Either provide only one 'universal' "
 					"config (which is not attached to a specific color target) or assign them to specific color target attachment ids.");
 			}
 
 			// Iterate over all color target attachments and set a color blending config
 			if (result.subpass_id() >= result.mRenderPass->attachment_descriptions().size()) {
-				throw ak::runtime_error(
+				throw avk::runtime_error(
 					"There are fewer subpasses in the renderpass (" 
 					+ std::to_string(result.mRenderPass->attachment_descriptions().size()) + 
 					") than the subpass index ("
@@ -3710,7 +3710,7 @@ namespace ak
 					>> where([i](const color_blending_config& config) { return config.mTargetAttachment.has_value() && config.mTargetAttachment.value() == i; })
 					>> to_vector();
 				if (configForI.size() > 1) {
-					throw ak::runtime_error("Ambiguous color blending configuration for color attachment at index #" + std::to_string(i) + ". Provide only one config per color attachment!");
+					throw avk::runtime_error("Ambiguous color blending configuration for color attachment at index #" + std::to_string(i) + ". Provide only one config per color attachment!");
 				}
 				// Determine which color blending to use for this attachment:
 				color_blending_config toUse = configForI.size() == 1 ? configForI[0] : color_blending_config::disable();
@@ -3755,7 +3755,7 @@ namespace ak
 #if defined(_DEBUG) 
 			for (const vk::AttachmentDescription& config: colorAttConfigs) {
 				if (config.samples != numSamples) {
-					AK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
+					AVK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
 				}
 			}
 #endif
@@ -3774,7 +3774,7 @@ namespace ak
 #if defined(_DEBUG) 
 					for (const vk::AttachmentDescription& config: depthAttConfigs) {
 						if (config.samples != numSamples) {
-							AK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
+							AVK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
 						}
 					}
 #endif
@@ -3782,7 +3782,7 @@ namespace ak
 #if defined(_DEBUG) 
 					for (const vk::AttachmentDescription& config: colorAttConfigs) {
 						if (config.samples != numSamples) {
-							AK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
+							AVK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
 						}
 					}
 #endif
@@ -3946,7 +3946,7 @@ namespace ak
 			mAspectFlags = aOther.mAspectFlags;
 		}
 		else {
-			throw ak::runtime_error("Can not copy this image instance!");
+			throw avk::runtime_error("Can not copy this image instance!");
 		}
 	}
 	
@@ -3957,38 +3957,38 @@ namespace ak
 		
 		vk::MemoryPropertyFlags memoryFlags{};
 		switch (aMemoryUsage) {
-		case ak::memory_usage::host_visible:
+		case avk::memory_usage::host_visible:
 			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible;
 			break;
-		case ak::memory_usage::host_coherent:
+		case avk::memory_usage::host_coherent:
 			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
 			break;
-		case ak::memory_usage::host_cached:
+		case avk::memory_usage::host_cached:
 			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
 			break;
-		case ak::memory_usage::device:
+		case avk::memory_usage::device:
 			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst; 
 			break;
-		case ak::memory_usage::device_readback:
+		case avk::memory_usage::device_readback:
 			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
 			break;
-		case ak::memory_usage::device_protected:
+		case avk::memory_usage::device_protected:
 			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eProtected;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst;
 			break;
 		}
 
 		// How many MIP-map levels are we going to use?
-		auto mipLevels = ak::has_flag(aImageUsage, ak::image_usage::mip_mapped)
+		auto mipLevels = avk::has_flag(aImageUsage, avk::image_usage::mip_mapped)
 			? static_cast<uint32_t>(1 + std::floor(std::log2(std::max(aWidth, aHeight))))
 			: 1u;
 
 		const auto format = std::get<vk::Format>(aFormatAndSamples);
 		const auto samples = std::get<vk::SampleCountFlagBits>(aFormatAndSamples);
 		
-		if (ak::has_flag(imageUsage, vk::ImageUsageFlagBits::eDepthStencilAttachment) && vk::ImageTiling::eOptimal == imageTiling) { // only for AMD |-(
+		if (avk::has_flag(imageUsage, vk::ImageUsageFlagBits::eDepthStencilAttachment) && vk::ImageTiling::eOptimal == imageTiling) { // only for AMD |-(
 			auto formatProps = physical_device().getFormatProperties(format);
 			if (!has_flag(formatProps.optimalTilingFeatures, vk::FormatFeatureFlagBits::eDepthStencilAttachment)) {
 				imageTiling = vk::ImageTiling::eLinear;
@@ -4046,13 +4046,13 @@ namespace ak
 		return result;
 	}
 
-	image root::create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers, memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers, memory_usage aMemoryUsage, avk::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		return create_image(aWidth, aHeight, std::make_tuple(aFormat, vk::SampleCountFlagBits::e1), aNumLayers, aMemoryUsage, aImageUsage, std::move(aAlterConfigBeforeCreation));
 	}
 
 
-	image root::create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, avk::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		// Select a suitable depth format
 		if (!aFormat) {
@@ -4065,10 +4065,10 @@ namespace ak
 			}
 		}
 		if (!aFormat) {
-			throw ak::runtime_error("No suitable depth format could be found.");
+			throw avk::runtime_error("No suitable depth format could be found.");
 		}
 
-		aImageUsage |= ak::image_usage::depth_stencil_attachment;
+		aImageUsage |= avk::image_usage::depth_stencil_attachment;
 
 		// Create the image (by default only on the device which should be sufficient for a depth buffer => see pMemoryUsage's default value):
 		auto result = create_image(aWidth, aHeight, *aFormat, aNumLayers, aMemoryUsage, aImageUsage, std::move(aAlterConfigBeforeCreation));
@@ -4076,7 +4076,7 @@ namespace ak
 		return result;
 	}
 
-	image root::create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, ak::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat, int aNumLayers,  memory_usage aMemoryUsage, avk::image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		// Select a suitable depth+stencil format
 		if (!aFormat) {
@@ -4089,7 +4089,7 @@ namespace ak
 			}
 		}
 		if (!aFormat) {
-			throw ak::runtime_error("No suitable depth+stencil format could be found.");
+			throw avk::runtime_error("No suitable depth+stencil format could be found.");
 		}
 
 		// Create the image (by default only on the device which should be sufficient for a depth+stencil buffer => see pMemoryUsage's default value):
@@ -4098,7 +4098,7 @@ namespace ak
 		return result;
 	}
 
-	image_t root::wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, ak::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags)
+	image_t root::wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, avk::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags)
 	{
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 		
@@ -4131,7 +4131,7 @@ namespace ak
 			return {}; // done (:
 		}
 		if (vk::ImageLayout::eUndefined == trgLayout || vk::ImageLayout::ePreinitialized == trgLayout) {
-			AK_LOG_VERBOSE("Won't transition into layout " + vk::to_string(trgLayout));
+			AVK_LOG_VERBOSE("Won't transition into layout " + vk::to_string(trgLayout));
 			return {}; // Won't do it!
 		}
 		
@@ -4239,7 +4239,7 @@ namespace ak
 #pragma endregion
 
 #pragma region image view definitions
-	image_view root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 		
@@ -4256,7 +4256,7 @@ namespace ak
 		return result;
 	}
 
-	image_view root::create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 		
@@ -4273,7 +4273,7 @@ namespace ak
 		return result;
 	}
 
-	image_view root::create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 		
@@ -4290,7 +4290,7 @@ namespace ak
 		return result;
 	}
 
-	image_view root::create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat, std::optional<ak::image_usage> aImageViewUsage)
+	image_view root::create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage)
 	{
 		image_view_t result;
 		
@@ -4307,7 +4307,7 @@ namespace ak
 		return result;
 	}
 
-	void root::finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<ak::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	void root::finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		if (!aImageAspectFlags.has_value()) {
 			const auto imageFormat = aImageView.get_image().config().format;
@@ -4315,7 +4315,7 @@ namespace ak
 			
 			if (is_depth_format(imageFormat)) {
 				if (has_stencil_component(imageFormat)) {
-					AK_LOG_ERROR("Can infer whether the image view shall refer to the depth component or to the stencil component => State it explicitly by using image_view_t::create_depth or image_view_t::create_stencil");
+					AVK_LOG_ERROR("Can infer whether the image view shall refer to the depth component or to the stencil component => State it explicitly by using image_view_t::create_depth or image_view_t::create_stencil");
 				}
 				aImageAspectFlags = vk::ImageAspectFlagBits::eDepth;
 				// TODO: use vk::ImageAspectFlagBits' underlying type and exclude eStencil rather than only setting eDepth!
@@ -4435,7 +4435,7 @@ namespace ak
 			maxAnisotropy = 64.0f;
 			break;
 		default:
-			throw ak::runtime_error("invalid filter_mode");
+			throw avk::runtime_error("invalid filter_mode");
 		}
 
 		// Determine how to handle the borders:
@@ -4458,7 +4458,7 @@ namespace ak
 			addressMode = vk::SamplerAddressMode::eMirroredRepeat;
 			break;
 		default:
-			throw ak::runtime_error("invalid border_handling_mode");
+			throw avk::runtime_error("invalid border_handling_mode");
 		}
 
 		// Compile the config for this sampler:
@@ -4533,7 +4533,7 @@ namespace ak
 					bfr = instance_buffer_meta::create_from_element_size(bindingLoc.mGeneralData.mStride);
 					break;
 				default:
-					throw ak::runtime_error("Invalid input_binding_location_data::kind value");
+					throw avk::runtime_error("Invalid input_binding_location_data::kind value");
 				}
 			}
 
@@ -4543,7 +4543,7 @@ namespace ak
 				|| (input_binding_general_data::kind::vertex == bindingLoc.mGeneralData.mKind && std::holds_alternative<instance_buffer_meta>(bfr))
 				|| (input_binding_general_data::kind::instance == bindingLoc.mGeneralData.mKind && std::holds_alternative<vertex_buffer_meta>(bfr))
 				) {
-				throw ak::logic_error("All locations of the same binding must come from the same buffer type (vertex buffer or instance buffer).");
+				throw avk::logic_error("All locations of the same binding must come from the same buffer type (vertex buffer or instance buffer).");
 			}
 #endif
 
@@ -4580,7 +4580,7 @@ namespace ak
 	void read_memory_access::validate_or_throw() const
 	{
 		if (!is_read_access(mMemoryAccess)) {
-			throw ak::runtime_error("The access flag represented by this instance of read_memory_access is not a read-type access flag.");
+			throw avk::runtime_error("The access flag represented by this instance of read_memory_access is not a read-type access flag.");
 		}
 	}
 
@@ -4598,7 +4598,7 @@ namespace ak
 	void write_memory_access::validate_or_throw() const
 	{
 		if (is_read_access(mMemoryAccess)) {
-			throw ak::runtime_error("The access flag represented by this instance of write_memory_access is not a write-type access flag.");
+			throw avk::runtime_error("The access flag represented by this instance of write_memory_access is not a write-type access flag.");
 		}
 	}
 #pragma endregion
@@ -4710,7 +4710,7 @@ namespace ak
 	{
 		auto families = find_best_queue_family_for(aPhysicalDevice, aRequiredFlags, aQueueSelectionPreference, aSupportForSurface);
 		if (families.size() == 0) {
-			throw ak::runtime_error("Couldn't find queue families satisfying the given criteria.");
+			throw avk::runtime_error("Couldn't find queue families satisfying the given criteria.");
 		}
 
 		uint32_t familyIndex = std::get<0>(families[0]);
@@ -4726,10 +4726,10 @@ namespace ak
 	{
 		auto queueFamilies = aPhysicalDevice.getQueueFamilyProperties();
 		if (queueFamilies.size() <= aQueueFamilyIndex) {
-			throw ak::runtime_error("Invalid queue family index in queue::prepare");
+			throw avk::runtime_error("Invalid queue family index in queue::prepare");
 		}
 		if (queueFamilies[aQueueFamilyIndex].queueCount <= aQueueIndex) {
-			throw ak::runtime_error("Queue family #" + std::to_string(aQueueFamilyIndex) + " does not provide enough queues (requested index: " + std::to_string(aQueueIndex) + ")");
+			throw avk::runtime_error("Queue family #" + std::to_string(aQueueFamilyIndex) + " does not provide enough queues (requested index: " + std::to_string(aQueueIndex) + ")");
 		}
 		
 		queue result;
@@ -5079,7 +5079,7 @@ namespace ak
 	semaphore queue::submit_and_handle_with_semaphore(std::optional<command_buffer> aCommandBuffer, std::vector<semaphore> aWaitSemaphores)
 	{
 		if (!aCommandBuffer.has_value()) {
-			throw ak::runtime_error("std::optional<command_buffer> submitted and it has no value.");
+			throw avk::runtime_error("std::optional<command_buffer> submitted and it has no value.");
 		}
 		return submit_and_handle_with_semaphore(std::move(aCommandBuffer.value()), std::move(aWaitSemaphores));
 	}	
@@ -5089,7 +5089,7 @@ namespace ak
 	triangles_hit_group triangles_hit_group::create_with_rahit_only(shader_info aAnyHitShader)
 	{
 		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::any_hit");
 		}
 		return triangles_hit_group { std::move(aAnyHitShader), std::nullopt };
 	}
@@ -5097,7 +5097,7 @@ namespace ak
 	triangles_hit_group triangles_hit_group::create_with_rchit_only(shader_info aClosestHitShader)
 	{
 		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
 		return triangles_hit_group { std::nullopt, std::move(aClosestHitShader) };
 	}
@@ -5105,10 +5105,10 @@ namespace ak
 	triangles_hit_group triangles_hit_group::create_with_rahit_and_rchit(shader_info aAnyHitShader, shader_info aClosestHitShader)
 	{
 		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::any_hit");
 		}
 		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
 		return triangles_hit_group { std::move(aAnyHitShader), std::move(aClosestHitShader) };
 	}
@@ -5139,7 +5139,7 @@ namespace ak
 	procedural_hit_group procedural_hit_group::create_with_rint_only(shader_info aIntersectionShader)
 	{
 		if (aIntersectionShader.mShaderType != shader_type::intersection) {
-			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+			throw avk::runtime_error("Shader is not of type shader_type::intersection");
 		}
 		return procedural_hit_group { std::move(aIntersectionShader), std::nullopt, std::nullopt };
 	}
@@ -5147,10 +5147,10 @@ namespace ak
 	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit(shader_info aIntersectionShader, shader_info aAnyHitShader)
 	{
 		if (aIntersectionShader.mShaderType != shader_type::intersection) {
-			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+			throw avk::runtime_error("Shader is not of type shader_type::intersection");
 		}
 		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::any_hit");
 		}
 		return procedural_hit_group { std::move(aIntersectionShader), std::move(aAnyHitShader), std::nullopt };
 	}
@@ -5158,10 +5158,10 @@ namespace ak
 	procedural_hit_group procedural_hit_group::create_with_rint_and_rchit(shader_info aIntersectionShader, shader_info aClosestHitShader)
 	{
 		if (aIntersectionShader.mShaderType != shader_type::intersection) {
-			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+			throw avk::runtime_error("Shader is not of type shader_type::intersection");
 		}
 		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
 		return procedural_hit_group { std::move(aIntersectionShader), std::nullopt, std::move(aClosestHitShader) };
 	}
@@ -5169,13 +5169,13 @@ namespace ak
 	procedural_hit_group procedural_hit_group::create_with_rint_and_rahit_and_rchit(shader_info aIntersectionShader, shader_info aAnyHitShader, shader_info aClosestHitShader)
 	{
 		if (aIntersectionShader.mShaderType != shader_type::intersection) {
-			throw ak::runtime_error("Shader is not of type shader_type::intersection");
+			throw avk::runtime_error("Shader is not of type shader_type::intersection");
 		}
 		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::any_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::any_hit");
 		}
 		if (aClosestHitShader.mShaderType != shader_type::closest_hit) {
-			throw ak::runtime_error("Shader is not of type shader_type::closest_hit");
+			throw avk::runtime_error("Shader is not of type shader_type::closest_hit");
 		}
 		return procedural_hit_group { std::move(aIntersectionShader), std::move(aAnyHitShader), std::move(aClosestHitShader) };
 	}
@@ -5292,7 +5292,7 @@ namespace ak
 				}
 			}
 			else {
-				throw ak::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
+				throw avk::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
 			}
 		}
 		result.mShaders.reserve(orderedUniqueShaderInfos.size());
@@ -5338,7 +5338,7 @@ namespace ak
 				case shader_type::ray_generation: curType = group_type::raygen;   break;
 				case shader_type::miss:           curType = group_type::miss;     break;
 				case shader_type::callable:       curType = group_type::callable; break;
-				default: throw ak::runtime_error("Invalid shader type passed to create_ray_tracing_pipeline, recognized during gathering of SBT infos");
+				default: throw avk::runtime_error("Invalid shader type passed to create_ray_tracing_pipeline, recognized during gathering of SBT infos");
 				}
 				
 				// The shader indices are actually indices into `result.mShaders` not into
@@ -5392,7 +5392,7 @@ namespace ak
 					.setClosestHitShader(rchitShaderIndex);
 			}
 			else {
-				throw ak::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
+				throw avk::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
 			}
 
 			// Set that shader binding table groups information:
@@ -5418,7 +5418,7 @@ namespace ak
 				case group_type::callable:
 					curEdited = &result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.emplace_back();
 					break;
-				default: throw ak::runtime_error("Can't be!");
+				default: throw avk::runtime_error("Can't be!");
 				}
 				assert (nullptr != curEdited);
 				curEdited->mOffset = groupOffset;
@@ -5549,7 +5549,7 @@ namespace ak
 					++iCallable;
 				}
 				else {
-					throw ak::runtime_error("Can't be");
+					throw avk::runtime_error("Can't be");
 				}
 				
 				memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
@@ -5624,10 +5624,10 @@ namespace ak
 			if (aMiss.length() > missStr.length())			{ aMiss =   aMiss.substr(aMiss.length()   - missStr.length()); }
 			if (aHit.length() > hitStr.length())			{ aHit =    aHit.substr(aHit.length()    - hitStr.length()); }
 			if (aCallable.length() > callableStr.length())	{ aCallable = aCallable.substr(aCallable.length() - callableStr.length()); }
-			AK_LOG_INFO("| " + aOffset + " | " + aShaders + " | " + aRaygen + " | " + aMiss + " | " + aHit + " | " + aCallable + " |");
+			AVK_LOG_INFO("| " + aOffset + " | " + aShaders + " | " + aRaygen + " | " + aMiss + " | " + aHit + " | " + aCallable + " |");
 		};
 		auto getShaderName = [this](uint32_t aIndex, bool aPrintFileExt = true){
-			auto filename = ak::extract_file_name(mShaders[aIndex].info().mPath);
+			auto filename = avk::extract_file_name(mShaders[aIndex].info().mPath);
 			const auto spvPos = filename.find(".spv");
 			if (spvPos != std::string::npos) {
 				filename = filename.substr(0, spvPos);
@@ -5640,13 +5640,13 @@ namespace ak
 			}
 			return filename;
 		};
-		AK_LOG_INFO("+=============================================================================================================+");
-		AK_LOG_INFO("|                          +++++++++++++ SHADER BINDING TABLE +++++++++++++                                   |");
-		AK_LOG_INFO("|                          BYTE-OFFSETS, SHADERS, and GROUP-INDICES (G.IDX)                                   |");
-		AK_LOG_INFO("+=============================================================================================================+");
-		AK_LOG_INFO("| OFFSET | SHADERS: GENERAL or INTERS.|ANY-HIT|CLOSEST-HIT | RGEN G.IDX | MISS G.IDX | HIT G.IDX | CALL G.IDX |");
+		AVK_LOG_INFO("+=============================================================================================================+");
+		AVK_LOG_INFO("|                          +++++++++++++ SHADER BINDING TABLE +++++++++++++                                   |");
+		AVK_LOG_INFO("|                          BYTE-OFFSETS, SHADERS, and GROUP-INDICES (G.IDX)                                   |");
+		AVK_LOG_INFO("+=============================================================================================================+");
+		AVK_LOG_INFO("| OFFSET | SHADERS: GENERAL or INTERS.|ANY-HIT|CLOSEST-HIT | RGEN G.IDX | MISS G.IDX | HIT G.IDX | CALL G.IDX |");
 		while (off < mShaderBindingTableGroupsInfo.mEndOffset) {
-			AK_LOG_INFO("+-------------------------------------------------------------------------------------------------------------+");
+			AVK_LOG_INFO("+-------------------------------------------------------------------------------------------------------------+");
 			if (iRaygen   < mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
 				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset);
 				std::string grpIdx = "[" + std::to_string(iRaygen) + "]";
@@ -5695,10 +5695,10 @@ namespace ak
 				++iCallable;
 			}
 			else {
-				throw ak::runtime_error("Can't be");
+				throw avk::runtime_error("Can't be");
 			}
 		}
-		AK_LOG_INFO("+-------------------------------------------------------------------------------------------------------------+");
+		AVK_LOG_INFO("+-------------------------------------------------------------------------------------------------------------+");
 	}
 	
 #pragma endregion
@@ -5723,14 +5723,14 @@ using namespace cpplinq;
 		std::vector<uint32_t> mPreserveAttachments;
 	};
 
-	renderpass root::create_renderpass(std::vector<ak::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
 
 		std::vector<subpass_desc_helper> subpasses;
 		
 		if (aAttachments.empty()) {
-			throw ak::runtime_error("No attachments have been passed to the creation of a renderpass.");
+			throw avk::runtime_error("No attachments have been passed to the creation of a renderpass.");
 		}
 		const auto numSubpassesFirst = aAttachments.front().mSubpassUsages.num_subpasses();
 		// All further attachments must have the same number of subpasses! It will be checked.
@@ -5749,17 +5749,17 @@ using namespace cpplinq;
 			vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
 			vk::ImageLayout finalLayout = vk::ImageLayout::eUndefined;
 
-			const auto isLoad = ak::on_load::load == a.mLoadOperation;
-			const auto isClear = ak::on_load::clear == a.mLoadOperation;
-			const auto isStore  = ak::on_store::store == a.mStoreOperation || ak::on_store::store_in_presentable_format == a.mStoreOperation;
-			const auto makePresentable = ak::on_store::store_in_presentable_format == a.mStoreOperation;
+			const auto isLoad = avk::on_load::load == a.mLoadOperation;
+			const auto isClear = avk::on_load::clear == a.mLoadOperation;
+			const auto isStore  = avk::on_store::store == a.mStoreOperation || avk::on_store::store_in_presentable_format == a.mStoreOperation;
+			const auto makePresentable = avk::on_store::store_in_presentable_format == a.mStoreOperation;
 			
 			const auto hasSeparateStencilLoad = a.mStencilLoadOperation.has_value();
 			const auto hasSeparateStencilStore = a.mStencilStoreOperation.has_value();
-			const auto isStencilLoad = ak::on_load::load == a.get_stencil_load_op();
-			const auto isStencilClear = ak::on_load::clear == a.get_stencil_load_op();
-			const auto isStencilStore  = ak::on_store::store == a.get_stencil_store_op() || ak::on_store::store_in_presentable_format == a.get_stencil_store_op();
-			const auto makeStencilPresentable = ak::on_store::store_in_presentable_format == a.get_stencil_store_op();
+			const auto isStencilLoad = avk::on_load::load == a.get_stencil_load_op();
+			const auto isStencilClear = avk::on_load::clear == a.get_stencil_load_op();
+			const auto isStencilStore  = avk::on_store::store == a.get_stencil_store_op() || avk::on_store::store_in_presentable_format == a.get_stencil_store_op();
+			const auto makeStencilPresentable = avk::on_store::store_in_presentable_format == a.get_stencil_store_op();
 			const auto hasStencilComponent = has_stencil_component(a.format());
 
 			bool initialLayoutFixed = false;
@@ -5802,10 +5802,10 @@ using namespace cpplinq;
 			if (!initialLayoutFixed) {
 				if (a.mImageUsageHintBefore.has_value()) {
 					// If we detect the image usage to be more generic, we should change the layout to something more generic
-					if (ak::has_flag(a.mImageUsageHintBefore.value(), ak::image_usage::sampled)) {
+					if (avk::has_flag(a.mImageUsageHintBefore.value(), avk::image_usage::sampled)) {
 						initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 					}
-					if (ak::has_flag(a.mImageUsageHintBefore.value(), ak::image_usage::shader_storage)) {
+					if (avk::has_flag(a.mImageUsageHintBefore.value(), avk::image_usage::shader_storage)) {
 						initialLayout = vk::ImageLayout::eGeneral;
 					}
 				}
@@ -5842,10 +5842,10 @@ using namespace cpplinq;
 			}
 			if (a.mImageUsageHintAfter.has_value()) {
 				// If we detect the image usage to be more generic, we should change the layout to something more generic
-				if (ak::has_flag(a.mImageUsageHintAfter.value(), ak::image_usage::sampled)) {
+				if (avk::has_flag(a.mImageUsageHintAfter.value(), avk::image_usage::sampled)) {
 					finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 				}
-				if (ak::has_flag(a.mImageUsageHintAfter.value(), ak::image_usage::shader_storage)) {
+				if (avk::has_flag(a.mImageUsageHintAfter.value(), avk::image_usage::shader_storage)) {
 					finalLayout = vk::ImageLayout::eGeneral;
 				}
 			}
@@ -5880,7 +5880,7 @@ using namespace cpplinq;
 			// 2. Go throught the subpasses and gather data for subpass config
 			const auto nSubpasses = a.mSubpassUsages.num_subpasses();
 			if (nSubpasses != numSubpassesFirst) {
-				throw ak::runtime_error("All attachments must have the exact same number of subpasses!");
+				throw avk::runtime_error("All attachments must have the exact same number of subpasses!");
 			}
 
 			// Determine and fill clear values:
@@ -5909,13 +5909,13 @@ using namespace cpplinq;
 					if (subpassUsage.has_input_location()) {
 						auto loc = subpassUsage.input_location();
 						if (sp.mSpecificInputLocations.count(loc) != 0) {
-							throw ak::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for an input attachments in subpass " + std::to_string(i) + ". This is not allowed.");
+							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for an input attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
 						sp.mSpecificInputLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal};
 						sp.mInputMaxLoc = std::max(sp.mInputMaxLoc, loc);
 					}
 					else {
-						AK_LOG_WARNING("No layout location is specified for an input attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
+						AVK_LOG_WARNING("No layout location is specified for an input attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
 						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal});
 					}
 				}
@@ -5924,14 +5924,14 @@ using namespace cpplinq;
 					if (subpassUsage.has_color_location()) {
 						auto loc = subpassUsage.color_location();
 						if (sp.mSpecificColorLocations.count(loc) != 0) {
-							throw ak::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for a color attachments in subpass " + std::to_string(i) + ". This is not allowed.");
+							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for a color attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
 						sp.mSpecificColorLocations[loc] =	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal};
 						sp.mSpecificResolveLocations[loc] =	 vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal};
 						sp.mColorMaxLoc = std::max(sp.mColorMaxLoc, loc);
 					}
 					else {
-						AK_LOG_WARNING("No layout location is specified for a color attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
+						AVK_LOG_WARNING("No layout location is specified for a color attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
 						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal});
 						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal});
 					}
@@ -5940,7 +5940,7 @@ using namespace cpplinq;
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment // TODO: Support depth/stencil resolve by using VkSubpassDescription2
 					//if (hasLoc) { // Depth/stencil attachments have no location... have they?
 					//	if (sp.mSpecificDepthStencilLocations.count(loc) != 0) {
-					//		throw ak::runtime_error(fmt::format("Layout location {} is used multiple times for a depth/stencil attachments in subpass {}. This is not allowed.", loc, i));
+					//		throw avk::runtime_error(fmt::format("Layout location {} is used multiple times for a depth/stencil attachments in subpass {}. This is not allowed.", loc, i));
 					//	}
 					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
 					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
@@ -6292,7 +6292,7 @@ using namespace cpplinq;
 	
 	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& pPath)
 	{
-		auto binFileContents = ak::load_binary_file(pPath);
+		auto binFileContents = avk::load_binary_file(pPath);
 		return build_shader_module_from_binary_code(binFileContents);
 	}
 	
@@ -6306,13 +6306,13 @@ using namespace cpplinq;
 				shdr.mActualShaderLoadPath = shdr.info().mPath;
 				return shdr;
 			}
-			catch (ak::runtime_error&) {
+			catch (avk::runtime_error&) {
 			}			
 		}
 
 		const std::string secondTry = shdr.info().mPath + ".spv";
 		shdr.mShaderModule = build_shader_module_from_file(secondTry);
-		AK_LOG_INFO("Couldn't load '" + shdr.info().mPath + "' but loading '" + secondTry + "' was successful => going to use the latter, fyi!");
+		AVK_LOG_INFO("Couldn't load '" + shdr.info().mPath + "' but loading '" + secondTry + "' was successful => going to use the latter, fyi!");
 		shdr.mActualShaderLoadPath = secondTry;
 
 		return shdr;
@@ -6348,7 +6348,7 @@ using namespace cpplinq;
 		}
 
 		if (!pShaderType.has_value()) {
-			throw ak::runtime_error("No shader type set and could not infer it from the file ending.");
+			throw avk::runtime_error("No shader type set and could not infer it from the file ending.");
 		}
 
 		return shader_info
