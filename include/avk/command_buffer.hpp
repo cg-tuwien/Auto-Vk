@@ -121,12 +121,19 @@ namespace avk
 		void copy_image(const image_t& aSource, const vk::Image& aDestination);
 		void end_render_pass();
 
-		template <typename Bfr, typename... Bfrs>
-		void draw_vertices(const Bfr aVertexBuffer, const Bfrs&... aFurtherBuffers, uint32_t aNumberOfInstances = 1u, uint32_t aFirstVertex = 0u, uint32_t aFirstInstance = 0u)
+		template <typename... Bfrs>
+		void draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
 		{
 			handle().bindVertexBuffers(0u, { aVertexBuffer.buffer_handle(), aFurtherBuffers.buffer_handle() ... }, { vk::DeviceSize{0}, ((void)aFurtherBuffers, vk::DeviceSize{0}) ... });
 			//																									Make use of the discarding behavior of the comma operator ^, see: https://stackoverflow.com/a/61098748/387023
-			handle().draw(aVertexBuffer.mVertexCount, aNumberOfInstances, aFirstVertex, aFirstInstance);                      
+			const auto& vertexMeta = aVertexBuffer.template meta<avk::vertex_buffer_meta>();
+			handle().draw(vertexMeta.num_elements(), aNumberOfInstances, aFirstVertex, aFirstInstance);                      
+		}
+
+		template <typename... Bfrs>
+		void draw_vertices(const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
+		{
+			draw_vertices(1u, 0u, 0u, aVertexBuffer, aFurtherBuffers...);
 		}
 
 		template <typename... Bfrs>
