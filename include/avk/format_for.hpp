@@ -69,4 +69,6 @@ namespace avk
 	template <>	inline vk::Format format_for<std::array<uint64_t, 2>>()		{ return vk::Format::eR64G64Uint; }
 	template <>	inline vk::Format format_for<std::array<uint64_t, 1>>()		{ return vk::Format::eR64Uint; }
 	template <>	inline vk::Format format_for<uint64_t>()					{ return vk::Format::eR64Uint; }
+	// aabb
+	template <>	inline vk::Format format_for<aabb>()						{ return vk::Format::eUndefined; }
 }

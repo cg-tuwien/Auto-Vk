@@ -147,12 +147,7 @@ namespace avk
 		auto get_buffer_descriptor() const
 		{
 			buffer_descriptor result;
-#ifdef _DEBUG
-			if (!mDescriptorInfo.has_value()) {
-				AVK_LOG_ERROR("Descriptor info is not set => buffer can not be bound.");
-			}
-#endif
-			result.mDescriptorInfo = mDescriptorInfo.value();
+			result.mDescriptorInfo = descriptor_info();
 			result.mDescriptorType = meta<Meta>().descriptor_type().value();
 			return result;			
 		}

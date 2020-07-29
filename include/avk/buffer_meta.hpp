@@ -31,8 +31,11 @@ namespace avk
 		user_defined_13,
 		user_defined_14,
 		user_defined_15,
-		user_defined_16
+		user_defined_16,
+		aabb
 	};
+
+	extern std::string to_string(content_description aValue);
 
 	/** Meta data for a buffer element's member.
 	 *	This is used to describe
@@ -58,12 +61,39 @@ namespace avk
 		
 		/** The size of one element in the buffer. */
 		size_t sizeof_one_element() const { return mSizeOfOneElement; }
+
 		/** The total number of elements in the buffer. */
 		size_t num_elements() const { return mNumElements; }
+
 		/** Total size of the data represented by the buffer. */
 		size_t total_size() const { return sizeof_one_element() * num_elements(); }
+
 		/** Returns a reference to a collection of all member descriptions */
 		const auto& member_descriptions() const { return mOrderedMemberDescriptions; }
+
+		/** Finds the member descritpion of the FIRST member of the given content_description type. */
+		const buffer_element_member_meta* find_member_description(content_description aMemberToBeFound) const
+		{
+			auto it = std::find_if(
+				std::begin(member_descriptions()), std::end(member_descriptions()), 
+				[aMemberToBeFound](const buffer_element_member_meta& md) {
+					return md.mContent == aMemberToBeFound;
+				});
+			if (std::end(member_descriptions()) == it) {
+				return nullptr;
+			}
+			return &(*it);
+		}
+
+		/** Gets the descritpion of the FIRST member of the given content_description type or throws. */
+		const buffer_element_member_meta& member_description(content_description aMemberToBeFound) const
+		{
+			const auto* found = find_member_description(aMemberToBeFound);
+			if (nullptr == found) {
+				throw avk::runtime_error("No member of the given content type '" + to_string(aMemberToBeFound) + "' present in member descriptions.");
+			}
+			return *found;
+		}
 
 		/** Gets the descriptor type that is suitable for binding a buffer of this kind to shaders. */
 		virtual std::optional<vk::DescriptorType> descriptor_type() const { return {}; }
@@ -73,9 +103,11 @@ namespace avk
 
 	protected:
 		// The size of one record/element
-		size_t mSizeOfOneElement;
+		size_t mSizeOfOneElement = 0;
+
 		// The total number of records/elements
-		size_t mNumElements;
+		size_t mNumElements = 0;
+
 		// Descriptions of buffer record/element members, ordered by their offsets
 		std::vector<buffer_element_member_meta> mOrderedMemberDescriptions;	
 	};
@@ -638,10 +670,10 @@ namespace avk
 		/** Gets buffer usage flags for this kind of buffer. */
 		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR; }
 		
-		static aabb_buffer_meta create_from_num_elements(size_t aNumElements) 
+		static aabb_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride = sizeof(aabb)) 
 		{ 
 			aabb_buffer_meta result; 
-			result.mSizeOfOneElement = sizeof(aabb);
+			result.mSizeOfOneElement = aStride;
 			result.mNumElements = aNumElements;
 			return result; 
 		}
@@ -664,6 +696,48 @@ namespace avk
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
+
+		/** Describe which part of an element's member contains the AABB of type `avk::aabb` */
+		aabb_buffer_meta& describe_member(size_t aOffset, content_description aContent = content_description::aabb)
+		{
+#if defined(_DEBUG)
+			if (std::find_if(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), [offs = aOffset](const buffer_element_member_meta& e) { return e.mOffset == offs; }) != mOrderedMemberDescriptions.end()) {
+				AVK_LOG_WARNING("There is already a member described at offset " + std::to_string(aOffset));
+			}
+#endif
+			// insert already in the right place
+			buffer_element_member_meta newElement{ 0u, aOffset, vk::Format::eUndefined, aContent };
+			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
+				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
+					return first.mOffset < second.mOffset;
+				});
+			mOrderedMemberDescriptions.insert(it, newElement);
+			return *this;
+		}
+
+		/* Describe that there is only one member and that member is the AABB */
+		template <typename M>
+		aabb_buffer_meta& describe_only_member(const M& aMember, content_description aContent = content_description::aabb)
+		{
+			assert (sizeof(aMember) == mSizeOfOneElement);
+			auto frmt = format_for<M>();
+			assert (content_description::aabb == aContent);
+			assert (vk::Format::eUndefined == frmt);
+			assert (sizeof(aabb) == mSizeOfOneElement);
+			return describe_member(0, frmt, aContent);
+		}
+
+#if defined(_MSC_VER) && defined(__cplusplus)
+		/** Describe a member and let the compiler figure out offset and format. */
+		template <class T, class M> 
+		storage_texel_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::aabb)
+		{
+			return describe_member(
+				((::size_t)&reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
+				format_for<M>(),
+				aContent);
+		}
+#endif
 	};
 
 }

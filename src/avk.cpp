@@ -1361,24 +1361,15 @@ namespace avk
 		if (vertexBufferMeta.member_descriptions().size() == 0) {
 			throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
 		}
-
-		// Find member representing the positions, and...
-		auto posMember = std::find_if(
-			std::begin(vertexBufferMeta.member_descriptions()), std::end(vertexBufferMeta.member_descriptions()), 
-			[](const buffer_element_member_meta& md) {
-				return md.mContent == content_description::position;
-			});
-		// ... perform 2nd check:
-		if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
-			throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
-		}
+		// Find member representing the positions
+		auto posMember = vertexBufferMeta.member_description(content_description::position);
 		
 		return acceleration_structure_size_requirements{
 			vk::GeometryTypeKHR::eTriangles,
 			static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3,
 			indexBufferMeta.sizeof_one_element(),
 			static_cast<uint32_t>(vertexBufferMeta.num_elements()),
-			posMember->mFormat
+			posMember.mFormat
 		};
 	}
 	
@@ -1474,16 +1465,8 @@ namespace avk
 			if (vertexBufferMeta.member_descriptions().size() == 0) {
 				throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
 			}
-			// Find member representing the positions, and...
-			auto posMember = std::find_if(
-				std::begin(vertexBufferMeta.member_descriptions()), std::end(vertexBufferMeta.member_descriptions()), 
-				[](const buffer_element_member_meta& md) {
-					return md.mContent == content_description::position;
-				});
-			// ... perform 2nd check:
-			if (posMember == std::end(vertexBufferMeta.member_descriptions())) {
-				throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers has no member which represents positions.");
-			}
+			// Find member representing the positions
+			const auto& posMember = vertexBufferMeta.member_description(content_description::position);
 
 			assert(vertexBuffer.has_device_address());
 			assert(indexBuffer.has_device_address());
@@ -1491,7 +1474,7 @@ namespace avk
 			accStructureGeometries.emplace_back()
 				.setGeometryType(vk::GeometryTypeKHR::eTriangles)
 				.setGeometry(vk::AccelerationStructureGeometryTrianglesDataKHR{}
-					.setVertexFormat(posMember->mFormat)
+					.setVertexFormat(posMember.mFormat)
 					.setVertexData(vk::DeviceOrHostAddressConstKHR{ vertexBuffer.device_address() }) // TODO: Support host addresses
 					.setVertexStride(static_cast<vk::DeviceSize>(vertexBufferMeta.sizeof_one_element()))
 					.setIndexType(avk::to_vk_index_type(indexBufferMeta.sizeof_one_element()))
@@ -1579,40 +1562,41 @@ namespace avk
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
 		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
 
+		const auto& aabbMeta = aGeometriesBuffer->meta<aabb_buffer_meta>();
+		auto startAddress = aGeometriesBuffer->device_address();
+		const auto* aabbMemberDesc = aabbMeta.find_member_description(content_description::aabb);
+		if (nullptr != aabbMemberDesc) {
+			// Offset the device address:
+			startAddress += aabbMemberDesc->mOffset;
+		}
+		
 		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
-		//accStructureGeometries.reserve(aGeometries.size());
-		
-		std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> buildGeometryInfos;
-		//buildGeometryInfos.reserve(aGeometries.size()); 
-		
-		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
-		//buildOffsetInfos.reserve(aGeometries.size());
-		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
-		//buildOffsetInfoPtrs.reserve(aGeometries.size());
-
 		accStructureGeometries.emplace_back()
 			.setGeometryType(vk::GeometryTypeKHR::eAabbs)
 			.setGeometry(vk::AccelerationStructureGeometryAabbsDataKHR{}
-				.setData(vk::DeviceOrHostAddressConstKHR{ aGeometriesBuffer->device_address() })
-				.setStride(0)
+				.setData(vk::DeviceOrHostAddressConstKHR{ startAddress })
+				.setStride(aabbMeta.sizeof_one_element())
 			)
 			.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
+		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
 		auto& boi = buildOffsetInfos.emplace_back()
-			.setPrimitiveCount(static_cast<uint32_t>(aGeometriesBuffer->meta<aabb_buffer_meta>().num_elements()))
+			.setPrimitiveCount(static_cast<uint32_t>(aabbMeta.num_elements()))
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
 
+		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
 		buildOffsetInfoPtrs.emplace_back(&boi);
 		
 		const auto* pointerToAnArray = accStructureGeometries.data();
 		
+		std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> buildGeometryInfos;
 		buildGeometryInfos.emplace_back()
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 			.setFlags(mCreateInfo.flags) // TODO: support individual flags per geometry?
 			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
-			.setSrcAccelerationStructure(nullptr) // TODO: support different src acceleration structure?!
+			.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle()) // TODO: support different src acceleration structure?!
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
@@ -1982,6 +1966,40 @@ namespace avk
 #pragma endregion
 
 #pragma region buffer definitions
+	std::string to_string(content_description aValue)
+	{
+		switch (aValue) {
+		case content_description::unspecified:			return "unspecified";
+		case content_description::index:				return "index";
+		case content_description::position:				return "position";
+		case content_description::normal:				return "normal";
+		case content_description::tangent:				return "tangent";
+		case content_description::bitangent:			return "bitangent";
+		case content_description::color:				return "color";
+		case content_description::texture_coordinate:	return "texture_coordinate";
+		case content_description::bone_weight:			return "bone_weight";
+		case content_description::bone_index:			return "bone_index";
+		case content_description::user_defined_01:		return "user_defined_01";
+		case content_description::user_defined_02:		return "user_defined_02";
+		case content_description::user_defined_03:		return "user_defined_03";
+		case content_description::user_defined_04:		return "user_defined_04";
+		case content_description::user_defined_05:		return "user_defined_05";
+		case content_description::user_defined_06:		return "user_defined_06";
+		case content_description::user_defined_07:		return "user_defined_07";
+		case content_description::user_defined_08:		return "user_defined_08";
+		case content_description::user_defined_09:		return "user_defined_09";
+		case content_description::user_defined_10:		return "user_defined_10";
+		case content_description::user_defined_11:		return "user_defined_11";
+		case content_description::user_defined_12:		return "user_defined_12";
+		case content_description::user_defined_13:		return "user_defined_13";
+		case content_description::user_defined_14:		return "user_defined_14";
+		case content_description::user_defined_15:		return "user_defined_15";
+		case content_description::user_defined_16:		return "user_defined_16";
+		case content_description::aabb:					return "aabb";
+		default:										return "<<ERROR: not all cases implemented>>";
+		}
+	}
+	
 	buffer root::create_buffer(
 		const vk::PhysicalDevice& aPhysicalDevice, 
 		const vk::Device& aDevice, 
