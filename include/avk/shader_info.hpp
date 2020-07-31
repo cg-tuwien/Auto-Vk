@@ -3,14 +3,56 @@
 
 namespace avk
 {
+	struct specialization_constants
+	{
+		uint32_t num_entries() const { return static_cast<uint32_t>(mMapEntries.size()); }
+		size_t data_size() const { return mData.size() * sizeof(decltype(mData)::value_type); }
+		
+		std::vector<vk::SpecializationMapEntry> mMapEntries;
+		std::vector<uint8_t> mData;
+	};
+	
 	struct shader_info
 	{
 		static shader_info describe(std::string pPath, std::string pEntryPoint = "main", bool pDontMonitorFile = false, std::optional<avk::shader_type> pShaderType = {});
 
+		/**	Add one specialization constant to this shader.
+		 *	@param	aConstantId		The ID that is used to identify this constant
+		 *	@param	aValue			The value of this constant. Pay attention to specify the correct type!
+		 *							Example usages:
+		 *							 - set_specialization_constant(1u, uint32_t{123})
+		 *							 - set_specialization_constant(50u, float{1.1f})
+		 *							 - set_specialization_constant(2u, int64_t{456})
+		 */
+		template <typename T>
+		shader_info& set_specialization_constant(uint32_t aConstantId, const T& aValue)
+		{
+			if (!mSpecializationConstants.has_value()) {
+				mSpecializationConstants = specialization_constants{};
+			}
+			auto& entries = mSpecializationConstants->mMapEntries;
+			auto& data = mSpecializationConstants->mData;
+
+			const auto align = sizeof(uint64_t); 
+			const auto currentSize = data.size();
+			const auto insertSize = sizeof(T);
+			const auto numAlloc = std::max(align, insertSize / sizeof(decltype(mSpecializationConstants->mData)::value_type));
+			assert (insertSize % sizeof(decltype(mSpecializationConstants->mData)::value_type) == 0);
+			data.resize(currentSize + numAlloc);
+			// copy data:
+			memcpy(data.data() + currentSize, &aValue, insertSize);
+			// make entry:
+			entries.emplace_back(aConstantId, currentSize, insertSize);
+
+			return *this;
+		}
+		
 		std::string mPath;
 		avk::shader_type mShaderType;
 		std::string mEntryPoint;
 		bool mDontMonitorFile;
+
+		std::optional<specialization_constants> mSpecializationConstants;
 	};
 
 	static bool operator ==(const shader_info& left, const shader_info& right)

@@ -63,7 +63,6 @@ namespace avk { class sync; }
 #include <avk/usage_desc.hpp>
 
 #include <avk/shader_type.hpp>
-#include <avk/shader_info.hpp>
 #include <avk/pipeline_stage.hpp>
 #include <avk/descriptor_alloc_request.hpp>
 #include <avk/descriptor_pool.hpp>
@@ -78,8 +77,8 @@ namespace avk { class sync; }
 #include <avk/set_of_descriptor_set_layouts.hpp>
 #include <avk/descriptor_cache.hpp>
 
-
 #include <avk/buffer.hpp>
+#include <avk/shader_info.hpp>
 
 #include <avk/shader_binding_table.hpp>
 #include <avk/command_buffer.hpp>

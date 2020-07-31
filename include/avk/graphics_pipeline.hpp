@@ -35,6 +35,7 @@ namespace avk
 		// Our precious GPU shader programs:
 		std::vector<shader> mShaders;
 		std::vector<vk::PipelineShaderStageCreateInfo> mShaderStageCreateInfos;
+		std::vector<vk::SpecializationInfo> mSpecializationInfos;
 		// Viewport, depth, and scissors configuration
 		std::vector<vk::Viewport> mViewports;
 		std::vector<vk::Rect2D> mScissors;

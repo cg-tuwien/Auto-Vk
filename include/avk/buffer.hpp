@@ -58,6 +58,16 @@ namespace avk
 		buffer_t& operator=(const buffer_t&) = delete;
 		~buffer_t() = default; // Declaration order determines destruction order (inverse!)
 
+		/** Returns the number of meta data entries assigned to this buffer */
+		auto meta_count() const { return mMetaData.size(); }
+		
+		/**	Gets the meta data at the specified index, cast to type Meta.
+		 *	This method does not throw, except the index is out of bounds.
+		 *	There must be at least one meta data entry in the buffer.
+		 *	I.e. index 0 should always work.
+		 *	@param	aMetaDataIndex		Index into the meta data, must be
+		 *								between 0 and meta_count()-1
+		 */
 		template <typename Meta>
 		const Meta& meta_at_index(size_t aMetaDataIndex = 0) const
 		{

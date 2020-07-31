@@ -26,6 +26,7 @@ namespace avk
 		// Only one shader for compute pipelines:
 		shader mShader;
 		vk::PipelineShaderStageCreateInfo mShaderStageCreateInfo;
+		std::optional<vk::SpecializationInfo> mSpecializationInfo;
 
 		// TODO: What to do with the base pipeline index?
 		int32_t mBasePipelineIndex;

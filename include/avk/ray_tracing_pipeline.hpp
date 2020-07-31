@@ -43,6 +43,7 @@ namespace avk
 		// Our precious GPU shader programs:
 		std::vector<shader> mShaders;
 		std::vector<vk::PipelineShaderStageCreateInfo> mShaderStageCreateInfos;
+		std::vector<vk::SpecializationInfo> mSpecializationInfos;
 
 		// Shader table a.k.a. shader groups:
 		std::vector<vk::RayTracingShaderGroupCreateInfoKHR> mShaderGroupCreateInfos;

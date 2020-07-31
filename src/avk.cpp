@@ -2563,6 +2563,16 @@ namespace avk
 			.setStage(to_vk_shader_stage(result.mShader.info().mShaderType))
 			.setModule(result.mShader.handle())
 			.setPName(result.mShader.info().mEntryPoint.c_str());
+		if (result.mShader.info().mSpecializationConstants.has_value()) {
+			result.mSpecializationInfo = vk::SpecializationInfo{
+				result.mShader.info().mSpecializationConstants.value().num_entries(),
+				result.mShader.info().mSpecializationConstants.value().mMapEntries.data(),
+				result.mShader.info().mSpecializationConstants.value().data_size(),
+				result.mShader.info().mSpecializationConstants.value().mData.data()
+			};
+			// Add it to the stageCreateInfo:
+			result.mShaderStageCreateInfo.setPSpecializationInfo(&result.mSpecializationInfo.value());
+		}
 		
 		// 2. Flags
 		// TODO: Support all flags (only one of the flags is handled at the moment)
@@ -3637,6 +3647,7 @@ namespace avk
 		// 5. Compile and store the shaders:
 		result.mShaders.reserve(aConfig.mShaderInfos.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		result.mShaderStageCreateInfos.reserve(aConfig.mShaderInfos.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+		result.mSpecializationInfos.reserve(aConfig.mShaderInfos.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (auto& shaderInfo : aConfig.mShaderInfos) {
 			// 5.0 Sanity check
 			if (result.mShaders.end() != std::find_if(std::begin(result.mShaders), std::end(result.mShaders), [&shaderInfo](const shader& existing) { return existing.info().mShaderType == shaderInfo.mShaderType; })) {
@@ -3646,11 +3657,23 @@ namespace avk
 			result.mShaders.push_back(create_shader(shaderInfo));
 			assert(result.mShaders.back().has_been_built());
 			// 5.2 Combine
-			result.mShaderStageCreateInfos.push_back(vk::PipelineShaderStageCreateInfo{}
+			auto& stageCreateInfo = result.mShaderStageCreateInfos.emplace_back()
 				.setStage(to_vk_shader_stage(result.mShaders.back().info().mShaderType))
 				.setModule(result.mShaders.back().handle())
-				.setPName(result.mShaders.back().info().mEntryPoint.c_str())
-			);
+				.setPName(result.mShaders.back().info().mEntryPoint.c_str());
+			if (shaderInfo.mSpecializationConstants.has_value()) {
+				auto& specInfo = result.mSpecializationInfos.emplace_back(
+					shaderInfo.mSpecializationConstants.value().num_entries(),
+					shaderInfo.mSpecializationConstants.value().mMapEntries.data(),
+					shaderInfo.mSpecializationConstants.value().data_size(),
+					shaderInfo.mSpecializationConstants.value().mData.data()
+				);
+				// Add it to the stageCreateInfo:
+				stageCreateInfo.setPSpecializationInfo(&specInfo);
+			}
+			else {
+				result.mSpecializationInfos.emplace_back(); // Just to keep the indices into the vectors in sync!
+			}
 		}
 
 		// 6. Viewport configuration
@@ -5331,16 +5354,29 @@ namespace avk
 		}
 		result.mShaders.reserve(orderedUniqueShaderInfos.size());
 		result.mShaderStageCreateInfos.reserve(orderedUniqueShaderInfos.size());
+		result.mSpecializationInfos.reserve(orderedUniqueShaderInfos.size());
 		for (auto& shaderInfo : orderedUniqueShaderInfos) {
 			// 2.2 Compile the shader
 			result.mShaders.push_back(create_shader(shaderInfo));
 			assert(result.mShaders.back().has_been_built());
 			// 2.3 Create shader info
-			result.mShaderStageCreateInfos.push_back(vk::PipelineShaderStageCreateInfo{}
+			auto& stageCreateInfo = result.mShaderStageCreateInfos.emplace_back()
 				.setStage(to_vk_shader_stage(result.mShaders.back().info().mShaderType))
 				.setModule(result.mShaders.back().handle())
-				.setPName(result.mShaders.back().info().mEntryPoint.c_str())
-			);
+				.setPName(result.mShaders.back().info().mEntryPoint.c_str());
+			if (shaderInfo.mSpecializationConstants.has_value()) {
+				auto& specInfo = result.mSpecializationInfos.emplace_back(
+					shaderInfo.mSpecializationConstants.value().num_entries(),
+					shaderInfo.mSpecializationConstants.value().mMapEntries.data(),
+					shaderInfo.mSpecializationConstants.value().data_size(),
+					shaderInfo.mSpecializationConstants.value().mData.data()
+				);
+				// Add it to the stageCreateInfo:
+				stageCreateInfo.setPSpecializationInfo(&specInfo);
+			}
+			else {
+				result.mSpecializationInfos.emplace_back(); // Just to keep the indices into the vectors in sync
+			}
 		}
 		assert(orderedUniqueShaderInfos.size() == result.mShaders.size());
 		assert(result.mShaders.size() == result.mShaderStageCreateInfos.size());
