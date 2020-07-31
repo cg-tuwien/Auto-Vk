@@ -11,6 +11,25 @@ namespace avk
 		std::vector<vk::SpecializationMapEntry> mMapEntries;
 		std::vector<uint8_t> mData;
 	};
+
+	static bool operator ==(const specialization_constants& left, const specialization_constants& right)
+	{
+		if (left.mMapEntries.size() != right.mMapEntries.size())				{ return false; }
+		for (size_t i = 0; i < left.mMapEntries.size(); ++i) {
+			if (left.mMapEntries[i] != right.mMapEntries[i])					{ return false; }
+		}
+		if (left.mData.size() != right.mData.size())							{ return false; }
+		for (size_t i = 0; i < left.mData.size(); ++i) {
+			if (left.mData[i] != right.mData[i])								{ return false; }
+		}
+		return true;
+	}
+
+	static bool operator !=(const specialization_constants& left, const specialization_constants& right)
+	{
+		return !(left == right);
+	}
+
 	
 	struct shader_info
 	{
@@ -59,7 +78,8 @@ namespace avk
 	{
 		return are_paths_equal(left.mPath, right.mPath)
 			&& left.mShaderType == right.mShaderType 
-			&& trim_spaces(left.mEntryPoint) == trim_spaces(right.mEntryPoint);
+			&& trim_spaces(left.mEntryPoint) == trim_spaces(right.mEntryPoint)
+			&& left.mSpecializationConstants == right.mSpecializationConstants;
 	}
 
 	static bool operator !=(const shader_info& left, const shader_info& right)
