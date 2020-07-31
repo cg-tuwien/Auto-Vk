@@ -2917,6 +2917,8 @@ namespace avk
 		const auto it = mSets.find(aPreparedSet);
 		if (mSets.end() != it) {
 			auto found = *it;
+			// This might not be the veeeery best place to alter the set-id, but let's go for it:
+			found.set_set_id(aPreparedSet.set_id());
 			return found;
 		}
 		return {};
@@ -3153,7 +3155,7 @@ namespace avk
 			auto preparedSet = descriptor_set::prepare(lb, ub);
 			auto cachedSet = get_descriptor_set_from_cache(preparedSet);
 			if (cachedSet.has_value()) {
-				cachedSets.emplace_back(std::move(cachedSet.value()));
+				auto& back = cachedSets.emplace_back(std::move(cachedSet.value()));
 				validSets.push_back(true);
 			}
 			else {
