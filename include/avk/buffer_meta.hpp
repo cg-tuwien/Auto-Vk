@@ -32,7 +32,8 @@ namespace avk
 		user_defined_14,
 		user_defined_15,
 		user_defined_16,
-		aabb
+		aabb,
+		geometry_instance
 	};
 
 	extern std::string to_string(content_description aValue);
@@ -670,7 +671,7 @@ namespace avk
 		/** Gets buffer usage flags for this kind of buffer. */
 		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR; }
 		
-		static aabb_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride = sizeof(aabb)) 
+		static aabb_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride = sizeof(VkAabbPositionsKHR)) 
 		{ 
 			aabb_buffer_meta result; 
 			result.mSizeOfOneElement = aStride;
@@ -681,7 +682,7 @@ namespace avk
 		static aabb_buffer_meta create_from_total_size(size_t aTotalSize) 
 		{ 
 			aabb_buffer_meta result; 
-			result.mSizeOfOneElement = sizeof(aabb);
+			result.mSizeOfOneElement = sizeof(VkAabbPositionsKHR);
 			assert(aTotalSize % result.mSizeOfOneElement == 0);
 			result.mNumElements = aTotalSize / result.mSizeOfOneElement;
 			return result; 
@@ -692,7 +693,7 @@ namespace avk
 		{
 			aabb_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(sizeof(first_or_only_element(aData)) == sizeof(aabb));
+			assert(sizeof(first_or_only_element(aData)) == sizeof(VkAabbPositionsKHR));
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
@@ -723,14 +724,14 @@ namespace avk
 			auto frmt = format_for<M>();
 			assert (content_description::aabb == aContent);
 			assert (vk::Format::eUndefined == frmt);
-			assert (sizeof(aabb) == mSizeOfOneElement);
+			assert (sizeof(VkAabbPositionsKHR) == mSizeOfOneElement);
 			return describe_member(0, frmt, aContent);
 		}
 
 #if defined(_MSC_VER) && defined(__cplusplus)
 		/** Describe a member and let the compiler figure out offset and format. */
 		template <class T, class M> 
-		storage_texel_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::aabb)
+		aabb_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::aabb)
 		{
 			return describe_member(
 				((::size_t)&reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
@@ -739,5 +740,87 @@ namespace avk
 		}
 #endif
 	};
+
+	/**	This struct contains information for a buffer which is intended to be used as 
+	*	buffer for real-time ray tracing, that contains geometry instances.
+	*/
+	class geometry_instance_buffer_meta : public buffer_meta
+	{
+	public:
+		/** Gets buffer usage flags for this kind of buffer. */
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR; }
+		
+		static geometry_instance_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride = sizeof(VkAccelerationStructureInstanceKHR)) 
+		{ 
+			geometry_instance_buffer_meta result; 
+			result.mSizeOfOneElement = aStride;
+			result.mNumElements = aNumElements;
+			return result; 
+		}
+
+		static geometry_instance_buffer_meta create_from_total_size(size_t aTotalSize) 
+		{ 
+			geometry_instance_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(VkAccelerationStructureInstanceKHR);
+			assert(aTotalSize % result.mSizeOfOneElement == 0);
+			result.mNumElements = aTotalSize / result.mSizeOfOneElement;
+			return result; 
+		}
+
+		template <typename T>
+		static std::enable_if_t<!std::is_pointer_v<T>, geometry_instance_buffer_meta> create_from_data(const T& aData)
+		{
+			geometry_instance_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
+			assert(sizeof(first_or_only_element(aData)) == sizeof(VkAccelerationStructureInstanceKHR));
+			result.mNumElements = how_many_elements(aData);
+			return result; 
+		}
+
+		/** Describe which part of an element's member contains the VkAccelerationStructureInstanceKHR part,
+		 *	or put differently, where does the transformation matrix begin in memory.
+		 */
+		geometry_instance_buffer_meta& describe_member(size_t aOffset, content_description aContent = content_description::geometry_instance)
+		{
+#if defined(_DEBUG)
+			if (std::find_if(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), [offs = aOffset](const buffer_element_member_meta& e) { return e.mOffset == offs; }) != mOrderedMemberDescriptions.end()) {
+				AVK_LOG_WARNING("There is already a member described at offset " + std::to_string(aOffset));
+			}
+#endif
+			// insert already in the right place
+			buffer_element_member_meta newElement{ 0u, aOffset, vk::Format::eUndefined, aContent };
+			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
+				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
+					return first.mOffset < second.mOffset;
+				});
+			mOrderedMemberDescriptions.insert(it, newElement);
+			return *this;
+		}
+
+		/* Describe that there is only one member and that member is the geometry instance */
+		template <typename M>
+		geometry_instance_buffer_meta& describe_only_member(const M& aMember, content_description aContent = content_description::geometry_instance)
+		{
+			assert (sizeof(aMember) == mSizeOfOneElement);
+			auto frmt = format_for<M>();
+			assert (content_description::geometry_instance == aContent);
+			assert (vk::Format::eUndefined == frmt);
+			assert (sizeof(VkAccelerationStructureInstanceKHR) == mSizeOfOneElement);
+			return describe_member(0, frmt, aContent);
+		}
+
+#if defined(_MSC_VER) && defined(__cplusplus)
+		/** Describe a member and let the compiler figure out offset and format. */
+		template <class T, class M> 
+		geometry_instance_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::geometry_instance)
+		{
+			return describe_member(
+				((::size_t)&reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
+				format_for<M>(),
+				aContent);
+		}
+#endif
+	};
+
 
 }

@@ -1534,7 +1534,7 @@ namespace avk
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<avk::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
 	{
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
@@ -1570,8 +1570,7 @@ namespace avk
 			startAddress += aabbMemberDesc->mOffset;
 		}
 		
-		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
-		accStructureGeometries.emplace_back()
+		auto accStructureGeometry = vk::AccelerationStructureGeometryKHR{}
 			.setGeometryType(vk::GeometryTypeKHR::eAabbs)
 			.setGeometry(vk::AccelerationStructureGeometryAabbsDataKHR{}
 				.setData(vk::DeviceOrHostAddressConstKHR{ startAddress })
@@ -1579,27 +1578,24 @@ namespace avk
 			)
 			.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
-		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
-		auto& boi = buildOffsetInfos.emplace_back()
+		auto buildOffsetInfo = vk::AccelerationStructureBuildOffsetInfoKHR{}
 			.setPrimitiveCount(static_cast<uint32_t>(aabbMeta.num_elements()))
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
 
-		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
-		buildOffsetInfoPtrs.emplace_back(&boi);
+		vk::AccelerationStructureBuildOffsetInfoKHR* buildOffsetInfoPtr = &buildOffsetInfo;
 		
-		const auto* pointerToAnArray = accStructureGeometries.data();
+		const auto* pointerToAnArray = &accStructureGeometry;
 		
-		std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> buildGeometryInfos;
-		buildGeometryInfos.emplace_back()
+		auto buildGeometryInfos = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 			.setFlags(mCreateInfo.flags) // TODO: support individual flags per geometry?
 			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
 			.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle()) // TODO: support different src acceleration structure?!
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryArrayOfPointers(VK_FALSE)
-			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
+			.setGeometryCount(1u)
 			.setPpGeometries(&pointerToAnArray)
 			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
 
@@ -1609,9 +1605,9 @@ namespace avk
 		
 		// Operation:
 		commandBuffer.handle().buildAccelerationStructureKHR(
-			static_cast<uint32_t>(buildGeometryInfos.size()), 
-			buildGeometryInfos.data(),
-			buildOffsetInfoPtrs.data(),
+			1u,
+			&buildGeometryInfos,
+			&buildOffsetInfoPtr,
 			mDynamicDispatch
 		);
 
@@ -1622,12 +1618,12 @@ namespace avk
 		return aSyncHandler.submit_and_sync();
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<avk::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
 	}
 	
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<avk::aabb>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
 		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
 	}
@@ -1702,57 +1698,64 @@ namespace avk
 
 	std::optional<command_buffer> top_level_acceleration_structure_t::build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction)
 	{
-		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
-
-		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
-		accStructureGeometries.reserve(aGeometryInstances.size());
-		
-		std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> buildGeometryInfos;
-		buildGeometryInfos.reserve(aGeometryInstances.size()); 
-		
-		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
-		buildOffsetInfos.reserve(aGeometryInstances.size());
-		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
-		buildOffsetInfoPtrs.reserve(aGeometryInstances.size());
-		
 		auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
 		
-		// TODO: Retain this buffer, don't always create a new one
 		auto geomInstBuffer = root::create_buffer(
 			mPhysicalDevice, mDevice,
-			memory_usage::host_coherent,
-			vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR, // <--- TODO: Which eShaderDeviceAddress*  flag??
-			generic_buffer_meta::create_from_data(geomInstances) 
+			memory_usage::host_coherent, {},
+			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
 		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
 
-		for (auto& gi : aGeometryInstances) {
-
-			accStructureGeometries.emplace_back()
-				.setGeometryType(vk::GeometryTypeKHR::eInstances)
-				.setGeometry(vk::AccelerationStructureGeometryInstancesDataKHR{}
-					.setArrayOfPointers(VK_FALSE) // arrayOfPointers specifies whether data is used as an array of addresses or just an array.
-					// TODO: Is this ^ relevant? Probably only for host-builds if the data is structured in "array of pointers"-style?!
-					.setData(vk::DeviceOrHostAddressConstKHR{ geomInstBuffer->device_address() })
-				)
-				.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
-			
-			auto& boi = buildOffsetInfos.emplace_back()
-				// For geometries of type VK_GEOMETRY_TYPE_INSTANCES_KHR, primitiveCount is the number of acceleration
-				// structures. primitiveCount VkAccelerationStructureInstanceKHR structures are consumed from
-				// VkAccelerationStructureGeometryInstancesDataKHR::data, starting at an offset of primitiveOffset.
-				.setPrimitiveCount(static_cast<uint32_t>(aGeometryInstances.size())) 
-				.setPrimitiveOffset(0u)
-				.setFirstVertex(0u)
-				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-
-			buildOffsetInfoPtrs.emplace_back(&boi);
+		auto result = build_or_update(geomInstBuffer, aScratchBuffer, std::move(aSyncHandler), aBuildAction);
+		
+		if (result.has_value()) {
+			// Handle lifetime:
+			result.value()->set_custom_deleter([lOwnedAabbBuffer = std::move(geomInstBuffer)](){});
 		}
+		else {
+			AVK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
+			mDevice.waitIdle();
+		}
+		return result;
+	}
+	
+	std::optional<command_buffer> top_level_acceleration_structure_t::build_or_update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction)
+	{
+		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
+		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
 
-		const auto* pointerToAnArray = accStructureGeometries.data();
+		const auto& metaData = aGeometryInstancesBuffer->meta<geometry_instance_buffer_meta>();
+		auto startAddress = aGeometryInstancesBuffer->device_address();
+		const auto* memberDesc = metaData.find_member_description(content_description::geometry_instance);
+		if (nullptr != memberDesc) {
+			// Offset the device address:
+			startAddress += memberDesc->mOffset;
+		}
+		const auto numInstances = static_cast<uint32_t>(metaData.num_elements());
+		
+		auto accStructureGeometries = vk::AccelerationStructureGeometryKHR{}
+			.setGeometryType(vk::GeometryTypeKHR::eInstances)
+			.setGeometry(vk::AccelerationStructureGeometryInstancesDataKHR{}
+				.setArrayOfPointers(VK_FALSE) // arrayOfPointers specifies whether data is used as an array of addresses or just an array.
+				// TODO: Is this ^ relevant? Probably only for host-builds if the data is structured in "array of pointers"-style?!
+				.setData(vk::DeviceOrHostAddressConstKHR{ startAddress })
+			)
+			.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
-		buildGeometryInfos.emplace_back()
+		auto boi = vk::AccelerationStructureBuildOffsetInfoKHR{}
+			// For geometries of type VK_GEOMETRY_TYPE_INSTANCES_KHR, primitiveCount is the number of acceleration
+			// structures. primitiveCount VkAccelerationStructureInstanceKHR structures are consumed from
+			// VkAccelerationStructureGeometryInstancesDataKHR::data, starting at an offset of primitiveOffset.
+			.setPrimitiveCount(numInstances) 
+			.setPrimitiveOffset(0u)
+			.setFirstVertex(0u)
+			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
+		
+		vk::AccelerationStructureBuildOffsetInfoKHR* buildOffsetInfoPtr = &boi;
+		const auto* pointerToAnArray = &accStructureGeometries;
+
+		auto buildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
 			.setFlags(mCreateInfo.flags)
 			.setUpdate(aBuildAction == tlas_action::build ? VK_FALSE : VK_TRUE)
@@ -1769,9 +1772,9 @@ namespace avk
 
 		// Operation:
 		commandBuffer.handle().buildAccelerationStructureKHR(
-			static_cast<uint32_t>(buildGeometryInfos.size()), 
-			buildGeometryInfos.data(),
-			buildOffsetInfoPtrs.data(),
+			1u, 
+			&buildGeometryInfo,
+			&buildOffsetInfoPtr,
 			mDynamicDispatch
 		);
 
@@ -1785,11 +1788,22 @@ namespace avk
 	{
 		build_or_update(aGeometryInstances, aScratchBuffer, std::move(aSyncHandler), tlas_action::build);
 	}
+
+	void top_level_acceleration_structure_t::build(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	{
+		build_or_update(aGeometryInstancesBuffer, aScratchBuffer, std::move(aSyncHandler), tlas_action::build);
+	}
 	
 	void top_level_acceleration_structure_t::update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
 	{
 		build_or_update(aGeometryInstances, aScratchBuffer, std::move(aSyncHandler), tlas_action::update);
 	}
+
+	void top_level_acceleration_structure_t::update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	{
+		build_or_update(aGeometryInstancesBuffer, aScratchBuffer, std::move(aSyncHandler), tlas_action::update);
+	}
+	
 #pragma endregion
 
 #pragma region binding_data definitions
@@ -2003,7 +2017,7 @@ namespace avk
 	buffer root::create_buffer(
 		const vk::PhysicalDevice& aPhysicalDevice, 
 		const vk::Device& aDevice, 
-		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> aMetaData, 
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData, 
 		vk::BufferUsageFlags aBufferUsage, 
 		vk::MemoryPropertyFlags aMemoryProperties, 
 		vk::MemoryAllocateFlags aMemoryAllocateFlags

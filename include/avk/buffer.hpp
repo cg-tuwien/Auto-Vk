@@ -37,16 +37,17 @@ namespace avk
 		struct get_buffer_meta {
 			get_buffer_meta(const buffer_meta*& aOut) : mOut{ &aOut } {}
 			const buffer_meta** mOut = nullptr;
-			void operator()(const buffer_meta& data)				const	{ *mOut = &data; }
-			void operator()(const generic_buffer_meta& data)		const	{ *mOut = &data; }
-			void operator()(const uniform_buffer_meta& data)		const	{ *mOut = &data; }
-			void operator()(const uniform_texel_buffer_meta& data)	const	{ *mOut = &data; }
-			void operator()(const storage_buffer_meta& data)		const	{ *mOut = &data; }
-			void operator()(const storage_texel_buffer_meta& data)	const	{ *mOut = &data; }
-			void operator()(const vertex_buffer_meta& data)			const	{ *mOut = &data; }
-			void operator()(const index_buffer_meta& data)			const	{ *mOut = &data; }
-			void operator()(const instance_buffer_meta& data)		const	{ *mOut = &data; }
-			void operator()(const aabb_buffer_meta& data)			const	{ *mOut = &data; }
+			void operator()(const buffer_meta& data)					const	{ *mOut = &data; }
+			void operator()(const generic_buffer_meta& data)			const	{ *mOut = &data; }
+			void operator()(const uniform_buffer_meta& data)			const	{ *mOut = &data; }
+			void operator()(const uniform_texel_buffer_meta& data)		const	{ *mOut = &data; }
+			void operator()(const storage_buffer_meta& data)			const	{ *mOut = &data; }
+			void operator()(const storage_texel_buffer_meta& data)		const	{ *mOut = &data; }
+			void operator()(const vertex_buffer_meta& data)				const	{ *mOut = &data; }
+			void operator()(const index_buffer_meta& data)				const	{ *mOut = &data; }
+			void operator()(const instance_buffer_meta& data)			const	{ *mOut = &data; }
+			void operator()(const aabb_buffer_meta& data)				const	{ *mOut = &data; }
+			void operator()(const geometry_instance_buffer_meta& data)	const	{ *mOut = &data; }
 		};
 		
 	public:
@@ -194,7 +195,7 @@ namespace avk
 		}		
 		
 	private:
-		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> mMetaData;
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> mMetaData;
 		vk::BufferCreateInfo mCreateInfo;
 		vk::MemoryPropertyFlags mMemoryPropertyFlags;
 		vk::UniqueDeviceMemory mMemory;

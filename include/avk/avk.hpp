@@ -64,7 +64,6 @@ namespace avk { class sync; }
 
 #include <avk/shader_type.hpp>
 #include <avk/shader_info.hpp>
-#include <avk/aabb.hpp>
 #include <avk/pipeline_stage.hpp>
 #include <avk/descriptor_alloc_request.hpp>
 #include <avk/descriptor_pool.hpp>
@@ -242,14 +241,14 @@ namespace avk
 		static buffer create_buffer(
 			const vk::PhysicalDevice& aPhysicalDevice, 
 			const vk::Device& aDevice, 
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> aMetaData, 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData, 
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties, 
 			vk::MemoryAllocateFlags aMemoryAllocateFlags
 		);
 		
 		buffer create_buffer(
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> aMetaData, 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData, 
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties,
 			vk::MemoryAllocateFlags aMemoryAllocateFlags)
@@ -298,7 +297,7 @@ namespace avk
 				break;
 			}
 
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta>> metas;
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> metas;
 			metas.push_back(aConfig);
 			aUsage |= aConfig.buffer_usage_flags();
 			if constexpr (sizeof...(aConfigs) > 0) {
