@@ -2713,9 +2713,9 @@ namespace avk
 
 	bool descriptor_pool::has_capacity_for(const descriptor_alloc_request& pRequest) const
 	{
-		//if (mNumRemainingSets < static_cast<int>(pRequest.num_sets())) {
-		//	return false;
-		//}
+		if (mNumRemainingSets < static_cast<int>(pRequest.num_sets())) {
+			return false;
+		}
 
 		const auto& weNeed = pRequest.accumulated_pool_sizes();
 		const auto& weHave = mRemainingCapacities;
@@ -2753,7 +2753,7 @@ namespace avk
 			.setDescriptorSetCount(static_cast<uint32_t>(setLayouts.size()))
 			.setPSetLayouts(setLayouts.data());
 
-		AVK_LOG_DEBUG_VERBOSE("Allocated pool with remaining-sets[" + std::to_string(mNumRemainingSets) + "] and remaining-capacities:");
+		AVK_LOG_DEBUG_VERBOSE("Allocating from pool with remaining-sets[" + std::to_string(mNumRemainingSets) + "] and remaining-capacities:");
 #if defined(_DEBUG)
 		for (size_t i=0; i < mRemainingCapacities.size(); ++i) {
 			AVK_LOG_DEBUG_VERBOSE("          [" + std::to_string(i) + "]: descriptorCount[" + std::to_string(mRemainingCapacities[i].descriptorCount) + "], descriptorType[" + vk::to_string(mRemainingCapacities[i].type) + "]");
