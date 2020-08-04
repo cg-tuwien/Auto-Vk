@@ -120,7 +120,7 @@ namespace avk
 
 
 	/** Describe an input location for a pipeline's instance input.
-	*	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_bindign` where you have to specify it),
+	*	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_binding` where you have to specify it),
 	 *	but you'll have to set it to some other value if you are going to use multiple buffers. 
 	 *	Suggested usage/example: `cgb::vertex_input_location(0, &Vertex::position).from_buffer_at_binding(0);`
 	 *	The binding point represents a specific buffer which provides the data for the location specified.
