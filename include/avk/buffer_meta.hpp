@@ -43,10 +43,10 @@ namespace avk
 	 */
 	struct buffer_element_member_meta
 	{
-		uint32_t mLocation;
-		size_t mOffset;
+		uint32_t mLocation = 0;
+		size_t mOffset = 0;
 		vk::Format mFormat;
-		content_description mContent;
+		content_description mContent = content_description::unspecified;
 	};
 
 	/** Base class for buffer meta data */

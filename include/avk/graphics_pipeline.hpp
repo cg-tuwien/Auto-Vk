@@ -27,7 +27,7 @@ namespace avk
 		renderpass mRenderPass;
 		uint32_t mSubpassIndex;
 		// The vertex input data:
-		std::vector<vk::VertexInputBindingDescription> mVertexInputBindingDescriptions;
+		std::vector<vk::VertexInputBindingDescription> mOrderedVertexInputBindingDescriptions;
 		std::vector<vk::VertexInputAttributeDescription> mVertexInputAttributeDescriptions;
 		vk::PipelineVertexInputStateCreateInfo mPipelineVertexInputStateCreateInfo;
 		// How to interpret the vertex input:

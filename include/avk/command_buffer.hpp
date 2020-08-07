@@ -121,6 +121,16 @@ namespace avk
 		void copy_image(const image_t& aSource, const vk::Image& aDestination);
 		void end_render_pass();
 
+		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
+		 *								to get the number of vertices to draw.
+		 *	@param	aNumberOfInstances	Number of instances to draw
+		 *	@param	aFirstVertex		Offset to the first vertex
+		 *	@param	aFirstInstance		The ID of the first instance
+		 *	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
+		 */
 		template <typename... Bfrs>
 		void draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
 		{
@@ -130,16 +140,36 @@ namespace avk
 			handle().draw(vertexMeta.num_elements(), aNumberOfInstances, aFirstVertex, aFirstInstance);                      
 		}
 
+		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	Number of instances is set to 1.
+		 *	Offset to the first vertex is set to 0.
+		 *	The ID of the first instance is set to 0.
+		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
+		 *								to get the number of vertices to draw.
+		 *	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
+		 */
 		template <typename... Bfrs>
 		void draw_vertices(const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
 		{
 			draw_vertices(1u, 0u, 0u, aVertexBuffer, aFurtherBuffers...);
 		}
 
+		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfInstances	Number of instances to draw
+		 *	@param	aFirstIndex			Offset to the first index
+		 *	@param	aVertexOffset		Offset to the first vertex
+		 *	@param	aFirstInstance		The ID of the first instance
+		 *	@param	aVertexBuffers		References to one or multiple vertex buffers
+		 */
 		template <typename... Bfrs>
 		void draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers.buffer_handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... });
+			handle().bindVertexBuffers(0u, { aVertexBuffers.buffer_handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
 			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
 
 			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
@@ -154,6 +184,16 @@ namespace avk
 			handle().drawIndexed(indexMeta.num_elements(), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 		}
 		
+		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	Number of instances is set to 1.
+		 *	The first index is set to 0.
+		 *	The vertex offset is set to 0.
+		 *	The ID of the first instance is set to 0.
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aVertexBuffers		References to one or multiple vertex buffers
+		 */
 		template <typename... Bfrs>
 		void draw_indexed(const buffer_t& aIndexBuffer, const Bfrs&... aVertexBuffers)
 		{

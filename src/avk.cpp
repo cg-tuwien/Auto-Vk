@@ -869,12 +869,12 @@ namespace avk
 		return result;
 	}
 
-	vk::VertexInputRate to_vk_vertex_input_rate(input_binding_general_data::kind aValue)
+	vk::VertexInputRate to_vk_vertex_input_rate(vertex_input_buffer_binding::kind aValue)
 	{
 		switch (aValue) {
-		case input_binding_general_data::kind::instance:
+		case vertex_input_buffer_binding::kind::instance:
 			return vk::VertexInputRate::eInstance;
-		case input_binding_general_data::kind::vertex:
+		case vertex_input_buffer_binding::kind::vertex:
 			return vk::VertexInputRate::eVertex;
 		default:
 			throw std::invalid_argument("Invalid vertex input rate");
@@ -3592,30 +3592,30 @@ namespace avk
 
 		// 1. Compile the array of vertex input binding descriptions
 		{ 
-			// Select DISTINCT bindings:
+			// Select DISTINCT bindings (both vertex and instance inputs):
 			auto bindings = from(aConfig.mInputBindingLocations)
-				>> select([](const input_binding_location_data& _BindingData) { return _BindingData.mGeneralData; })
-				>> distinct() // see what I did there
-				>> orderby([](const input_binding_general_data& _GeneralData) { return _GeneralData.mBinding; })
+				>> select([](const input_binding_to_location_mapping& bindingData) { return bindingData.mGeneralData; })
+				>> distinct() // this will invoke operator ==(const vertex_input_buffer_binding& left, const vertex_input_buffer_binding& right), we have selected vertex_input_buffer_binding in the line above
+				>> orderby([](const vertex_input_buffer_binding& generalData) { return generalData.mBinding; })
 				>> to_vector();
-			result.mVertexInputBindingDescriptions.reserve(bindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
+			result.mOrderedVertexInputBindingDescriptions.reserve(bindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 
 			for (auto& bindingData : bindings) {
 
 				const auto numRecordsWithSameBinding = std::count_if(std::begin(bindings), std::end(bindings), 
-					[bindingId = bindingData.mBinding](const input_binding_general_data& _GeneralData) {
-						return _GeneralData.mBinding == bindingId;
+					[bindingId = bindingData.mBinding](const vertex_input_buffer_binding& generalData) {
+						return generalData.mBinding == bindingId;
 					});
 				if (1 != numRecordsWithSameBinding) {
-					throw avk::runtime_error("The input binding #" + std::to_string(bindingData.mBinding) + " is defined in different ways. Make sure to define it uniformly across different bindings/attribute descriptions!");
+					throw avk::runtime_error("The input binding #" + std::to_string(bindingData.mBinding) + " is defined in multiple times in different ways. Make sure to define it uniformly across different bindings/attribute descriptions!");
 				}
 
-				result.mVertexInputBindingDescriptions.push_back(vk::VertexInputBindingDescription()
+				result.mOrderedVertexInputBindingDescriptions.push_back(vk::VertexInputBindingDescription{}
 					// The following parameters are guaranteed to be the same. We have checked this.
 					.setBinding(bindingData.mBinding)
 					.setStride(static_cast<uint32_t>(bindingData.mStride))
 					.setInputRate(to_vk_vertex_input_rate(bindingData.mKind))
-					// Don't need the location here
+					// We don't need the location here
 				);
 			}
 		}
@@ -3624,7 +3624,7 @@ namespace avk
 		//  They will reference the bindings created in step 1.
 		result.mVertexInputAttributeDescriptions.reserve(aConfig.mInputBindingLocations.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (auto& attribData : aConfig.mInputBindingLocations) {
-			result.mVertexInputAttributeDescriptions.push_back(vk::VertexInputAttributeDescription()
+			result.mVertexInputAttributeDescriptions.push_back(vk::VertexInputAttributeDescription{}
 				.setBinding(attribData.mGeneralData.mBinding)
 				.setLocation(attribData.mMemberMetaData.mLocation)
 				.setFormat(attribData.mMemberMetaData.mFormat)
@@ -3634,8 +3634,8 @@ namespace avk
 
 		// 3. With the data from 1. and 2., create the complete vertex input info struct, passed to the pipeline creation
 		result.mPipelineVertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-			.setVertexBindingDescriptionCount(static_cast<uint32_t>(result.mVertexInputBindingDescriptions.size()))
-			.setPVertexBindingDescriptions(result.mVertexInputBindingDescriptions.data())
+			.setVertexBindingDescriptionCount(static_cast<uint32_t>(result.mOrderedVertexInputBindingDescriptions.size()))
+			.setPVertexBindingDescriptions(result.mOrderedVertexInputBindingDescriptions.data())
 			.setVertexAttributeDescriptionCount(static_cast<uint32_t>(result.mVertexInputAttributeDescriptions.size()))
 			.setPVertexAttributeDescriptions(result.mVertexInputAttributeDescriptions.data());
 
@@ -4573,7 +4573,7 @@ namespace avk
 #pragma endregion
 
 #pragma region input description definitions
-	input_description input_description::declare(std::initializer_list<input_binding_location_data> aBindings)
+	input_description input_description::declare(std::initializer_list<input_binding_to_location_mapping> aBindings)
 	{
 		input_description result;
 
@@ -4583,10 +4583,10 @@ namespace avk
 			if (std::holds_alternative<std::monostate>(bfr)) {
 				switch (bindingLoc.mGeneralData.mKind)
 				{
-				case input_binding_general_data::kind::vertex:
+				case vertex_input_buffer_binding::kind::vertex:
 					bfr = vertex_buffer_meta::create_from_element_size(bindingLoc.mGeneralData.mStride);
 					break;
-				case input_binding_general_data::kind::instance:
+				case vertex_input_buffer_binding::kind::instance:
 					bfr = instance_buffer_meta::create_from_element_size(bindingLoc.mGeneralData.mStride);
 					break;
 				default:
@@ -4597,8 +4597,8 @@ namespace avk
 #if defined(_DEBUG)
 			// It exists => perform some sanity checks:
 			if (std::holds_alternative<std::monostate>(bfr)
-				|| (input_binding_general_data::kind::vertex == bindingLoc.mGeneralData.mKind && std::holds_alternative<instance_buffer_meta>(bfr))
-				|| (input_binding_general_data::kind::instance == bindingLoc.mGeneralData.mKind && std::holds_alternative<vertex_buffer_meta>(bfr))
+				|| (vertex_input_buffer_binding::kind::vertex == bindingLoc.mGeneralData.mKind && std::holds_alternative<instance_buffer_meta>(bfr))
+				|| (vertex_input_buffer_binding::kind::instance == bindingLoc.mGeneralData.mKind && std::holds_alternative<vertex_buffer_meta>(bfr))
 				) {
 				throw avk::logic_error("All locations of the same binding must come from the same buffer type (vertex buffer or instance buffer).");
 			}

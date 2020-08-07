@@ -12,7 +12,7 @@ namespace avk
 
 	extern vk::ShaderStageFlags to_vk_shader_stages(shader_type aType);
 
-	extern vk::VertexInputRate to_vk_vertex_input_rate(input_binding_general_data::kind aValue);
+	extern vk::VertexInputRate to_vk_vertex_input_rate(vertex_input_buffer_binding::kind aValue);
 	
 	extern vk::PrimitiveTopology to_vk_primitive_topology(cfg::primitive_topology aValue);
 

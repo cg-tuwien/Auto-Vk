@@ -602,7 +602,7 @@ namespace avk
 
 		cfg::pipeline_settings mPipelineSettings; // TODO: Handle settings!
 		std::optional<std::tuple<renderpass, uint32_t>> mRenderPassSubpass;
-		std::vector<input_binding_location_data> mInputBindingLocations;
+		std::vector<input_binding_to_location_mapping> mInputBindingLocations;
 		cfg::primitive_topology mPrimitiveTopology;
 		std::vector<shader_info> mShaderInfos;
 		std::vector<cfg::viewport_depth_scissors_config> mViewportDepthConfig;
@@ -660,7 +660,7 @@ namespace avk
 
 	// Add an input binding location to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, input_binding_location_data aInputBinding, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, input_binding_to_location_mapping aInputBinding, Ts... args)
 	{
 		aConfig.mInputBindingLocations.push_back(std::move(aInputBinding));
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
