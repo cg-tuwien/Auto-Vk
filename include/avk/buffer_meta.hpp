@@ -43,7 +43,6 @@ namespace avk
 	 */
 	struct buffer_element_member_meta
 	{
-		uint32_t mLocation = 0;
 		size_t mOffset = 0;
 		vk::Format mFormat;
 		content_description mContent = content_description::unspecified;
@@ -215,7 +214,7 @@ namespace avk
 			return result; 
 		}
 
-		/** Describe which part of an element's member gets mapped to which shader location. */
+		/** Describe one member. That is, at which offset it is located, which format it has, and which type of content it represents */
 		uniform_texel_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, content_description aContent = content_description::unspecified)
 		{
 #if defined(_DEBUG)
@@ -224,7 +223,7 @@ namespace avk
 			}
 #endif
 			// insert already in the right place
-			const buffer_element_member_meta newElement{ 0u, aOffset, aFormat, aContent };
+			const buffer_element_member_meta newElement{ aOffset, aFormat, aContent };
 			const auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
 			                                 [](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
 				                                 return first.mOffset < second.mOffset;
@@ -379,7 +378,7 @@ namespace avk
 			}
 #endif
 			// insert already in the right place
-			buffer_element_member_meta newElement{ 0u, aOffset, aFormat, aContent };
+			buffer_element_member_meta newElement{ aOffset, aFormat, aContent };
 			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
 				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
 					return first.mOffset < second.mOffset;
@@ -472,21 +471,18 @@ namespace avk
 		}
 
 		/** Describe which part of an element's member gets mapped to which shader locaton. */
-		vertex_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, uint32_t aShaderLocation = 0u, content_description aContent = content_description::unspecified)
+		vertex_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, content_description aContent = content_description::unspecified)
 		{
 #if defined(_DEBUG)
-			if (std::find_if(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), [loc = aShaderLocation](const buffer_element_member_meta& e) { return e.mLocation == loc; }) != mOrderedMemberDescriptions.end()) {
-				AVK_LOG_WARNING("There is already a member described at location " + std::to_string(aShaderLocation) + ". If you are not using the location (like with a ray-tracing pipeline), this could be okay, though.");
-			}
 			if (std::find_if(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), [offs = aOffset](const buffer_element_member_meta& e) { return e.mOffset == offs; }) != mOrderedMemberDescriptions.end()) {
 				AVK_LOG_WARNING("There is already a member described at offset " + std::to_string(aOffset));
 			}
 #endif
 			// insert already in the right place
-			buffer_element_member_meta newElement{ aShaderLocation, aOffset, aFormat, aContent };
+			buffer_element_member_meta newElement{ aOffset, aFormat, aContent };
 			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
 				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
-					return first.mLocation < second.mLocation;
+					return first.mOffset < second.mOffset;
 				});
 			mOrderedMemberDescriptions.insert(it, newElement);
 			return *this;
@@ -504,10 +500,10 @@ namespace avk
 		 *	```
 		 */
 		template <typename M>
-		vertex_buffer_meta& describe_only_member(const M& aMember, uint32_t aShaderLocation = 0u, content_description aContent = content_description::unspecified)
+		vertex_buffer_meta& describe_only_member(const M& aMember, content_description aContent = content_description::unspecified)
 		{
 			assert(sizeof(aMember) == mSizeOfOneElement);
-			return describe_member(0, format_for<M>(), aShaderLocation, aContent);
+			return describe_member(0, format_for<M>(), aContent);
 		}
 
 #if defined(_MSC_VER) && defined(__cplusplus)
@@ -524,12 +520,11 @@ namespace avk
 		 *	```
 		 */
 		template <class T, class M> 
-		vertex_buffer_meta& describe_member(M T::* aMember, uint32_t aShaderLocation = 0u, content_description aContent = content_description::unspecified)
+		vertex_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::unspecified)
 		{
 			return describe_member(
 				((::size_t)&reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
 				format_for<M>(),
-				aShaderLocation,
 				aContent);
 		}
 #endif
@@ -618,18 +613,13 @@ namespace avk
 		}
 
 		/** Describe which part of an element's member gets mapped to which shader locaton. */
-		instance_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, uint32_t aShaderLocation = 0u, content_description aContent = content_description::unspecified)
+		instance_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, content_description aContent = content_description::unspecified)
 		{
-#if defined(_DEBUG)
-			if (std::find_if(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), [loc = aShaderLocation](const buffer_element_member_meta& e) { return e.mLocation == loc; }) != mOrderedMemberDescriptions.end()) {
-				AVK_LOG_WARNING("There is already a member described at location " + std::to_string(aShaderLocation) + ". If you are not using the location (like with a ray-tracing pipeline), this could be okay, though.");
-			}
-#endif
 			// insert already in the right place
-			buffer_element_member_meta newElement{ aShaderLocation, aOffset, aFormat, aContent };
+			buffer_element_member_meta newElement{ aOffset, aFormat, aContent };
 			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
 				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
-					return first.mLocation < second.mLocation;
+					return first.mOffset < second.mOffset;
 				});
 			mOrderedMemberDescriptions.insert(it, newElement);
 			return *this;
@@ -640,10 +630,10 @@ namespace avk
 		 *	the only data member has the same size as `mSizeOfOneElement`.
 		 */
 		template <typename M>
-		instance_buffer_meta& describe_only_member(const M& aMember, uint32_t aShaderLocation = 0u, content_description aContent = content_description::unspecified)
+		instance_buffer_meta& describe_only_member(const M& aMember, content_description aContent = content_description::unspecified)
 		{
 			assert(sizeof(aMember) == mSizeOfOneElement);
-			return describe_member(0, format_for<M>(), aShaderLocation, aContent);
+			return describe_member(0, format_for<M>(), aContent);
 		}
 
 #if defined(_MSC_VER) && defined(__cplusplus)
@@ -651,12 +641,11 @@ namespace avk
 		 *	and let the compiler figure out offset and format.
 		 */
 		template <class T, class M> 
-		instance_buffer_meta& describe_member(M T::* aMember, uint32_t aShaderLocation = 0u, content_description aContent = content_description::unspecified)
+		instance_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::unspecified)
 		{
 			return describe_member(
 				((::size_t)&reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
 				format_for<M>(),
-				aShaderLocation,
 				aContent);
 		}
 #endif
@@ -707,7 +696,7 @@ namespace avk
 			}
 #endif
 			// insert already in the right place
-			buffer_element_member_meta newElement{ 0u, aOffset, vk::Format::eUndefined, aContent };
+			buffer_element_member_meta newElement{ aOffset, vk::Format::eUndefined, aContent };
 			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
 				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
 					return first.mOffset < second.mOffset;
@@ -788,7 +777,7 @@ namespace avk
 			}
 #endif
 			// insert already in the right place
-			buffer_element_member_meta newElement{ 0u, aOffset, vk::Format::eUndefined, aContent };
+			buffer_element_member_meta newElement{ aOffset, vk::Format::eUndefined, aContent };
 			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
 				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
 					return first.mOffset < second.mOffset;

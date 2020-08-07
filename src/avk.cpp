@@ -3626,7 +3626,7 @@ namespace avk
 		for (auto& attribData : aConfig.mInputBindingLocations) {
 			result.mVertexInputAttributeDescriptions.push_back(vk::VertexInputAttributeDescription{}
 				.setBinding(attribData.mGeneralData.mBinding)
-				.setLocation(attribData.mMemberMetaData.mLocation)
+				.setLocation(attribData.mLocation)
 				.setFormat(attribData.mMemberMetaData.mFormat)
 				.setOffset(static_cast<uint32_t>(attribData.mMemberMetaData.mOffset))
 			);
@@ -4607,14 +4607,12 @@ namespace avk
 			if (std::holds_alternative<vertex_buffer_meta>(bfr)) {
 				std::get<vertex_buffer_meta>(bfr).describe_member(
 					bindingLoc.mMemberMetaData.mOffset,
-					bindingLoc.mMemberMetaData.mFormat,
-					bindingLoc.mMemberMetaData.mLocation);
+					bindingLoc.mMemberMetaData.mFormat);
 			}
 			else { // must be instance_buffer_meta
 				std::get<instance_buffer_meta>(bfr).describe_member(
 					bindingLoc.mMemberMetaData.mOffset,
-					bindingLoc.mMemberMetaData.mFormat,
-					bindingLoc.mMemberMetaData.mLocation);
+					bindingLoc.mMemberMetaData.mFormat);
 			}
 		}
 

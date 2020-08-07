@@ -36,6 +36,7 @@ namespace avk
 	{
 		vertex_input_buffer_binding mGeneralData;
 		buffer_element_member_meta mMemberMetaData;
+		uint32_t mLocation;
 	};
 
 	/**	Describes the input to a graphics pipeline
@@ -191,12 +192,12 @@ namespace avk
 		}
 	#endif
 		
-		input_binding_to_location_mapping to_location(uint32_t aLocation)
+		input_binding_to_location_mapping to_location(uint32_t aLocation) const
 		{
-			mMemberMetaData.mLocation = aLocation;
-			return input_binding_to_location_mapping { mGeneralData, mMemberMetaData };
+			return input_binding_to_location_mapping { mGeneralData, mMemberMetaData, aLocation };
 		}
-		
+
+		uint32_t mLocation = 0u;
 		vertex_input_buffer_binding mGeneralData;
 		buffer_element_member_meta mMemberMetaData;
 	};
