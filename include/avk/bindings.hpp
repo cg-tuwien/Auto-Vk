@@ -67,7 +67,7 @@ namespace avk
 	}
 
 	template <typename T>
-	binding_data binding(uint32_t aSet, uint32_t aBinding, const T& aResource, shader_type aShaderStages = shader_type::all)
+	binding_data descriptor_binding(uint32_t aSet, uint32_t aBinding, const T& aResource, shader_type aShaderStages = shader_type::all)
 	{
 		binding_data data{
 			aSet,
@@ -83,7 +83,7 @@ namespace avk
 	}
 
 	template <typename T>
-	binding_data binding(uint32_t aSet, uint32_t aBinding, uint32_t aCount, shader_type aShaderStages = shader_type::all)
+	binding_data descriptor_binding(uint32_t aSet, uint32_t aBinding, uint32_t aCount, shader_type aShaderStages = shader_type::all)
 	{
 		assert(aCount > 0u);
 		binding_data data{
@@ -100,9 +100,9 @@ namespace avk
 
 
 	template <typename T>
-	binding_data binding(uint32_t aBinding, const T& aResource, shader_type aShaderStages = shader_type::all)
+	binding_data descriptor_binding(uint32_t aBinding, const T& aResource, shader_type aShaderStages = shader_type::all)
 	{
-		return binding(0u, aBinding, aResource, aShaderStages);
+		return descriptor_binding(0u, aBinding, aResource, aShaderStages);
 	}
 
 }
