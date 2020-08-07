@@ -666,6 +666,14 @@ namespace avk
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
+	// Add an input binding location to the pipeline config
+	template <typename... Ts>
+	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, partial_input_binding_to_location_mapping aInputBinding, Ts... args)
+	{
+		assert(false);
+		throw avk::logic_error("Vertex input binding is not configured completely. Have you, by chance, forgotten to invoke ` -> to_location(...)`?");
+	}
+
 	// Set the topology of the input attributes
 	template <typename... Ts>
 	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::primitive_topology aTopology, Ts... args)

@@ -105,10 +105,11 @@ namespace avk
 		 *	@return		true if it does contain a meta data of type Meta, false otherwise.
 		 */
 		template <typename Meta>
-		bool has_meta() const
+		bool has_meta(size_t aSkip = 0) const
 		{
 			for (const auto& m : mMetaData) {
 				if (std::holds_alternative<Meta>(m)) {
+					if (aSkip-- > 0) { continue; }
 					return true;
 				}
 			}

@@ -60,36 +60,106 @@ namespace avk
 	/** A helper struct which is used to create a fully configured input_binding_to_location_mapping struct */
 	struct partial_input_binding_to_location_mapping
 	{
+		/**	Operator -> for syntactic sugar.
+		 *	You'll have to invoke either `stream_per_vertex` or `stream_per_instance`,
+		 *	and you must invoke `to_location` at the end.
+		 */
 		partial_input_binding_to_location_mapping* operator->()			{ return this; }
 
 		
-		/** Describe an input location for a pipeline's vertex input.
-		 *	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_binding` where you have to specify it),
-		 *	but you'll have to set it to some other value if you are going to use multiple buffers. 
-		 *	Suggested usage/example: `cgb::vertex_input_location(0, &Vertex::position).from_buffer_at_binding(0);`
-		 *	The binding point represents a specific buffer which provides the data for the location specified.
+		/** Describe a certain vertex input for a graphics pipeline by manually specifying offset, format and stride.
+		 *	@param	aOffset		Offset to the first element 
+		 *	@param	aFormat		Format of the element
+		 *	@param	aStride		Stride between subsequent elements
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_vertex(0, vk::Format::eR32G32Sfloat, sizeof(std::array<float,4>)) -> to_location(2)
+		 *	```
 		 */
 		partial_input_binding_to_location_mapping& stream_per_vertex(size_t aOffset, vk::Format aFormat, size_t aStride)
 		{
+			if (!mGeneralData.has_value()) {
+				throw avk::logic_error("You must initiate the creation of vertex input binding with `from_buffer_binding(...)` and call ` -> stream_per_instance(...)` subsequently.");
+			}
+			
 			// mBinding should already have been set in from_buffer_binding()
-			mGeneralData.mStride = aStride;
-			mGeneralData.mKind = vertex_input_buffer_binding::kind::vertex;
+			mGeneralData.value().mStride = aStride;
+			mGeneralData.value().mKind = vertex_input_buffer_binding::kind::vertex;
 
+			if (mMemberMetaData.has_value()) {
+				AVK_LOG_WARNING("Member meta data is already set. This is probably because stream_per_instance or stream_per_vertex has been called previously. The existing data will be overwritten.");
+			}
+			else {
+				mMemberMetaData = buffer_element_member_meta{};
+			}
+			
 			// No info about mLocation so far
-			mMemberMetaData.mOffset = aOffset;
-			mMemberMetaData.mFormat = aFormat;
-
+			mMemberMetaData.value().mOffset = aOffset;
+			mMemberMetaData.value().mFormat = aFormat;
+			
 			return *this;
 		}
 
-		// TODO: Figure out how to use this best
+		/** Describe a certain vertex input for a graphics pipeline.
+		 *	Read offset, format, and stride from given meta data and member description.
+		 *	@param	aBufferMeta			Meta data from a buffer.
+		 *	@param	aMemberDescription	Member description from a buffer's meta data
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_vertex(mVertexBuffer.meta<instance_buffer_meta>(), mVertexBuffer.member_description(content_description::position)) -> to_location(2)
+		 *	```
+		 */
+		partial_input_binding_to_location_mapping& stream_per_vertex(const buffer_meta& aBufferMeta, const buffer_element_member_meta& aMemberDescription)
+		{
+			return stream_per_vertex(aMemberDescription.mOffset, aMemberDescription.mFormat, aBufferMeta.sizeof_one_element());
+		}
+
+		/** Describe a certain vertex input for a graphics pipeline.
+		 *	Read offset, format, and stride from a buffer's meta data, which is assigned to
+		 *	a member of the given type.
+		 *	@param	aBuffer				The buffer to read `instance_buffer_meta` from.
+		 *	@param	aMember				The content description of a member which MUST be included in the `instance_buffer_meta`'s member descriptions.
+		 *	@param	aBufferMetaSkip		If aBuffer contains multiple `instance_buffer_meta`, which one shall be used (skipping aBufferMetaSkip-times)
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_vertex(mVertexBuffer, content_description::position) -> to_location(2)
+		 *	```
+		 */
+		partial_input_binding_to_location_mapping& stream_per_vertex(const buffer_t& aBuffer, content_description aMember, size_t aBufferMetaSkip = 0)
+		{
+			assert(aBuffer.has_meta<vertex_buffer_meta>(aBufferMetaSkip));
+			auto& metaData = aBuffer.meta<vertex_buffer_meta>(aBufferMetaSkip);
+			auto& member = metaData.member_description(aMember);
+			return stream_per_vertex(member.mOffset, member.mFormat, metaData.sizeof_one_element());
+		}
+
+		/** Describe a certain vertex input for a graphics pipeline where the buffer
+		 *	data is assumed to consist of one member only which is tightly packed (i.e.
+		 *	stride == sizeof(M), i.e. one element after the other with no space in between)
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_vertex<std::array<double,3>>() -> to_location(2)
+		 *	```
+		 */
 		template <class M>
 		partial_input_binding_to_location_mapping& stream_per_vertex()
 		{
 			return stream_per_vertex(0, format_for<M>(), sizeof(M));
 		}
 
-		// TODO: Figure out how to use this best
+		/** Describe a certain vertex input for a graphics pipeline where the buffer
+		 *	data is assumed to consist of one member only which is tightly packed (i.e.
+		 *	stride == sizeof(M), i.e. one element after the other with no space in between)
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_vertex(mVertexData[0]) -> to_location(2)
+		 *	```
+		 */
 		template <class M>
 		partial_input_binding_to_location_mapping& stream_per_vertex(const M&)
 		{
@@ -97,28 +167,12 @@ namespace avk
 		}
 
 	#if defined(_MSC_VER) && defined(__cplusplus)
-		/** Describe an input location for a pipeline's vertex input.
-		 *	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_binding` where you have to specify it),
-		 *	but you'll have to set it to some other value if you are going to use multiple buffers. 
-		 *	Suggested usage/example: `cgb::vertex_input_location(0, &Vertex::position).from_buffer_at_binding(0);`
-		 *	The binding point represents a specific buffer which provides the data for the location specified.
+		/** Describe a certain vertex input for a graphics pipeline.
+		 *	Let the compiler figure out offset, format, and stride.
 		 *	
 		 *	Usage example:
 		 *	```
-		 *  {
-		 *		vertex_input_location(0, &Vertex::pos);
-		 *		vertex_input_location(1, &Vertex::color);
-		 *		vertex_input_location(2, &Vertex::texCoord);
-		 *  }
-		 *	```
-		 *
-		 *	Or if all the data comes from different buffers:
-		 *	```
-		 *  {
-		 *		vertex_input_location(0, &Vertex::pos).from_buffer_at_binding(0);
-		 *		vertex_input_location(1, &Vertex::color).from_buffer_at_binding(1);
-		 *		vertex_input_location(2, &Vertex::texCoord).from_buffer_at_binding(2);
-		 *  }
+		 *  from_buffer_binding(13) -> stream_per_vertex(&Vertex::position) -> to_location(2)
 		 *	```
 		 */
 		template <class T, class M> 
@@ -134,33 +188,99 @@ namespace avk
 	#endif
 
 
-		/** Describe an input location for a pipeline's instance input.
-		*	The binding point is set to 0 in this case (opposed to `cgb::vertex_input_binding` where you have to specify it),
-		 *	but you'll have to set it to some other value if you are going to use multiple buffers. 
-		 *	Suggested usage/example: `cgb::vertex_input_location(0, &Vertex::position).from_buffer_at_binding(0);`
-		 *	The binding point represents a specific buffer which provides the data for the location specified.
-		*/
+		/** Describe a certain instance input for a graphics pipeline by manually specifying offset, format and stride.
+		 *	@param	aOffset		Offset to the first element 
+		 *	@param	aFormat		Format of the element
+		 *	@param	aStride		Stride between subsequent elements
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_instance(0, vk::Format::eR32G32Sfloat, sizeof(std::array<float,4>)) -> to_location(2)
+		 *	```
+		 */
 		partial_input_binding_to_location_mapping& stream_per_instance(size_t aOffset, vk::Format aFormat, size_t aStride)
 		{
+			if (!mGeneralData.has_value()) {
+				throw avk::logic_error("You must initiate the creation of vertex input binding with `from_buffer_binding(...)` and call ` -> stream_per_instance(...)` subsequently.");
+			}
+			
 			// mBinding should already have been set in from_buffer_binding()
-			mGeneralData.mStride = aStride;
-			mGeneralData.mKind = vertex_input_buffer_binding::kind::instance;
+			mGeneralData.value().mStride = aStride;
+			mGeneralData.value().mKind = vertex_input_buffer_binding::kind::instance;
 
+			if (mMemberMetaData.has_value()) {
+				AVK_LOG_WARNING("Member meta data is already set. This is probably because stream_per_instance or stream_per_vertex has been called previously. The existing data will be overwritten.");
+			}
+			else {
+				mMemberMetaData = buffer_element_member_meta{};
+			}
+			
 			// No info about mLocation so far
-			mMemberMetaData.mOffset = aOffset;
-			mMemberMetaData.mFormat = aFormat;
+			mMemberMetaData.value().mOffset = aOffset;
+			mMemberMetaData.value().mFormat = aFormat;
 
 			return *this;
 		}
 
-		// TODO: Figure out how to use this best
+		/** Describe a certain instance input for a graphics pipeline.
+		 *	Read offset, format, and stride from given meta data and member description.
+		 *	@param	aBufferMeta			Meta data from a buffer.
+		 *	@param	aMemberDescription	Member description from a buffer's meta data
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_instance(mVertexBuffer.meta<instance_buffer_meta>(), mVertexBuffer.member_description(content_description::position)) -> to_location(2)
+		 *	```
+		 */
+		partial_input_binding_to_location_mapping& stream_per_instance(const buffer_meta& aBufferMeta, const buffer_element_member_meta& aMemberDescription)
+		{
+			return stream_per_instance(aMemberDescription.mOffset, aMemberDescription.mFormat, aBufferMeta.sizeof_one_element());
+		}
+
+		/** Describe a certain instance input for a graphics pipeline.
+		 *	Read offset, format, and stride from a buffer's meta data, which is assigned to
+		 *	a member of the given type.
+		 *	@param	aBuffer				The buffer to read `instance_buffer_meta` from.
+		 *	@param	aMember				The content description of a member which MUST be included in the `instance_buffer_meta`'s member descriptions.
+		 *	@param	aBufferMetaSkip		If aBuffer contains multiple `instance_buffer_meta`, which one shall be used (skipping aBufferMetaSkip-times)
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_instance(mVertexBuffer, content_description::position) -> to_location(2)
+		 *	```
+		 */
+		partial_input_binding_to_location_mapping& stream_per_instance(const buffer_t& aBuffer, content_description aMember, size_t aBufferMetaSkip = 0)
+		{
+			assert(aBuffer.has_meta<instance_buffer_meta>(aBufferMetaSkip));
+			auto& metaData = aBuffer.meta<instance_buffer_meta>(aBufferMetaSkip);
+			auto& member = metaData.member_description(aMember);
+			return stream_per_instance(member.mOffset, member.mFormat, metaData.sizeof_one_element());
+		}
+
+		/** Describe a certain instance input for a graphics pipeline where the buffer
+		 *	data is assumed to consist of one member only which is tightly packed (i.e.
+		 *	stride == sizeof(M), i.e. one element after the other with no space in between)
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_instance<std::array<double,3>>() -> to_location(2)
+		 *	```
+		 */
 		template <class M>
 		partial_input_binding_to_location_mapping& stream_per_instance()
 		{
 			return stream_per_instance(0, format_for<M>(), sizeof(M));
 		}
 
-		// TODO: Figure out how to use this best
+		/** Describe a certain instance input for a graphics pipeline where the buffer
+		 *	data is assumed to consist of one member only which is tightly packed (i.e.
+		 *	stride == sizeof(M), i.e. one element after the other with no space in between)
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_instance(mVertexData[0]) -> to_location(2)
+		 *	```
+		 */
 		template <class M>
 		partial_input_binding_to_location_mapping& stream_per_instance(const M&)
 		{
@@ -168,18 +288,14 @@ namespace avk
 		}
 
 	#if defined(_MSC_VER) && defined(__cplusplus)
-
-		/** Describe an input location for a pipeline's instance input.
-		*	Also, assign the input location to a specific binding point (first parameter `pBinding`).
-		*	The binding point represents a specific buffer which provides the data for the location specified.
-		*	
-		*	Usage example:
-		*	```
-		*  {
-		*		instance_input_location(0, &SomeInstanceData::color);
-		*  }
-		*	```
-		*/
+		/** Describe a certain instance input for a graphics pipeline.
+		 *	Let the compiler figure out offset, format, and stride.
+		 *	
+		 *	Usage example:
+		 *	```
+		 *  from_buffer_binding(13) -> stream_per_instance(&Vertex::position) -> to_location(2)
+		 *	```
+		 */
 		template <class T, class M> 
 		partial_input_binding_to_location_mapping& stream_per_instance(M T::* aMember)
 		{
@@ -191,21 +307,37 @@ namespace avk
 				sizeof(T));
 		}
 	#endif
-		
+
+		/** State the vertex input layout location as used in shaders.
+		 *	I.e. the location that corresponds to GLSL's `layout(location = 0) in` declarations.
+		 */
 		input_binding_to_location_mapping to_location(uint32_t aLocation) const
 		{
-			return input_binding_to_location_mapping { mGeneralData, mMemberMetaData, aLocation };
+			if (!mGeneralData.has_value() || !mMemberMetaData.has_value()) {
+				throw avk::logic_error("Vertex input binding has not been configured completely. Have you invoked ` -> stream_per_vertex(...)` or ` -> stream_per_instance(...)` before invoking ` -> to_location(...)`?");
+			}
+			return input_binding_to_location_mapping { mGeneralData.value(), mMemberMetaData.value(), aLocation };
 		}
 
-		uint32_t mLocation = 0u;
-		vertex_input_buffer_binding mGeneralData;
-		buffer_element_member_meta mMemberMetaData;
+		std::optional<vertex_input_buffer_binding> mGeneralData;
+		std::optional<buffer_element_member_meta> mMemberMetaData;
 	};
 
+	/**	Use this function as a starting point for vertex input binding descriptions. Always!
+	 *	Please note that in order to create a complete vertex input description, you'll HAVE TO:
+	 *	- either call `stream_per_vertex` or `stream_per_instance`
+	 *	- and, finally, `to_location`!
+	 *
+	 *	Example usage:
+	 *	``` 
+	 *	from_buffer_binding(13) -> stream_per_vertex<std::array<double,3>>() -> to_location(2)
+	 *	```
+	 */
 	inline partial_input_binding_to_location_mapping from_buffer_binding(uint32_t aBindingIndex)
 	{
 		partial_input_binding_to_location_mapping result;
-		result.mGeneralData.mBinding = aBindingIndex;
+		result.mGeneralData = vertex_input_buffer_binding{};
+		result.mGeneralData.value().mBinding = aBindingIndex;
 		return result;
 	}
 }
