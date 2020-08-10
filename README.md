@@ -30,18 +30,18 @@ public:
         mInstance = vk::createInstance(vk::InstanceCreateInfo{}); 
         mPhysicalDevice = mInstance.enumeratePhysicalDevices().front();
         
-		auto queueCreateInfos = avk::queue::get_queue_config_for_DeviceCreateInfo(std::begin(queues), std::end(queues));
-		// Iterate over all vk::DeviceQueueCreateInfo entries and set the queue priorities pointers properly (just to be safe!)
-		for (auto i = 0; i < std::get<0>(queueCreateInfos).size(); ++i) {
-			std::get<0>(queueCreateInfos)[i].setPQueuePriorities(std::get<1>(queueCreateInfos)[i].data());
-		}
+        auto queueCreateInfos = avk::queue::get_queue_config_for_DeviceCreateInfo(std::begin(queues), std::end(queues));
+        // Iterate over all vk::DeviceQueueCreateInfo entries and set the queue priorities pointers properly (just to be safe!)
+        for (auto i = 0; i < std::get<0>(queueCreateInfos).size(); ++i) {
+            std::get<0>(queueCreateInfos)[i].setPQueuePriorities(std::get<1>(queueCreateInfos)[i].data());
+        }
         
         auto deviceCreateInfo = vk::DeviceCreateInfo()
-			.setQueueCreateInfoCount(static_cast<uint32_t>(std::get<0>(queueCreateInfos).size()))
-			.setPQueueCreateInfos(std::get<0>(queueCreateInfos).data());
-            // Set further configuration parameters for the device
+            .setQueueCreateInfoCount(static_cast<uint32_t>(std::get<0>(queueCreateInfos).size()))
+            .setPQueueCreateInfos(std::get<0>(queueCreateInfos).data());
+        // Set further configuration parameters for the device
         mDevice = mPhysicalDevice.createDevice(deviceCreateInfo);
-        
+
         context().mDynamicDispatch = vk::DispatchLoaderDynamic{ mInstance, vkGetInstanceProcAddr, mDevice };
     }
     
