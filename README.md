@@ -78,7 +78,7 @@ From this point onwards, the root class (`my_root` in the example) serves as the
 **To create an image** with an image view, for example, you could invoke: 
 ```
 auto myImageView = myRoot.create_image_view(
-    gvk::context().create_image(1920, 1080, vk::Format::eR8G8B8A8Unorm, 1, avk::memory_usage::device, avk::image_usage::general_storage_image)
+    myRoot.create_image(1920, 1080, vk::Format::eR8G8B8A8Unorm, 1, avk::memory_usage::device, avk::image_usage::general_storage_image)
 );
 ```
 The first parameters state the resolution, the format, and the number of layers of the image. The `memory_usage` parameter states that this image shall live device memory, and the `image_usage` flags state that this image shall be usable as a "general image" and as a "storage image". This will create the the image with usage flags `vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage` and the tiling flag `vk::ImageTiling::eOptimal`.
@@ -88,9 +88,19 @@ The first parameters state the resolution, the format, and the number of layers 
 std::vector<std::array<float, 3>> vertices;
 
 auto myBuffer = myRoot.create_buffer(
-    memory_usage::host_coherent, {},
-    vertex_buffer_meta::create_from_data(vertices), 
-    uniform_buffer_meta::create_from_data(vertices)
+    avk::memory_usage::host_coherent, {},
+    avk::vertex_buffer_meta::create_from_data(vertices), 
+    avk::uniform_buffer_meta::create_from_data(vertices)
 );
 ```
 The first parameter states that the buffer shall live in host-coherent memory. The second parameter states no additional usage flags. Parameters three and four state two different usage types of the same buffer, namely as vertex buffer and as uniform buffer which means that the buffer will be created with both, `vk::BufferUsageFlagBits::eVertexBuffer` and `vk::BufferUsageFlagBits::eUniformBuffer`, flags set. The `create_from_data` convenience methods automatically infer size of one element and number of elements from the given `std::vector`.
+
+**To fill a buffer** (and this generally applies to operations after creation), no reference to `myRoot` is needed anymore. Further operations can be invoked on the created instance like follows:
+```
+myBuffer->fill(vertices, 0, avk::sync::not_required());
+```
+The first parameter are the data, the second refers to the meta data index to use (in this case to the `vertex_buffer_meta`, but actually the data should be the same for all of the meta data entries anyways), and the third parameter states that "no sync is required" which is only true in this case because `myBuffer` has been created with `avk::memory_usage::host_coherent`.
+
+If the buffer was created with `avk::memory_usage::device`, the fill operation is an asynchronous operation and a different synchronization strategy is required. The most straight forward to be used would be `avk::sync::wait_idle()` where the device waits for idle, meaning that the fill operation must also be completed when `wait_idle()` returns.
+
+
