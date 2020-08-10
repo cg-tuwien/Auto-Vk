@@ -24,23 +24,32 @@ auto graphicsPipeline = myRoot.create_graphics_pipeline_for(
 	avk::vertex_shader("shaders/vertex_shader.vert"),
 	avk::fragment_shader("shaders/fragment_shader.frag"),
 	// The next 3 lines define the format and location of the vertex shader inputs:
-	avk::from_buffer_binding(0) -> stream_per_vertex<glm::vec3>() -> to_location(0),
-	avk::from_buffer_binding(1) -> stream_per_vertex<glm::vec2>() -> to_location(1),
-	avk::from_buffer_binding(2) -> stream_per_instance<glm::vec3>() -> to_location(2),
+	avk::from_buffer_binding(0) -> stream_per_vertex<glm::vec3>()   -> to_location(0),
+	avk::from_buffer_binding(1) -> stream_per_vertex<glm::vec2>()   -> to_location(1),
+	avk::from_buffer_binding(2) -> stream_per_instance<glm::vec3>() -> to_location(5),
 	// Some further settings:
 	avk::cfg::front_face::define_front_faces_to_be_counter_clockwise(),
 	avk::cfg::viewport_depth_scissors_config::from_extent(1920u, 1080u),
 	// Declare the renderpass' attachments and the actions to take:
-	avk::attachment::declare(vk::Format::eR8G8B8A8Unorm,  avk::on_load::clear, avk::unused()        -> avk::color(0) ->  avk::color(0),        avk::on_store::store_in_presentable_format),	
+	avk::attachment::declare(vk::Format::eR8G8B8A8Unorm,  avk::on_load::clear, avk::unused()        -> avk::color(0) ->  avk::color(0), avk::on_store::store_in_presentable_format),	
 	avk::attachment::declare(vk::Format::eD24UnormS8Uint, avk::on_load::clear, avk::depth_stencil() -> preserve()    -> input(0),       avk::on_store::dont_care                  ),
 	// The following define resources that will be bound to the pipeline:
 	avk::push_constant_binding_data { avk::shader_type::vertex, 0, sizeof(std::array<float, 16>) },
-	avk::descriptor_binding(0, 0, myBuffer),
+	avk::descriptor_binding(0, 0, myBuffer->as_uniform_buffer()),
 	avk::descriptor_binding(0, 1, myImageView)
 );
 ```
 
-This creates a graphics pipeline
+This creates a fully functioning graphics pipeline on the device consisting of two shaders (a vertex shader and a fragment shader), with three vertex/instance input bindings, stating some additional pipeline settings (face orientation, and viewport config), defining the renderpass' attachments (which could correspond to the backbuffer format to render into), and further resource bindings to the pipeline: push constants of the size 64 byte (16 floats, which is enough space for a 4x4 matrix), and two descriptors, namely a buffer bound as uniform buffer (corresponding to descriptor type `vk::DescriptorType::eUniformBuffer`) and an image view (corresponding to descriptor type `vk::DescriptorType::eSampledImage`).
+
+Vertex input bindings are specified in an expressive way. For example,       
+`avk::from_buffer_binding(2) -> stream_per_instance<glm::vec3>() -> to_location(5)`             
+means that from the buffer that is bound at index `2` when invoking `vk::CommandBuffer::bindVertexBuffers`, data is being streamed to vertex shader's `layout (location=5)` and the data pointer is advanced per instance. 
+
+In a similarly expressive manner, the subpass usages of the renderpass' attachments are specified. In the example above, there are three subpasses. The color attachment is not used in the first subpass, and is used as color attachment in subpasses `1` and `2`, bound to output location `0` in both of them.        
+The depth/stencil attachment is used as depth/stencil attachment in the first subpass, is not used in the second subpass but its contents are preserved, and in the thirds subpass, is is used as an input attachment, i.e. to be read from.
+
+After subpass three, the color attachment shall be stored in a presentable format (`avk::on_store::store_in_presentable_format`), i.e. so that it can be passed on to a presentation engine for being displayed on screen. The depth/stencil attachment is not required any longer after subpass three, therefore we don't care about its contents (`avk::on_store::dont_care`).
 
 # Usage
 
