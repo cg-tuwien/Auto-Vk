@@ -5,7 +5,7 @@ _Auto-Vk_ is a low-level convenience and productivity layer atop [Vulkan-Hpp](ht
 # Setup
 
 _Auto-Vk_ requires
-* A Vulkan 1.2 SDK
+* A Vulkan 1.2 SDK (not so sure about that.. TBD.)
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 
 _Auto-Vk_ consists of multiple C++ include files and two (soon: one) C++ source file
@@ -75,11 +75,22 @@ Queues require some special handling because they must be declared prior to crea
 
 From this point onwards, the root class (`my_root` in the example) serves as the origin for creating all kinds of things. 
 
-To create an image with an image view, for example, you could invoke: 
+**To create an image** with an image view, for example, you could invoke: 
 ```
-myRoot = gvk::context().create_image_view(
+auto myImageView = myRoot.create_image_view(
     gvk::context().create_image(1920, 1080, vk::Format::eR8G8B8A8Unorm, 1, avk::memory_usage::device, avk::image_usage::general_storage_image)
 );
 ```
 The first parameters state the resolution, the format, and the number of layers of the image. The `memory_usage` parameter states that this image shall live device memory, and the `image_usage` flags state that this image shall be usable as a "general image" and as a "storage image". This will create the the image with usage flags `vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage` and the tiling flag `vk::ImageTiling::eOptimal`.
 
+**To create a buffer** that is usable as both, uniform buffer, and vertex buffer, you could invoke:
+```
+std::vector<std::array<float, 3>> vertices;
+
+auto myBuffer = myRoot.create_buffer(
+    memory_usage::host_coherent, {},
+    vertex_buffer_meta::create_from_data(vertices), 
+    uniform_buffer_meta::create_from_data(vertices)
+);
+```
+The first parameter states that the buffer shall live in host-coherent memory. The second parameter states no additional usage flags. Parameters three and four state two different usage types of the same buffer, namely as vertex buffer and as uniform buffer which means that the buffer will be created with both, `vk::BufferUsageFlagBits::eVertexBuffer` and `vk::BufferUsageFlagBits::eUniformBuffer`, flags set. The `create_from_data` convenience methods automatically infer size of one element and number of elements from the given `std::vector`.
