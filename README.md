@@ -12,6 +12,36 @@ _Auto-Vk_ consists of multiple C++ include files and two (soon: one) C++ source 
 * Add [`include/`](include/) to the include paths so that your compiler can find include files under paths `avk/*`
 * Add [`src/avk.cpp`](src/avk.cpp) (and currently also [`src/sync.cpp`](src/sync.cpp)) as a compiled C++ source code file
 
+# Motivating Example
+
+_Auto-Vk_ aims to hit the sweet spot between full controllability and convenience without having a noticeable impact on performance.
+
+**Creating a graphics pipeline** in Vulkan require hundreds of lines of code. Here is what it can look like using _Auto-Vk_:
+
+```
+auto graphicsPipeline = myRoot.create_graphics_pipeline_for(
+	// Specify which shaders the pipeline consists of:
+	avk::vertex_shader("shaders/vertex_shader.vert"),
+	avk::fragment_shader("shaders/fragment_shader.frag"),
+	// The next 3 lines define the format and location of the vertex shader inputs:
+	avk::from_buffer_binding(0) -> stream_per_vertex<glm::vec3>() -> to_location(0),
+	avk::from_buffer_binding(1) -> stream_per_vertex<glm::vec2>() -> to_location(1),
+	avk::from_buffer_binding(2) -> stream_per_instance<glm::vec3>() -> to_location(2),
+	// Some further settings:
+	avk::cfg::front_face::define_front_faces_to_be_counter_clockwise(),
+	avk::cfg::viewport_depth_scissors_config::from_extent(1920u, 1080u),
+	// Declare the renderpass' attachments and the actions to take:
+	avk::attachment::declare(vk::Format::eR8G8B8A8Unorm,  avk::on_load::clear, avk::unused()        -> avk::color(0) ->  avk::color(0),        avk::on_store::store_in_presentable_format),	
+	avk::attachment::declare(vk::Format::eD24UnormS8Uint, avk::on_load::clear, avk::depth_stencil() -> preserve()    -> input(0),       avk::on_store::dont_care                  ),
+	// The following define resources that will be bound to the pipeline:
+	avk::push_constant_binding_data { avk::shader_type::vertex, 0, sizeof(std::array<float, 16>) },
+	avk::descriptor_binding(0, 0, myBuffer),
+	avk::descriptor_binding(0, 1, myImageView)
+);
+```
+
+This creates a graphics pipeline
+
 # Usage
 
 The first step is to derive from `avk::root` and implement three virtual methods:
