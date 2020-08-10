@@ -27,9 +27,9 @@ class my_root : avk::root
 {
 public:
     my_root() {  }
-		vk::PhysicalDevice physical_device() override { mInstance.enumeratePhysicalDevices().front(); }
-		vk::Device device() override {  }
-		vk::DispatchLoaderDynamic dynamic_dispatch() override {  }
+    vk::PhysicalDevice physical_device() override { mInstance.enumeratePhysicalDevices().front(); }
+    vk::Device device() override {  }
+    vk::DispatchLoaderDynamic dynamic_dispatch() override {  }
     
 private:
     vk::Instance mInstance;
