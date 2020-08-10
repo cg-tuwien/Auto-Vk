@@ -55,9 +55,9 @@ After subpass three, the color attachment shall be stored in a presentable forma
 
 The first step is to derive from `avk::root` and implement three virtual methods:
 ``` 
-virtual vk::PhysicalDevice physical_device() = 0;
-virtual vk::Device device() = 0;
-virtual vk::DispatchLoaderDynamic dynamic_dispatch() = 0;
+virtual vk::PhysicalDevice& physical_device() = 0;
+virtual vk::Device& device() = 0;
+virtual vk::DispatchLoaderDynamic& dynamic_dispatch() = 0;
 ```
 
 Example implementation:
