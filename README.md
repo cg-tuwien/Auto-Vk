@@ -42,11 +42,11 @@ auto graphicsPipeline = myRoot.create_graphics_pipeline_for(
 
 This creates a fully functioning graphics pipeline on the device consisting of two shaders (a vertex shader and a fragment shader), with three vertex/instance input bindings, stating some additional pipeline settings (face orientation, and viewport config), defining the renderpass' attachments (which could correspond to the backbuffer format to render into), and further resource bindings to the pipeline: push constants of the size 64 byte (16 floats, which is enough space for a 4x4 matrix), and two descriptors, namely a buffer bound as uniform buffer (corresponding to descriptor type `vk::DescriptorType::eUniformBuffer`) and an image view (corresponding to descriptor type `vk::DescriptorType::eSampledImage`).
 
-Vertex input bindings are specified in an expressive way. For example,       
+**Vertex input bindings** are specified in an expressive way. For example,       
 `avk::from_buffer_binding(2) -> stream_per_instance<glm::vec3>() -> to_location(5)`             
 means that from the buffer that is bound at index `2` when invoking `vk::CommandBuffer::bindVertexBuffers`, data is being streamed to vertex shader's `layout (location=5)` and the data pointer is advanced per instance. 
 
-In a similarly expressive manner, the subpass usages of the renderpass' attachments are specified. In the example above, there are three subpasses. The color attachment is not used in the first subpass, and is used as color attachment in subpasses `1` and `2`, bound to output location `0` in both of them.        
+In a similarly expressive manner, the **subpass usages of the renderpass' attachments** are specified. In the example above, there are three subpasses. The color attachment is not used in the first subpass, and is used as color attachment in subpasses `1` and `2`, bound to output location `0` in both of them.        
 The depth/stencil attachment is used as depth/stencil attachment in the first subpass, is not used in the second subpass but its contents are preserved, and in the thirds subpass, is is used as an input attachment, i.e. to be read from.
 
 After subpass three, the color attachment shall be stored in a presentable format (`avk::on_store::store_in_presentable_format`), i.e. so that it can be passed on to a presentation engine for being displayed on screen. The depth/stencil attachment is not required any longer after subpass three, therefore we don't care about its contents (`avk::on_store::dont_care`).
@@ -142,4 +142,22 @@ The first parameter are the data, the second refers to the meta data index to us
 
 If the buffer was created with `avk::memory_usage::device`, the fill operation is an asynchronous operation and a different synchronization strategy is required. The most straight forward to be used would be `avk::sync::wait_idle()` where the device waits for idle, meaning that the fill operation must also be completed when `wait_idle()` returns.
 
+# Owning Resources or Move-Only Types
 
+Many of the types used are implemented as _move-only_ types because they represent resources. Such types are wrapped in the `avk::owning_resource<T>` class and may only be moved to other locations.
+
+For example, images are implemented as such types. The type returned by `myRoot.create_image` is `avk::image`, which is a typedef to `avk::owning_resource<avk::image_t>`. I.e. the concrete image's functionality is implemented within class `avk::image_t`. 
+
+Whenever temporary and non-ownership-transferring access to such types is sufficient, you will see the function or method taking a parameter of the form `const T&` or similar. For the case of `avk::owning_resource<avk::image_t>`, such a parameter would have the type `const image_t&`. Usage is simple, however, since `avk::owning_resource<T>` has implicit cast operators to `const T&`, `T&`, `const T*`, and `T*`.
+
+If you need to have **multiple owners** of a resource type, you can use `avk::owning_resource<T>::enable_shared_ownership` which will move the resource internally into a shared pointers. Storing resources in shared pointers is not the default because it would violate a core principle of C++, namely "don't pay for what you're not using". There is no point in making a heap allocation if an object could spend its lifetime on the stack.
+
+# Sync
+
+Synchronization by the means of 
+* waiting for idle,
+* semaphores, and
+* pipeline barriers
+is currently implemented in class `avk::sync`. Many functions/method which perform asynchronous operations take `avk::sync` parameters to allow modification of the synchronization strategy.
+
+_Attention:_ `avk::sync` is ugly and is subject to change. Expect breaking changes soon.
