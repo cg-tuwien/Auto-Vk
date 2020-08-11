@@ -495,7 +495,7 @@ namespace avk
 		add_config(config, renderPassAttachments, alterConfigFunction, std::move(args)...);
 
 		// Check if render pass attachments are in renderPassAttachments XOR config => only in that case, it is clear how to proceed, fail in other cases
-		if (renderPassAttachments.size() > 0 == (config.mRenderPassSubpass.has_value() && nullptr != std::get<renderpass>(*config.mRenderPassSubpass)->handle())) {
+		if (renderPassAttachments.size() > 0 == (config.mRenderPassSubpass.has_value() && static_cast<bool>(std::get<renderpass>(*config.mRenderPassSubpass)->handle()))) {
 			if (renderPassAttachments.size() == 0) {
 				throw avk::runtime_error("No renderpass config provided! Please provide a renderpass or attachments!");
 			}
