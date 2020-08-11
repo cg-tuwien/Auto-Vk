@@ -158,6 +158,7 @@ Synchronization by the means of
 * waiting for idle,
 * semaphores, and
 * pipeline barriers
+
 is currently implemented in class `avk::sync`. Many functions/method which perform asynchronous operations take `avk::sync` parameters to allow modification of the synchronization strategy.
 
 _Attention:_ `avk::sync` is ugly and is subject to change. Expect breaking changes soon.
