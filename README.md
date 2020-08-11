@@ -7,6 +7,7 @@ _Auto-Vk_ is a low-level convenience and productivity layer atop [Vulkan-Hpp](ht
 _Auto-Vk_ requires
 * A Vulkan 1.2 SDK (Vulkan 1.1 SDK compatibility w.i.p.)
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
+* A C++17 compiler
 
 _Auto-Vk_ consists of multiple C++ include files and two (soon: one) C++ source file
 * Add [`include/`](include/) to the include paths so that your compiler can find include files under paths `avk/*`
@@ -53,7 +54,13 @@ After subpass three, the color attachment shall be stored in a presentable forma
 
 # Usage
 
-The first step is to derive from `avk::root` and implement three virtual methods:
+First of all, include all of _Auto-Vk_:
+
+``` 
+#include <avk/avk.hpp>
+```
+
+The next essential step is to derive from `avk::root` and implement three virtual methods:
 ``` 
 virtual vk::PhysicalDevice& physical_device() = 0;
 virtual vk::Device& device() = 0;
