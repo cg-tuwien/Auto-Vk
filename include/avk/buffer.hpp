@@ -46,8 +46,10 @@ namespace avk
 			void operator()(const vertex_buffer_meta& data)				const	{ *mOut = &data; }
 			void operator()(const index_buffer_meta& data)				const	{ *mOut = &data; }
 			void operator()(const instance_buffer_meta& data)			const	{ *mOut = &data; }
+#if VK_HEADER_VERSION >= 135
 			void operator()(const aabb_buffer_meta& data)				const	{ *mOut = &data; }
 			void operator()(const geometry_instance_buffer_meta& data)	const	{ *mOut = &data; }
+#endif
 		};
 		
 	public:
@@ -206,7 +208,11 @@ namespace avk
 		}		
 		
 	private:
+#if VK_HEADER_VERSION >= 135
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> mMetaData;
+#else
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> mMetaData;
+#endif
 		vk::BufferCreateInfo mCreateInfo;
 		vk::MemoryPropertyFlags mMemoryPropertyFlags;
 		vk::UniqueDeviceMemory mMemory;

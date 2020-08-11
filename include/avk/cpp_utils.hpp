@@ -293,7 +293,7 @@ namespace avk
 					//	with that is that it looks like it does not support move-only types.
 					//	An alternative to initializer lists would be to use `ak::make_vector`.
 					//
-					throw avk::logic_error(fmt::format("You are trying to copy-construct a resource of type {} which does not have shared ownership enabled. This call will fail now. You can try to use owning_resource::enable_shared_ownership().", typeid(T).name()));
+					throw avk::logic_error("You are trying to copy-construct a resource of type '" + std::string(typeid(T).name()) + "' which does not have shared ownership enabled. This call will fail now. You can try to use owning_resource::enable_shared_ownership().");
 				}
 				*this_as_variant() = std::get<std::shared_ptr<T>>(other);
 			}

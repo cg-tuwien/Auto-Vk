@@ -3,6 +3,7 @@
 
 namespace avk
 {
+#if VK_HEADER_VERSION >= 135
 	/** Represents data for a Vulkan ray tracing pipeline */
 	class ray_tracing_pipeline_t
 	{
@@ -94,5 +95,5 @@ namespace avk
 	{
 		command_buffer_t::bind_descriptors(vk::PipelineBindPoint::eRayTracingKHR, std::get<const ray_tracing_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aDescriptorSets));
 	}
-
+#endif
 }

@@ -3,6 +3,7 @@
 
 namespace avk
 {
+#if VK_HEADER_VERSION >= 135
 	class bottom_level_acceleration_structure_t;
 
 	struct geometry_instance
@@ -43,5 +44,5 @@ namespace avk
 		vk::GeometryInstanceFlagsKHR mFlags;
 		vk::DeviceAddress mAccelerationStructureDeviceHandle;
 	};
-
+#endif
 }

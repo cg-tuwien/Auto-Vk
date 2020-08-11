@@ -246,6 +246,7 @@ namespace avk
 			AVK_LOG_WARNING("No vk::PushConstantRange entry found that matches the dataSize[" + std::to_string(dataSize) + "]");
 		}
 
+#if VK_HEADER_VERSION >= 135
 		/**	Issue a trace rays call.
 		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
 		 *	@param	aShaderBindingTableRef		Reference to the shader binding table (SBT) to be used for this trace rays call.
@@ -347,6 +348,7 @@ namespace avk
 			// 2. TRACE. RAYS.
 			return trace_rays(aRaygenDimensions, aShaderBindingTableRef, aShaderBindingTableRef.mDynamicDispatch, raygen, raymiss, rayhit, callable);
 		}
+#endif
 		
 	private:
 		command_buffer_state mState;

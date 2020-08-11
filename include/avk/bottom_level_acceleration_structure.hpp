@@ -3,6 +3,7 @@
 
 namespace avk
 {
+#if VK_HEADER_VERSION >= 135
 	class bottom_level_acceleration_structure_t
 	{
 		friend class root;
@@ -116,4 +117,5 @@ namespace avk
 	};
 
 	using bottom_level_acceleration_structure = avk::owning_resource<bottom_level_acceleration_structure_t>;
+#endif
 }

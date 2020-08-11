@@ -6,8 +6,8 @@ namespace avk
 	/** Descriptor set */
 	class descriptor_set
 	{
-		friend static bool operator ==(const descriptor_set& left, const descriptor_set& right);
-		friend static bool operator !=(const descriptor_set& left, const descriptor_set& right);
+		friend bool operator ==(const descriptor_set& left, const descriptor_set& right);
+		friend bool operator !=(const descriptor_set& left, const descriptor_set& right);
 		friend struct std::hash<avk::descriptor_set>;
 		
 	public:
@@ -37,6 +37,7 @@ namespace avk
 			return std::get<std::vector<vk::DescriptorBufferInfo>>(back).data();
 		}
 		
+#if VK_HEADER_VERSION >= 135
 		const vk::WriteDescriptorSetAccelerationStructureKHR* store_acceleration_structure_infos(uint32_t aBindingId, std::vector<vk::WriteDescriptorSetAccelerationStructureKHR> aWriteAccelerationStructureInfos)
 		{
 			// Accumulate all into ONE! (At least I think "This is the way.")
@@ -53,6 +54,7 @@ namespace avk
 			auto back = mStoredAccelerationStructureWrites.emplace_back(aBindingId, std::move(oneAndOnlyWrite));
 			return &std::get<vk::WriteDescriptorSetAccelerationStructureKHR>(std::get<1>(back));
 		}
+#endif
 
 		const auto* store_buffer_views(uint32_t aBindingId, std::vector<vk::BufferView> aStoredBufferViews)
 		{
@@ -72,6 +74,7 @@ namespace avk
 			return std::get<std::vector<vk::DescriptorBufferInfo>>(back).data();
 		}
 		
+#if VK_HEADER_VERSION >= 135
 		const vk::WriteDescriptorSetAccelerationStructureKHR* store_acceleration_structure_info(uint32_t aBindingId, const vk::WriteDescriptorSetAccelerationStructureKHR& aWriteAccelerationStructureInfo)
 		{
 			std::vector<vk::AccelerationStructureKHR> accStructureHandles;
@@ -86,6 +89,7 @@ namespace avk
 			auto back = mStoredAccelerationStructureWrites.emplace_back(aBindingId, std::move(theWrite));
 			return &std::get<vk::WriteDescriptorSetAccelerationStructureKHR>(std::get<1>(back));
 		}
+#endif
 
 		const auto* store_buffer_view(uint32_t aBindingId, const vk::BufferView& aStoredBufferView)
 		{
@@ -141,55 +145,14 @@ namespace avk
 		std::vector<std::tuple<uint32_t, std::vector<vk::DescriptorImageInfo>>> mStoredImageInfos;
 		std::vector<std::tuple<uint32_t, std::vector<vk::DescriptorBufferInfo>>> mStoredBufferInfos;
 		std::vector<std::tuple<uint32_t, std::vector<vk::BufferView>>> mStoredBufferViews;
+#if VK_HEADER_VERSION >= 135
 		std::vector<std::tuple<uint32_t, std::tuple<vk::WriteDescriptorSetAccelerationStructureKHR, std::vector<vk::AccelerationStructureKHR>>>> mStoredAccelerationStructureWrites;
+#endif
 	};
 
-	static bool operator ==(const descriptor_set& left, const descriptor_set& right) {
-		const auto n = left.mOrderedDescriptorDataWrites.size();
-		if (n != right.mOrderedDescriptorDataWrites.size()) {
-			return false;
-		}
-		for (size_t i = 0; i < n; ++i) {
-			if (left.mOrderedDescriptorDataWrites[i].dstBinding			!= right.mOrderedDescriptorDataWrites[i].dstBinding			)			{ return false; }
-			if (left.mOrderedDescriptorDataWrites[i].dstArrayElement	!= right.mOrderedDescriptorDataWrites[i].dstArrayElement	)			{ return false; }
-			if (left.mOrderedDescriptorDataWrites[i].descriptorCount	!= right.mOrderedDescriptorDataWrites[i].descriptorCount	)			{ return false; }
-			if (left.mOrderedDescriptorDataWrites[i].descriptorType		!= right.mOrderedDescriptorDataWrites[i].descriptorType		)			{ return false; }
-			if (nullptr != left.mOrderedDescriptorDataWrites[i].pImageInfo) {
-				if (nullptr == right.mOrderedDescriptorDataWrites[i].pImageInfo)																{ return false; }
-				for (size_t j = 0; j < left.mOrderedDescriptorDataWrites[i].descriptorCount; ++j) {
-					if (left.mOrderedDescriptorDataWrites[i].pImageInfo[j] != right.mOrderedDescriptorDataWrites[i].pImageInfo[j])				{ return false; }
-				}
-			}
-			if (nullptr != left.mOrderedDescriptorDataWrites[i].pBufferInfo) {
-				if (nullptr == right.mOrderedDescriptorDataWrites[i].pBufferInfo)																{ return false; }
-				for (size_t j = 0; j < left.mOrderedDescriptorDataWrites[i].descriptorCount; ++j) {
-					if (left.mOrderedDescriptorDataWrites[i].pBufferInfo[j] != right.mOrderedDescriptorDataWrites[i].pBufferInfo[j])			{ return false; }
-				}
-			}
-			if (nullptr != left.mOrderedDescriptorDataWrites[i].pTexelBufferView) {
-				if (nullptr == right.mOrderedDescriptorDataWrites[i].pTexelBufferView)															{ return false; }
-				for (size_t j = 0; j < left.mOrderedDescriptorDataWrites[i].descriptorCount; ++j) {
-					if (left.mOrderedDescriptorDataWrites[i].pTexelBufferView[j] != right.mOrderedDescriptorDataWrites[i].pTexelBufferView[j])	{ return false; }
-				}
-			}
-			if (nullptr != left.mOrderedDescriptorDataWrites[i].pNext) {
-				if (nullptr == right.mOrderedDescriptorDataWrites[i].pNext)																		{ return false; }
-				if (left.mOrderedDescriptorDataWrites[i].descriptorType == vk::DescriptorType::eAccelerationStructureKHR) {
-					const auto* asInfoLeft = reinterpret_cast<const VkWriteDescriptorSetAccelerationStructureKHR*>(left.mOrderedDescriptorDataWrites[i].pNext);
-					const auto* asInfoRight = reinterpret_cast<const VkWriteDescriptorSetAccelerationStructureKHR*>(right.mOrderedDescriptorDataWrites[i].pNext);
-					if (asInfoLeft->accelerationStructureCount != asInfoRight->accelerationStructureCount)										{ return false; }
-					for (size_t j = 0; j < asInfoLeft->accelerationStructureCount; ++j) {
-						if (asInfoLeft->pAccelerationStructures[j] != asInfoRight->pAccelerationStructures[j])									{ return false; }
-					}
-				}
-			}
-		}
-		return true;
-	}
+	extern bool operator ==(const descriptor_set& left, const descriptor_set& right);
 
-	static bool operator !=(const descriptor_set& left, const descriptor_set& right) {
-		return !(left == right);
-	}
+	extern bool operator !=(const descriptor_set& left, const descriptor_set& right);
 }
 
 namespace std
@@ -212,6 +175,8 @@ namespace std
 				if (nullptr != w.pTexelBufferView && w.descriptorCount > 0) {
 					avk::hash_combine(h, static_cast<VkBufferView>(w.pTexelBufferView[0]));
 				}
+
+#if VK_HEADER_VERSION >= 135
 				if (nullptr != w.pNext) {
 					if (w.descriptorType == vk::DescriptorType::eAccelerationStructureKHR) {
 						const auto* asInfo = reinterpret_cast<const VkWriteDescriptorSetAccelerationStructureKHR*>(w.pNext);
@@ -224,6 +189,7 @@ namespace std
 						avk::hash_combine(h, nullptr != w.pNext);
 					}
 				}
+#endif
 				// operator== will test for exact equality.
 			}
 			return h;

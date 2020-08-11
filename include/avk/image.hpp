@@ -22,7 +22,7 @@ namespace avk
 		/** Get the config which is used to created this image with the API. */
 		auto& config() { return mInfo; }
 		/** Gets the image handle. */
-		const auto& handle() const
+		const vk::Image handle() const
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
 			return std::holds_alternative<vk::Image>(mImage) ? std::get<vk::Image>(mImage) : std::get<vk::UniqueImage>(mImage).get();
@@ -121,7 +121,8 @@ namespace std // Inject hash for `ak::image_sampler_t` into std::
 	{
 		std::size_t operator()(avk::image_t const& o) const noexcept
 		{
-			std::size_t h = std::hash<VkImage>{}(o.handle());
+			const VkImage vki = static_cast<const VkImage>(o.handle());
+			std::size_t h = std::hash<VkImage>{}(vki);
 			return h;
 		}
 	};

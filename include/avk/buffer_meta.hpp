@@ -734,6 +734,7 @@ namespace avk
 #endif
 	};
 
+#if VK_HEADER_VERSION >= 135
 	/**	This struct contains information for a buffer which is intended to be used as 
 	*	geometries buffer for real-time ray tracing, containing AABB data.
 	*/
@@ -893,6 +894,6 @@ namespace avk
 		}
 #endif
 	};
-
+#endif
 
 }

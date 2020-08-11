@@ -69,7 +69,10 @@ namespace avk
 	template <>	inline vk::Format format_for<std::array<uint64_t, 2>>()		{ return vk::Format::eR64G64Uint; }
 	template <>	inline vk::Format format_for<std::array<uint64_t, 1>>()		{ return vk::Format::eR64Uint; }
 	template <>	inline vk::Format format_for<uint64_t>()					{ return vk::Format::eR64Uint; }
+	
+#if VK_HEADER_VERSION >= 135
 	// aabb
 	template <>	inline vk::Format format_for<VkAabbPositionsKHR>()			{ return vk::Format::eUndefined; }
 	template <>	inline vk::Format format_for<VkAccelerationStructureInstanceKHR>() { return vk::Format::eUndefined; }
+#endif
 }

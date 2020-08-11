@@ -20,10 +20,12 @@ namespace avk
 	template<>
 	inline vk::DescriptorType descriptor_type_of<buffer_view>(const buffer_view* aBufferView) { return (*aBufferView)->descriptor_type(); }
 
+#if VK_HEADER_VERSION >= 135
 	template<>
 	inline vk::DescriptorType descriptor_type_of<top_level_acceleration_structure_t>(const top_level_acceleration_structure_t*) { return vk::DescriptorType::eAccelerationStructureKHR; }
 	template<>
 	inline vk::DescriptorType descriptor_type_of<top_level_acceleration_structure>(const top_level_acceleration_structure*) { return vk::DescriptorType::eAccelerationStructureKHR; }
+#endif
 	
 	template<>
 	inline vk::DescriptorType descriptor_type_of<avk::image_view_t>(const avk::image_view_t* aImageView) { return vk::DescriptorType::eSampledImage; }

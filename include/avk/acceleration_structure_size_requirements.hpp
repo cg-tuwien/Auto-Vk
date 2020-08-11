@@ -3,6 +3,7 @@
 
 namespace avk
 {
+#if VK_HEADER_VERSION >= 135
 	struct acceleration_structure_size_requirements
 	{
 		static acceleration_structure_size_requirements from_buffers(vertex_index_buffer_pair aPair);
@@ -32,4 +33,5 @@ namespace avk
 		uint32_t mNumVertices;
 		vk::Format mVertexFormat;
 	};	
+#endif
 }

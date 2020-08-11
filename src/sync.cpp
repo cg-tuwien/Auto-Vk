@@ -1,4 +1,4 @@
-#include <gvk.hpp>
+#include <avk/avk.hpp>
 
 namespace avk
 {
@@ -133,18 +133,18 @@ namespace avk
 	{
 		if (mCommandBuffer.has_value()) {
 			if (get_sync_type() == sync_type::by_return) {
-				LOG_ERROR("Sync is requested 'by_return', but command buffer has not been fetched.");
+				AVK_LOG_ERROR("Sync is requested 'by_return', but command buffer has not been fetched.");
 			}
 			else {
-				LOG_ERROR("Command buffer has not been submitted but ak::sync instance is destructed. This must be a bug.");
+				AVK_LOG_ERROR("Command buffer has not been submitted but ak::sync instance is destructed. This must be a bug.");
 			}
 		}
 #ifdef _DEBUG
 		if (mEstablishBarrierBeforeOperationCallback) {
-			LOG_DEBUG("The before-operation-barrier-callback has never been invoked for this ak::sync instance. This can be a bug, but it can be okay as well.");
+			AVK_LOG_DEBUG("The before-operation-barrier-callback has never been invoked for this ak::sync instance. This can be a bug, but it can be okay as well.");
 		}
 		if (mEstablishBarrierBeforeOperationCallback) {
-			LOG_DEBUG("The after-operation-barrier-callback has never been invoked for this ak::sync instance. This can be a bug, but it can be okay as well.");
+			AVK_LOG_DEBUG("The after-operation-barrier-callback has never been invoked for this ak::sync instance. This can be a bug, but it can be okay as well.");
 		}
 #endif
 	}
@@ -358,7 +358,7 @@ namespace avk
 			}
 			break;
 		case sync_type::via_wait_idle:
-			LOG_WARNING(fmt::format("Performing waitIdle on queue {} in order to sync because no other type of handler is present.", queue_to_use().get().queue_index()));
+			AVK_LOG_WARNING("Performing waitIdle on queue " + std::to_string(queue_to_use().get().queue_index()) + " in order to sync because no other type of handler is present.");
 		case sync_type::via_wait_idle_deliberately:
 			assert(mCommandBuffer.has_value());
 			mCommandBuffer.value()->end_recording();		// What started in get_or_create_command_buffer() ends here.

@@ -65,6 +65,7 @@ namespace avk
 			return dataForBufferInfos;
 		}
 
+#if VK_HEADER_VERSION >= 135
 		template <typename T>
 		std::vector<vk::WriteDescriptorSetAccelerationStructureKHR> gather_acceleration_structure_infos(const std::vector<T*>& vec) const
 		{
@@ -74,6 +75,7 @@ namespace avk
 			}
 			return dataForAccStructures;
 		}
+#endif
 
 		template <typename T>
 		std::vector<vk::BufferView> gather_buffer_views(const std::vector<T*>& vec) const

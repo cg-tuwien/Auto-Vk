@@ -160,6 +160,7 @@ namespace avk
 
 		bool is_format_supported(vk::Format pFormat, vk::ImageTiling pTiling, vk::FormatFeatureFlags aFormatFeatures);
 
+#if VK_HEADER_VERSION >= 135
 		// Helper function used for creating both, bottom level and top level acceleration structures
 		template <typename T>
 		void finish_acceleration_structure_creation(T& result, std::function<void(T&)> aAlterConfigBeforeMemoryAlloc)
@@ -223,31 +224,42 @@ namespace avk
 		}
 
 		vk::PhysicalDeviceRayTracingPropertiesKHR get_ray_tracing_properties();
-
+		
 		static vk::DeviceAddress get_buffer_address(const vk::Device& aDevice, vk::Buffer aBufferHandle);
 		
 		vk::DeviceAddress get_buffer_address(vk::Buffer aBufferHandle);
+#endif
 
 		void finish_configuration(buffer_view_t& aBufferViewToBeFinished, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation);
 #pragma endregion
 
 #pragma region acceleration structures
+#if VK_HEADER_VERSION >= 135
 		bottom_level_acceleration_structure create_bottom_level_acceleration_structure(std::vector<avk::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
 		top_level_acceleration_structure create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates = true, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
+#endif
 #pragma endregion 
 
 #pragma region buffer
 		static buffer create_buffer(
 			const vk::PhysicalDevice& aPhysicalDevice, 
 			const vk::Device& aDevice, 
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData, 
+#if VK_HEADER_VERSION >= 135
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData,
+#else
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData,
+#endif
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties, 
 			vk::MemoryAllocateFlags aMemoryAllocateFlags
 		);
 		
 		buffer create_buffer(
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData, 
+#if VK_HEADER_VERSION >= 135
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData,
+#else 
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData,
+#endif
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties,
 			vk::MemoryAllocateFlags aMemoryAllocateFlags)
@@ -296,7 +308,11 @@ namespace avk
 				break;
 			}
 
+#if VK_HEADER_VERSION >= 135
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> metas;
+#else
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> metas;
+#endif
 			metas.push_back(aConfig);
 			aUsage |= aConfig.buffer_usage_flags();
 			if constexpr (sizeof...(aConfigs) > 0) {
@@ -304,13 +320,21 @@ namespace avk
 				(metas.push_back(aConfigs), ...);
 			}
 			
+#if VK_HEADER_VERSION >= 135
 			// If buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR bit set, memory must have been allocated with the 
 			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR bit set. The Vulkan spec states: If the VkPhysicalDeviceBufferDeviceAddressFeatures::bufferDeviceAddress
 			// feature is enabled and buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT bit set, memory must have been allocated with the
 			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT bit set
-			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress)) {
 				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddress;
 			}
+			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR)) {
+				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddressKHR;
+			}
+			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddressEXT;
+			}
+#endif
 
 			// Create buffer here to make use of named return value optimization.
 			// How it will be filled depends on where the memory is located at.
@@ -420,10 +444,12 @@ namespace avk
 #pragma endregion
 		
 #pragma region geometry instance
+#if VK_HEADER_VERSION >= 135
 	/** Create a geometry instance for a specific geometry, which is represented by a bottom level acceleration structure.
 	 *	@param	aBlas	The bottom level acceleration structure which represents the underlying geometry for this instance
 	 */
 	geometry_instance create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas);
+#endif
 #pragma endregion
 
 #pragma region graphics pipeline
@@ -567,6 +593,7 @@ namespace avk
 #pragma endregion
 
 #pragma region ray tracing pipeline
+#if VK_HEADER_VERSION >= 135
 	max_recursion_depth get_max_ray_tracing_recursion_depth();
 		
 	ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
@@ -605,6 +632,7 @@ namespace avk
 		return create_ray_tracing_pipeline(std::move(config), std::move(alterConfigFunction));
 		// ============================================================================================ 
 	}
+#endif
 #pragma endregion
 
 #pragma region renderpass

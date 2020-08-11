@@ -43,6 +43,7 @@ namespace avk
 		return false;
 	}
 
+#if VK_HEADER_VERSION >= 135
 	vk::PhysicalDeviceRayTracingPropertiesKHR root::get_ray_tracing_properties()
 	{
 		vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
@@ -63,11 +64,12 @@ namespace avk
 
 	    return vkGetBufferDeviceAddress(aDevice, &bufferAddressInfo);
 	}
-
+	
 	vk::DeviceAddress root::get_buffer_address(vk::Buffer aBufferHandle)
 	{
 		return get_buffer_address(device(), aBufferHandle);
 	}
+#endif
 
 	void root::finish_configuration(buffer_view_t& aBufferViewToBeFinished, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
@@ -777,7 +779,7 @@ namespace avk
 			return vk::IndexType::eUint32;
 		}
 		AVK_LOG_ERROR("The given size[" + std::to_string(aSize) + "] does not correspond to a valid vk::IndexType");
-		return vk::IndexType::eNoneKHR;
+		return vk::IndexType::eUint16;
 	}
 
 	vk::Bool32 to_vk_bool(bool value)
@@ -800,6 +802,7 @@ namespace avk
 			return vk::ShaderStageFlagBits::eFragment;
 		case avk::shader_type::compute:
 			return vk::ShaderStageFlagBits::eCompute;
+#if VK_HEADER_VERSION >= 135
 		case avk::shader_type::ray_generation:
 			return vk::ShaderStageFlagBits::eRaygenKHR;
 		case avk::shader_type::any_hit:
@@ -812,6 +815,7 @@ namespace avk
 			return vk::ShaderStageFlagBits::eIntersectionKHR;
 		case avk::shader_type::callable:
 			return vk::ShaderStageFlagBits::eCallableKHR;
+#endif
 		case avk::shader_type::task:
 			return vk::ShaderStageFlagBits::eTaskNV;
 		case avk::shader_type::mesh:
@@ -842,6 +846,7 @@ namespace avk
 		if ((aType & avk::shader_type::compute) == avk::shader_type::compute) {
 			result |= vk::ShaderStageFlagBits::eCompute;
 		}
+#if VK_HEADER_VERSION >= 135
 		if ((aType & avk::shader_type::ray_generation) == avk::shader_type::ray_generation) {
 			result |= vk::ShaderStageFlagBits::eRaygenKHR;
 		}
@@ -860,6 +865,7 @@ namespace avk
 		if ((aType & avk::shader_type::callable) == avk::shader_type::callable) {
 			result |= vk::ShaderStageFlagBits::eCallableKHR;
 		}
+#endif
 		if ((aType & avk::shader_type::task) == avk::shader_type::task) {
 			result |= vk::ShaderStageFlagBits::eTaskNV;
 		}
@@ -1170,11 +1176,13 @@ namespace avk
 #if VK_HEADER_VERSION >= 135
 		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
 #else 
-		if (ak::is_included(aValue, ak::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
 #endif
 		if (avk::is_included(aValue, avk::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
+#if VK_HEADER_VERSION >= 135
 		if (avk::is_included(aValue, avk::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
 		if (avk::is_included(aValue, avk::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
+#endif
 		if (avk::is_included(aValue, avk::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
 		if (avk::is_included(aValue, avk::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
 		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
@@ -1218,13 +1226,15 @@ namespace avk
 		if (avk::is_included(aValue, avk::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
 		if (avk::is_included(aValue, avk::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
 #else
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
-		if (ak::is_included(aValue, ak::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
+		if (avk::is_included(aValue, avk::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
+		if (avk::is_included(aValue, avk::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
 #endif
 		if (avk::is_included(aValue, avk::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
 		if (avk::is_included(aValue, avk::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
+#if VK_HEADER_VERSION >= 135
 		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
 		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
+#endif
 		if (avk::is_included(aValue, avk::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
 
 		return result;
@@ -1351,6 +1361,7 @@ namespace avk
 #pragma endregion
 
 #pragma region acceleration structure definitions
+#if VK_HEADER_VERSION >= 135
 	acceleration_structure_size_requirements acceleration_structure_size_requirements::from_buffers(vertex_index_buffer_pair aPair)
 	{
 		const auto& vertexBufferMeta = aPair.vertex_buffer().meta<vertex_buffer_meta>();
@@ -1803,7 +1814,7 @@ namespace avk
 	{
 		build_or_update(aGeometryInstancesBuffer, aScratchBuffer, std::move(aSyncHandler), tlas_action::update);
 	}
-	
+#endif
 #pragma endregion
 
 #pragma region binding_data definitions
@@ -1916,9 +1927,11 @@ namespace avk
 		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
 		
+#if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) {
 			return aDescriptorSet.store_acceleration_structure_info(mLayoutBinding.binding, std::get<const top_level_acceleration_structure_t*>(mResourcePtr)->descriptor_info());
 		}
+#endif
 		
 		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
@@ -1931,9 +1944,11 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
 
+#if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) {
 			return aDescriptorSet.store_acceleration_structure_infos(mLayoutBinding.binding, gather_acceleration_structure_infos(std::get<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)));
 		}
+#endif
 
 		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
@@ -2016,8 +2031,12 @@ namespace avk
 	
 	buffer root::create_buffer(
 		const vk::PhysicalDevice& aPhysicalDevice, 
-		const vk::Device& aDevice, 
-		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData, 
+		const vk::Device& aDevice,
+#if VK_HEADER_VERSION >= 135
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData,
+#else
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData,
+#endif
 		vk::BufferUsageFlags aBufferUsage, 
 		vk::MemoryPropertyFlags aMemoryProperties, 
 		vk::MemoryAllocateFlags aMemoryAllocateFlags
@@ -2071,9 +2090,11 @@ namespace avk
 		result.mPhysicalDevice = aPhysicalDevice;
 		result.mBuffer = std::move(vkBuffer);
 
+#if VK_HEADER_VERSION >= 135
 		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
 			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
 		}
+#endif
 		
 		return result;
 	}
@@ -2522,6 +2543,7 @@ namespace avk
 		}
 	}
 
+#if VK_HEADER_VERSION >= 135
 	void command_buffer_t::trace_rays(
 		vk::Extent3D aRaygenDimensions, 
 		const shader_binding_table_ref& aShaderBindingTableRef, 
@@ -2544,6 +2566,7 @@ namespace avk
 			aDynamicDispatch
 		);
 	}
+#endif
 #pragma endregion
 
 #pragma compute pipeline definitions
@@ -2610,7 +2633,7 @@ namespace avk
 
 		// Create the PIPELINE LAYOUT
 		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(nullptr != result.layout_handle());
+		assert(static_cast<bool>(result.layout_handle()));
 
 		// Create the PIPELINE, a.k.a. putting it all together:
 		auto pipelineInfo = vk::ComputePipelineCreateInfo{}
@@ -2813,6 +2836,24 @@ namespace avk
 #pragma endregion
 
 #pragma region descriptor set layout definitions
+
+	bool operator ==(const descriptor_set_layout& left, const descriptor_set_layout& right) {
+		const auto n = left.mOrderedBindings.size();
+		if (n != right.mOrderedBindings.size()) {
+			return false;
+		}
+		for (size_t i = 0; i < n; ++i) {
+			if (left.mOrderedBindings[i] != right.mOrderedBindings[i]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool operator !=(const descriptor_set_layout& left, const descriptor_set_layout& right) {
+		return !(left == right);
+	}
+	
 	void root::allocate_descriptor_set_layout(vk::Device aDevice, descriptor_set_layout& aLayoutToBeAllocated)
 	{
 		if (!aLayoutToBeAllocated.mLayout) {
@@ -3063,6 +3104,59 @@ namespace avk
 #pragma endregion
 
 #pragma region descriptor set definitions
+
+	bool operator ==(const descriptor_set& left, const descriptor_set& right)
+	{
+		const auto n = left.mOrderedDescriptorDataWrites.size();
+		if (n != right.mOrderedDescriptorDataWrites.size()) {
+			return false;
+		}
+		for (size_t i = 0; i < n; ++i) {
+			if (left.mOrderedDescriptorDataWrites[i].dstBinding			!= right.mOrderedDescriptorDataWrites[i].dstBinding			)			{ return false; }
+			if (left.mOrderedDescriptorDataWrites[i].dstArrayElement	!= right.mOrderedDescriptorDataWrites[i].dstArrayElement	)			{ return false; }
+			if (left.mOrderedDescriptorDataWrites[i].descriptorCount	!= right.mOrderedDescriptorDataWrites[i].descriptorCount	)			{ return false; }
+			if (left.mOrderedDescriptorDataWrites[i].descriptorType		!= right.mOrderedDescriptorDataWrites[i].descriptorType		)			{ return false; }
+			if (nullptr != left.mOrderedDescriptorDataWrites[i].pImageInfo) {
+				if (nullptr == right.mOrderedDescriptorDataWrites[i].pImageInfo)																{ return false; }
+				for (size_t j = 0; j < left.mOrderedDescriptorDataWrites[i].descriptorCount; ++j) {
+					if (left.mOrderedDescriptorDataWrites[i].pImageInfo[j] != right.mOrderedDescriptorDataWrites[i].pImageInfo[j])				{ return false; }
+				}
+			}
+			if (nullptr != left.mOrderedDescriptorDataWrites[i].pBufferInfo) {
+				if (nullptr == right.mOrderedDescriptorDataWrites[i].pBufferInfo)																{ return false; }
+				for (size_t j = 0; j < left.mOrderedDescriptorDataWrites[i].descriptorCount; ++j) {
+					if (left.mOrderedDescriptorDataWrites[i].pBufferInfo[j] != right.mOrderedDescriptorDataWrites[i].pBufferInfo[j])			{ return false; }
+				}
+			}
+			if (nullptr != left.mOrderedDescriptorDataWrites[i].pTexelBufferView) {
+				if (nullptr == right.mOrderedDescriptorDataWrites[i].pTexelBufferView)															{ return false; }
+				for (size_t j = 0; j < left.mOrderedDescriptorDataWrites[i].descriptorCount; ++j) {
+					if (left.mOrderedDescriptorDataWrites[i].pTexelBufferView[j] != right.mOrderedDescriptorDataWrites[i].pTexelBufferView[j])	{ return false; }
+				}
+			}
+			
+#if VK_HEADER_VERSION >= 135
+			if (nullptr != left.mOrderedDescriptorDataWrites[i].pNext) {
+				if (nullptr == right.mOrderedDescriptorDataWrites[i].pNext)																		{ return false; }
+				if (left.mOrderedDescriptorDataWrites[i].descriptorType == vk::DescriptorType::eAccelerationStructureKHR) {
+					const auto* asInfoLeft = reinterpret_cast<const VkWriteDescriptorSetAccelerationStructureKHR*>(left.mOrderedDescriptorDataWrites[i].pNext);
+					const auto* asInfoRight = reinterpret_cast<const VkWriteDescriptorSetAccelerationStructureKHR*>(right.mOrderedDescriptorDataWrites[i].pNext);
+					if (asInfoLeft->accelerationStructureCount != asInfoRight->accelerationStructureCount)										{ return false; }
+					for (size_t j = 0; j < asInfoLeft->accelerationStructureCount; ++j) {
+						if (asInfoLeft->pAccelerationStructures[j] != asInfoRight->pAccelerationStructures[j])									{ return false; }
+					}
+				}
+			}
+#endif
+		}
+		return true;
+	}
+
+	bool operator !=(const descriptor_set& left, const descriptor_set& right)
+	{
+		return !(left == right);
+	}
+	
 	void descriptor_set::update_data_pointers()
 	{
 		for (auto& w : mOrderedDescriptorDataWrites) {
@@ -3085,6 +3179,7 @@ namespace avk
 					w.pBufferInfo = nullptr;
 				}
 			}
+#if VK_HEADER_VERSION >= 135
 			{
 				auto it = std::find_if(std::begin(mStoredAccelerationStructureWrites), std::end(mStoredAccelerationStructureWrites), [binding = w.dstBinding](const auto& element) { return std::get<uint32_t>(element) == binding; });
 				if (it != std::end(mStoredAccelerationStructureWrites)) {
@@ -3097,6 +3192,7 @@ namespace avk
 					w.pNext = nullptr;
 				}
 			}
+#endif
 			{
 				auto it = std::find_if(std::begin(mStoredBufferViews), std::end(mStoredBufferViews), [binding = w.dstBinding](const auto& element) { return std::get<uint32_t>(element) == binding; });
 				if (it != std::end(mStoredBufferViews)) {
@@ -3360,6 +3456,7 @@ namespace avk
 #pragma endregion
 
 #pragma region geometry instance definitions
+#if VK_HEADER_VERSION >= 135
 	geometry_instance root::create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas)
 	{
 		// glm::mat4 mTransform;
@@ -3532,6 +3629,7 @@ namespace avk
 		}
 		return instancesGpu;
 	}
+#endif
 #pragma endregion
 
 #pragma region graphics pipeline config definitions
@@ -3942,7 +4040,7 @@ namespace avk
 
 		// Create the PIPELINE LAYOUT
 		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(nullptr != result.layout_handle());
+		assert(static_cast<bool>(result.layout_handle()));
 
 		assert (aConfig.mRenderPassSubpass.has_value());
 		// Create the PIPELINE, a.k.a. putting it all together:
@@ -5141,6 +5239,7 @@ namespace avk
 #pragma endregion
 
 #pragma region ray tracing pipeline definitions
+#if VK_HEADER_VERSION >= 135
 	triangles_hit_group triangles_hit_group::create_with_rahit_only(shader_info aAnyHitShader)
 	{
 		if (aAnyHitShader.mShaderType != shader_type::any_hit) {
@@ -5768,7 +5867,7 @@ namespace avk
 		}
 		AVK_LOG_INFO("+-------------------------------------------------------------------------------------------------------------+");
 	}
-	
+#endif
 #pragma endregion
 
 #pragma region renderpass definitions

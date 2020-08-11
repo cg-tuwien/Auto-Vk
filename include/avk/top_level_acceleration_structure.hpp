@@ -3,6 +3,7 @@
 
 namespace avk
 {
+#if VK_HEADER_VERSION >= 135
 	class top_level_acceleration_structure_t
 	{
 		friend class root;
@@ -104,4 +105,5 @@ namespace avk
 	};
 
 	using top_level_acceleration_structure = avk::owning_resource<top_level_acceleration_structure_t>;
+#endif
 }

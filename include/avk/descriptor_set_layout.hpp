@@ -11,8 +11,8 @@ namespace avk
 	class descriptor_set_layout
 	{
 		friend class root;
-		friend static bool operator ==(const descriptor_set_layout& left, const descriptor_set_layout& right);
-		friend static bool operator !=(const descriptor_set_layout& left, const descriptor_set_layout& right);
+		friend bool operator ==(const descriptor_set_layout& left, const descriptor_set_layout& right);
+		friend bool operator !=(const descriptor_set_layout& left, const descriptor_set_layout& right);
 		friend struct std::hash<avk::descriptor_set_layout>;
 		
 	public:
@@ -86,22 +86,9 @@ namespace avk
 		vk::UniqueDescriptorSetLayout mLayout;
 	};
 
-	static bool operator ==(const descriptor_set_layout& left, const descriptor_set_layout& right) {
-		const auto n = left.mOrderedBindings.size();
-		if (n != right.mOrderedBindings.size()) {
-			return false;
-		}
-		for (size_t i = 0; i < n; ++i) {
-			if (left.mOrderedBindings[i] != right.mOrderedBindings[i]) {
-				return false;
-			}
-		}
-		return true;
-	}
+	extern bool operator ==(const descriptor_set_layout& left, const descriptor_set_layout& right);
 
-	static bool operator !=(const descriptor_set_layout& left, const descriptor_set_layout& right) {
-		return !(left == right);
-	}	
+	extern bool operator !=(const descriptor_set_layout& left, const descriptor_set_layout& right);
 }
 
 namespace std

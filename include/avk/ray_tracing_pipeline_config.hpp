@@ -3,6 +3,7 @@
 
 namespace avk
 {
+#if VK_HEADER_VERSION >= 135
 	/** Contains shader infos about a Hit Group which uses the
 	 *	ray tracing's standard triangles intersection functionality.
 	 */
@@ -204,5 +205,6 @@ namespace avk
 		aFunc = std::move(aAlterConfigBeforeCreation);
 		add_config(aConfig, aFunc, std::move(args)...);
 	}
-#pragma endregion 	
+#pragma endregion
+#endif
 }
