@@ -201,8 +201,8 @@ namespace avk
 		}
 		
 		auto& begin_info() const { return mBeginInfo; }
-		auto& handle() const { return mCommandBuffer.get(); }
-		auto* handle_ptr() const { return &mCommandBuffer.get(); }
+		const vk::CommandBuffer& handle() const { return mCommandBuffer.get(); }
+		const vk::CommandBuffer* handle_ptr() const { return &mCommandBuffer.get(); }
 		auto state() const { return mState; }
 
 		// Template specializations are implemented in the respective pipeline's header files

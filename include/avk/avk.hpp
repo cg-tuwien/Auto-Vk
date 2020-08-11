@@ -325,14 +325,8 @@ namespace avk
 			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR bit set. The Vulkan spec states: If the VkPhysicalDeviceBufferDeviceAddressFeatures::bufferDeviceAddress
 			// feature is enabled and buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT bit set, memory must have been allocated with the
 			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT bit set
-			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress)) {
+			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
 				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddress;
-			}
-			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR)) {
-				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddressKHR;
-			}
-			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddressEXT;
 			}
 #endif
 
