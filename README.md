@@ -53,7 +53,13 @@ After subpass three, the color attachment shall be stored in a presentable forma
 
 # Usage
 
-The first step is to derive from `avk::root` and implement three virtual methods:
+First of all, include all of _Auto-Vk_:
+
+``` 
+#include <avk/avk.hpp>
+```
+
+The next essential step is to derive from `avk::root` and implement three virtual methods:
 ``` 
 virtual vk::PhysicalDevice& physical_device() = 0;
 virtual vk::Device& device() = 0;
