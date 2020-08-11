@@ -5,7 +5,7 @@ _Auto-Vk_ is a low-level convenience and productivity layer atop [Vulkan-Hpp](ht
 # Setup
 
 _Auto-Vk_ requires
-* A Vulkan 1.2 SDK (not so sure about that.. TBD.)
+* A Vulkan 1.2 SDK (Vulkan 1.1 SDK compatibility w.i.p.)
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 
 _Auto-Vk_ consists of multiple C++ include files and two (soon: one) C++ source file
