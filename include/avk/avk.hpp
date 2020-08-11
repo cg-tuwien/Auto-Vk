@@ -140,9 +140,9 @@ namespace avk
 	{
 	public:
 		root() {}
-		virtual vk::PhysicalDevice physical_device()				= 0;
-		virtual vk::Device device()									= 0;
-		virtual vk::DispatchLoaderDynamic dynamic_dispatch()		= 0;
+		virtual vk::PhysicalDevice& physical_device()				= 0;
+		virtual vk::Device& device()								= 0;
+		virtual vk::DispatchLoaderDynamic& dynamic_dispatch()		= 0;
 
 #pragma region root helper functions
 		/** Find (index of) memory with parameters
