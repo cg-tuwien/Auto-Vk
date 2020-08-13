@@ -48,18 +48,35 @@ namespace avk
 	template<>
 	inline vk::DescriptorType descriptor_type_of<avk::image_sampler>(const avk::image_sampler*) { return vk::DescriptorType::eCombinedImageSampler; }
 
-
 	template<typename T> 
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<const typename T::value_type::value_type*>>::type gather_one_or_multiple_element_pointers(const T& t) {
+	typename std::enable_if<
+		avk::has_size_and_iterators<T>::value && avk::has_nested_value_types<T>::value,
+		std::vector<const typename T::value_type::value_type*>
+	>::type gather_one_or_multiple_element_pointers(const T& t) {
 		std::vector<const typename T::value_type::value_type*> results;
 		for (size_t i = 0; i < t.size(); ++i) {
-			results.push_back(&(*t[i]));
+			results.emplace_back(&(*t[i]));
+		}
+		return results;
+	}
+	
+	template<typename T> 
+	typename std::enable_if<
+		avk::has_size_and_iterators<T>::value && !avk::has_nested_value_types<T>::value,
+		std::vector<const typename T::value_type*>
+	>::type gather_one_or_multiple_element_pointers(const T& t) {
+		std::vector<const typename T::value_type*> results;
+		for (size_t i = 0; i < t.size(); ++i) {
+			results.emplace_back(&t[i]);
 		}
 		return results;
 	}
 
 	template<typename T> 
-	typename std::enable_if<!avk::has_size_and_iterators<T>::value && avk::is_dereferenceable<T>::value, const typename T::value_type*>::type gather_one_or_multiple_element_pointers(const T& t) {
+	typename std::enable_if<
+		!avk::has_size_and_iterators<T>::value && avk::is_dereferenceable<T>::value,
+		const typename T::value_type*
+	>::type gather_one_or_multiple_element_pointers(const T& t) {
 		return &*t;
 	}
 
@@ -100,11 +117,64 @@ namespace avk
 		return data;
 	}
 
+	template <typename T>
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_descriptor>>::type as_uniform_buffers(const T& aCollection)
+	{
+		std::vector<buffer_descriptor> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_uniform_buffer());
+		}
+		return results;
+	}
 
 	template <typename T>
-	binding_data descriptor_binding(uint32_t aBinding, const T& aResource, shader_type aShaderStages = shader_type::all)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_descriptor>>::type as_uniform_texel_buffers(const T& aCollection)
 	{
-		return descriptor_binding(0u, aBinding, aResource, aShaderStages);
+		std::vector<buffer_descriptor> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_uniform_texel_buffer());
+		}
+		return results;
+	}
+
+	template <typename T>
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_descriptor>>::type as_storage_buffers(const T& aCollection)
+	{
+		std::vector<buffer_descriptor> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_storage_buffer());
+		}
+		return results;
+	}
+
+	template <typename T>
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_descriptor>>::type as_storage_texel_buffers(const T& aCollection)
+	{
+		std::vector<buffer_descriptor> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_storage_texel_buffer());
+		}
+		return results;
+	}
+
+	template <typename T>
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_storage_image>>::type as_storage_images(const T& aCollection)
+	{
+		std::vector<image_view_as_storage_image> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_storage_image());
+		}
+		return results;
+	}
+
+	template <typename T>
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_input_attachment>>::type as_input_attachments(const T& aCollection)
+	{
+		std::vector<image_view_as_input_attachment> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_input_attachment());
+		}
+		return results;
 	}
 
 }

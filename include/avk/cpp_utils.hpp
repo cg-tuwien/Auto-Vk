@@ -205,6 +205,23 @@ namespace avk
 			static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
 	};
 
+	// SFINAE test for detecting if a type has a `.size()` member and iterators
+	template <typename T>
+	class has_nested_value_types
+	{
+	private:
+		typedef char NoType[1];
+		typedef char YesType[2];
+
+		template<typename C> static auto Test(void*)
+			-> std::tuple<YesType, typename C::value_type::value_type>;
+
+		  template<typename> static NoType& Test(...);
+
+		public:
+			static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
+	};
+
 
 	template<typename T> 
 	typename std::enable_if<has_size_and_iterators<T>::value, uint32_t>::type how_many_elements(const T& t) {
