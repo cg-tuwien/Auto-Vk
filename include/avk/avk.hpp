@@ -354,9 +354,68 @@ namespace avk
 #pragma endregion
 
 #pragma region buffer view
-		// TODO: Support meta-type instead/in addition to  size_t aMetaDataIndex = 0?!
-		buffer_view create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat = {}, size_t aMetaDataIndex = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
-		buffer_view create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, size_t aMetaDataIndex = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
+		/**	Create a buffer view over the given buffer in the specified format.
+		 *
+		 *	@param	aBufferToOwn				The buffer to create a view for. Need to take (shared) ownership of it.
+		 *	@param	aViewFormat					The format to create the view in.
+		 *	@param	aAlterConfigBeforeCreation	A callback that can be used to alter the config of vk::BufferViewCreateInfo{}
+		 *										before it is handed over to vkCmdCreateBufferViewUnique.
+		 */
+		buffer_view create_buffer_view(buffer aBufferToOwn, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
+
+		/**	Create a buffer view over the given buffer in the specified format based on the specified meta data
+		 *
+		 *	@tparam M							The type of the buffer's meta data to use.
+		 *	@param	aBufferToOwn				The buffer to create a view for. Need to take (shared) ownership of it.
+		 *	@param	aMetaSkip					An optional skip-value w.r.t. meta data. I.e. skip this amount of M-type meta
+		 *										data and take the aMetaSkip-th meta data entry.
+		 *	@param	aAlterConfigBeforeCreation	A callback that can be used to alter the config of vk::BufferViewCreateInfo{}
+		 *										before it is handed over to vkCmdCreateBufferViewUnique.
+		 */
+		template <typename M>
+		buffer_view create_buffer_view(buffer aBufferToOwn, size_t aMetaSkip = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {})
+		{
+			const auto& meta = aBufferToOwn->meta<M>(aMetaSkip);
+			if (meta.member_descriptions().size() == 0) {
+				throw avk::runtime_error("The passed buffer does not contain any member descriptions => unable to figure out format for buffer view.");
+			}
+			if (meta.member_descriptions().size() > 1) {
+				AVK_LOG_WARNING("In the meta data of type " + std::string(typeid(M).name()) + " there is more than one member description. Don't know which one is the right one. The view will likely be corrupted.");
+			}
+			return create_buffer_view(std::move(aBufferToOwn), meta.member_descriptions().front().mFormat, std::move(aAlterConfigBeforeCreation));
+		}
+
+		/**	Create a buffer view over the given buffer in the specified format and automatically determine which meta data to use
+		 *	(this can either be uniform_texel_buffer_meta or storage_texel_buffer_meta).
+		 *
+		 *	@param	aBufferToOwn				The buffer to create a view for. Need to take (shared) ownership of it.
+		 *	@param	aMetaSkip					An optional skip-value w.r.t. meta data. I.e. skip this amount of M-type meta
+		 *										data and take the aMetaSkip-th meta data entry.
+		 *	@param	aAlterConfigBeforeCreation	A callback that can be used to alter the config of vk::BufferViewCreateInfo{}
+		 *										before it is handed over to vkCmdCreateBufferViewUnique.
+		 */
+		buffer_view create_buffer_view(buffer aBufferToOwn, size_t aMetaSkip = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {})
+		{
+			const bool hasUniformTexelBufferMeta = aBufferToOwn->has_meta<uniform_texel_buffer_meta>(aMetaSkip);
+			const bool hasStorageTexelBufferMeta = aBufferToOwn->has_meta<storage_texel_buffer_meta>(aMetaSkip);
+			if (hasUniformTexelBufferMeta && !hasStorageTexelBufferMeta) {
+				return create_buffer_view<uniform_texel_buffer_meta>(std::move(aBufferToOwn), aMetaSkip, std::move(aAlterConfigBeforeCreation));
+			}
+			if (hasStorageTexelBufferMeta && !hasUniformTexelBufferMeta) {
+				return create_buffer_view<storage_texel_buffer_meta>(std::move(aBufferToOwn), aMetaSkip, std::move(aAlterConfigBeforeCreation));
+			}
+			throw avk::runtime_error("Buffer has both, uniform_texel_buffer_meta and storage_texel_buffer_meta. Don't know which one to use. => Use the templated create_buffer_view overload and specify the meta type explicitly!");
+		}
+		
+		/**	Create a buffer view over the given buffer in the specified format.
+		 *
+		 *	@param	aBufferToReference			The buffer to create a view for. Only a reference to the buffer is stored.
+		 *	@param	aBufferInfo					The buffer info which was used to create aBufferToReference. This is stored and used internally.
+		 *	@param	aViewFormat					The format to create the view in.
+		 *	@param	aAlterConfigBeforeCreation	A callback that can be used to alter the config of vk::BufferViewCreateInfo{}
+		 *										before it is handed over to vkCmdCreateBufferViewUnique.
+		 */
+		buffer_view create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region command pool and command buffer

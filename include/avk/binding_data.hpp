@@ -6,6 +6,7 @@ namespace avk
 	class buffer_t;
 	class buffer_descriptor;
 	class buffer_view_t;
+	class buffer_view_descriptor;
 	class top_level_acceleration_structure_t;
 	class image_view_t;
 	class image_view_as_input_attachment;
@@ -27,6 +28,7 @@ namespace avk
 			const buffer_t*,
 			const buffer_descriptor*,
 			const buffer_view_t*,
+			const buffer_view_descriptor*,
 			const top_level_acceleration_structure_t*,
 			const image_view_t*,
 			const image_view_as_input_attachment*,
@@ -36,6 +38,7 @@ namespace avk
 			std::vector<const buffer_t*>,
 			std::vector<const buffer_descriptor*>,
 			std::vector<const buffer_view_t*>,
+			std::vector<const buffer_view_descriptor*>,
 			std::vector<const top_level_acceleration_structure_t*>,
 			std::vector<const image_view_t*>,
 			std::vector<const image_view_as_input_attachment*>,

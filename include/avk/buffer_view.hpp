@@ -3,6 +3,28 @@
 
 namespace avk
 {
+	/**	A helper-class representing a descriptor to a given buffer view,
+	 *	containing the descriptor type and the descriptor info.
+	 *
+	 *	If a buffer has multiple meta data, it can not always be automatically
+	 *	determined which meta data is the right one to be used to infer the
+	 *	descriptor type. This helper class solves this problem.
+	 */
+	class buffer_view_descriptor
+	{
+		friend class buffer_view_t;
+		
+	public:
+		auto descriptor_type() const { return mDescriptorType; }
+		const auto& descriptor_info() const { return mDescriptorInfo; }
+		const auto& view_handle() const { return mBufferViewHandle; }
+		
+	private:
+		vk::DescriptorType mDescriptorType;
+		vk::DescriptorBufferInfo mDescriptorInfo;
+		vk::BufferView mBufferViewHandle;
+	};
+	
 	/** Class representing a buffer view, which "wraps" a uniform texel buffer or a storage texel buffer */
 	class buffer_view_t
 	{
@@ -48,6 +70,28 @@ namespace avk
 			}
 			throw avk::runtime_error("Which descriptor type?");
 		}
+
+		/**	Search for the given meta data of type Meta, and build a
+		 *	buffer_view_descriptor instance with descriptor info and
+		 *	descriptor type set.
+		 */
+		template <typename Meta>
+		auto get_buffer_view_descriptor() const
+		{
+			if (std::holds_alternative<buffer>(mBuffer)) {
+				buffer_view_descriptor result;
+				result.mDescriptorInfo = std::get<buffer>(mBuffer)->descriptor_info();
+				result.mDescriptorType = std::get<buffer>(mBuffer)->meta<Meta>().descriptor_type().value();
+				result.mBufferViewHandle = view_handle();
+				return result;
+			}
+			throw avk::runtime_error("Which descriptor type?");
+		}
+
+		/** Get a buffer_view_descriptor for binding this buffer as a uniform texel buffer view. */
+		auto as_uniform_texel_buffer_view() const { return get_buffer_view_descriptor<uniform_texel_buffer_meta>(); }
+		/** Get a buffer_view_descriptor for binding this buffer as a storage texel buffer view. */
+		auto as_storage_texel_buffer_view() const { return get_buffer_view_descriptor<storage_texel_buffer_meta>(); }
 
 	private:
 		

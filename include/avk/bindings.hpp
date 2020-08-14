@@ -20,6 +20,9 @@ namespace avk
 	template<>
 	inline vk::DescriptorType descriptor_type_of<buffer_view>(const buffer_view* aBufferView) { return (*aBufferView)->descriptor_type(); }
 
+	template<>
+	inline vk::DescriptorType descriptor_type_of<buffer_view_descriptor>(const buffer_view_descriptor* aBufferViewDescriptor) { return aBufferViewDescriptor->descriptor_type(); }
+
 #if VK_HEADER_VERSION >= 135
 	template<>
 	inline vk::DescriptorType descriptor_type_of<top_level_acceleration_structure_t>(const top_level_acceleration_structure_t*) { return vk::DescriptorType::eAccelerationStructureKHR; }
@@ -128,11 +131,11 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_descriptor>>::type as_uniform_texel_buffers(const T& aCollection)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_view_descriptor>>::type as_uniform_texel_buffer_views(const T& aCollection)
 	{
-		std::vector<buffer_descriptor> results;
+		std::vector<buffer_view_descriptor> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
-			results.emplace_back(aCollection[i]->as_uniform_texel_buffer());
+			results.emplace_back(aCollection[i]->as_uniform_texel_buffer_view());
 		}
 		return results;
 	}
@@ -148,11 +151,11 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_descriptor>>::type as_storage_texel_buffers(const T& aCollection)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_view_descriptor>>::type as_storage_texel_buffer_views(const T& aCollection)
 	{
-		std::vector<buffer_descriptor> results;
+		std::vector<buffer_view_descriptor> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
-			results.emplace_back(aCollection[i]->as_storage_texel_buffer());
+			results.emplace_back(aCollection[i]->as_storage_texel_buffer_view());
 		}
 		return results;
 	}

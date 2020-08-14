@@ -169,11 +169,7 @@ namespace avk
 		/** Get a buffer_descriptor for binding this buffer as a uniform buffer. */
 		auto as_uniform_buffer() const { return get_buffer_descriptor<uniform_buffer_meta>(); }
 		/** Get a buffer_descriptor for binding this buffer as a uniform buffer. */
-		auto as_uniform_texel_buffer() const { return get_buffer_descriptor<uniform_texel_buffer_meta>(); }
-		/** Get a buffer_descriptor for binding this buffer as a uniform buffer. */
 		auto as_storage_buffer() const { return get_buffer_descriptor<storage_buffer_meta>(); }
-		/** Get a buffer_descriptor for binding this buffer as a uniform buffer. */
-		auto as_storage_texel_buffer() const { return get_buffer_descriptor<storage_texel_buffer_meta>(); }
 
 		/** Fill buffer with data.
 		 */

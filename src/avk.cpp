@@ -1823,6 +1823,7 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_t*>>(mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_descriptor*>>(mResourcePtr).size()); }
 		
 		//                                                                         vvv There can only be ONE pNext (at least I think so) vvv
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return 1u; }
@@ -1841,6 +1842,7 @@ namespace avk
 		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
 		
 		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) {
@@ -1863,6 +1865,7 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
 
@@ -1894,6 +1897,7 @@ namespace avk
 			return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const buffer_descriptor*>(mResourcePtr)->descriptor_info());
 		}		
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
 		
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
@@ -1910,6 +1914,7 @@ namespace avk
 			return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr)));
 		}
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
@@ -1926,6 +1931,7 @@ namespace avk
 		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
 		
 #if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) {
@@ -1943,6 +1949,7 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
 
 #if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) {
@@ -1967,6 +1974,9 @@ namespace avk
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) {
 			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_t*>(mResourcePtr)->view_handle());
 		}
+		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_descriptor*>(mResourcePtr)->view_handle());
+		}
 
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
@@ -1981,6 +1991,9 @@ namespace avk
 		
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) {
 			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_t*>>(mResourcePtr)));
+		}
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_descriptor*>>(mResourcePtr)));
 		}
 		
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
@@ -2256,35 +2269,20 @@ namespace avk
 	vk::DescriptorType buffer_view_t::descriptor_type(size_t aMetaDataIndex) const
 	{
 		if (std::holds_alternative<buffer>(mBuffer)) {
-			// meta<buffer_meta> should evaluate true for EVERY meta data there is. 
 			return std::get<buffer>(mBuffer)->meta_at_index<buffer_meta>(aMetaDataIndex).descriptor_type().value();
 		}
 		throw avk::runtime_error("Which descriptor type?");
 	}
-	
-	buffer_view root::create_buffer_view(buffer aBufferToOwn, std::optional<vk::Format> aViewFormat, size_t aMetaDataIndex, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+
+	buffer_view root::create_buffer_view(buffer aBufferToOwn, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
 		buffer_view_t result;
-		vk::Format format;
-		if (aViewFormat.has_value()) {
-			format = aViewFormat.value();
-		}
-		else {
-			if (aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().size() == 0) {
-				throw avk::runtime_error("No view format passed and ak::uniform_texel_buffer contains no member descriptions");
-			}
-			if (aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().size() > 1) {
-				AVK_LOG_WARNING("No view format passed and there is more than one member description in ak::uniform_texel_buffer. The view will likely be corrupted.");
-			}
-			format = aBufferToOwn->meta_at_index<buffer_meta>(aMetaDataIndex).member_descriptions().front().mFormat;
-		}
-		// Transfer ownership:
 		result.mBuffer = std::move(aBufferToOwn);
-		finish_configuration(result, format, std::move(aAlterConfigBeforeCreation));
+		finish_configuration(result, aViewFormat, std::move(aAlterConfigBeforeCreation));
 		return result;
 	}
 	
-	buffer_view root::create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, size_t aMetaDataIndex, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+	buffer_view root::create_buffer_view(vk::Buffer aBufferToReference, vk::BufferCreateInfo aBufferInfo, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
 		buffer_view_t result;
 		// Store handles:
