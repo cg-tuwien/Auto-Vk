@@ -1274,7 +1274,7 @@ namespace avk
 		return {};
 	}
 
-	avk::filter_mode to_vk_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
+	filter_mode to_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
 	{
 		if (aMipMappingAvailable) {
 			if (aVulkanAnisotropy > 1.0f) {

@@ -41,11 +41,13 @@ namespace avk
 
 	extern vk::AccessFlags to_vk_access_flags(avk::memory_access aValue);
 	extern vk::AccessFlags to_vk_access_flags(std::optional<avk::memory_access> aValue);
-	extern avk::memory_access to_memory_access(avk::read_memory_access aValue);
+	extern memory_access to_memory_access(avk::read_memory_access aValue);
 	extern std::optional<avk::memory_access> to_memory_access(std::optional<avk::read_memory_access> aValue);
-	extern avk::memory_access to_memory_access(avk::write_memory_access aValue);
+	extern memory_access to_memory_access(avk::write_memory_access aValue);
 	extern std::optional<avk::memory_access> to_memory_access(std::optional<avk::write_memory_access> aValue);
 
+	extern filter_mode to_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable);
+	
 	extern vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info);
 	
 }
