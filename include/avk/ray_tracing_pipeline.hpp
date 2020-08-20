@@ -72,6 +72,7 @@ namespace avk
 		uint32_t mShaderGroupHandleSize;
 		buffer mShaderBindingTable; // TODO: support more than one shader binding table?
 
+		vk::Device mDevice;
 		vk::DispatchLoaderDynamic mDynamicDispatch;
 	};
 

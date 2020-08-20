@@ -5397,6 +5397,7 @@ namespace avk
 		using namespace cfg;
 		
 		ray_tracing_pipeline_t result;
+		result.mDevice = device();
 		result.mDynamicDispatch = dynamic_dispatch();
 
 		// 1. Set pipeline flags 
@@ -5720,9 +5721,9 @@ namespace avk
 				memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
 				srcByteOffset += copySize;
 			}
-			for(uint32_t g = 0; g < groupCount; g++)
-			{
-			}
+			//for(uint32_t g = 0; g < groupCount; g++)
+			//{
+			//}
 			device().unmapMemory(result.mShaderBindingTable->memory_handle());
 		}
 
@@ -5731,8 +5732,8 @@ namespace avk
 
 	ray_tracing_pipeline_t::~ray_tracing_pipeline_t()
 	{
-		if (handle() && mPipelineLayout) {
-			mPipelineLayout.getOwner().destroy(handle());
+		if (handle()) {
+			mDevice.destroy(handle());
 			mPipeline.reset();
 		}
 	}
@@ -5816,7 +5817,7 @@ namespace avk
 				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset);
 				std::string grpIdx = "[" + std::to_string(iRaygen) + "]";
 				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries; ++i) {
-					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + iRaygen + i].generalShader) + ": " + std::to_string(i), grpIdx, "", "", "");
+					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + i].generalShader) + ": " + std::to_string(i), grpIdx, "", "", "");
 					byteOff = ""; grpIdx = "";
 				}
 				off      += mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries;
@@ -5826,7 +5827,7 @@ namespace avk
 				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset);
 				std::string grpIdx = "[" + std::to_string(iMiss) + "]";
 				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries; ++i) {
-					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + iMiss + i].generalShader) + ": " + std::to_string(i), "", grpIdx, "", "");
+					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + i].generalShader) + ": " + std::to_string(i), "", grpIdx, "", "");
 					byteOff = ""; grpIdx = "";
 				}
 				off       += mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries;
@@ -5838,11 +5839,11 @@ namespace avk
 				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries; ++i) {
 					assert(vk::RayTracingShaderGroupTypeKHR::eGeneral != mShaderGroupCreateInfos[off + iHit].type);
 					std::string hitInfo;
-					hitInfo += mShaderGroupCreateInfos[off + iHit].intersectionShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + iHit + i].intersectionShader, false) : "--";
+					hitInfo += mShaderGroupCreateInfos[off + i].intersectionShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + i].intersectionShader, false) : "--";
 					hitInfo += "|";
-					hitInfo += mShaderGroupCreateInfos[off + iHit].anyHitShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + iHit + i].anyHitShader, false) : "--";
+					hitInfo += mShaderGroupCreateInfos[off + i].anyHitShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + i].anyHitShader, false) : "--";
 					hitInfo += "|";
-					hitInfo += mShaderGroupCreateInfos[off + iHit].closestHitShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + iHit + i].closestHitShader, false) : "--";
+					hitInfo += mShaderGroupCreateInfos[off + i].closestHitShader != VK_SHADER_UNUSED_KHR ? getShaderName(mShaderGroupCreateInfos[off + i].closestHitShader, false) : "--";
 					printRow(byteOff, hitInfo + ": " + std::to_string(i), "", "", grpIdx, "");
 					byteOff = ""; grpIdx = "";
 				}
@@ -5853,7 +5854,7 @@ namespace avk
 				std::string byteOff = std::to_string(mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset);
 				std::string grpIdx = "[" + std::to_string(iCallable) + "]";
 				for (size_t i = 0; i < mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries; ++i) {
-					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + iCallable + i].generalShader) + ": " + std::to_string(i), "", "", "", grpIdx);
+					printRow(byteOff, getShaderName(mShaderGroupCreateInfos[off + i].generalShader) + ": " + std::to_string(i), "", "", "", grpIdx);
 					byteOff = ""; grpIdx = "";
 				}
 				off      += mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries;

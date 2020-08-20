@@ -318,7 +318,10 @@ namespace avk
 				assert(!has_value());
 			}
 		}
-		owning_resource<T>& operator=(T&& r) noexcept { *this_as_variant() = std::move(r); return *this; }
+		owning_resource<T>& operator=(T&& r) noexcept
+		{
+			*this_as_variant() = std::move(r); return *this;
+		}
 		owning_resource<T>& operator=(const T&) = delete;
 		owning_resource<T>& operator=(owning_resource<T>&& r) noexcept = default;
 		owning_resource<T>& operator=(const owning_resource<T>& other)
@@ -348,6 +351,7 @@ namespace avk
 			}
 			return *this;
 		}
+		~owning_resource() = default;
 
 		bool is_shared_ownership_enabled() const noexcept { return std::holds_alternative<std::shared_ptr<T>>(*this); }
 		bool has_value() const noexcept { return !std::holds_alternative<std::monostate>(*this); }
@@ -606,9 +610,8 @@ namespace avk
 		{ }
 
 		handle_wrapper(handle_wrapper&& aOther) noexcept
-			: mHandle{ std::move(aOther.mHandle) }
 		{
-			aOther.reset();
+			std::swap(mHandle, aOther.mHandle);
 		}
 		
 		handle_wrapper(const handle_wrapper& aOther)
@@ -617,8 +620,7 @@ namespace avk
 		
 		handle_wrapper& operator=(handle_wrapper&& aOther) noexcept
 		{
-			mHandle = std::move(aOther.mHandle);
-			aOther.reset();
+			std::swap(mHandle, aOther.mHandle);
 			return *this;
 		}
 
