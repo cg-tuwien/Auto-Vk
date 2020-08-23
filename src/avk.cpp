@@ -2052,7 +2052,8 @@ namespace avk
 #endif
 		vk::BufferUsageFlags aBufferUsage, 
 		vk::MemoryPropertyFlags aMemoryProperties, 
-		vk::MemoryAllocateFlags aMemoryAllocateFlags
+		vk::MemoryAllocateFlags aMemoryAllocateFlags,
+		std::initializer_list<queue*> aConcurrentQueueOwnership
 	)
 	{
 		assert (aMetaData.size() > 0);
@@ -2060,6 +2061,15 @@ namespace avk
 		result.mMetaData = std::move(aMetaData);
 		auto bufferSize = result.meta_at_index<buffer_meta>(0).total_size();
 
+		std::vector<uint32_t> queueFamilyIndices;
+		auto endQfi = std::end(queueFamilyIndices);
+		if (aConcurrentQueueOwnership.size() > 0) {
+			// Select unique queue family indices:
+			std::transform(std::begin(aConcurrentQueueOwnership), std::end(aConcurrentQueueOwnership), std::back_inserter(queueFamilyIndices), [](queue* q) { return q->family_index(); });
+			std::sort(std::begin(queueFamilyIndices), std::end(queueFamilyIndices));
+			endQfi = std::unique(std::begin(queueFamilyIndices), std::end(queueFamilyIndices));
+		}
+		
 		// Create (possibly multiple) buffer(s):
 		auto bufferCreateInfo = vk::BufferCreateInfo()
 			.setSize(static_cast<vk::DeviceSize>(bufferSize))
@@ -2069,6 +2079,14 @@ namespace avk
 			// The flags parameter is used to configure sparse buffer memory, which is not relevant right now. We'll leave it at the default value of 0. [2]
 			.setFlags(vk::BufferCreateFlags()); 
 
+		if (queueFamilyIndices.size() > 0) {
+			bufferCreateInfo
+				.setSharingMode(vk::SharingMode::eConcurrent)
+				.setQueueFamilyIndexCount(static_cast<uint32_t>( std::distance(std::begin(queueFamilyIndices), endQfi) ))
+				.setPQueueFamilyIndices(queueFamilyIndices.data());
+			// TODO: Untested ^ test vk::SharingMode::eConcurrent
+		}
+		
 		// Create the buffer on the logical device
 		auto vkBuffer = aDevice.createBufferUnique(bufferCreateInfo);
 
@@ -2479,6 +2497,36 @@ namespace avk
 		establish_image_memory_barrier(aImage, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
 	}
 
+	void command_buffer_t::establish_buffer_memory_barrier(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
+	{
+		mCommandBuffer->pipelineBarrier(
+			to_vk_pipeline_stage_flags(aSrcStage),						// Up to which stage to execute before making memory available
+			to_vk_pipeline_stage_flags(aDstStage),						// Which stage has to wait until memory has been made visible
+			vk::DependencyFlags{},										// TODO: support dependency flags
+			{}, 
+			{
+				vk::BufferMemoryBarrier{
+					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
+					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
+					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+					aBuffer.buffer_handle(),
+					0, aBuffer.meta_at_index<buffer_meta>().total_size()
+				}
+			},	
+			{}
+		);
+	}
+	
+	void command_buffer_t::establish_buffer_memory_barrier_rw(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
+	{
+		establish_buffer_memory_barrier(aBuffer, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
+	}
+
+	void command_buffer_t::establish(const pipeline_barrier_data& aBarrierData)
+	{
+		aBarrierData.make_barrier(*this);
+	}
+	
 	void command_buffer_t::copy_image(const image_t& aSource, const vk::Image& aDestination)
 	{ // TODO: fix this hack after the RTX-VO!
 		auto fullImageOffset = vk::Offset3D(0, 0, 0);
@@ -4902,9 +4950,29 @@ namespace avk
 
 
 
+	void queue::submit_with_semaphore(semaphore_t& aSemaphoreToSignal, command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphores)
+	{
+		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
 
+		auto submitInfo = vk::SubmitInfo{}
+			.setCommandBufferCount(1u)
+			.setPCommandBuffers(aCommandBuffer.handle_ptr())
+			.setSignalSemaphoreCount(1u)
+			.setPSignalSemaphores(aSemaphoreToSignal.handle_addr());
+		if (aWaitSemaphores.has_value()) {
+			submitInfo
+				.setWaitSemaphoreCount(1u)
+				.setPWaitSemaphores(aWaitSemaphores->get().handle_addr())
+				.setPWaitDstStageMask(aWaitSemaphores->get().semaphore_wait_stage_addr());
+		}
+		
+		handle().submit({ submitInfo },  nullptr);
+		aCommandBuffer.invoke_post_execution_handler();
+
+		aCommandBuffer.mState = command_buffer_state::submitted;
+	}
 	
-	semaphore queue::submit_with_semaphore(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore)
+	semaphore queue::submit_with_semaphore(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphores)
 	{
 		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
 
@@ -4915,11 +4983,11 @@ namespace avk
 			.setPCommandBuffers(aCommandBuffer.handle_ptr())
 			.setSignalSemaphoreCount(1u)
 			.setPSignalSemaphores(sem->handle_addr());
-		if (aWaitSemaphore.has_value()) {
+		if (aWaitSemaphores.has_value()) {
 			submitInfo
 				.setWaitSemaphoreCount(1u)
-				.setPWaitSemaphores(aWaitSemaphore->get().handle_addr())
-				.setPWaitDstStageMask(aWaitSemaphore->get().semaphore_wait_stage_addr());
+				.setPWaitSemaphores(aWaitSemaphores->get().handle_addr())
+				.setPWaitDstStageMask(aWaitSemaphores->get().semaphore_wait_stage_addr());
 		}
 		
 		handle().submit({ submitInfo },  nullptr);
@@ -4949,6 +5017,35 @@ namespace avk
 
 		aCommandBuffer.mState = command_buffer_state::submitted;
 	}
+
+	void queue::submit(command_buffer_t& aCommandBuffer, std::vector<std::reference_wrapper<semaphore_t>> aWaitSemaphores)
+	{
+		assert(aCommandBuffer.state() >= command_buffer_state::finished_recording);
+
+		auto submitInfo = vk::SubmitInfo{}
+			.setCommandBufferCount(1u)
+			.setPCommandBuffers(aCommandBuffer.handle_ptr());
+
+		std::vector<vk::Semaphore> waitSemHandles;
+		std::vector<vk::PipelineStageFlags> waitSemStages;
+		if (!aWaitSemaphores.empty()) {
+			for (auto& ws : aWaitSemaphores) {
+				waitSemHandles.push_back(ws.get().handle());
+				waitSemStages.push_back(ws.get().semaphore_wait_stage());
+			}
+			assert (waitSemHandles.size() == waitSemStages.size());
+			submitInfo
+				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemHandles.size()))
+				.setPWaitSemaphores(waitSemHandles.data())
+				.setPWaitDstStageMask(waitSemStages.data());
+		}
+		
+		handle().submit({ submitInfo },  nullptr);
+		aCommandBuffer.invoke_post_execution_handler();
+
+		aCommandBuffer.mState = command_buffer_state::submitted;
+	}
+
 	// The code between these two ^ and v is mostly copied... I know. It avoids the usage of an unneccessary
 	// temporary vector in single command buffer-case. Should, however, probably be refactored.
 	void queue::submit(std::vector<std::reference_wrapper<command_buffer_t>> aCommandBuffers)
@@ -6717,6 +6814,30 @@ using namespace cpplinq;
 
 		// Finish him:
 		return aSyncHandler.submit_and_sync();
+	}
+#pragma endregion
+
+#pragma region pipeline_barrier_data definitions
+	void pipeline_barrier_data::make_barrier(command_buffer_t& aIntoCommandBuffer) const
+	{
+		std::vector<vk::BufferMemoryBarrier> bmbs;
+		for (auto& data : mBufferMemoryBarriers) {
+			bmbs.emplace_back()
+				.setBuffer(data.mBufferRef->buffer_handle())
+				.setSrcQueueFamilyIndex(data.mSrcQueue.value()->family_index())
+				.setDstQueueFamilyIndex(data.mDstQueue.value()->family_index())
+				.setOffset(0)
+				.setSize(data.mBufferRef->meta_at_index<buffer_meta>().total_size());
+		}
+
+		aIntoCommandBuffer.handle().pipelineBarrier(
+			to_vk_pipeline_stage_flags(mSrcStage.value()),
+			to_vk_pipeline_stage_flags(mDstStage.value()),
+			vk::DependencyFlags{},										// TODO: support dependency flags
+			0u, nullptr,
+			static_cast<uint32_t>(bmbs.size()), bmbs.data(),
+			0u, nullptr
+		);
 	}
 #pragma endregion
 	

@@ -137,10 +137,15 @@ namespace avk
 		const auto* handle_ptr() const { return &mQueue; }
 
 		/** TODO */
-		semaphore submit_with_semaphore(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore = {});
+		void submit_with_semaphore(semaphore_t& aSemaphoreToSignal, command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphores = {});
+
+		/** TODO */
+		semaphore submit_with_semaphore(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphores = {});
 		
 		/** TODO */
 		void submit(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore = {});
+
+		void submit(command_buffer_t& aCommandBuffer, std::vector<std::reference_wrapper<semaphore_t>> aWaitSemaphores = {});
 		
 		/** TODO */
 		void submit(std::vector<std::reference_wrapper<command_buffer_t>> aCommandBuffers);
@@ -157,6 +162,8 @@ namespace avk
 		
 		/** TODO */
 		semaphore submit_and_handle_with_semaphore(std::vector<command_buffer> aCommandBuffers, std::vector<semaphore> aWaitSemaphores = {});
+
+		bool is_prepared() const { return static_cast<bool>(mPhysicalDevice); }
 		
 	private:
 		uint32_t mQueueFamilyIndex;

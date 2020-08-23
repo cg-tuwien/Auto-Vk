@@ -348,7 +348,7 @@ namespace avk
 			if (std::holds_alternative<unique_function<void(command_buffer)>>(mCommandBufferRefOrLifetimeHandler)) {
 				assert(mCommandBuffer.has_value());
 				mCommandBuffer.value()->end_recording();	// What started in get_or_create_command_buffer() ends here.
-				queue.submit(mCommandBuffer.value());
+				queue.submit(mCommandBuffer.value(), std::optional<std::reference_wrapper<semaphore_t>>{});
 				std::get<unique_function<void(command_buffer)>>(mCommandBufferRefOrLifetimeHandler)(std::move(mCommandBuffer.value())); // Transfer ownership and be done with it.
 				mCommandBuffer.reset();						// Command buffer has been moved from. It's gone.
 			}
@@ -362,7 +362,7 @@ namespace avk
 		case sync_type::via_wait_idle_deliberately:
 			assert(mCommandBuffer.has_value());
 			mCommandBuffer.value()->end_recording();		// What started in get_or_create_command_buffer() ends here.
-			queue.submit(mCommandBuffer.value());
+			queue.submit(mCommandBuffer.value(), std::optional<std::reference_wrapper<semaphore_t>>{});
 			queue_to_use().get().handle().waitIdle();
 			mCommandBuffer.reset();							// Command buffer is fully handled after waitIdle() and can be destroyed.
 			break;

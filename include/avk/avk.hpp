@@ -251,7 +251,8 @@ namespace avk
 #endif
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties, 
-			vk::MemoryAllocateFlags aMemoryAllocateFlags
+			vk::MemoryAllocateFlags aMemoryAllocateFlags,
+			std::initializer_list<queue*> aConcurrentQueueOwnership = {}
 		);
 		
 		buffer create_buffer(
