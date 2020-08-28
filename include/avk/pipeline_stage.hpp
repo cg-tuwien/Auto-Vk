@@ -3,7 +3,7 @@
 
 namespace avk
 {
-	enum struct pipeline_stage
+	enum struct pipeline_stage : uint32_t
 	{
 		top_of_pipe = 0x00000001,
 		draw_indirect = 0x00000002,

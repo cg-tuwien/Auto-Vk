@@ -35,6 +35,7 @@
 #include <filesystem>
 #include <cstdio>
 #include <cassert>
+#include <bitset>
 
 #include <cpplinq.hpp>
 
@@ -118,6 +119,8 @@ namespace avk { class sync; }
 #include <avk/graphics_pipeline.hpp>
 #include <avk/compute_pipeline.hpp>
 #include <avk/ray_tracing_pipeline.hpp>
+
+#include <avk/query_pool.hpp>
 
 #include <avk/vulkan_helper_functions.hpp>
 
@@ -245,9 +248,9 @@ namespace avk
 			const vk::PhysicalDevice& aPhysicalDevice, 
 			const vk::Device& aDevice, 
 #if VK_HEADER_VERSION >= 135
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData,
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData,
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #endif
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties, 
@@ -257,9 +260,9 @@ namespace avk
 		
 		buffer create_buffer(
 #if VK_HEADER_VERSION >= 135
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData,
-#else 
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData,
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
+#else
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #endif
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties,
@@ -310,9 +313,9 @@ namespace avk
 			}
 
 #if VK_HEADER_VERSION >= 135
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> metas;
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> metas;
 #else
-			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> metas;
+			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> metas;
 #endif
 			metas.push_back(aConfig);
 			aUsage |= aConfig.buffer_usage_flags();
@@ -494,224 +497,230 @@ namespace avk
 			std::vector<image_view> imageViews;
 			(imageViews.push_back(std::move(aImViews)), ...);
 			return create_framebuffer(std::move(aRenderpass), std::move(imageViews));
-	}
+		}
 #pragma endregion
 		
 #pragma region geometry instance
 #if VK_HEADER_VERSION >= 135
-	/** Create a geometry instance for a specific geometry, which is represented by a bottom level acceleration structure.
-	 *	@param	aBlas	The bottom level acceleration structure which represents the underlying geometry for this instance
-	 */
-	geometry_instance create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas);
+		/** Create a geometry instance for a specific geometry, which is represented by a bottom level acceleration structure.
+		 *	@param	aBlas	The bottom level acceleration structure which represents the underlying geometry for this instance
+		 */
+		geometry_instance create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas);
 #endif
 #pragma endregion
 
 #pragma region graphics pipeline
-	graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
-		
-	/**	Convenience function for gathering the graphic pipeline's configuration.
-	 *	
-	 *	It supports the following types: 
-	 *   - cfg::pipeline_settings (flags)
-	 *   - renderpass
-	 *   - avk::attachment (use either attachments or renderpass!)
-	 *   - input_binding_location_data (vertex input)
-	 *   - cfg::primitive_topology
-	 *   - shader_info
-	 *   - std::string_view (path to shaders, alternative to shader_info)
-	 *   - cfg::depth_test
-	 *   - cfg::depth_write
-	 *   - cfg::viewport_depth_scissors_config
-	 *   - cfg::culling_mode
-	 *   - cfg::front_face
-	 *   - cfg::polygon_drawing
-	 *   - cfg::rasterizer_geometry_mode
-	 *   - cfg::depth_clamp_bias
-	 *   - cfg::color_blending_settings
-	 *   - cfg::color_blending_config
-	 *   - cfg::tessellation_patch_control_points
-	 *   - cfg::per_sample_shading_config
-	 *   - cfg::stencil_test
-	 *   - binding_data (data that is to be bound via descriptors)
-	 *   - push_constant_binding_data
-	 *   - std::function<void(graphics_pipeline_t&)> (a function to alter the pipeline config before it is created)
-	 *
-	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_graphics_pipeline
-	 */
-	template <typename... Ts>
-	graphics_pipeline create_graphics_pipeline_for(Ts... args)
-	{
-		// 1. GATHER CONFIG
-		std::vector<avk::attachment> renderPassAttachments;
-		std::function<void(graphics_pipeline_t&)> alterConfigFunction;
-		graphics_pipeline_config config;
-		add_config(config, renderPassAttachments, alterConfigFunction, std::move(args)...);
+			
+		/**	Convenience function for gathering the graphic pipeline's configuration.
+		 *	
+		 *	It supports the following types: 
+		 *   - cfg::pipeline_settings (flags)
+		 *   - renderpass
+		 *   - avk::attachment (use either attachments or renderpass!)
+		 *   - input_binding_location_data (vertex input)
+		 *   - cfg::primitive_topology
+		 *   - shader_info
+		 *   - std::string_view (path to shaders, alternative to shader_info)
+		 *   - cfg::depth_test
+		 *   - cfg::depth_write
+		 *   - cfg::viewport_depth_scissors_config
+		 *   - cfg::culling_mode
+		 *   - cfg::front_face
+		 *   - cfg::polygon_drawing
+		 *   - cfg::rasterizer_geometry_mode
+		 *   - cfg::depth_clamp_bias
+		 *   - cfg::color_blending_settings
+		 *   - cfg::color_blending_config
+		 *   - cfg::tessellation_patch_control_points
+		 *   - cfg::per_sample_shading_config
+		 *   - cfg::stencil_test
+		 *   - binding_data (data that is to be bound via descriptors)
+		 *   - push_constant_binding_data
+		 *   - std::function<void(graphics_pipeline_t&)> (a function to alter the pipeline config before it is created)
+		 *
+		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_graphics_pipeline
+		 */
+		template <typename... Ts>
+		graphics_pipeline create_graphics_pipeline_for(Ts... args)
+		{
+			// 1. GATHER CONFIG
+			std::vector<avk::attachment> renderPassAttachments;
+			std::function<void(graphics_pipeline_t&)> alterConfigFunction;
+			graphics_pipeline_config config;
+			add_config(config, renderPassAttachments, alterConfigFunction, std::move(args)...);
 
-		// Check if render pass attachments are in renderPassAttachments XOR config => only in that case, it is clear how to proceed, fail in other cases
-		if (renderPassAttachments.size() > 0 == (config.mRenderPassSubpass.has_value() && static_cast<bool>(std::get<renderpass>(*config.mRenderPassSubpass)->handle()))) {
-			if (renderPassAttachments.size() == 0) {
-				throw avk::runtime_error("No renderpass config provided! Please provide a renderpass or attachments!");
+			// Check if render pass attachments are in renderPassAttachments XOR config => only in that case, it is clear how to proceed, fail in other cases
+			if (renderPassAttachments.size() > 0 == (config.mRenderPassSubpass.has_value() && static_cast<bool>(std::get<renderpass>(*config.mRenderPassSubpass)->handle()))) {
+				if (renderPassAttachments.size() == 0) {
+					throw avk::runtime_error("No renderpass config provided! Please provide a renderpass or attachments!");
+				}
+				throw avk::runtime_error("Ambiguous renderpass config! Either set a renderpass XOR provide attachments!");
 			}
-			throw avk::runtime_error("Ambiguous renderpass config! Either set a renderpass XOR provide attachments!");
-		}
-		// ^ that was the sanity check. See if we have to build the renderpass from the attachments:
-		if (renderPassAttachments.size() > 0) {
-			add_config(config, renderPassAttachments, alterConfigFunction, create_renderpass(std::move(renderPassAttachments)));
-		}
+			// ^ that was the sanity check. See if we have to build the renderpass from the attachments:
+			if (renderPassAttachments.size() > 0) {
+				add_config(config, renderPassAttachments, alterConfigFunction, create_renderpass(std::move(renderPassAttachments)));
+			}
 
-		// 2. CREATE PIPELINE according to the config
-		// ============================================ Vk ============================================ 
-		//    => VULKAN CODE HERE:
-		return create_graphics_pipeline(std::move(config), std::move(alterConfigFunction));
-		// ============================================================================================ 
-	}
+			// 2. CREATE PIPELINE according to the config
+			// ============================================ Vk ============================================ 
+			//    => VULKAN CODE HERE:
+			return create_graphics_pipeline(std::move(config), std::move(alterConfigFunction));
+			// ============================================================================================ 
+		}
 #pragma endregion
 
 #pragma region image
-	/** Creates a new image
-	 *	@param	aWidth						The width of the image to be created
-	 *	@param	aHeight						The height of the image to be created
-	 *	@param	aFormatAndSamples			The image format and the number of samples of the image to be created
-	 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-	 *	@param	aImageUsage					How this image is intended to being used.
-	 *	@param	aNumLayers					How many layers the image to be created shall contain.
-	 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-	 *	@return	Returns a newly created image.
-	 */
-	image create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
-	
-	/** Creates a new image
-	 *	@param	aWidth						The width of the image to be created
-	 *	@param	aHeight						The height of the image to be created
-	 *	@param	aFormat						The image format of the image to be created
-	 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-	 *	@param	aImageUsage					How this image is intended to being used.
-	 *	@param	aNumLayers					How many layers the image to be created shall contain.
-	 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-	 *	@return	Returns a newly created image.
-	 */
-	image create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		/** Creates a new image
+		 *	@param	aWidth						The width of the image to be created
+		 *	@param	aHeight						The height of the image to be created
+		 *	@param	aFormatAndSamples			The image format and the number of samples of the image to be created
+		 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+		 *	@param	aImageUsage					How this image is intended to being used.
+		 *	@param	aNumLayers					How many layers the image to be created shall contain.
+		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		 *	@return	Returns a newly created image.
+		 */
+		image create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		
+		/** Creates a new image
+		 *	@param	aWidth						The width of the image to be created
+		 *	@param	aHeight						The height of the image to be created
+		 *	@param	aFormat						The image format of the image to be created
+		 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+		 *	@param	aImageUsage					How this image is intended to being used.
+		 *	@param	aNumLayers					How many layers the image to be created shall contain.
+		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		 *	@return	Returns a newly created image.
+		 */
+		image create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
-	/** Creates a new image
-	*	@param	aWidth						The width of the depth buffer to be created
-	*	@param	aHeight						The height of the depth buffer to be created
-	*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
-	*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-	*	@param	aNumLayers					How many layers the image to be created shall contain.
-	*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-	*	@return	Returns a newly created depth buffer.
-	*/
-	image create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		/** Creates a new image
+		*	@param	aWidth						The width of the depth buffer to be created
+		*	@param	aHeight						The height of the depth buffer to be created
+		*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
+		*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+		*	@param	aNumLayers					How many layers the image to be created shall contain.
+		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		*	@return	Returns a newly created depth buffer.
+		*/
+		image create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
-	/** Creates a new image
-	*	@param	aWidth						The width of the depth+stencil buffer to be created
-	*	@param	aHeight						The height of the depth+stencil buffer to be created
-	*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
-	*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
-	*	@param	aNumLayers					How many layers the image to be created shall contain.
-	*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
-	*	@return	Returns a newly created depth+stencil buffer.
-	*/
-	image create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		/** Creates a new image
+		*	@param	aWidth						The width of the depth+stencil buffer to be created
+		*	@param	aHeight						The height of the depth+stencil buffer to be created
+		*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
+		*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
+		*	@param	aNumLayers					How many layers the image to be created shall contain.
+		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		*	@return	Returns a newly created depth+stencil buffer.
+		*/
+		image create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
-	image_t wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, avk::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags);
+		image_t wrap_image(vk::Image aImageToWrap, vk::ImageCreateInfo aImageCreateInfo, avk::image_usage aImageUsage, vk::ImageAspectFlags aImageAspectFlags);
 #pragma endregion
 
 #pragma region image view
-	/** Creates a new image view upon a given image
-	*	@param	aImageToOwn					The image which to create an image view for
-	*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
-	*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.config()` to access the configuration structure!
-	*	@return	Returns a newly created image.
-	*/
-	image_view create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-	image_view create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-	image_view create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		/** Creates a new image view upon a given image
+		*	@param	aImageToOwn					The image which to create an image view for
+		*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
+		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.config()` to access the configuration structure!
+		*	@return	Returns a newly created image.
+		*/
+		image_view create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_depth_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_stencil_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
 
-	image_view create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {});
+		image_view create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {});
 
-	void finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation);
+		void finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation);
 #pragma endregion
 
 #pragma region sampler and image sampler
-	/**	Create a new sampler with the given configuration parameters
-	 *	@param	aFilterMode					Filtering strategy for the sampler to be created
-	 *	@param	aBorderHandlingMode			Border handling strategy for the sampler to be created
-	 *	@param	aMipMapMaxLod				Default value = house number
-	 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
-	 */                                                                                               // TODO: vvv Which value by default? vvv
-	sampler create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
+		/**	Create a new sampler with the given configuration parameters
+		 *	@param	aFilterMode					Filtering strategy for the sampler to be created
+		 *	@param	aBorderHandlingMode			Border handling strategy for the sampler to be created
+		 *	@param	aMipMapMaxLod				Default value = house number
+		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
+		 */                                                                                               // TODO: vvv Which value by default? vvv
+		sampler create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
 
-	image_sampler create_image_sampler(image_view aImageView, sampler aSampler);
+		image_sampler create_image_sampler(image_view aImageView, sampler aSampler);
 #pragma endregion
 
 #pragma region ray tracing pipeline
 #if VK_HEADER_VERSION >= 135
-	max_recursion_depth get_max_ray_tracing_recursion_depth();
-		
-	ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
-		
-	/**	Convenience function for gathering the ray tracing pipeline's configuration.
-	 *
-	 *	It supports the following types:
-	 *	 - cfg::pipeline_settings
-	 *	 - shader_table_config => use: define_shader_table() which takes the following types:
-	 *	    - shader_info
-	 *	    - std::string_view (alternative to shader_info; both defining a group with one "general" shader only --- be it raygen, miss, or callable)
-	 *	    - triangles_hit_group
-	 *	    - procedural_hit_group
-	 *	 - max_recursion_depth
-	 *   - shader_info
-	 *   - std::string_view (path to shaders, alternative to shader_info)
-	 *   - binding_data (data that is to be bound via descriptors)
-	 *   - push_constant_binding_data
-	 *   - std::function<void(compute_pipeline_t&)> (a function to alter the pipeline config before it is created)
-	 *
-	 *	For building the shader table in a convenient fashion, use the `ak::define_shader_table` function!
-	 *	
-	 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_ray_tracing_pipeline
-	 */
-	template <typename... Ts>
-	ray_tracing_pipeline create_ray_tracing_pipeline_for(Ts... args)
-	{
-		// 1. GATHER CONFIG
-		std::function<void(ray_tracing_pipeline_t&)> alterConfigFunction;
-		ray_tracing_pipeline_config config;
-		add_config(config, alterConfigFunction, std::move(args)...);
+		max_recursion_depth get_max_ray_tracing_recursion_depth();
+			
+		ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
+			
+		/**	Convenience function for gathering the ray tracing pipeline's configuration.
+		 *
+		 *	It supports the following types:
+		 *	 - cfg::pipeline_settings
+		 *	 - shader_table_config => use: define_shader_table() which takes the following types:
+		 *	    - shader_info
+		 *	    - std::string_view (alternative to shader_info; both defining a group with one "general" shader only --- be it raygen, miss, or callable)
+		 *	    - triangles_hit_group
+		 *	    - procedural_hit_group
+		 *	 - max_recursion_depth
+		 *   - shader_info
+		 *   - std::string_view (path to shaders, alternative to shader_info)
+		 *   - binding_data (data that is to be bound via descriptors)
+		 *   - push_constant_binding_data
+		 *   - std::function<void(compute_pipeline_t&)> (a function to alter the pipeline config before it is created)
+		 *
+		 *	For building the shader table in a convenient fashion, use the `ak::define_shader_table` function!
+		 *	
+		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_ray_tracing_pipeline
+		 */
+		template <typename... Ts>
+		ray_tracing_pipeline create_ray_tracing_pipeline_for(Ts... args)
+		{
+			// 1. GATHER CONFIG
+			std::function<void(ray_tracing_pipeline_t&)> alterConfigFunction;
+			ray_tracing_pipeline_config config;
+			add_config(config, alterConfigFunction, std::move(args)...);
 
-		// 2. CREATE PIPELINE according to the config
-		// ============================================ Vk ============================================ 
-		//    => VULKAN CODE HERE:
-		return create_ray_tracing_pipeline(std::move(config), std::move(alterConfigFunction));
-		// ============================================================================================ 
-	}
+			// 2. CREATE PIPELINE according to the config
+			// ============================================ Vk ============================================ 
+			//    => VULKAN CODE HERE:
+			return create_ray_tracing_pipeline(std::move(config), std::move(alterConfigFunction));
+			// ============================================================================================ 
+		}
 #endif
 #pragma endregion
 
 #pragma region renderpass
-	/** Create a renderpass from a given set of attachments.
-	 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
-	 *	To specify custom subpass dependencies, pass a callback to the second parameter!
-	 *	@param	aAttachments				Attachments of the renderpass to be created
-	 *	@param	aSync						Callback of type void(renderpass_sync&) that is invoked for external subpass dependencies (before and after),
-	 *										and also between each of the subpasses. Modify the passed `renderpass_sync&` in order to set custom
-	 *										synchronization parameters.
-	 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
-	 */
-	renderpass create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+		/** Create a renderpass from a given set of attachments.
+		 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
+		 *	To specify custom subpass dependencies, pass a callback to the second parameter!
+		 *	@param	aAttachments				Attachments of the renderpass to be created
+		 *	@param	aSync						Callback of type void(renderpass_sync&) that is invoked for external subpass dependencies (before and after),
+		 *										and also between each of the subpasses. Modify the passed `renderpass_sync&` in order to set custom
+		 *										synchronization parameters.
+		 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
+		 */
+		renderpass create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region semaphore
-	static semaphore create_semaphore(vk::Device aDevice, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
-	semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+		static semaphore create_semaphore(vk::Device aDevice, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+		semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region shader
-	vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& pCode);
-	vk::UniqueShaderModule build_shader_module_from_file(const std::string& pPath);
-	shader create_shader(shader_info pInfo);
+		vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& pCode);
+		vk::UniqueShaderModule build_shader_module_from_file(const std::string& pPath);
+		shader create_shader(shader_info pInfo);
 #pragma endregion
 	
+#pragma region query pool and query
+		query_pool create_query_pool(vk::QueryType aQueryType, uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
+		query_pool create_query_pool_for_occlusion_queries(uint32_t aQueryCount = 2u);
+		query_pool create_query_pool_for_timestamp_queries(uint32_t aQueryCount = 2u);
+		query_pool create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
+#pragma endregion
 	};
 }

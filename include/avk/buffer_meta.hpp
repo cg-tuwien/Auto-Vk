@@ -7,17 +7,6 @@ namespace avk
 	enum struct content_description
 	{
 		unspecified,
-		index,
-		position,
-		normal,
-		tangent,
-		bitangent,
-		color,
-		texture_coordinate,
-		bone_weight,
-		bone_index,
-		aabb,
-		geometry_instance,
 		user_defined_01,
 		user_defined_02,
 		user_defined_03,
@@ -117,6 +106,18 @@ namespace avk
 		user_defined_97,
 		user_defined_98,
 		user_defined_99,
+		index,
+		position,
+		normal,
+		tangent,
+		bitangent,
+		color,
+		texture_coordinate,
+		bone_weight,
+		bone_index,
+		aabb,
+		geometry_instance,
+		query_result
 	};
 
 	extern std::string to_string(content_description aValue);
@@ -895,5 +896,83 @@ namespace avk
 #endif
 	};
 #endif
+
+	/**	This struct contains information for a buffer which is intended to receive
+	 *	query results
+	 */
+	class query_results_buffer_meta : public buffer_meta
+	{
+	public:
+		/** Gets buffer usage flags for this kind of buffer. */
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eTransferDst; }
+		
+		static query_results_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride) 
+		{ 
+			query_results_buffer_meta result; 
+			result.mSizeOfOneElement = aStride;
+			result.mNumElements = aNumElements;
+			return result; 
+		}
+
+		static query_results_buffer_meta create_from_total_size(size_t aTotalSize, size_t aSizeOfOneElement) 
+		{ 
+			query_results_buffer_meta result; 
+			result.mSizeOfOneElement = aSizeOfOneElement;
+			assert(aTotalSize % result.mSizeOfOneElement == 0);
+			result.mNumElements = aTotalSize / result.mSizeOfOneElement;
+			return result; 
+		}
+
+		template <typename T>
+		static std::enable_if_t<!std::is_pointer_v<T>, query_results_buffer_meta> create_from_data(const T& aData)
+		{
+			query_results_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
+			result.mNumElements = how_many_elements(aData);
+			return result; 
+		}
+
+		/** Describe which part of an element's member contains the uint32_t or uint64_t to receive the query results
+		 */
+		query_results_buffer_meta& describe_member(size_t aOffset, content_description aContent = content_description::query_result)
+		{
+#if defined(_DEBUG)
+			if (std::find_if(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), [offs = aOffset](const buffer_element_member_meta& e) { return e.mOffset == offs; }) != mOrderedMemberDescriptions.end()) {
+				AVK_LOG_WARNING("There is already a member described at offset " + std::to_string(aOffset));
+			}
+#endif
+			// insert already in the right place
+			buffer_element_member_meta newElement{ aOffset, vk::Format::eUndefined, aContent };
+			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
+				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool { 
+					return first.mOffset < second.mOffset;
+				});
+			mOrderedMemberDescriptions.insert(it, newElement);
+			return *this;
+		}
+
+		/* Describe that there is only one member and that member is the uint32_t or uint64_t to receive the query results */
+		template <typename M>
+		query_results_buffer_meta& describe_only_member(const M& aMember, content_description aContent = content_description::query_result)
+		{
+			assert (sizeof(aMember) == mSizeOfOneElement);
+			auto frmt = format_for<M>();
+			assert (content_description::query_result == aContent);
+			assert (sizeof(uint64_t) == mSizeOfOneElement || sizeof(uint32_t) == mSizeOfOneElement);
+			return describe_member(0, frmt, aContent);
+		}
+
+#if defined(_MSC_VER) && defined(__cplusplus)
+		/** Describe a member and let the compiler figure out offset and format. */
+		template <class T, class M> 
+		query_results_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::query_result)
+		{
+			return describe_member(
+				((::size_t)&reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
+				format_for<M>(),
+				aContent);
+		}
+#endif
+	};
 
 }

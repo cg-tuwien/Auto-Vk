@@ -37,6 +37,7 @@ namespace avk
 	extern vk::AttachmentStoreOp to_vk_store_op(avk::on_store aValue);
 
 	extern vk::PipelineStageFlags to_vk_pipeline_stage_flags(avk::pipeline_stage aValue);
+	extern vk::PipelineStageFlagBits to_vk_pipeline_stage_flag_bits(avk::pipeline_stage aValue);
 	extern vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<avk::pipeline_stage> aValue);
 
 	extern vk::AccessFlags to_vk_access_flags(avk::memory_access aValue);

@@ -1188,6 +1188,44 @@ namespace avk
 		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
 		return result;
 	}
+
+	vk::PipelineStageFlagBits to_vk_pipeline_stage_flag_bits(avk::pipeline_stage aValue)
+	{
+		if (avk::is_included(aValue, avk::pipeline_stage::top_of_pipe					)) { return vk::PipelineStageFlagBits::eTopOfPipe					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::draw_indirect					)) { return vk::PipelineStageFlagBits::eDrawIndirect					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::vertex_input					)) { return vk::PipelineStageFlagBits::eVertexInput					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::vertex_shader					)) { return vk::PipelineStageFlagBits::eVertexShader					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_control_shader	)) { return vk::PipelineStageFlagBits::eTessellationControlShader	; }
+		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_evaluation_shader)) { return vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
+		if (avk::is_included(aValue, avk::pipeline_stage::geometry_shader				)) { return vk::PipelineStageFlagBits::eGeometryShader				; }
+		if (avk::is_included(aValue, avk::pipeline_stage::fragment_shader				)) { return vk::PipelineStageFlagBits::eFragmentShader				; }
+		if (avk::is_included(aValue, avk::pipeline_stage::early_fragment_tests			)) { return vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::late_fragment_tests			)) { return vk::PipelineStageFlagBits::eLateFragmentTests			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::color_attachment_output		)) { return vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
+		if (avk::is_included(aValue, avk::pipeline_stage::compute_shader				)) { return vk::PipelineStageFlagBits::eComputeShader				; }
+		if (avk::is_included(aValue, avk::pipeline_stage::transfer						)) { return vk::PipelineStageFlagBits::eTransfer						; }
+		if (avk::is_included(aValue, avk::pipeline_stage::bottom_of_pipe				)) { return vk::PipelineStageFlagBits::eBottomOfPipe					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::host							)) { return vk::PipelineStageFlagBits::eHost							; }
+		if (avk::is_included(aValue, avk::pipeline_stage::all_graphics					)) { return vk::PipelineStageFlagBits::eAllGraphics					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::all_commands					)) { return vk::PipelineStageFlagBits::eAllCommands					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::transform_feedback			)) { return vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::conditional_rendering			)) { return vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
+#if VK_HEADER_VERSION >= 135																 
+		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { return vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
+#else 																						 
+		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { return vk::PipelineStageFlagBits::eCommandProcessNVX			; }
+#endif																						 
+		if (avk::is_included(aValue, avk::pipeline_stage::shading_rate_image			)) { return vk::PipelineStageFlagBits::eShadingRateImageNV			; }
+#if VK_HEADER_VERSION >= 135																 
+		if (avk::is_included(aValue, avk::pipeline_stage::ray_tracing_shaders			)) { return vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
+		if (avk::is_included(aValue, avk::pipeline_stage::acceleration_structure_build	)) { return vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
+#endif																						 
+		if (avk::is_included(aValue, avk::pipeline_stage::task_shader					)) { return vk::PipelineStageFlagBits::eTaskShaderNV					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::mesh_shader					)) { return vk::PipelineStageFlagBits::eMeshShaderNV					; }
+		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { return vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
+
+		throw avk::runtime_error("unknown pipeline_stage");
+	}
 	
 	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<avk::pipeline_stage> aValue)
 	{
@@ -2011,33 +2049,118 @@ namespace avk
 	std::string to_string(content_description aValue)
 	{
 		switch (aValue) {
-		case content_description::unspecified:			return "unspecified";
-		case content_description::index:				return "index";
-		case content_description::position:				return "position";
-		case content_description::normal:				return "normal";
-		case content_description::tangent:				return "tangent";
-		case content_description::bitangent:			return "bitangent";
-		case content_description::color:				return "color";
-		case content_description::texture_coordinate:	return "texture_coordinate";
-		case content_description::bone_weight:			return "bone_weight";
-		case content_description::bone_index:			return "bone_index";
-		case content_description::user_defined_01:		return "user_defined_01";
-		case content_description::user_defined_02:		return "user_defined_02";
-		case content_description::user_defined_03:		return "user_defined_03";
-		case content_description::user_defined_04:		return "user_defined_04";
-		case content_description::user_defined_05:		return "user_defined_05";
-		case content_description::user_defined_06:		return "user_defined_06";
-		case content_description::user_defined_07:		return "user_defined_07";
-		case content_description::user_defined_08:		return "user_defined_08";
-		case content_description::user_defined_09:		return "user_defined_09";
-		case content_description::user_defined_10:		return "user_defined_10";
-		case content_description::user_defined_11:		return "user_defined_11";
-		case content_description::user_defined_12:		return "user_defined_12";
-		case content_description::user_defined_13:		return "user_defined_13";
-		case content_description::user_defined_14:		return "user_defined_14";
-		case content_description::user_defined_15:		return "user_defined_15";
-		case content_description::user_defined_16:		return "user_defined_16";
-		case content_description::aabb:					return "aabb";
+		case content_description::unspecified			: return "unspecified";
+		case content_description::user_defined_01		: return "user_defined_01";
+		case content_description::user_defined_02		: return "user_defined_02";
+		case content_description::user_defined_03		: return "user_defined_03";
+		case content_description::user_defined_04		: return "user_defined_04";
+		case content_description::user_defined_05		: return "user_defined_05";
+		case content_description::user_defined_06		: return "user_defined_06";
+		case content_description::user_defined_07		: return "user_defined_07";
+		case content_description::user_defined_08		: return "user_defined_08";
+		case content_description::user_defined_09		: return "user_defined_09";
+		case content_description::user_defined_10		: return "user_defined_10";
+		case content_description::user_defined_11		: return "user_defined_11";
+		case content_description::user_defined_12		: return "user_defined_12";
+		case content_description::user_defined_13		: return "user_defined_13";
+		case content_description::user_defined_14		: return "user_defined_14";
+		case content_description::user_defined_15		: return "user_defined_15";
+		case content_description::user_defined_16		: return "user_defined_16";
+		case content_description::user_defined_17		: return "user_defined_17";
+		case content_description::user_defined_18		: return "user_defined_18";
+		case content_description::user_defined_19		: return "user_defined_19";
+		case content_description::user_defined_20		: return "user_defined_20";
+		case content_description::user_defined_21		: return "user_defined_21";
+		case content_description::user_defined_22		: return "user_defined_22";
+		case content_description::user_defined_23		: return "user_defined_23";
+		case content_description::user_defined_24		: return "user_defined_24";
+		case content_description::user_defined_25		: return "user_defined_25";
+		case content_description::user_defined_26		: return "user_defined_26";
+		case content_description::user_defined_27		: return "user_defined_27";
+		case content_description::user_defined_28		: return "user_defined_28";
+		case content_description::user_defined_29		: return "user_defined_29";
+		case content_description::user_defined_30		: return "user_defined_30";
+		case content_description::user_defined_31		: return "user_defined_31";
+		case content_description::user_defined_32		: return "user_defined_32";
+		case content_description::user_defined_33		: return "user_defined_33";
+		case content_description::user_defined_34		: return "user_defined_34";
+		case content_description::user_defined_35		: return "user_defined_35";
+		case content_description::user_defined_36		: return "user_defined_36";
+		case content_description::user_defined_37		: return "user_defined_37";
+		case content_description::user_defined_38		: return "user_defined_38";
+		case content_description::user_defined_39		: return "user_defined_39";
+		case content_description::user_defined_40		: return "user_defined_40";
+		case content_description::user_defined_41		: return "user_defined_41";
+		case content_description::user_defined_42		: return "user_defined_42";
+		case content_description::user_defined_43		: return "user_defined_43";
+		case content_description::user_defined_44		: return "user_defined_44";
+		case content_description::user_defined_45		: return "user_defined_45";
+		case content_description::user_defined_46		: return "user_defined_46";
+		case content_description::user_defined_47		: return "user_defined_47";
+		case content_description::user_defined_48		: return "user_defined_48";
+		case content_description::user_defined_49		: return "user_defined_49";
+		case content_description::user_defined_50		: return "user_defined_50";
+		case content_description::user_defined_51		: return "user_defined_51";
+		case content_description::user_defined_52		: return "user_defined_52";
+		case content_description::user_defined_53		: return "user_defined_53";
+		case content_description::user_defined_54		: return "user_defined_54";
+		case content_description::user_defined_55		: return "user_defined_55";
+		case content_description::user_defined_56		: return "user_defined_56";
+		case content_description::user_defined_57		: return "user_defined_57";
+		case content_description::user_defined_58		: return "user_defined_58";
+		case content_description::user_defined_59		: return "user_defined_59";
+		case content_description::user_defined_60		: return "user_defined_60";
+		case content_description::user_defined_61		: return "user_defined_61";
+		case content_description::user_defined_62		: return "user_defined_62";
+		case content_description::user_defined_63		: return "user_defined_63";
+		case content_description::user_defined_64		: return "user_defined_64";
+		case content_description::user_defined_65		: return "user_defined_65";
+		case content_description::user_defined_66		: return "user_defined_66";
+		case content_description::user_defined_67		: return "user_defined_67";
+		case content_description::user_defined_68		: return "user_defined_68";
+		case content_description::user_defined_69		: return "user_defined_69";
+		case content_description::user_defined_70		: return "user_defined_70";
+		case content_description::user_defined_71		: return "user_defined_71";
+		case content_description::user_defined_72		: return "user_defined_72";
+		case content_description::user_defined_73		: return "user_defined_73";
+		case content_description::user_defined_74		: return "user_defined_74";
+		case content_description::user_defined_75		: return "user_defined_75";
+		case content_description::user_defined_76		: return "user_defined_76";
+		case content_description::user_defined_77		: return "user_defined_77";
+		case content_description::user_defined_78		: return "user_defined_78";
+		case content_description::user_defined_79		: return "user_defined_79";
+		case content_description::user_defined_80		: return "user_defined_80";
+		case content_description::user_defined_81		: return "user_defined_81";
+		case content_description::user_defined_82		: return "user_defined_82";
+		case content_description::user_defined_83		: return "user_defined_83";
+		case content_description::user_defined_84		: return "user_defined_84";
+		case content_description::user_defined_85		: return "user_defined_85";
+		case content_description::user_defined_86		: return "user_defined_86";
+		case content_description::user_defined_87		: return "user_defined_87";
+		case content_description::user_defined_88		: return "user_defined_88";
+		case content_description::user_defined_89		: return "user_defined_89";
+		case content_description::user_defined_90		: return "user_defined_90";
+		case content_description::user_defined_91		: return "user_defined_91";
+		case content_description::user_defined_92		: return "user_defined_92";
+		case content_description::user_defined_93		: return "user_defined_93";
+		case content_description::user_defined_94		: return "user_defined_94";
+		case content_description::user_defined_95		: return "user_defined_95";
+		case content_description::user_defined_96		: return "user_defined_96";
+		case content_description::user_defined_97		: return "user_defined_97";
+		case content_description::user_defined_98		: return "user_defined_98";
+		case content_description::user_defined_99		: return "user_defined_99";
+		case content_description::index					: return "index";
+		case content_description::position				: return "position";
+		case content_description::normal				: return "normal";
+		case content_description::tangent				: return "tangent";
+		case content_description::bitangent				: return "bitangent";
+		case content_description::color					: return "color";
+		case content_description::texture_coordinate	: return "texture_coordinate";
+		case content_description::bone_weight			: return "bone_weight";
+		case content_description::bone_index			: return "bone_index";
+		case content_description::aabb					: return "aabb";
+		case content_description::geometry_instance		: return "geometry_instance" ;
+		case content_description::query_result			: return "query_result" ;
 		default:										return "<<ERROR: not all cases implemented>>";
 		}
 	}
@@ -2046,9 +2169,9 @@ namespace avk
 		const vk::PhysicalDevice& aPhysicalDevice, 
 		const vk::Device& aDevice,
 #if VK_HEADER_VERSION >= 135
-		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta>> aMetaData,
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
-		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta>> aMetaData,
+		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #endif
 		vk::BufferUsageFlags aBufferUsage, 
 		vk::MemoryPropertyFlags aMemoryProperties, 
@@ -6839,6 +6962,88 @@ using namespace cpplinq;
 			0u, nullptr
 		);
 	}
+#pragma endregion
+
+#pragma region query pool and query definitions
+	query_pool root::create_query_pool(vk::QueryType aQueryType, uint32_t aQueryCount, vk::QueryPipelineStatisticFlags aPipelineStatistics)
+	{
+		query_pool_t result;
+		
+		result.mCreateInfo = vk::QueryPoolCreateInfo{}
+			.setQueryType( aQueryType )
+			.setQueryCount( aQueryCount )
+			.setPipelineStatistics( aPipelineStatistics );
+		result.mQueryPool = device().createQueryPoolUnique(result.mCreateInfo);
+
+		return result;
+	}
+
+	query_pool root::create_query_pool_for_occlusion_queries(uint32_t aQueryCount)
+	{
+		return create_query_pool(vk::QueryType::eOcclusion, aQueryCount);
+	}
+
+	query_pool root::create_query_pool_for_timestamp_queries(uint32_t aQueryCount)
+	{
+		return create_query_pool(vk::QueryType::eTimestamp, aQueryCount);
+	}
+	
+	query_pool root::create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount, vk::QueryPipelineStatisticFlags aPipelineStatistics)
+	{
+		return create_query_pool(vk::QueryType::ePipelineStatistics, aQueryCount);
+	}
+
+	void query_pool_t::host_reset(uint32_t aFirstQueryIndex, std::optional<uint32_t> aNumQueries)
+	{
+		mQueryPool.getOwner().resetQueryPool(handle(), aFirstQueryIndex, aNumQueries.value_or(create_info().queryCount - aFirstQueryIndex));
+	}
+
+	std::optional<command_buffer> query_pool_t::reset(uint32_t aFirstQueryIndex, std::optional<uint32_t> aNumQueries, avk::sync aSync)
+	{
+		auto& cmdBfr = aSync.get_or_create_command_buffer();
+		cmdBfr.handle().resetQueryPool(handle(), aFirstQueryIndex, aNumQueries.value_or(create_info().queryCount - aFirstQueryIndex));
+		return aSync.submit_and_sync();
+	}
+	
+	std::optional<command_buffer> query_pool_t::write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage, sync aSync)
+	{
+		typedef std::underlying_type<pipeline_stage>::type EnumType;
+		assert( std::bitset<32>{ static_cast<EnumType>(aTimestampStage) }.count() == 1 );
+
+		auto& cmdBfr = aSync.get_or_create_command_buffer();
+		cmdBfr.handle().writeTimestamp(to_vk_pipeline_stage_flag_bits(aTimestampStage), handle(), aQueryIndex);
+		return aSync.submit_and_sync();
+	}
+
+	std::optional<command_buffer> query_pool_t::begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags, sync aSync)
+	{
+		auto& cmdBfr = aSync.get_or_create_command_buffer();
+		cmdBfr.handle().beginQuery(handle(), aQueryIndex, aFlags);
+		return aSync.submit_and_sync();
+	}
+
+	std::optional<command_buffer> query_pool_t::end_query(uint32_t aQueryIndex, sync aSync)
+	{
+		auto& cmdBfr = aSync.get_or_create_command_buffer();
+		cmdBfr.handle().endQuery(handle(), aQueryIndex);
+		return aSync.submit_and_sync();
+	}
+
+	std::optional<command_buffer> query_pool_t::copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, sync aSync)
+	{
+		const auto& meta = aBuffer.meta<query_results_buffer_meta>(aBufferMetaSkip);
+		const auto& member = meta.member_description(content_description::query_result);
+		
+		auto& cmdBfr = aSync.get_or_create_command_buffer();
+		cmdBfr.handle().copyQueryPoolResults(handle(), aFirstQueryIndex, aNumQueries, aBuffer.buffer_handle(), member.mOffset, meta.sizeof_one_element(), aFlags);
+		return aSync.submit_and_sync();
+	}
+
+	std::optional<command_buffer> query_pool_t::copy_result(uint32_t aFirstQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, sync aSync)
+	{
+		return copy_results(aFirstQueryIndex, 1u, aBuffer, aBufferMetaSkip, aFlags, std::move(aSync));
+	}
+	
 #pragma endregion
 	
 }
