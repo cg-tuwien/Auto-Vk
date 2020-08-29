@@ -123,7 +123,12 @@ namespace avk
 			vk::Format::eB8G8R8Srgb,
 			vk::Format::eR8G8B8A8Srgb,
 			vk::Format::eB8G8R8A8Srgb,
-			vk::Format::eA8B8G8R8SrgbPack32
+			vk::Format::eA8B8G8R8SrgbPack32,
+			vk::Format::eBc1RgbSrgbBlock,
+			vk::Format::eBc1RgbaSrgbBlock,
+			vk::Format::eBc2SrgbBlock,
+			vk::Format::eBc3SrgbBlock,
+			vk::Format::eBc7SrgbBlock,
 		};
 		auto it = std::find(std::begin(srgbFormats), std::end(srgbFormats), aImageFormat);
 		return it != srgbFormats.end();
@@ -334,7 +339,8 @@ namespace avk
 			vk::Format::eR64G64B64Uint,
 			vk::Format::eR64G64B64Sint,
 			vk::Format::eR64G64B64Sfloat,
-
+			vk::Format::eBc1RgbUnormBlock,
+			vk::Format::eBc1RgbSrgbBlock,
 		};
 		auto it = std::find(std::begin(rgbFormats), std::end(rgbFormats), aImageFormat);
 		return it != rgbFormats.end();
@@ -366,6 +372,8 @@ namespace avk
 			vk::Format::eR64G64B64A64Uint,
 			vk::Format::eR64G64B64A64Sint,
 			vk::Format::eR64G64B64A64Sfloat,
+			vk::Format::eBc1RgbaUnormBlock,
+			vk::Format::eBc1RgbaSrgbBlock,
 		};
 		auto it = std::find(std::begin(rgbaFormats), std::end(rgbaFormats), aImageFormat);
 		return it != rgbaFormats.end();
@@ -450,6 +458,31 @@ namespace avk
 		};
 		auto it = std::find(std::begin(abgrFormats), std::end(abgrFormats), aImageFormat);
 		return it != abgrFormats.end();
+	}
+
+	bool is_block_compressed_format(const vk::Format& aImageFormat)
+	{
+		// Note: Currently, the compressed sRGB-formats are ignored => could/should be added in the future, maybe
+		static std::set<vk::Format> bcFormats = {
+			vk::Format::eBc1RgbUnormBlock,
+			vk::Format::eBc1RgbSrgbBlock,
+			vk::Format::eBc1RgbaUnormBlock,
+			vk::Format::eBc1RgbaSrgbBlock,
+			vk::Format::eBc2UnormBlock,
+			vk::Format::eBc2SrgbBlock,
+			vk::Format::eBc3UnormBlock,
+			vk::Format::eBc3SrgbBlock,
+			vk::Format::eBc4UnormBlock,
+			vk::Format::eBc4SnormBlock,
+			vk::Format::eBc5UnormBlock,
+			vk::Format::eBc5SnormBlock,
+			vk::Format::eBc6HUfloatBlock,
+			vk::Format::eBc6HSfloatBlock,
+			vk::Format::eBc7UnormBlock,
+			vk::Format::eBc7SrgbBlock,
+		};
+		auto it = std::find(std::begin(bcFormats), std::end(bcFormats), aImageFormat);
+		return it != bcFormats.end();
 	}
 
 	bool has_stencil_component(const vk::Format& aImageFormat)
@@ -565,6 +598,8 @@ namespace avk
 			vk::Format::eB8G8R8Sint,
 			vk::Format::eB8G8R8Srgb,
 			vk::Format::eB10G11R11UfloatPack32,
+			vk::Format::eBc1RgbUnormBlock,
+			vk::Format::eBc1RgbSrgbBlock,
 		};
 		auto it = std::find(std::begin(threeCompFormat), std::end(threeCompFormat), aImageFormat);
 		return it != threeCompFormat.end();
@@ -634,6 +669,8 @@ namespace avk
 			vk::Format::eA2B10G10R10SscaledPack32,
 			vk::Format::eA2B10G10R10UintPack32,
 			vk::Format::eA2B10G10R10SintPack32,
+			vk::Format::eBc1RgbaUnormBlock,
+			vk::Format::eBc1RgbaSrgbBlock,
 		};
 		auto it = std::find(std::begin(fourCompFormats), std::end(fourCompFormats), aImageFormat);
 		return it != fourCompFormats.end();
@@ -652,7 +689,16 @@ namespace avk
 			vk::Format::eR16Unorm,
 			vk::Format::eR16G16Unorm,
 			vk::Format::eR16G16B16Unorm,
-			vk::Format::eR16G16B16A16Unorm
+			vk::Format::eR16G16B16A16Unorm,
+			vk::Format::eBc1RgbUnormBlock,
+			vk::Format::eBc1RgbaUnormBlock,
+			vk::Format::eBc2UnormBlock,
+			vk::Format::eBc3UnormBlock,
+			vk::Format::eBc4UnormBlock,
+			vk::Format::eBc4SnormBlock,
+			vk::Format::eBc5UnormBlock,
+			vk::Format::eBc5SnormBlock,
+			vk::Format::eBc7UnormBlock,
 		};
 		auto it = std::find(std::begin(unormFormats), std::end(unormFormats), aImageFormat);
 		return it != unormFormats.end();

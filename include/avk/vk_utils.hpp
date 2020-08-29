@@ -74,6 +74,7 @@ namespace avk
 	extern bool is_unorm_format(const vk::Format& aImageFormat);
 	extern bool is_snorm_format(const vk::Format& aImageFormat);
 	extern bool is_norm_format(const vk::Format& aImageFormat);
+	extern bool is_block_compressed_format(const vk::Format& aImageFormat);
 	
 	/** Returns true if the given image format is a depth/depth-stencil format and has a stencil component.
 	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
