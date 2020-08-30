@@ -4083,7 +4083,11 @@ namespace avk
 					throw avk::runtime_error("Ambiguous color blending configuration for color attachment at index #" + std::to_string(i) + ". Provide only one config per color attachment!");
 				}
 				// Determine which color blending to use for this attachment:
-				color_blending_config toUse = configForI.size() == 1 ? configForI[0] : color_blending_config::disable();
+				color_blending_config toUse = configForI.size() == 1
+												? configForI[0]
+												: universalConfig.size() == 1
+													? universalConfig[0]
+													: color_blending_config::disable();
 				result.mBlendingConfigsForColorAttachments.push_back(vk::PipelineColorBlendAttachmentState()
 					.setColorWriteMask(to_vk_color_components(toUse.affected_color_channels()))
 					.setBlendEnable(to_vk_bool(toUse.is_blending_enabled())) // If blendEnable is set to VK_FALSE, then the new color from the fragment shader is passed through unmodified. [4]
