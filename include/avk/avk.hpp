@@ -1,41 +1,43 @@
 #pragma once
 
-#include <vector>
-#include <deque>
+#include <algorithm>
 #include <array>
+#include <atomic>
+#include <bitset>
+#include <cassert>
+#include <chrono>
+#include <condition_variable>
+#include <cmath> // for fabs - actually this should be in cstdlib since C++17, but gcc screams: Auto-Vk/src/avk.cpp:1365:14: error: ‘fabs’ is not a member of ‘std’; did you mean ‘abs’?
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <deque>
+#include <exception>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <ostream>
+#include <queue>
+#include <set>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <exception>
-#include <stdexcept>
+#include <thread>
+#include <typeindex>
+#include <typeinfo>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
-#include <map>
-#include <set>
-#include <functional>
-#include <memory>
-#include <iostream>
-#include <ostream>
-#include <fstream>
-#include <sstream>
-#include <queue>
-#include <algorithm>
-#include <variant>
-#include <iomanip>
-#include <optional>
-#include <typeinfo>
-#include <atomic>
-#include <mutex>
-#include <condition_variable>
-#include <cstdlib>
-#include <typeindex>
-#include <type_traits>
 #include <utility>
-#include <cstdint>
-#include <chrono>
-#include <filesystem>
-#include <cstdio>
-#include <cassert>
-#include <bitset>
+#include <variant>
+#include <vector>
 
 #include <cpplinq.hpp>
 
@@ -78,7 +80,8 @@ namespace avk { class sync; }
 #include <avk/set_of_descriptor_set_layouts.hpp>
 #include <avk/descriptor_cache.hpp>
 
-#include <avk/buffer.hpp>
+// NOTE: buffer.hpp used to be included here, but was moved down because compilation using gcc 9.3.0 failed:
+// Auto-Vk/include/avk/buffer.hpp:196:40: error: ‘aSyncHandler’ has incomplete type
 #include <avk/shader_info.hpp>
 
 #include <avk/shader_binding_table.hpp>
@@ -89,6 +92,9 @@ namespace avk { class sync; }
 #include <avk/fence.hpp>
 
 #include <avk/sync.hpp>
+
+// NOTE: buffer.hpp is now included here, so Auto-Vk compiles with gcc 9.3.0
+#include <avk/buffer.hpp>
 
 #include <avk/image.hpp>
 #include <avk/image_view.hpp>
