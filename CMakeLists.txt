@@ -10,11 +10,8 @@ target_sources(${PROJECT_NAME} INTERFACE
         src/avk.cpp
         src/sync.cpp)
 
-# find & link Vulkan
-find_package(Vulkan)
-target_link_libraries(${PROJECT_NAME} INTERFACE Vulkan::Vulkan)
-
-
 # this is only temporary for testing purposes
+# find & link Vulkan
 add_executable(demo examples/main.cpp)
-target_link_libraries(demo ${PROJECT_NAME})
+find_package(Vulkan)
+target_link_libraries(demo ${PROJECT_NAME} Vulkan::Vulkan)
