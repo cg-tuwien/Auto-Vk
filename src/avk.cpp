@@ -1,5 +1,3 @@
-#pragma once
-
 #define NOMINMAX
 #include <avk/avk_log.hpp>
 #include <avk/avk.hpp>
