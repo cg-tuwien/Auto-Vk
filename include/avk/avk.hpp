@@ -80,8 +80,7 @@ namespace avk { class sync; }
 #include <avk/set_of_descriptor_set_layouts.hpp>
 #include <avk/descriptor_cache.hpp>
 
-// NOTE: buffer.hpp used to be included here, but was moved down because compilation using gcc 9.3.0 failed:
-// Auto-Vk/include/avk/buffer.hpp:196:40: error: ‘aSyncHandler’ has incomplete type
+#include <avk/buffer.hpp>
 #include <avk/shader_info.hpp>
 
 #include <avk/shader_binding_table.hpp>
@@ -93,8 +92,8 @@ namespace avk { class sync; }
 
 #include <avk/sync.hpp>
 
-// NOTE: buffer.hpp is now included here, so Auto-Vk compiles with gcc 9.3.0
-#include <avk/buffer.hpp>
+// NOTE: buffer_read_impl.hpp is included here, so Auto-Vk compiles with gcc & clang
+#include <avk/buffer_read_impl.hpp>
 
 #include <avk/image.hpp>
 #include <avk/image_view.hpp>
