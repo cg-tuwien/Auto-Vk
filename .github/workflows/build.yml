@@ -9,7 +9,7 @@ env:
 jobs:
   linux:
     name: ${{ matrix.config.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
@@ -36,8 +36,7 @@ jobs:
           sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
 
           # Update package lists
-          sudo apt-get update -y
-          sudo apt-get upgrade -y
+          sudo apt-get update -qq
 
           # Install dependencies
           sudo apt-get install -y \
