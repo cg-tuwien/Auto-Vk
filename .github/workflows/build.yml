@@ -36,10 +36,11 @@ jobs:
           sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
 
           # Update package lists
-          sudo apt update -qq
+          sudo apt-get update -y
+          sudo apt-get upgrade -y
 
           # Install dependencies
-          sudo apt install -y \
+          sudo apt-get install -y \
             vulkan-sdk
 
           cmake -E make_directory ${{runner.workspace}}/build
