@@ -30,7 +30,19 @@ jobs:
         shell: bash
         # Some projects don't allow in-source building, so create a separate build directory
         # We'll use this as our working directory for all subsequent commands
-        run: cmake -E make_directory ${{runner.workspace}}/build
+        run: |
+          # Add lunarg apt sources
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
+          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+
+          # Update package lists
+          apt update -qq
+
+          # Install dependencies
+          apt install -y \
+            vulkan-sdk
+
+          cmake -E make_directory ${{runner.workspace}}/build
 
       - name: Configure CMake
         # Use a bash shell so we can use the same syntax for environment variable
