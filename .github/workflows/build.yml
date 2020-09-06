@@ -32,14 +32,14 @@ jobs:
         # We'll use this as our working directory for all subsequent commands
         run: |
           # Add lunarg apt sources
-          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
-          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
 
           # Update package lists
-          apt update -qq
+          sudo apt update -qq
 
           # Install dependencies
-          apt install -y \
+          sudo apt install -y \
             vulkan-sdk
 
           cmake -E make_directory ${{runner.workspace}}/build
