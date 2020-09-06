@@ -65,3 +65,50 @@ jobs:
         # Execute the build.  You can specify a specific target with "--target <NAME>"
         run: cmake --build . --config $BUILD_TYPE
 
+windows:
+  name: ${{ matrix.config.name }}
+  runs-on: windows-latest
+  env:
+    vulkan_sdk: "$GITHUB_WORKSPACE/vulkan_sdk/"
+    vulkan_version: "1.2.148"
+  strategy:
+    fail-fast: false
+    matrix:
+      config:
+        - {
+          name: "windows: msvc",
+          cc: "cl",
+          cxx: "cl"
+        }
+
+  steps:
+    - uses: actions/checkout@v2
+
+    - name: Create Build Environment
+      shell: pwsh
+      # Some projects don't allow in-source building, so create a separate build directory
+      # We'll use this as our working directory for all subsequent commands
+      run: |
+        curl -LS -o vulkansdk.exe `
+          https://vulkan.lunarg.com/sdk/download/${{ env.vulkan_version }}/windows/VulkanSDK-${{ env.vulkan_version }}-Installer.exe?Human=true
+        7z x vulkansdk.exe -o"${{ env.vulkan_sdk }}"
+
+    - name: Configure CMake
+      # Use a bash shell so we can use the same syntax for environment variable
+      # access regardless of the host operating system
+      shell: pwsh
+      working-directory: ${{runner.workspace}}/build
+      # Note the current convention is to use the -S and -B options here to specify source
+      # and build directories, but this is only available with CMake 3.13 and higher.
+      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
+      run: |
+        $env:CC="${{ matrix.config.cc }}"
+        $env:CXX="${{ matrix.config.cxx }}"
+        $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
+        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Visual Studio 16 2019" -A x64
+
+    - name: Build
+      shell: bash
+      working-directory: ${{runner.workspace}}/build
+      # Execute the build.  You can specify a specific target with "--target <NAME>"
+      run: cmake --build . --config $BUILD_TYPE
