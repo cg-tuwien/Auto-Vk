@@ -1,7 +1,3 @@
-//
-// Created by ripley on 05.09.20.
-//
-
 #pragma once
 #include <avk/avk.hpp>
 
