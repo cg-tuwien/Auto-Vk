@@ -82,7 +82,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-        path: $GITHUB_WORKSPACE
+        with:
+          path: $GITHUB_WORKSPACE
 
       - name: Create Build Environment
         working-directory: ${{runner.workspace}}/Auto-Vk
