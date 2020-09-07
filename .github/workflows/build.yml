@@ -93,7 +93,7 @@ jobs:
 
           7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}"
 
-          cmake -E make_directory ${{runner.workspace}}/build
+          cmake -E make_directory ${{runner.workspace}}/Auto-Vk/build
 
       - name: Configure CMake
         # Use a bash shell so we can use the same syntax for environment variable
