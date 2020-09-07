@@ -1,4 +1,4 @@
-name: CMake
+name: "Cross-platform check"
 
 on: [push, pull_request]
 
@@ -44,13 +44,13 @@ jobs:
           sudo apt-get install -y \
             vulkan-sdk
 
-          cmake -E make_directory ${{runner.workspace}}/build
+          cmake -E make_directory ${{ runner.workspace }}/build
 
       - name: Configure CMake
         # Use a bash shell so we can use the same syntax for environment variable
         # access regardless of the host operating system
         shell: bash
-        working-directory: ${{runner.workspace}}/build
+        working-directory: ${{ runner.workspace }}/build
         # Note the current convention is to use the -S and -B options here to specify source
         # and build directories, but this is only available with CMake 3.13 and higher.
         # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
@@ -61,7 +61,7 @@ jobs:
 
       - name: Build
         shell: bash
-        working-directory: ${{runner.workspace}}/build
+        working-directory: ${{ runner.workspace }}/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
         run: cmake --build . --config $BUILD_TYPE
 
@@ -86,7 +86,7 @@ jobs:
 
       - name: Create Build Environment
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-        working-directory: ${{runner.workspace}}/Auto-Vk
+        working-directory: ${{ runner.workspace }}/Auto-Vk
         shell: pwsh
         # Some projects don't allow in-source building, so create a separate build directory
         # We'll use this as our working directory for all subsequent commands
@@ -96,14 +96,14 @@ jobs:
           7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}"
 
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-          cmake -E make_directory ${{runner.workspace}}/Auto-Vk/build
+          cmake -E make_directory ${{ runner.workspace }}/Auto-Vk/build
 
       - name: Configure CMake
         # Use a bash shell so we can use the same syntax for environment variable
         # access regardless of the host operating system
         shell: pwsh
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-        working-directory: ${{runner.workspace}}/Auto-Vk/build
+        working-directory: ${{ runner.workspace }}/Auto-Vk/build
         # Note the current convention is to use the -S and -B options here to specify source
         # and build directories, but this is only available with CMake 3.13 and higher.
         # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
@@ -113,11 +113,11 @@ jobs:
           $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
 
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-          cmake ${{runner.workspace}}/Auto-Vk -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Visual Studio 16 2019" -A x64
+          cmake ${{ runner.workspace }}/Auto-Vk -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Visual Studio 16 2019" -A x64
 
       - name: Build
         shell: bash
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-        working-directory: ${{runner.workspace}}/Auto-Vk/build
+        working-directory: ${{ runner.workspace }}/Auto-Vk/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
         run: cmake --build . --config $BUILD_TYPE
