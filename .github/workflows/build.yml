@@ -20,7 +20,7 @@ jobs:
             cxx: "clang++"
           }
           - {
-            name: "linux gcc",
+            name: "linux: gcc",
             cc: "gcc",
             cxx: "g++"
           }
