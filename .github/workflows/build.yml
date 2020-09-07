@@ -107,11 +107,14 @@ jobs:
           $env:CC="${{ matrix.config.cc }}"
           $env:CXX="${{ matrix.config.cxx }}"
           $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
+
           dir
           dir ${{runner.workspace}}
+          dir ${{runner.workspace}}/Auto-Vk
           dir $GITHUB_WORKSPACE
           dir ${{runner.workspace}}/build
-          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Visual Studio 16 2019" -A x64
+
+          cmake ${{runner.workspace}}/Auto-Vk/build -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Visual Studio 16 2019" -A x64
 
       - name: Build
         shell: bash
