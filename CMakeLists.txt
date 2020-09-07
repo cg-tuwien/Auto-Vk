@@ -9,3 +9,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_sources(${PROJECT_NAME} PUBLIC
         src/avk.cpp
         src/sync.cpp)
+
+find_package(Vulkan)
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${Vulkan_INCLUDE_DIR})
