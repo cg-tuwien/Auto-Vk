@@ -110,9 +110,7 @@ jobs:
 
           dir
           dir ${{runner.workspace}}
-          dir ${{runner.workspace}}/Auto-Vk
           dir $GITHUB_WORKSPACE
-          dir ${{runner.workspace}}/build
 
           cmake ${{runner.workspace}}/Auto-Vk/build -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Visual Studio 16 2019" -A x64
 
