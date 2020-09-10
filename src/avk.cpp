@@ -1,5 +1,3 @@
-#pragma once
-
 #define NOMINMAX
 #include <avk/avk_log.hpp>
 #include <avk/avk.hpp>
@@ -1362,22 +1360,22 @@ namespace avk
 	{
 		if (aMipMappingAvailable) {
 			if (aVulkanAnisotropy > 1.0f) {
-				if (std::fabs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
 					return avk::filter_mode::anisotropic_16x;
 				}
-				if (std::fabs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
 					return avk::filter_mode::anisotropic_8x;
 				}
-				if (std::fabs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
 					return avk::filter_mode::anisotropic_4x;
 				}
-				if (std::fabs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
 					return avk::filter_mode::anisotropic_2x;
 				}
-				if (std::fabs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
 					return avk::filter_mode::anisotropic_32x;
 				}
-				if (std::fabs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
 					return avk::filter_mode::anisotropic_64x;
 				}
 				AVK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
@@ -2769,10 +2767,10 @@ namespace avk
 		const vk::StridedBufferRegionKHR& aCallableSbtRef
 	)
 	{
-		assert(nullptr == aRaygenSbtRef.buffer   || aRaygenSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
-		assert(nullptr == aRaymissSbtRef.buffer  || aRaymissSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
-		assert(nullptr == aRayhitSbtRef.buffer   || aRayhitSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
-		assert(nullptr == aCallableSbtRef.buffer || aCallableSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
+		assert(!aRaygenSbtRef.buffer   || aRaygenSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
+		assert(!aRaymissSbtRef.buffer  || aRaymissSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
+		assert(!aRayhitSbtRef.buffer   || aRayhitSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
+		assert(!aCallableSbtRef.buffer || aCallableSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
 		const auto sbtHandle = aShaderBindingTableRef.mSbtBufferHandle;
 		const auto entrySize = aShaderBindingTableRef.mSbtEntrySize;
 		handle().traceRaysKHR(
@@ -4170,8 +4168,8 @@ namespace avk
 				.setSampleShadingEnable(perSample.mPerSampleShadingEnabled ? VK_TRUE : VK_FALSE) // enable/disable Sample Shading
 				.setMinSampleShading(perSample.mMinFractionOfSamplesShaded) // specifies a minimum fraction of sample shading if sampleShadingEnable is set to VK_TRUE.
 				.setPSampleMask(nullptr) // If pSampleMask is NULL, it is treated as if the mask has all bits enabled, i.e. no coverage is removed from fragments. See https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#fragops-samplemask
-				.setAlphaToCoverageEnable(VK_FALSE) // controls whether a temporary coverage value is generated based on the alpha component of the fragment’s first color output as specified in the Multisample Coverage section.
-				.setAlphaToOneEnable(VK_FALSE); // controls whether the alpha component of the fragment’s first color output is replaced with one as described in Multisample Coverage.
+				.setAlphaToCoverageEnable(VK_FALSE) // controls whether a temporary coverage value is generated based on the alpha component of the fragment's first color output as specified in the Multisample Coverage section.
+				.setAlphaToOneEnable(VK_FALSE); // controls whether the alpha component of the fragment's first color output is replaced with one as described in Multisample Coverage.
 			// TODO: That is probably not enough for every case. Further customization options should be added!
 		}
 
@@ -5903,7 +5901,7 @@ namespace avk
 
 		// 8. Create the pipeline's layout
 		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(nullptr != result.layout_handle());
+		assert(result.layout_handle());
 
 		// 9. Build the Ray Tracing Pipeline
 		auto pipelineCreateInfo = vk::RayTracingPipelineCreateInfoKHR{}

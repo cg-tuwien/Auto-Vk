@@ -193,16 +193,7 @@ namespace avk
 		 * @returns				A value of type `Ret` which is returned by value.
 		 */
 		template <typename Ret>
-		Ret read(size_t aMetaDataIndex, sync aSyncHandler)
-		{
-			auto memProps = memory_properties();
-			if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-				throw avk::runtime_error("This ak::read overload can only be used with host-visible buffers. Use ak::void read(const ak::buffer_t<Meta>& _Source, void* _Data, sync aSyncHandler) instead!");
-			}
-			Ret result;
-			read(static_cast<void*>(&result), aMetaDataIndex, std::move(aSyncHandler));
-			return result;
-		}		
+		Ret read(size_t aMetaDataIndex, sync aSyncHandler); // implemented in avk/buffer_read_impl.hpp
 		
 	private:
 #if VK_HEADER_VERSION >= 135

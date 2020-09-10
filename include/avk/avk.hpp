@@ -1,41 +1,31 @@
 #pragma once
 
-#include <vector>
-#include <deque>
+#include <algorithm>
 #include <array>
+#include <bitset>
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <exception>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <optional>
+#include <queue>
+#include <set>
+#include <unordered_set>
+#include <sstream>
 #include <string>
 #include <string_view>
-#include <exception>
-#include <stdexcept>
-#include <unordered_map>
-#include <unordered_set>
-#include <map>
-#include <set>
-#include <functional>
-#include <memory>
-#include <iostream>
-#include <ostream>
-#include <fstream>
-#include <sstream>
-#include <queue>
-#include <algorithm>
-#include <variant>
-#include <iomanip>
-#include <optional>
+#include <thread>
 #include <typeinfo>
-#include <atomic>
-#include <mutex>
-#include <condition_variable>
-#include <cstdlib>
-#include <typeindex>
 #include <type_traits>
 #include <utility>
-#include <cstdint>
-#include <chrono>
-#include <filesystem>
-#include <cstdio>
-#include <cassert>
-#include <bitset>
+#include <variant>
+#include <vector>
 
 #include <cpplinq.hpp>
 
@@ -89,6 +79,10 @@ namespace avk { class sync; }
 #include <avk/fence.hpp>
 
 #include <avk/sync.hpp>
+
+// NOTE: buffer_read_impl.hpp is included here, so Auto-Vk compiles with gcc & clang
+// TODO: Move read_impl back into buffer.hpp once avk::sync has been eliminated (Issue #2)
+#include <avk/buffer_read_impl.hpp>
 
 #include <avk/image.hpp>
 #include <avk/image_view.hpp>
