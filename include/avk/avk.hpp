@@ -80,6 +80,7 @@ namespace avk { class sync; }
 #include <avk/sync.hpp>
 
 // NOTE: buffer_read_impl.hpp is included here, so Auto-Vk compiles with gcc & clang
+// TODO: Move read_impl back into buffer.hpp once avk::sync has been eliminated (Issue #2)
 #include <avk/buffer_read_impl.hpp>
 
 #include <avk/image.hpp>
