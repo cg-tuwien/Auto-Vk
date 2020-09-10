@@ -22,14 +22,14 @@ namespace avk
 		/** Get the config which is used to created this image with the API. */
 		auto& config() { return mInfo; }
 		/** Gets the image handle. */
-		const vk::Image handle() const
+		const vk::Image& handle() const
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
 			return std::holds_alternative<vk::Image>(mImage) ? std::get<vk::Image>(mImage) : std::get<vk::UniqueImage>(mImage).get();
 		}
 
 		/** Gets the handle to the image's memory. */
-		const auto& memory_handle() const { return mMemory.get(); }
+		auto memory_handle() const { return mMemory.get(); }
 		/** Gets the width of the image */
 		uint32_t width() const { return config().extent.width; }
 		/** Gets the height of the image */
