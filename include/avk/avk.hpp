@@ -7,7 +7,6 @@
 #include <cassert>
 #include <chrono>
 #include <condition_variable>
-#include <cmath> // for fabs - actually this should be in cstdlib since C++17, but gcc screams: Auto-Vk/src/avk.cpp:1365:14: error: ‘fabs’ is not a member of ‘std’; did you mean ‘abs’?
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
