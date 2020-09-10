@@ -9,10 +9,10 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
-#include <ostream>
 #include <queue>
 #include <set>
 #include <unordered_set>
