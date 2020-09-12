@@ -6953,13 +6953,19 @@ using namespace cpplinq;
 		return aSyncHandler.submit_and_sync();
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image(const buffer_t& pSrcBuffer, image_t& pDstImage, sync aSyncHandler)
+	std::optional<command_buffer> copy_buffer_to_image_mip_level(const buffer_t& aSrcBuffer, image_t& aDstImage, uint32_t aDstLevel, sync aSyncHandler)
 	{
 		
 		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 		// Sync before:
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
 
+		auto extent = aDstImage.config().extent;
+		auto levelDivisor = std::pow(2u, aDstLevel);
+		extent.width  = extent.width  > 1u ? extent.width  / levelDivisor : 1u;
+		extent.height = extent.height > 1u ? extent.height / levelDivisor : 1u;
+		extent.depth  = extent.depth  > 1u ? extent.depth  / levelDivisor : 1u;
+		
 		// Operation:
 		auto copyRegion = vk::BufferImageCopy()
 			.setBufferOffset(0)
@@ -6969,14 +6975,14 @@ using namespace cpplinq;
 			.setBufferImageHeight(0)
 			.setImageSubresource(vk::ImageSubresourceLayers()
 				.setAspectMask(vk::ImageAspectFlagBits::eColor)
-				.setMipLevel(0u)
+				.setMipLevel(aDstLevel)
 				.setBaseArrayLayer(0u)
 				.setLayerCount(1u))
 			.setImageOffset({ 0u, 0u, 0u })
-			.setImageExtent(pDstImage.config().extent);
+			.setImageExtent(extent);
 		commandBuffer.handle().copyBufferToImage(
-			pSrcBuffer.buffer_handle(),
-			pDstImage.handle(),
+			aSrcBuffer.buffer_handle(),
+			aDstImage.handle(),
 			vk::ImageLayout::eTransferDstOptimal,
 			{ copyRegion });
 
@@ -6985,6 +6991,11 @@ using namespace cpplinq;
 
 		// Finish him:
 		return aSyncHandler.submit_and_sync();
+	}
+	
+	std::optional<command_buffer> copy_buffer_to_image(const buffer_t& aSrcBuffer, image_t& aDstImage, sync aSyncHandler)
+	{
+		return copy_buffer_to_image_mip_level(aSrcBuffer, aDstImage, 0u, std::move(aSyncHandler));
 	}
 #pragma endregion
 
