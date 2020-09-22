@@ -23,6 +23,10 @@ namespace avk
 		const auto& renderpass_handle() const { return mRenderPass->handle(); }
 		auto subpass_id() const { return mSubpassIndex; }
 
+		auto& viewports() { return mViewports; }
+		auto& scissors() { return mScissors; }
+		// TODO: Further getters
+		
 	private:
 		renderpass mRenderPass;
 		uint32_t mSubpassIndex;
@@ -33,7 +37,7 @@ namespace avk
 		// How to interpret the vertex input:
 		vk::PipelineInputAssemblyStateCreateInfo mInputAssemblyStateCreateInfo;
 		// Our precious GPU shader programs:
-		std::vector<shader> mShaders;
+		std::vector<std::shared_ptr<shader>> mShaders;
 		std::vector<vk::PipelineShaderStageCreateInfo> mShaderStageCreateInfos;
 		std::vector<vk::SpecializationInfo> mSpecializationInfos;
 		// Viewport, depth, and scissors configuration

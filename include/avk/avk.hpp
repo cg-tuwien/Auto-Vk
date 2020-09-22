@@ -504,8 +504,9 @@ namespace avk
 #pragma endregion
 
 #pragma region graphics pipeline
+		void rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline);
 		graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
-
+		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::vector<binding_data> aBindings, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 			
 		/**	Convenience function for gathering the graphic pipeline's configuration.
 		 *	

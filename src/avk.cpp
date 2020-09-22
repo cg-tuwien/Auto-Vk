@@ -3931,6 +3931,82 @@ namespace avk
 #pragma endregion
 
 #pragma region graphics pipeline definitions
+	void root::rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline)
+	{
+		aPreparedPipeline.mPipelineVertexInputStateCreateInfo
+			.setPVertexBindingDescriptions(aPreparedPipeline.mOrderedVertexInputBindingDescriptions.data())
+			.setPVertexAttributeDescriptions(aPreparedPipeline.mVertexInputAttributeDescriptions.data());
+
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mShaderStageCreateInfos.size());
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mSpecializationInfos.size());
+		for (size_t i = 0; i < aPreparedPipeline.mShaders.size(); ++i) {
+			aPreparedPipeline.mShaderStageCreateInfos[i].setPName(aPreparedPipeline.mShaders[i]->info().mEntryPoint.c_str());
+			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
+				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
+			}
+		}
+
+		aPreparedPipeline.mViewportStateCreateInfo
+			.setViewportCount(static_cast<uint32_t>(aPreparedPipeline.mViewports.size()))
+			.setPViewports(aPreparedPipeline.mViewports.data())
+			.setScissorCount(static_cast<uint32_t>(aPreparedPipeline.mScissors.size()))
+			.setPScissors(aPreparedPipeline.mScissors.data());
+
+		aPreparedPipeline.mColorBlendStateCreateInfo
+			.setAttachmentCount(static_cast<uint32_t>(aPreparedPipeline.mBlendingConfigsForColorAttachments.size()))
+			.setPAttachments(aPreparedPipeline.mBlendingConfigsForColorAttachments.data());
+
+		aPreparedPipeline.mMultisampleStateCreateInfo
+			.setPSampleMask(nullptr);
+
+		aPreparedPipeline.mDynamicStateCreateInfo
+			.setDynamicStateCount(static_cast<uint32_t>(aPreparedPipeline.mDynamicStateEntries.size()))
+			.setPDynamicStates(aPreparedPipeline.mDynamicStateEntries.data());
+
+		// Pipeline Layout must be rewired already before calling this function 
+		
+		// Create the PIPELINE, a.k.a. putting it all together:
+		auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
+			// 0. Render Pass
+			.setRenderPass((*aPreparedPipeline.mRenderPass).handle())
+			.setSubpass(aPreparedPipeline.mSubpassIndex)
+			// 1., 2., and 3.
+			.setPVertexInputState(&aPreparedPipeline.mPipelineVertexInputStateCreateInfo)
+			// 4.
+			.setPInputAssemblyState(&aPreparedPipeline.mInputAssemblyStateCreateInfo)
+			// 5.
+			.setStageCount(static_cast<uint32_t>(aPreparedPipeline.mShaderStageCreateInfos.size()))
+			.setPStages(aPreparedPipeline.mShaderStageCreateInfos.data())
+			// 6.
+			.setPViewportState(&aPreparedPipeline.mViewportStateCreateInfo)
+			// 7.
+			.setPRasterizationState(&aPreparedPipeline.mRasterizationStateCreateInfo)
+			// 8.
+			.setPDepthStencilState(&aPreparedPipeline.mDepthStencilConfig)
+			// 9.
+			.setPColorBlendState(&aPreparedPipeline.mColorBlendStateCreateInfo)
+			// 10.
+			.setPMultisampleState(&aPreparedPipeline.mMultisampleStateCreateInfo)
+			// 11.
+			.setPDynamicState(aPreparedPipeline.mDynamicStateEntries.size() == 0 ? nullptr : &aPreparedPipeline.mDynamicStateCreateInfo) // Optional
+			// 12.
+			.setFlags(aPreparedPipeline.mPipelineCreateFlags)
+			// LAYOUT:
+			.setLayout(aPreparedPipeline.layout_handle())
+			// Base pipeline:
+			.setBasePipelineHandle(nullptr) // Optional
+			.setBasePipelineIndex(-1); // Optional
+
+		// 13.
+		if (aPreparedPipeline.mPipelineTessellationStateCreateInfo.has_value()) {
+			pipelineInfo.setPTessellationState(&aPreparedPipeline.mPipelineTessellationStateCreateInfo.value());
+		}
+
+		// TODO: Shouldn't the config be altered HERE, after the pipelineInfo has been compiled?!
+		
+		aPreparedPipeline.mPipeline = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+	}
+	
 	graphics_pipeline root::create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		using namespace cpplinq;
@@ -4006,17 +4082,17 @@ namespace avk
 		result.mSpecializationInfos.reserve(aConfig.mShaderInfos.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (auto& shaderInfo : aConfig.mShaderInfos) {
 			// 5.0 Sanity check
-			if (result.mShaders.end() != std::find_if(std::begin(result.mShaders), std::end(result.mShaders), [&shaderInfo](const shader& existing) { return existing.info().mShaderType == shaderInfo.mShaderType; })) {
+			if (result.mShaders.end() != std::find_if(std::begin(result.mShaders), std::end(result.mShaders), [&shaderInfo](const std::shared_ptr<shader>& existing) { return existing->info().mShaderType == shaderInfo.mShaderType; })) {
 				throw avk::runtime_error("There's already a " + vk::to_string(to_vk_shader_stages(shaderInfo.mShaderType)) + "-type shader contained in this graphics pipeline. Can not add another one of the same type.");
 			}
 			// 5.1 Compile the shader
-			result.mShaders.push_back(create_shader(shaderInfo));
-			assert(result.mShaders.back().has_been_built());
+			result.mShaders.push_back(std::make_shared<shader>(create_shader(shaderInfo)));
+			assert(result.mShaders.back()->has_been_built());
 			// 5.2 Combine
 			auto& stageCreateInfo = result.mShaderStageCreateInfos.emplace_back()
-				.setStage(to_vk_shader_stage(result.mShaders.back().info().mShaderType))
-				.setModule(result.mShaders.back().handle())
-				.setPName(result.mShaders.back().info().mEntryPoint.c_str());
+				.setStage(to_vk_shader_stage(result.mShaders.back()->info().mShaderType))
+				.setModule(result.mShaders.back()->handle())
+				.setPName(result.mShaders.back()->info().mEntryPoint.c_str());
 			if (shaderInfo.mSpecializationConstants.has_value()) {
 				auto& specInfo = result.mSpecializationInfos.emplace_back(
 					shaderInfo.mSpecializationConstants.value().num_entries(),
@@ -4305,49 +4381,65 @@ namespace avk
 		assert(static_cast<bool>(result.layout_handle()));
 
 		assert (aConfig.mRenderPassSubpass.has_value());
-		// Create the PIPELINE, a.k.a. putting it all together:
-		auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
-			// 0. Render Pass
-			.setRenderPass((*result.mRenderPass).handle())
-			.setSubpass(result.mSubpassIndex)
-			// 1., 2., and 3.
-			.setPVertexInputState(&result.mPipelineVertexInputStateCreateInfo)
-			// 4.
-			.setPInputAssemblyState(&result.mInputAssemblyStateCreateInfo)
-			// 5.
-			.setStageCount(static_cast<uint32_t>(result.mShaderStageCreateInfos.size()))
-			.setPStages(result.mShaderStageCreateInfos.data())
-			// 6.
-			.setPViewportState(&result.mViewportStateCreateInfo)
-			// 7.
-			.setPRasterizationState(&result.mRasterizationStateCreateInfo)
-			// 8.
-			.setPDepthStencilState(&result.mDepthStencilConfig)
-			// 9.
-			.setPColorBlendState(&result.mColorBlendStateCreateInfo)
-			// 10.
-			.setPMultisampleState(&result.mMultisampleStateCreateInfo)
-			// 11.
-			.setPDynamicState(result.mDynamicStateEntries.size() == 0 ? nullptr : &result.mDynamicStateCreateInfo) // Optional
-			// 12.
-			.setFlags(result.mPipelineCreateFlags)
-			// LAYOUT:
-			.setLayout(result.layout_handle())
-			// Base pipeline:
-			.setBasePipelineHandle(nullptr) // Optional
-			.setBasePipelineIndex(-1); // Optional
-
-		// 13.
-		if (result.mPipelineTessellationStateCreateInfo.has_value()) {
-			pipelineInfo.setPTessellationState(&result.mPipelineTessellationStateCreateInfo.value());
-		}
-
-		// TODO: Shouldn't the config be altered HERE, after the pipelineInfo has been compiled?!
-		
-		result.mPipeline = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+		rewire_config_and_create_graphics_pipeline(result);
 		return result;
 	}
 
+	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::vector<binding_data> aBindings, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		graphics_pipeline_t result;
+
+		if (aTemplate.mRenderPass.is_shared_ownership_enabled()) {
+			result.mRenderPass							= aTemplate.mRenderPass								;
+		}
+		else {
+			throw avk::runtime_error("TODO: Handle case where renderpass does not have shared ownership enabled");
+		}
+		
+		result.mSubpassIndex							= aTemplate.mSubpassIndex						   ;
+		result.mOrderedVertexInputBindingDescriptions	= aTemplate.mOrderedVertexInputBindingDescriptions;
+		result.mVertexInputAttributeDescriptions		= aTemplate.mVertexInputAttributeDescriptions	   ;
+		result.mPipelineVertexInputStateCreateInfo		= aTemplate.mPipelineVertexInputStateCreateInfo   ;
+		result.mInputAssemblyStateCreateInfo			= aTemplate.mInputAssemblyStateCreateInfo		   ;
+		result.mShaders									= aTemplate.mShaders							   ;
+		result.mShaderStageCreateInfos					= aTemplate.mShaderStageCreateInfos					;
+		result.mSpecializationInfos						= aTemplate.mSpecializationInfos				   ;
+		result.mViewports								= aTemplate.mViewports							   ;
+		result.mScissors								= aTemplate.mScissors							   ;
+		result.mViewportStateCreateInfo					= aTemplate.mViewportStateCreateInfo			   ;
+		result.mRasterizationStateCreateInfo			= aTemplate.mRasterizationStateCreateInfo		   ;
+		result.mDepthStencilConfig						= aTemplate.mDepthStencilConfig						;
+		result.mBlendingConfigsForColorAttachments		= aTemplate.mBlendingConfigsForColorAttachments   ;
+		result.mColorBlendStateCreateInfo				= aTemplate.mColorBlendStateCreateInfo			   ;
+		result.mMultisampleStateCreateInfo				= aTemplate.mMultisampleStateCreateInfo				;
+		result.mDynamicStateEntries						= aTemplate.mDynamicStateEntries				   ;
+		result.mDynamicStateCreateInfo					= aTemplate.mDynamicStateCreateInfo					;
+
+		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aBindings));
+		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		
+		result.mPushConstantRanges						= aTemplate.mPushConstantRanges						;
+		result.mPipelineTessellationStateCreateInfo		= aTemplate.mPipelineTessellationStateCreateInfo  ;
+
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		// These uniform values (Anm.: passed to shaders) need to be specified during pipeline creation by creating a VkPipelineLayout object. [4]
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size())) 
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		// 15. Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+		
+		// Create the PIPELINE LAYOUT
+		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
+		assert(static_cast<bool>(result.layout_handle()));
+		rewire_config_and_create_graphics_pipeline(result);
+		return result;
+	}
 #pragma endregion
 	
 #pragma region image definitions
