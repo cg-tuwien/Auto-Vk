@@ -203,11 +203,12 @@ namespace avk
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> mMetaData;
 #endif
 		vk::BufferCreateInfo mCreateInfo;
-		vk::MemoryPropertyFlags mMemoryPropertyFlags;
-		vk::UniqueDeviceMemory mMemory;
-		vk::BufferUsageFlags mBufferUsageFlags;
+		//vk::MemoryPropertyFlags mMemoryPropertyFlags;
+		//vk::UniqueDeviceMemory mMemory;
+		//vk::BufferUsageFlags mBufferUsageFlags;
 		vk::PhysicalDevice mPhysicalDevice;
-		vk::UniqueBuffer mBuffer;
+		//vk::UniqueBuffer mBuffer;
+		
 		std::optional<vk::DeviceAddress> mDeviceAddress;
 
 		mutable std::optional<vk::DescriptorBufferInfo> mDescriptorInfo;

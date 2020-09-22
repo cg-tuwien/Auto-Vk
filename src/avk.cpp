@@ -2,6 +2,9 @@
 #include <avk/avk_log.hpp>
 #include <avk/avk.hpp>
 
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
 namespace avk
 {
 #pragma region root definitions
@@ -2253,46 +2256,60 @@ namespace avk
 				.setPQueueFamilyIndices(queueFamilyIndices.data());
 			// TODO: Untested ^ test vk::SharingMode::eConcurrent
 		}
-		
-		// Create the buffer on the logical device
-		auto vkBuffer = aDevice.createBufferUnique(bufferCreateInfo);
 
-		// The buffer has been created, but it doesn't actually have any memory assigned to it yet. 
-		// The first step of allocating memory for the buffer is to query its memory requirements [2]
-		const auto memRequirements = aDevice.getBufferMemoryRequirements(vkBuffer.get());
-
-		auto allocInfo = vk::MemoryAllocateInfo()
-			.setAllocationSize(memRequirements.size)
-			.setMemoryTypeIndex(find_memory_type_index(
-				aPhysicalDevice,
-				memRequirements.memoryTypeBits, 
-				aMemoryProperties));
-
-		auto allocateFlagsInfo = vk::MemoryAllocateFlagsInfo{};
-		if (aMemoryAllocateFlags) {
-			allocateFlagsInfo.setFlags(aMemoryAllocateFlags);
-			allocInfo.setPNext(&allocateFlagsInfo);
-		}
-
-		// Allocate the memory for the buffer:
-		auto vkMemory = aDevice.allocateMemoryUnique(allocInfo);
-
-		// If memory allocation was successful, then we can now associate this memory with the buffer
-		aDevice.bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
-		// TODO: if(!succeeded) { throw avk::runtime_error("Binding memory to buffer failed."); }
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+				 
+		VkBuffer buffer;
+		VmaAllocation allocation;
+		vmaCreateBuffer(this->memory_allocator(), static_cast<VkBufferCreateInfo*>(&bufferCreateInfo), &allocInfo, &buffer, &allocation, nullptr);
 
 		result.mCreateInfo = bufferCreateInfo;
 		result.mMemoryPropertyFlags = aMemoryProperties;
-		result.mMemory = std::move(vkMemory);
+		//result.mMemory = std::move(vkMemory);
 		result.mBufferUsageFlags = aBufferUsage;
 		result.mPhysicalDevice = aPhysicalDevice;
-		result.mBuffer = std::move(vkBuffer);
-
-#if VK_HEADER_VERSION >= 135
-		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
-		}
-#endif
+		result.mBuffer = 
+		
+//		// Create the buffer on the logical device
+//		auto vkBuffer = aDevice.createBufferUnique(bufferCreateInfo);
+//		
+//		// The buffer has been created, but it doesn't actually have any memory assigned to it yet. 
+//		// The first step of allocating memory for the buffer is to query its memory requirements [2]
+//		const auto memRequirements = aDevice.getBufferMemoryRequirements(vkBuffer.get());
+//
+//		auto allocInfo = vk::MemoryAllocateInfo()
+//			.setAllocationSize(memRequirements.size)
+//			.setMemoryTypeIndex(find_memory_type_index(
+//				aPhysicalDevice,
+//				memRequirements.memoryTypeBits, 
+//				aMemoryProperties));
+//
+//		auto allocateFlagsInfo = vk::MemoryAllocateFlagsInfo{};
+//		if (aMemoryAllocateFlags) {
+//			allocateFlagsInfo.setFlags(aMemoryAllocateFlags);
+//			allocInfo.setPNext(&allocateFlagsInfo);
+//		}
+//
+//		// Allocate the memory for the buffer:
+//		auto vkMemory = aDevice.allocateMemoryUnique(allocInfo);
+//
+//		// If memory allocation was successful, then we can now associate this memory with the buffer
+//		aDevice.bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
+//		// TODO: if(!succeeded) { throw avk::runtime_error("Binding memory to buffer failed."); }
+//
+//		result.mCreateInfo = bufferCreateInfo;
+//		result.mMemoryPropertyFlags = aMemoryProperties;
+//		result.mMemory = std::move(vkMemory);
+//		result.mBufferUsageFlags = aBufferUsage;
+//		result.mPhysicalDevice = aPhysicalDevice;
+//		result.mBuffer = std::move(vkBuffer);
+//
+//#if VK_HEADER_VERSION >= 135
+//		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+//			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
+//		}
+//#endif
 		
 		return result;
 	}

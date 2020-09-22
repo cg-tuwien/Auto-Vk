@@ -37,6 +37,14 @@
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
 
+#include <vk_mem_alloc.h>
+#if !defined(MEMORY_ALLOCATOR_TYPE)
+#define MEMORY_ALLOCATOR_TYPE VmaAllocator
+#endif
+#if !defined(MEMORY_HANDLE_TYPE)
+#define MEMORY_HANDLE_TYPE VmaAllocation
+#endif
+
 namespace avk { class sync; }
 
 #include <avk/image_color_channel_order.hpp>
@@ -128,11 +136,8 @@ namespace avk
 	// T must provide:
 	//    .physical_device()			returning a vk::PhysicalDevice&
 	//    .device()						returning a vk::Device&
-	//    .queue()						returning a vk::Queue&
-	//    .queue_family_index()         returning a uint32_t
 	//    .dynamic_dispatch()			returning a vk::DispatchLoaderDynamic&
-	//    .command_pool_for_flags()     returning a vk::CommandPool&
-	//    .descriptor_cache()           returning a descriptor_cache_interface&
+	//    .memory_allocator()           returning a VmaAllocator&
 	class root
 	{
 	public:
@@ -140,6 +145,7 @@ namespace avk
 		virtual vk::PhysicalDevice& physical_device()				= 0;
 		virtual vk::Device& device()								= 0;
 		virtual vk::DispatchLoaderDynamic& dynamic_dispatch()		= 0;
+		virtual MEMORY_ALLOCATOR_TYPE& memory_allocator()			= 0;
 
 #pragma region root helper functions
 		/** Find (index of) memory with parameters

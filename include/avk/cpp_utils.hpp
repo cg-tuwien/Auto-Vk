@@ -632,7 +632,47 @@ namespace avk
 
 		void reset()
 		{
-			mHandle = nullptr;
+			mHandle = {};
+		}
+
+		T mHandle;
+	};
+
+	template <typename T>
+	struct vma_handle
+	{
+		vma_handle()
+			: mHandle{ nullptr }
+		{ }
+		
+		vma_handle(T aHandle)
+			: mHandle{ std::move(aHandle) }
+		{ }
+
+		vma_handle(vma_handle&& aOther) noexcept
+		{
+			std::swap(mHandle, aOther.mHandle);
+		}
+		
+		vma_handle(const vma_handle& aOther)
+			: mHandle{ aOther.mHandle }
+		{ }
+		
+		vma_handle& operator=(vma_handle&& aOther) noexcept
+		{
+			std::swap(mHandle, aOther.mHandle);
+			return *this;
+		}
+
+		vma_handle& operator=(const vma_handle& aOther)
+		{
+			mHandle = aOther.mHandle;
+			return *this;
+		}
+
+		void reset()
+		{
+			mHandle = {};
 		}
 
 		T mHandle;
