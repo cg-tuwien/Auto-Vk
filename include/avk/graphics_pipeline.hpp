@@ -37,7 +37,7 @@ namespace avk
 		// How to interpret the vertex input:
 		vk::PipelineInputAssemblyStateCreateInfo mInputAssemblyStateCreateInfo;
 		// Our precious GPU shader programs:
-		std::vector<std::shared_ptr<shader>> mShaders;
+		std::vector<shader> mShaders;
 		std::vector<vk::PipelineShaderStageCreateInfo> mShaderStageCreateInfos;
 		std::vector<vk::SpecializationInfo> mSpecializationInfos;
 		// Viewport, depth, and scissors configuration

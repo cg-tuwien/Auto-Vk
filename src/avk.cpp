@@ -3940,7 +3940,7 @@ namespace avk
 		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mShaderStageCreateInfos.size());
 		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mSpecializationInfos.size());
 		for (size_t i = 0; i < aPreparedPipeline.mShaders.size(); ++i) {
-			aPreparedPipeline.mShaderStageCreateInfos[i].setPName(aPreparedPipeline.mShaders[i]->info().mEntryPoint.c_str());
+			aPreparedPipeline.mShaderStageCreateInfos[i].setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
 			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
 				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
 			}
@@ -4082,17 +4082,17 @@ namespace avk
 		result.mSpecializationInfos.reserve(aConfig.mShaderInfos.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (auto& shaderInfo : aConfig.mShaderInfos) {
 			// 5.0 Sanity check
-			if (result.mShaders.end() != std::find_if(std::begin(result.mShaders), std::end(result.mShaders), [&shaderInfo](const std::shared_ptr<shader>& existing) { return existing->info().mShaderType == shaderInfo.mShaderType; })) {
+			if (result.mShaders.end() != std::find_if(std::begin(result.mShaders), std::end(result.mShaders), [&shaderInfo](const shader& existing) { return existing.info().mShaderType == shaderInfo.mShaderType; })) {
 				throw avk::runtime_error("There's already a " + vk::to_string(to_vk_shader_stages(shaderInfo.mShaderType)) + "-type shader contained in this graphics pipeline. Can not add another one of the same type.");
 			}
 			// 5.1 Compile the shader
-			result.mShaders.push_back(std::make_shared<shader>(create_shader(shaderInfo)));
-			assert(result.mShaders.back()->has_been_built());
+			result.mShaders.push_back(create_shader(shaderInfo));
+			assert(result.mShaders.back().has_been_built());
 			// 5.2 Combine
 			auto& stageCreateInfo = result.mShaderStageCreateInfos.emplace_back()
-				.setStage(to_vk_shader_stage(result.mShaders.back()->info().mShaderType))
-				.setModule(result.mShaders.back()->handle())
-				.setPName(result.mShaders.back()->info().mEntryPoint.c_str());
+				.setStage(to_vk_shader_stage(result.mShaders.back().info().mShaderType))
+				.setModule(result.mShaders.back().handle())
+				.setPName(result.mShaders.back().info().mEntryPoint.c_str());
 			if (shaderInfo.mSpecializationConstants.has_value()) {
 				auto& specInfo = result.mSpecializationInfos.emplace_back(
 					shaderInfo.mSpecializationConstants.value().num_entries(),
@@ -4401,7 +4401,11 @@ namespace avk
 		result.mVertexInputAttributeDescriptions		= aTemplate.mVertexInputAttributeDescriptions	   ;
 		result.mPipelineVertexInputStateCreateInfo		= aTemplate.mPipelineVertexInputStateCreateInfo   ;
 		result.mInputAssemblyStateCreateInfo			= aTemplate.mInputAssemblyStateCreateInfo		   ;
-		result.mShaders									= aTemplate.mShaders							   ;
+
+		for (const auto& shdr : aTemplate.mShaders) {
+			result.mShaders.push_back(create_shader_from_template(shdr));
+		}
+		
 		result.mShaderStageCreateInfos					= aTemplate.mShaderStageCreateInfos					;
 		result.mSpecializationInfos						= aTemplate.mSpecializationInfos				   ;
 		result.mViewports								= aTemplate.mViewports							   ;
@@ -6852,24 +6856,24 @@ using namespace cpplinq;
 		return result;
 	}
 
-	vk::UniqueShaderModule root::build_shader_module_from_binary_code(const std::vector<char>& pCode)
+	vk::UniqueShaderModule root::build_shader_module_from_binary_code(const std::vector<char>& aCode)
 	{
 		auto createInfo = vk::ShaderModuleCreateInfo()
-			.setCodeSize(pCode.size())
-			.setPCode(reinterpret_cast<const uint32_t*>(pCode.data()));
+			.setCodeSize(aCode.size())
+			.setPCode(reinterpret_cast<const uint32_t*>(aCode.data()));
 
 		return device().createShaderModuleUnique(createInfo);
 	}
 	
-	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& pPath)
+	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& aPath)
 	{
-		auto binFileContents = avk::load_binary_file(pPath);
+		auto binFileContents = avk::load_binary_file(aPath);
 		return build_shader_module_from_binary_code(binFileContents);
 	}
 	
-	shader root::create_shader(shader_info pInfo)
+	shader root::create_shader(shader_info aInfo)
 	{
-		auto shdr = shader::prepare(std::move(pInfo));
+		auto shdr = shader::prepare(std::move(aInfo));
 
 		if (std::filesystem::exists(shdr.info().mPath)) {
 			try {
@@ -6887,6 +6891,11 @@ using namespace cpplinq;
 		shdr.mActualShaderLoadPath = secondTry;
 
 		return shdr;
+	}
+
+	shader root::create_shader_from_template(const shader& aTemplate)
+	{
+		return create_shader(aTemplate.info());
 	}
 
 	bool shader::has_been_built() const

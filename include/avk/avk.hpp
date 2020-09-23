@@ -706,9 +706,10 @@ namespace avk
 #pragma endregion
 
 #pragma region shader
-		vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& pCode);
-		vk::UniqueShaderModule build_shader_module_from_file(const std::string& pPath);
-		shader create_shader(shader_info pInfo);
+		vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& aCode);
+		vk::UniqueShaderModule build_shader_module_from_file(const std::string& aPath);
+		shader create_shader(shader_info aInfo);
+		shader create_shader_from_template(const shader& aTemplate);
 #pragma endregion
 	
 #pragma region query pool and query
