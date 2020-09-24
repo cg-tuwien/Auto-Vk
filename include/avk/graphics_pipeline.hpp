@@ -16,16 +16,56 @@ namespace avk
 		graphics_pipeline_t& operator=(const graphics_pipeline_t&) = delete;
 		~graphics_pipeline_t() = default;
 
-		const auto& layout_handle() const { return mPipelineLayout.get(); }
-		std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> layout() const { return std::make_tuple(this, layout_handle(), &mPushConstantRanges); }
-		const auto& handle() const { return mPipeline.get(); }
 		const renderpass_t& get_renderpass() const { return mRenderPass; }
 		const auto& renderpass_handle() const { return mRenderPass->handle(); }
 		auto subpass_id() const { return mSubpassIndex; }
-
+		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }
+		auto& vertex_input_attribute_descriptions() { return mVertexInputAttributeDescriptions; }
+		auto& vertex_input_state_create_info() { return mPipelineVertexInputStateCreateInfo; }
+		auto& input_assembly_state_create_info() { return mInputAssemblyStateCreateInfo; }
+		auto& shaders() { return mShaders; }
+		auto& shader_stage_create_infos() { return mShaderStageCreateInfos; }
+		auto& specialization_infos() { return mSpecializationInfos; }
 		auto& viewports() { return mViewports; }
 		auto& scissors() { return mScissors; }
-		// TODO: Further getters
+		auto& viewport_state_create_info() { return mViewportStateCreateInfo; }
+		auto& rasterization_state_create_info() { return mRasterizationStateCreateInfo; }
+		auto& depth_stencil_config() { return mDepthStencilConfig; }
+		auto& blending_configs_for_color_attachments() { return mBlendingConfigsForColorAttachments; }
+		auto& color_blend_state_create_info() { return mColorBlendStateCreateInfo; }
+		auto& multisample_state_create_info() { return mMultisampleStateCreateInfo; }
+		auto& dynamic_state_entries() { return mDynamicStateEntries; }
+		auto& dynamic_state_create_info() { return mDynamicStateCreateInfo; }
+		auto& descriptor_set_layoutst() { return mAllDescriptorSetLayouts; }
+		auto& push_constant_ranges() { return mPushConstantRanges; }
+		auto& layout_create_info() { return mPipelineLayoutCreateInfo; }
+		auto& tessellation_state_create_info() { return mPipelineTessellationStateCreateInfo; }
+		auto& create_flags() { return mPipelineCreateFlags; }
+		const auto& vertex_input_binding_descriptions() const { return mOrderedVertexInputBindingDescriptions; }
+		const auto& vertex_input_attribute_descriptions() const { return mVertexInputAttributeDescriptions; }
+		const auto& vertex_input_state_create_info() const { return mPipelineVertexInputStateCreateInfo; }
+		const auto& input_assembly_state_create_info() const { return mInputAssemblyStateCreateInfo; }
+		const auto& shaders() const { return mShaders; }
+		const auto& shader_stage_create_infos() const { return mShaderStageCreateInfos; }
+		const auto& specialization_infos() const { return mSpecializationInfos; }
+		const auto& viewports() const { return mViewports; }
+		const auto& scissors() const { return mScissors; }
+		const auto& viewport_state_create_info() const { return mViewportStateCreateInfo; }
+		const auto& rasterization_state_create_info() const { return mRasterizationStateCreateInfo; }
+		const auto& depth_stencil_config() const { return mDepthStencilConfig; }
+		const auto& blending_configs_for_color_attachments() const { return mBlendingConfigsForColorAttachments; }
+		const auto& color_blend_state_create_info() const { return mColorBlendStateCreateInfo; }
+		const auto& multisample_state_create_info() const { return mMultisampleStateCreateInfo; }
+		const auto& dynamic_state_entries() const { return mDynamicStateEntries; }
+		const auto& dynamic_state_create_info() const { return mDynamicStateCreateInfo; }
+		const auto& descriptor_set_layoutst() const { return mAllDescriptorSetLayouts; }
+		const auto& push_constant_ranges() const { return mPushConstantRanges; }
+		const auto& layout_create_info() const { return mPipelineLayoutCreateInfo; }
+		const auto& tessellation_state_create_info() const { return mPipelineTessellationStateCreateInfo; }
+		const auto& create_flags() const { return mPipelineCreateFlags; }
+		const auto& layout_handle() const { return mPipelineLayout.get(); }
+		std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> layout() const { return std::make_tuple(this, layout_handle(), &mPushConstantRanges); }
+		const auto& handle() const { return mPipeline.get(); }
 		
 	private:
 		renderpass mRenderPass;

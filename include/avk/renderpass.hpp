@@ -14,9 +14,9 @@ namespace avk
 		{
 			subpass_data() = default;
 			subpass_data(subpass_data&&) noexcept = default;
-			subpass_data(const subpass_data&) = delete;
+			subpass_data(const subpass_data&) = default;
 			subpass_data& operator=(subpass_data&&) noexcept = default;
-			subpass_data& operator=(const subpass_data&) = delete;
+			subpass_data& operator=(const subpass_data&) = default;
 			~subpass_data() = default;
 			
 			// Ordered list of input attachments

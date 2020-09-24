@@ -506,7 +506,7 @@ namespace avk
 #pragma region graphics pipeline
 		void rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline);
 		graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
-		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::vector<binding_data> aBindings, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 			
 		/**	Convenience function for gathering the graphic pipeline's configuration.
 		 *	
@@ -688,6 +688,12 @@ namespace avk
 #pragma endregion
 
 #pragma region renderpass
+		/**	Sets all the subpass descriptions of the given (at least partially configured) renderpass to the right locations.
+		 *	In particular, that means that the mSubpasses member will be recreated, setting all the pointers to the other
+		 *	members.
+		 */
+		void rewire_subpass_descriptions(renderpass_t& aRenderpass);
+		
 		/** Create a renderpass from a given set of attachments.
 		 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
 		 *	To specify custom subpass dependencies, pass a callback to the second parameter!
@@ -698,6 +704,8 @@ namespace avk
 		 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
 		 */
 		renderpass create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+
+		renderpass create_renderpass_from_template(const renderpass_t& aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region semaphore

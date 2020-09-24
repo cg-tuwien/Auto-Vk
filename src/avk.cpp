@@ -3940,7 +3940,10 @@ namespace avk
 		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mShaderStageCreateInfos.size());
 		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mSpecializationInfos.size());
 		for (size_t i = 0; i < aPreparedPipeline.mShaders.size(); ++i) {
-			aPreparedPipeline.mShaderStageCreateInfos[i].setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
+			aPreparedPipeline.mShaderStageCreateInfos[i]
+				.setModule(aPreparedPipeline.mShaders[i].handle())
+				.setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
+			
 			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
 				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
 			}
@@ -4385,7 +4388,7 @@ namespace avk
 		return result;
 	}
 
-	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::vector<binding_data> aBindings, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		graphics_pipeline_t result;
 
@@ -4393,7 +4396,7 @@ namespace avk
 			result.mRenderPass							= aTemplate.mRenderPass								;
 		}
 		else {
-			throw avk::runtime_error("TODO: Handle case where renderpass does not have shared ownership enabled");
+				result.mRenderPass = create_renderpass_from_template(aTemplate.mRenderPass, {});
 		}
 		
 		result.mSubpassIndex							= aTemplate.mSubpassIndex						   ;
@@ -4419,7 +4422,7 @@ namespace avk
 		result.mDynamicStateEntries						= aTemplate.mDynamicStateEntries				   ;
 		result.mDynamicStateCreateInfo					= aTemplate.mDynamicStateCreateInfo					;
 
-		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aBindings));
+		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare({});
 		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
 		result.mPushConstantRanges						= aTemplate.mPushConstantRanges						;
@@ -6298,6 +6301,36 @@ using namespace cpplinq;
 		std::vector<uint32_t> mPreserveAttachments;
 	};
 
+	void root::rewire_subpass_descriptions(renderpass_t& aRenderpass)
+	{
+		const auto nSubpasses = aRenderpass.mSubpassData.size();
+
+		aRenderpass.mSubpasses.clear(); // Start with a clean state
+		aRenderpass.mSubpasses.reserve(nSubpasses);
+		
+		for (size_t i = 0; i < nSubpasses; ++i) {
+			auto& b = aRenderpass.mSubpassData[i];
+			
+			aRenderpass.mSubpasses.push_back(vk::SubpassDescription()
+				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
+				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+				.setColorAttachmentCount(static_cast<uint32_t>(b.mOrderedColorAttachmentRefs.size()))
+				.setPColorAttachments(b.mOrderedColorAttachmentRefs.data())
+				// If pResolveAttachments is not NULL, each of its elements corresponds to a color attachment 
+				//  (the element in pColorAttachments at the same index), and a multisample resolve operation 
+				//  is defined for each attachment. [1]
+				.setPResolveAttachments(b.mOrderedResolveAttachmentRefs.size() == 0 ? nullptr : b.mOrderedResolveAttachmentRefs.data())
+				// If pDepthStencilAttachment is NULL, or if its attachment index is VK_ATTACHMENT_UNUSED, it 
+				//  indicates that no depth/stencil attachment will be used in the subpass. [1]
+				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.size() == 0 ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
+				// The following two attachment types are probably totally irrelevant if we only have one subpass
+				.setInputAttachmentCount(static_cast<uint32_t>(b.mOrderedInputAttachmentRefs.size()))
+				.setPInputAttachments(b.mOrderedInputAttachmentRefs.data())
+				.setPreserveAttachmentCount(static_cast<uint32_t>(b.mPreserveAttachments.size()))
+				.setPPreserveAttachments(b.mPreserveAttachments.data()));
+		}
+	}
+
 	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
@@ -6439,7 +6472,7 @@ using namespace cpplinq;
 			// ^^^ I have no idea what I'm assuming ^^^
 
 			// 1. Create the attachment descriptions
-			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription()
+			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription{}
 				.setFormat(a.format())
 				.setSamples(a.sample_count())
 				.setLoadOp(to_vk_load_op(a.mLoadOperation))
@@ -6604,28 +6637,7 @@ using namespace cpplinq;
 		subpasses.clear();
 		
 		// 4. Now we can fill the subpass description
-		result.mSubpasses.reserve(numSubpassesFirst);
-		for (size_t i = 0; i < numSubpassesFirst; ++i) {
-			auto& b = result.mSubpassData[i];
-			
-			result.mSubpasses.push_back(vk::SubpassDescription()
-				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
-				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-				.setColorAttachmentCount(static_cast<uint32_t>(b.mOrderedColorAttachmentRefs.size()))
-				.setPColorAttachments(b.mOrderedColorAttachmentRefs.data())
-				// If pResolveAttachments is not NULL, each of its elements corresponds to a color attachment 
-				//  (the element in pColorAttachments at the same index), and a multisample resolve operation 
-				//  is defined for each attachment. [1]
-				.setPResolveAttachments(b.mOrderedResolveAttachmentRefs.size() == 0 ? nullptr : b.mOrderedResolveAttachmentRefs.data())
-				// If pDepthStencilAttachment is NULL, or if its attachment index is VK_ATTACHMENT_UNUSED, it 
-				//  indicates that no depth/stencil attachment will be used in the subpass. [1]
-				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.size() == 0 ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
-				// The following two attachment types are probably totally irrelevant if we only have one subpass
-				.setInputAttachmentCount(static_cast<uint32_t>(b.mOrderedInputAttachmentRefs.size()))
-				.setPInputAttachments(b.mOrderedInputAttachmentRefs.data())
-				.setPreserveAttachmentCount(static_cast<uint32_t>(b.mPreserveAttachments.size()))
-				.setPPreserveAttachments(b.mPreserveAttachments.data()));
-		}
+		rewire_subpass_descriptions(result);
 		
 		// ======== Regarding Subpass Dependencies ==========
 		// At this point, we can not know how a subpass shall 
@@ -6709,7 +6721,6 @@ using namespace cpplinq;
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
 		result.mRenderPass = device().createRenderPassUnique(createInfo);
-		//result.mTracker.setTrackee(result);
 		return result; 
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
@@ -6718,6 +6729,32 @@ using namespace cpplinq;
 		// [1] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkSubpassDescription.html
 		// [2] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkSubpassDescriptionDepthStencilResolveKHR.html
 		// [3] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkPipelineStageFlagBits.html
+	}
+
+	renderpass root::create_renderpass_from_template(const renderpass_t& aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	{
+		renderpass_t result;
+		result.mAttachmentDescriptions = aTemplate.mAttachmentDescriptions;
+		result.mClearValues			   = aTemplate.mClearValues			  ;
+		result.mSubpassData			   = aTemplate.mSubpassData			  ;
+		rewire_subpass_descriptions(result); // this will set result.mSubpasses
+		result.mSubpassDependencies	   = aTemplate.mSubpassDependencies	  ;
+
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		// Finally, create the render pass
+		auto createInfo = vk::RenderPassCreateInfo()
+			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
+			.setPAttachments(result.mAttachmentDescriptions.data())
+			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
+			.setPSubpasses(result.mSubpasses.data())
+			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
+			.setPDependencies(result.mSubpassDependencies.data());
+		result.mRenderPass = device().createRenderPassUnique(createInfo);
+		return result; 
 	}
 
 	bool renderpass_t::is_input_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
