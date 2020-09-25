@@ -2783,6 +2783,32 @@ namespace avk
 #pragma endregion
 
 #pragma compute pipeline definitions
+	void root::rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline)
+	{
+		aPreparedPipeline.mShaderStageCreateInfo
+			.setModule(aPreparedPipeline.mShader.handle())
+			.setPName(aPreparedPipeline.mShader.info().mEntryPoint.c_str());
+			
+		if (aPreparedPipeline.mSpecializationInfo != vk::SpecializationInfo{}) {
+			aPreparedPipeline.mShaderStageCreateInfo.setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfo.value());
+		}
+
+		// Layout must already be configured and created properly!
+
+		// Create the PIPELINE LAYOUT
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
+		
+		// Create the PIPELINE, a.k.a. putting it all together:
+		auto pipelineInfo = vk::ComputePipelineCreateInfo{}
+			.setFlags(aPreparedPipeline.mPipelineCreateFlags)
+			.setStage(aPreparedPipeline.mShaderStageCreateInfo)
+			.setLayout(aPreparedPipeline.layout_handle())
+			.setBasePipelineHandle(nullptr) // Optional
+			.setBasePipelineIndex(-1); // Optional
+		aPreparedPipeline.mPipeline = device().createComputePipelineUnique(nullptr, pipelineInfo);
+	}
+	
 	compute_pipeline root::create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		compute_pipeline_t result;
@@ -2820,9 +2846,8 @@ namespace avk
 		// 3. Compile the PIPELINE LAYOUT data and create-info
 		// Get the descriptor set layouts
 		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
-		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		allocate_set_of_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
-		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// Gather the push constant data
 		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
@@ -2833,6 +2858,8 @@ namespace avk
 			);
 			// TODO: Push Constants need a prettier interface
 		}
+
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
 			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
 			.setPSetLayouts(descriptorSetLayoutHandles.data())
@@ -2844,19 +2871,35 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		// Create the PIPELINE LAYOUT
-		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(static_cast<bool>(result.layout_handle()));
+		rewire_config_and_create_compute_pipeline(result);
+		return result;
+	}
 
-		// Create the PIPELINE, a.k.a. putting it all together:
-		auto pipelineInfo = vk::ComputePipelineCreateInfo{}
-			.setFlags(result.mPipelineCreateFlags)
-			.setStage(result.mShaderStageCreateInfo)
-			.setLayout(result.layout_handle())
-			.setBasePipelineHandle(nullptr) // Optional
-			.setBasePipelineIndex(-1); // Optional
-		result.mPipeline = device().createComputePipelineUnique(nullptr, pipelineInfo);
+	compute_pipeline root::create_compute_pipeline_from_template(const compute_pipeline_t& aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		compute_pipeline_t result;
+		result.mPipelineCreateFlags			= aTemplate.mPipelineCreateFlags;
+		result.mShader						= create_shader_from_template(aTemplate.mShader);
+		result.mShaderStageCreateInfo		= aTemplate.mShaderStageCreateInfo;
+		result.mSpecializationInfo			= aTemplate.mSpecializationInfo;
+		result.mBasePipelineIndex			= aTemplate.mBasePipelineIndex;
+		result.mAllDescriptorSetLayouts		= create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
+		result.mPushConstantRanges			= aTemplate.mPushConstantRanges;
+		result.mPipelineLayoutCreateInfo	= aTemplate.mPipelineLayoutCreateInfo;
 
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size()))
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		// 4. Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		rewire_config_and_create_compute_pipeline(result);
 		return result;
 	}
 #pragma endregion
@@ -3089,10 +3132,19 @@ namespace avk
 			AVK_LOG_ERROR("descriptor_set_layout's handle already has a value => it most likely has already been allocated. Won't do it again.");
 		}
 	}
-	
+
 	void root::allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated)
 	{
 		return allocate_descriptor_set_layout(device(), aLayoutToBeAllocated);
+	}
+
+	descriptor_set_layout root::create_descriptor_set_layout_from_template(const descriptor_set_layout& aTemplate)
+	{
+		descriptor_set_layout result;
+		result.mBindingRequirements = aTemplate.mBindingRequirements;
+		result.mOrderedBindings = aTemplate.mOrderedBindings;
+		allocate_descriptor_set_layout(result);
+		return result;
 	}
 
 	set_of_descriptor_set_layouts set_of_descriptor_set_layouts::prepare(std::vector<binding_data> pBindings)
@@ -3150,12 +3202,23 @@ namespace avk
 		return result;
 	}
 
-	void root::allocate_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated)
+	void root::allocate_set_of_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated)
 	{
 		for (auto& dsl : aLayoutsToBeAllocated.mLayouts) {
 			allocate_descriptor_set_layout(dsl);
 		}
 	}
+
+	set_of_descriptor_set_layouts root::create_set_of_descriptor_set_layouts_from_template(const set_of_descriptor_set_layouts& aTemplate)
+	{
+		set_of_descriptor_set_layouts result;
+		result.mBindingRequirements = aTemplate.mBindingRequirements;
+		result.mFirstSetId = aTemplate.mFirstSetId;
+		for (const auto& lay : aTemplate.mLayouts) {
+			result.mLayouts.push_back(create_descriptor_set_layout_from_template(lay));
+		}
+		return result;
+	}	
 
 	std::vector<vk::DescriptorSetLayout> set_of_descriptor_set_layouts::layout_handles() const
 	{
@@ -3966,7 +4029,11 @@ namespace avk
 			.setDynamicStateCount(static_cast<uint32_t>(aPreparedPipeline.mDynamicStateEntries.size()))
 			.setPDynamicStates(aPreparedPipeline.mDynamicStateEntries.data());
 
-		// Pipeline Layout must be rewired already before calling this function 
+		// Pipeline Layout must be rewired already before calling this function
+
+		// Create the PIPELINE LAYOUT
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
 		
 		// Create the PIPELINE, a.k.a. putting it all together:
 		auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
@@ -4354,9 +4421,8 @@ namespace avk
 		// 14. Compile the PIPELINE LAYOUT data and create-info
 		// Get the descriptor set layouts
 		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
-		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		allocate_set_of_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
-		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// Gather the push constant data
 		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
@@ -4367,6 +4433,8 @@ namespace avk
 			);
 			// TODO: Push Constants need a prettier interface
 		}
+		
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// These uniform values (Anm.: passed to shaders) need to be specified during pipeline creation by creating a VkPipelineLayout object. [4]
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
 			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
@@ -4378,10 +4446,6 @@ namespace avk
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
-
-		// Create the PIPELINE LAYOUT
-		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(static_cast<bool>(result.layout_handle()));
 
 		assert (aConfig.mRenderPassSubpass.has_value());
 		rewire_config_and_create_graphics_pipeline(result);
@@ -4422,8 +4486,7 @@ namespace avk
 		result.mDynamicStateEntries						= aTemplate.mDynamicStateEntries				   ;
 		result.mDynamicStateCreateInfo					= aTemplate.mDynamicStateCreateInfo					;
 
-		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare({});
-		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
 		
 		result.mPushConstantRanges						= aTemplate.mPushConstantRanges						;
 		result.mPipelineTessellationStateCreateInfo		= aTemplate.mPipelineTessellationStateCreateInfo  ;
@@ -4441,9 +4504,6 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 		
-		// Create the PIPELINE LAYOUT
-		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(static_cast<bool>(result.layout_handle()));
 		rewire_config_and_create_graphics_pipeline(result);
 		return result;
 	}
@@ -6019,7 +6079,7 @@ namespace avk
 
 		// 5. Pipeline layout
 		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
-		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		allocate_set_of_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
 		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// Gather the push constant data

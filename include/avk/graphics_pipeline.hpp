@@ -36,7 +36,7 @@ namespace avk
 		auto& multisample_state_create_info() { return mMultisampleStateCreateInfo; }
 		auto& dynamic_state_entries() { return mDynamicStateEntries; }
 		auto& dynamic_state_create_info() { return mDynamicStateCreateInfo; }
-		auto& descriptor_set_layoutst() { return mAllDescriptorSetLayouts; }
+		auto& descriptor_set_layouts() { return mAllDescriptorSetLayouts; }
 		auto& push_constant_ranges() { return mPushConstantRanges; }
 		auto& layout_create_info() { return mPipelineLayoutCreateInfo; }
 		auto& tessellation_state_create_info() { return mPipelineTessellationStateCreateInfo; }
@@ -58,7 +58,7 @@ namespace avk
 		const auto& multisample_state_create_info() const { return mMultisampleStateCreateInfo; }
 		const auto& dynamic_state_entries() const { return mDynamicStateEntries; }
 		const auto& dynamic_state_create_info() const { return mDynamicStateCreateInfo; }
-		const auto& descriptor_set_layoutst() const { return mAllDescriptorSetLayouts; }
+		const auto& descriptor_set_layouts() const { return mAllDescriptorSetLayouts; }
 		const auto& push_constant_ranges() const { return mPushConstantRanges; }
 		const auto& layout_create_info() const { return mPipelineLayoutCreateInfo; }
 		const auto& tessellation_state_create_info() const { return mPipelineTessellationStateCreateInfo; }

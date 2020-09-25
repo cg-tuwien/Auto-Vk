@@ -421,7 +421,9 @@ namespace avk
 #pragma endregion 
 
 #pragma region compute pipeline
+		void rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline);
 		compute_pipeline create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		compute_pipeline create_compute_pipeline_from_template(const compute_pipeline_t& aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Convenience function for gathering the compute pipeline's configuration.
 		 *
@@ -444,10 +446,7 @@ namespace avk
 			add_config(config, alterConfigFunction, std::move(args)...);
 
 			// 2. CREATE PIPELINE according to the config
-			// ============================================ Vk ============================================ 
-			//    => VULKAN CODE HERE:
 			return create_compute_pipeline(std::move(config), std::move(alterConfigFunction));
-			// ============================================================================================ 
 		}
 #pragma endregion
 
@@ -460,7 +459,9 @@ namespace avk
 #pragma region descriptor set layout and set of descriptor set layouts
 		static void allocate_descriptor_set_layout(vk::Device aDevice, descriptor_set_layout& aLayoutToBeAllocated);
 		void allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated);
-		void allocate_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated);
+		descriptor_set_layout create_descriptor_set_layout_from_template(const descriptor_set_layout& aTemplate);
+		void allocate_set_of_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated);
+		set_of_descriptor_set_layouts create_set_of_descriptor_set_layouts_from_template(const set_of_descriptor_set_layouts& aTemplate);
 #pragma endregion
 
 #pragma region fence

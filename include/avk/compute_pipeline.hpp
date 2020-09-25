@@ -15,10 +15,26 @@ namespace avk
 		compute_pipeline_t& operator=(const compute_pipeline_t&) = delete;
 		~compute_pipeline_t() = default;
 
-		const auto& layout_handle() const { return mPipelineLayout.get(); }
+		auto& create_flags() { return mPipelineCreateFlags; }
+		auto& get_shader() { return mShader; }
+		auto& shader_stage_create_info() { return mShaderStageCreateInfo; }
+		auto& specialization_info() { return mSpecializationInfo; }
+		auto& descriptor_set_layouts() { return mAllDescriptorSetLayouts; }
+		auto& push_constant_ranges() { return mPushConstantRanges; }
+		auto& layout_create_info() { return mPipelineLayoutCreateInfo; }
+
+		const auto& create_flags() const { return mPipelineCreateFlags; }
+		const auto& get_shader() const { return mShader; }
+		const auto& shader_stage_create_info() const { return mShaderStageCreateInfo; }
+		const auto& specialization_info() const { return mSpecializationInfo; }
+		const auto& descriptor_set_layouts() const { return mAllDescriptorSetLayouts; }
+		const auto& push_constant_ranges() const { return mPushConstantRanges; }
+		const auto& layout_create_info() const { return mPipelineLayoutCreateInfo; }
+		const auto& layout_handle() const const { return mPipelineLayout.get(); }
 		std::tuple<const compute_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> layout() const { return std::make_tuple(this, layout_handle(), &mPushConstantRanges); }
 		const auto& handle() const { return mPipeline.get(); }
-
+		
+		
 	private:
 		// TODO: What to do with flags?
 		vk::PipelineCreateFlags mPipelineCreateFlags;
