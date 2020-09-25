@@ -3193,9 +3193,13 @@ namespace avk
 		assert(aLayouts.size() == aPreparedSets.size());
 
 		std::vector<descriptor_set> result;
-		const auto n = aLayouts.size();
+		if (aLayouts.empty()) {
+			return result;
+		}
+		
+		const int n = static_cast<int>(aLayouts.size());
 #ifdef _DEBUG // Perform an extensive sanity check:
-		for (size_t i = 0; i < n; ++i) {
+		for (int i = 0; i < n; ++i) {
 			const auto dbgB = aLayouts[i].get().number_of_bindings();
 			assert(dbgB == aPreparedSets[i].number_of_writes());
 			for (size_t j = 0; j < dbgB; ++j) {
@@ -3205,8 +3209,25 @@ namespace avk
 			}
 		}
 #endif
-		
-		auto allocRequest = descriptor_alloc_request{ aLayouts };
+
+		// Find possible duplicates within the descriptor sets, and store the unique layouts so that we do not over-allocate:
+		std::vector<std::reference_wrapper<const descriptor_set_layout>> layoutsOfUniqueSets;
+		std::vector<int> duplicateSetIndices; // -1 ... no duplicate, [0..n) ... duplicate at the given index
+		layoutsOfUniqueSets.push_back(aLayouts[0]);
+		duplicateSetIndices.emplace_back(-1);
+		for (int i = 1; i < n; ++i) {
+			for (int j = 0; j < i; ++j) {
+				if (aPreparedSets[i] == aPreparedSets[j]) {
+					duplicateSetIndices.emplace_back(j);
+				}
+				layoutsOfUniqueSets.push_back(aLayouts[i]);
+				duplicateSetIndices.emplace_back(-1);
+			}
+		}
+
+		// Find a pool with enough space left for the layouts (only those required => layoutsOfUniqueSets),
+		// or alloc a new pool:
+		auto allocRequest = descriptor_alloc_request{ layoutsOfUniqueSets };
 
 		std::shared_ptr<descriptor_pool> pool = nullptr;
 		std::vector<vk::DescriptorSet> setHandles;
@@ -3239,18 +3260,29 @@ namespace avk
 
 		assert(pool);
 		assert(setHandles.size() > 0);
-			
-		for (size_t i = 0; i < n; ++i) {
-			auto& setToBeCompleted = aPreparedSets[i];
-			setToBeCompleted.link_to_handle_and_pool(std::move(setHandles[i]), pool);
-			setToBeCompleted.update_data_pointers();
-			setToBeCompleted.write_descriptors();
-			
-			// Your soul... is mine:
-			const auto cachedSet = mSets.insert(std::move(setToBeCompleted));
-			assert(cachedSet.second); // TODO: Maybe remove this because the application should not really fail in that case.
-			// Done. Store for result:
-			result.push_back(*cachedSet.first); // Make a copy!
+
+		// Finish configuration (most importantly: write descriptors), and just make copies for the duplicates:
+		for (int i = 0; i < n; ++i) {
+			const bool isDuplicate = -1 != duplicateSetIndices[i];
+			const int setIndex = isDuplicate ? duplicateSetIndices[i] : i;
+
+			if (!isDuplicate) {
+				assert(setIndex == i);
+				auto& setToBeCompleted = aPreparedSets[setIndex];
+				setToBeCompleted.link_to_handle_and_pool(std::move(setHandles[setIndex]), pool);
+				setToBeCompleted.update_data_pointers();
+				setToBeCompleted.write_descriptors();
+				
+				// Your soul... is mine:
+				const auto cachedSet = mSets.insert(std::move(setToBeCompleted));
+				assert(cachedSet.second); // This must not happen. Duplicate handling should have caught such cases.
+				// Done. Store for result:
+				result.push_back(*cachedSet.first); // Make a copy!
+			}
+			else {
+				assert(setIndex < i);
+				result.emplace_back(result[setIndex]).set_set_id(aPreparedSets[i].set_id()); // Copy the duplicate set
+			}
 		}
 
 		return result;
