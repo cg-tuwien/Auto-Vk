@@ -3220,10 +3220,14 @@ namespace avk
 				if (aPreparedSets[i] == aPreparedSets[j]) {
 					duplicateSetIndices.emplace_back(j);
 				}
+			}
+			if (static_cast<int>(duplicateSetIndices.size()) == i) { // No duplicate found => nothing inserted
 				layoutsOfUniqueSets.push_back(aLayouts[i]);
 				duplicateSetIndices.emplace_back(-1);
 			}
 		}
+		assert(layoutsOfUniqueSets.size() <= aLayouts.size());
+		assert(duplicateSetIndices.size() == aPreparedSets.size());
 
 		// Find a pool with enough space left for the layouts (only those required => layoutsOfUniqueSets),
 		// or alloc a new pool:
