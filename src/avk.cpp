@@ -2956,6 +2956,15 @@ namespace avk
 		const auto& weNeed = pRequest.accumulated_pool_sizes();
 		const auto& weHave = mRemainingCapacities;
 
+#if _DEBUG
+		for (size_t i = 0; i < weNeed.size() - 1; ++i) {
+			assert(weNeed[i].type < weNeed[i + 1].type);
+		}
+		for (size_t i = 0; i < weHave.size() - 1; ++i) {
+			assert(weHave[i].type < weHave[i + 1].type);
+		}
+#endif
+
 		// Accumulate all the requirements of all the sets
 		using EnumType = std::underlying_type<vk::DescriptorType>::type;
 		size_t n = 0, h = 0, N = weNeed.size(), H = weHave.size();
@@ -2971,9 +2980,9 @@ namespace avk
 				h++;
 				continue;
 			}
-			return false;
+			return false; 
 		}
-		return n == h; // if true => all checks have passed, if false => checks failed
+		return n == N; // if true => all checks have passed, if false => checks failed
 	}
 
 	std::vector<vk::DescriptorSet> descriptor_pool::allocate(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts)
