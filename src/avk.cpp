@@ -2788,8 +2788,8 @@ namespace avk
 		aPreparedPipeline.mShaderStageCreateInfo
 			.setModule(aPreparedPipeline.mShader.handle())
 			.setPName(aPreparedPipeline.mShader.info().mEntryPoint.c_str());
-			
-		if (aPreparedPipeline.mSpecializationInfo != vk::SpecializationInfo{}) {
+
+		if (aPreparedPipeline.mSpecializationInfo.has_value()) {
 			aPreparedPipeline.mShaderStageCreateInfo.setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfo.value());
 		}
 
@@ -5864,6 +5864,122 @@ namespace avk
 		return max_recursion_depth{ rtProps.maxRecursionDepth };
 	}
 
+	void root::rewire_config_and_create_ray_tracing_pipeline(ray_tracing_pipeline_t& aPreparedPipeline)
+	{
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mShaderStageCreateInfos.size());
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mSpecializationInfos.size());
+		for (size_t i = 0; i < aPreparedPipeline.mShaders.size(); ++i) {
+			aPreparedPipeline.mShaderStageCreateInfos[i]
+				.setModule(aPreparedPipeline.mShaders[i].handle())
+				.setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
+			
+			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
+				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
+			}
+		}
+		
+		// Pipeline Layout must be rewired already before calling this function
+
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(aPreparedPipeline.layout_handle());
+
+
+		// Create the PIPELINE LAYOUT
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
+		
+		auto pipelineCreateInfo = vk::RayTracingPipelineCreateInfoKHR{}
+			.setFlags(vk::PipelineCreateFlagBits{}) // TODO: Support flags
+			.setStageCount(static_cast<uint32_t>(aPreparedPipeline.mShaderStageCreateInfos.size()))
+			.setPStages(aPreparedPipeline.mShaderStageCreateInfos.data())
+			.setGroupCount(static_cast<uint32_t>(aPreparedPipeline.mShaderGroupCreateInfos.size()))
+			.setPGroups(aPreparedPipeline.mShaderGroupCreateInfos.data())
+			.setLibraries(vk::PipelineLibraryCreateInfoKHR{0u, nullptr}) // TODO: Support libraries
+			.setPLibraryInterface(nullptr)
+			.setMaxRecursionDepth(aPreparedPipeline.mMaxRecursionDepth)
+			.setLayout(aPreparedPipeline.layout_handle());
+		
+		auto pipeCreationResult = device().createRayTracingPipelineKHR(
+			nullptr,
+			pipelineCreateInfo,
+			nullptr,
+			dynamic_dispatch());
+		
+		aPreparedPipeline.mPipeline = pipeCreationResult.value;
+
+		//result.mPipeline = std::move(pipeCreationResult.value);
+		// TODO: This ^ will be fixed with vulkan headers v 136 ... or maybe not?!
+	}
+
+	void root::build_shader_binding_table(ray_tracing_pipeline_t& aPipeline)
+	{
+		// According to https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable this is the way:
+		const size_t groupCount = aPipeline.mShaderGroupCreateInfos.size();
+		const size_t shaderBindingTableSize = aPipeline.mShaderBindingTableGroupsInfo.mTotalSize;
+
+		// TODO: All of this SBT-stuff probably needs some refactoring
+		aPipeline.mShaderBindingTable = create_buffer(
+			memory_usage::host_coherent, // TODO: This should be a device buffer, right?!
+			vk::BufferUsageFlagBits::eRayTracingKHR,				
+			generic_buffer_meta::create_from_size(shaderBindingTableSize)
+		);
+
+		assert(aPipeline.mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size() == shaderBindingTableSize);
+
+		// Copy to temporary buffer:
+		std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
+		device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
+		
+		void* mapped = device().mapMemory(aPipeline.mShaderBindingTable->memory_handle(), 0, shaderBindingTableSize);
+		// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
+		vk::DeviceSize off = 0;
+		size_t iRaygen = 0;
+		size_t iMiss = 0;
+		size_t iHit = 0;
+		size_t iCallable = 0;
+		auto* pData  = reinterpret_cast<uint8_t*>(mapped);
+		size_t srcByteOffset = 0;
+		while (off < aPipeline.mShaderBindingTableGroupsInfo.mEndOffset) {
+			size_t dstOffset = 0;
+			size_t copySize = 0;
+
+			if (iRaygen   < aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
+				dstOffset = aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset;
+				off      += aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries;
+				copySize  = aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iRaygen;
+			}
+			else if (iMiss < aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mOffset == off) {
+				dstOffset  = aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset;
+				off       += aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries;
+				copySize   = aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iMiss;
+			}
+			else if (iHit < aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mOffset == off) {
+				dstOffset = aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mByteOffset;
+				off      += aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries;
+				copySize  = aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iHit;
+			}
+			else if (iCallable < aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mOffset == off) {
+				dstOffset = aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset;
+				off      += aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries;
+				copySize  = aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iCallable;
+			}
+			else {
+				throw avk::runtime_error("Can't be");
+			}
+			
+			memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
+			srcByteOffset += copySize;
+		}
+		//for(uint32_t g = 0; g < groupCount; g++)
+		//{
+		//}
+		device().unmapMemory(aPipeline.mShaderBindingTable->memory_handle());
+	}
+	
 	ray_tracing_pipeline root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		using namespace cfg;
@@ -6081,7 +6197,6 @@ namespace avk
 		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
 		allocate_set_of_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
-		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// Gather the push constant data
 		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
@@ -6092,6 +6207,8 @@ namespace avk
 			);
 			// TODO: Push Constants need a prettier interface
 		}
+		
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
 			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
 			.setPSetLayouts(descriptorSetLayoutHandles.data())
@@ -6104,101 +6221,51 @@ namespace avk
 		}
 
 		// 8. Create the pipeline's layout
-		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(result.layout_handle());
-
 		// 9. Build the Ray Tracing Pipeline
-		auto pipelineCreateInfo = vk::RayTracingPipelineCreateInfoKHR{}
-			.setFlags(vk::PipelineCreateFlagBits{}) // TODO: Support flags
-			.setStageCount(static_cast<uint32_t>(result.mShaderStageCreateInfos.size()))
-			.setPStages(result.mShaderStageCreateInfos.data())
-			.setGroupCount(static_cast<uint32_t>(result.mShaderGroupCreateInfos.size()))
-			.setPGroups(result.mShaderGroupCreateInfos.data())
-			.setLibraries(vk::PipelineLibraryCreateInfoKHR{0u, nullptr}) // TODO: Support libraries
-			.setPLibraryInterface(nullptr)
-			.setMaxRecursionDepth(result.mMaxRecursionDepth)
-			.setLayout(result.layout_handle());
-		
-		auto pipeCreationResult = device().createRayTracingPipelineKHR(
-			nullptr,
-			pipelineCreateInfo,
-			nullptr,
-			dynamic_dispatch());
-		
-		result.mPipeline = pipeCreationResult.value;
-
-		//result.mPipeline = std::move(pipeCreationResult.value);
-		// TODO: This ^ will be fixed with vulkan headers v 136
+		rewire_config_and_create_ray_tracing_pipeline(result);
 		
 		// 10. Build the shader binding table
-		{
-			// According to https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable this is the way:
-			const size_t groupCount = result.mShaderGroupCreateInfos.size();
-			const size_t shaderBindingTableSize = result.mShaderBindingTableGroupsInfo.mTotalSize;
+		build_shader_binding_table(result);
+		return result;
+	}
 
-			// TODO: All of this SBT-stuff probably needs some refactoring
-			result.mShaderBindingTable = create_buffer(
-				memory_usage::host_coherent,
-				vk::BufferUsageFlagBits::eRayTracingKHR,				
-				generic_buffer_meta::create_from_size(shaderBindingTableSize)
-			);
+	ray_tracing_pipeline root::create_ray_tracing_pipeline_from_template(const ray_tracing_pipeline_t& aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		ray_tracing_pipeline_t result;
 
-			assert(result.mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size() == shaderBindingTableSize);
-
-			// Copy to temporary buffer:
-			std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
-			device().getRayTracingShaderGroupHandlesKHR(result.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
-			
-			void* mapped = device().mapMemory(result.mShaderBindingTable->memory_handle(), 0, shaderBindingTableSize);
-			// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
-			vk::DeviceSize off = 0;
-			size_t iRaygen = 0;
-			size_t iMiss = 0;
-			size_t iHit = 0;
-			size_t iCallable = 0;
-			auto* pData  = reinterpret_cast<uint8_t*>(mapped);
-			size_t srcByteOffset = 0;
-			while (off < result.mShaderBindingTableGroupsInfo.mEndOffset) {
-				size_t dstOffset = 0;
-				size_t copySize = 0;
-
-				if (iRaygen   < result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
-					dstOffset = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset;
-					off      += result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries;
-					copySize  = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries * result.mShaderGroupHandleSize;
-					++iRaygen;
-				}
-				else if (iMiss < result.mShaderBindingTableGroupsInfo.mMissGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mOffset == off) {
-					dstOffset  = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset;
-					off       += result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries;
-					copySize   = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries * result.mShaderGroupHandleSize;
-					++iMiss;
-				}
-				else if (iHit < result.mShaderBindingTableGroupsInfo.mHitGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mOffset == off) {
-					dstOffset = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mByteOffset;
-					off      += result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries;
-					copySize  = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries * result.mShaderGroupHandleSize;
-					++iHit;
-				}
-				else if (iCallable < result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mOffset == off) {
-					dstOffset = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset;
-					off      += result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries;
-					copySize  = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries * result.mShaderGroupHandleSize;
-					++iCallable;
-				}
-				else {
-					throw avk::runtime_error("Can't be");
-				}
-				
-				memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
-				srcByteOffset += copySize;
-			}
-			//for(uint32_t g = 0; g < groupCount; g++)
-			//{
-			//}
-			device().unmapMemory(result.mShaderBindingTable->memory_handle());
+		result.mPipelineCreateFlags						= aTemplate.mPipelineCreateFlags;
+		for (const auto& shdr : aTemplate.mShaders) {
+			result.mShaders.push_back(create_shader_from_template(shdr));
 		}
+		result.mShaderStageCreateInfos					= aTemplate.mShaderStageCreateInfos;
+		result.mSpecializationInfos						= aTemplate.mSpecializationInfos;
+		result.mShaderGroupCreateInfos					= aTemplate.mShaderGroupCreateInfos;
+		result.mShaderBindingTableGroupsInfo			= aTemplate.mShaderBindingTableGroupsInfo;
+		result.mMaxRecursionDepth						= aTemplate.mMaxRecursionDepth;
+		result.mBasePipelineIndex						= aTemplate.mBasePipelineIndex;
+		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
+		result.mPushConstantRanges						= aTemplate.mPushConstantRanges;
 
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size()))
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		result.mShaderGroupBaseAlignment				= aTemplate.mShaderGroupBaseAlignment;
+		result.mShaderGroupHandleSize					= aTemplate.mShaderGroupHandleSize;
+
+		result.mDevice									= aTemplate.mDevice;
+		result.mDynamicDispatch							= aTemplate.mDynamicDispatch;
+		
+		// 15. Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+		
+		rewire_config_and_create_ray_tracing_pipeline(result);
+		build_shader_binding_table(result);
 		return result;
 	}
 

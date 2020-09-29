@@ -648,8 +648,11 @@ namespace avk
 #pragma region ray tracing pipeline
 #if VK_HEADER_VERSION >= 135
 		max_recursion_depth get_max_ray_tracing_recursion_depth();
-			
+
+		void rewire_config_and_create_ray_tracing_pipeline(ray_tracing_pipeline_t& aPipeline);
+		void build_shader_binding_table(ray_tracing_pipeline_t& aPipeline);
 		ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		ray_tracing_pipeline create_ray_tracing_pipeline_from_template(const ray_tracing_pipeline_t& aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
 			
 		/**	Convenience function for gathering the ray tracing pipeline's configuration.
 		 *

@@ -34,7 +34,8 @@ namespace avk
 	{
 		friend class root;
 
-		struct get_buffer_meta {
+		struct get_buffer_meta
+		{
 			get_buffer_meta(const buffer_meta*& aOut) : mOut{ &aOut } {}
 			const buffer_meta** mOut = nullptr;
 			void operator()(const buffer_meta& data)					const	{ *mOut = &data; }
