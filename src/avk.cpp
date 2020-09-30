@@ -4525,6 +4525,37 @@ namespace avk
 			throw avk::runtime_error("Can not copy this image instance!");
 		}
 	}
+
+	image root::create_image_from_template(const image_t& aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	{
+		image_t result;
+		result.mMemoryPropertyFlags = aTemplate.mMemoryPropertyFlags;
+		result.mInfo = aTemplate.mInfo;
+		result.mTargetLayout = aTemplate.mTargetLayout;
+		result.mCurrentLayout = vk::ImageLayout::eUndefined;
+		result.mImageUsage = aTemplate.mImageUsage;
+		result.mAspectFlags = aTemplate.mAspectFlags;
+
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		// Create the image...
+		result.mImage = device().createImageUnique(result.mInfo);
+		
+		// ... and the memory:
+		auto memRequirements = device().getImageMemoryRequirements(result.handle());
+		auto allocInfo = vk::MemoryAllocateInfo()
+			.setAllocationSize(memRequirements.size)
+			.setMemoryTypeIndex(find_memory_type_index(memRequirements.memoryTypeBits, result.mMemoryPropertyFlags));
+		result.mMemory = device().allocateMemoryUnique(allocInfo);
+
+		// bind them together:
+		device().bindImageMemory(result.handle(), result.memory_handle(), 0);
+		
+		return result;
+	}
 	
 	image root::create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers, memory_usage aMemoryUsage, image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
@@ -4584,6 +4615,7 @@ namespace avk
 		}
 		
 		image_t result;
+		result.mMemoryPropertyFlags = memoryFlags;
 		result.mInfo = vk::ImageCreateInfo()
 			.setImageType(vk::ImageType::e2D) // TODO: Support 3D textures
 			.setExtent(vk::Extent3D(static_cast<uint32_t>(aWidth), static_cast<uint32_t>(aHeight), 1u))
@@ -4815,6 +4847,44 @@ namespace avk
 #pragma endregion
 
 #pragma region image view definitions
+	image_view root::create_image_view_from_template(const image_view_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation)
+	{
+		image_view_t result;
+		
+		// Transfer ownership:
+		if (std::holds_alternative<image>(aTemplate.mImage)) {
+			auto& im = std::get<image>(aTemplate.mImage);
+			result.mImage = create_image_from_template(im, std::move(aAlterImageConfigBeforeCreation));
+			if (im.is_shared_ownership_enabled()) {
+				std::get<image>(result.mImage).enable_shared_ownership();
+			}
+		}
+		else {
+			LOG_ERROR("Can not create an image_view from a template which wraps an image_t.");
+		}
+
+		result.mInfo = aTemplate.mInfo;
+		result.mInfo.setImage(result.get_image().handle());
+		result.mInfo.subresourceRange
+			.setLevelCount(result.get_image().config().mipLevels)
+			.setLayerCount(result.get_image().config().arrayLayers);
+
+		result.mUsageInfo = aTemplate.mUsageInfo;
+
+		// Maybe alter the config?!
+		if (aAlterImageViewConfigBeforeCreation) {
+			aAlterImageViewConfigBeforeCreation(result);
+		}
+
+		result.mImageView = device().createImageViewUnique(result.mInfo);
+		result.mDescriptorInfo = vk::DescriptorImageInfo{}
+			.setImageView(result.handle())
+			.setImageLayout(result.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout? 
+		
+		return result;
+	}
+
+	
 	image_view root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;

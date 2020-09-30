@@ -568,6 +568,8 @@ namespace avk
 #pragma endregion
 
 #pragma region image
+		image create_image_from_template(const image_t& aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		
 		/** Creates a new image
 		 *	@param	aWidth						The width of the image to be created
 		 *	@param	aHeight						The height of the image to be created
@@ -618,6 +620,8 @@ namespace avk
 #pragma endregion
 
 #pragma region image view
+		image_view create_image_view_from_template(const image_view_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {});
+		
 		/** Creates a new image view upon a given image
 		*	@param	aImageToOwn					The image which to create an image view for
 		*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.

@@ -79,6 +79,8 @@ namespace avk
 		std::optional<command_buffer> generate_mip_maps(sync aSyncHandler = sync::wait_idle());
 		
 	private:
+		// Memory property flags for this image
+		vk::MemoryPropertyFlags mMemoryPropertyFlags;
 		// The memory handle. This member will contain a valid handle only after successful image creation.
 		vk::UniqueDeviceMemory mMemory;
 		// The image create info which contains all the parameters for image creation
