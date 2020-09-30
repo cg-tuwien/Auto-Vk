@@ -15,6 +15,11 @@ namespace avk
 		bottom_level_acceleration_structure_t& operator=(const bottom_level_acceleration_structure_t&) = delete;
 		~bottom_level_acceleration_structure_t();
 
+		auto& config() { return mCreateInfo; }
+		auto& acceleration_structure_handle() { return mAccStructure.mHandle; }
+		auto* acceleration_structure_handle_ptr() { return &mAccStructure.mHandle; }
+		auto& memory_handle() { return mMemory.get(); }
+		auto* memory_handle_ptr() { return &mMemory.get(); }
 		const auto& config() const { return mCreateInfo; }
 		const auto& acceleration_structure_handle() const { return mAccStructure.mHandle; }
 		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.mHandle; }
