@@ -4860,7 +4860,7 @@ namespace avk
 			}
 		}
 		else {
-			LOG_ERROR("Can not create an image_view from a template which wraps an image_t.");
+			AVK_LOG_ERROR("Can not create an image_view from a template which wraps an image_t.");
 		}
 
 		result.mInfo = aTemplate.mInfo;
