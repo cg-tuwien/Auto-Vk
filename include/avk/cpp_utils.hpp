@@ -670,6 +670,11 @@ namespace avk
 			return *this;
 		}
 
+		const T& get() const
+		{
+			return mHandle;
+		}
+
 		void reset()
 		{
 			mHandle = {};

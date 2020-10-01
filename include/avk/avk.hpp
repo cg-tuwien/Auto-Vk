@@ -38,12 +38,6 @@
 #include <vulkan/vulkan.hpp>
 
 #include <vk_mem_alloc.h>
-#if !defined(MEMORY_ALLOCATOR_TYPE)
-#define MEMORY_ALLOCATOR_TYPE VmaAllocator
-#endif
-#if !defined(MEMORY_HANDLE_TYPE)
-#define MEMORY_HANDLE_TYPE VmaAllocation
-#endif
 
 namespace avk { class sync; }
 
@@ -145,7 +139,7 @@ namespace avk
 		virtual vk::PhysicalDevice& physical_device()				= 0;
 		virtual vk::Device& device()								= 0;
 		virtual vk::DispatchLoaderDynamic& dynamic_dispatch()		= 0;
-		virtual MEMORY_ALLOCATOR_TYPE& memory_allocator()			= 0;
+		virtual VmaAllocator& memory_allocator()					= 0;
 
 #pragma region root helper functions
 		/** Find (index of) memory with parameters
@@ -246,7 +240,8 @@ namespace avk
 #pragma region buffer
 		static buffer create_buffer(
 			const vk::PhysicalDevice& aPhysicalDevice, 
-			const vk::Device& aDevice, 
+			const vk::Device& aDevice,
+			const VmaAllocator& aAllocator,
 #if VK_HEADER_VERSION >= 135
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
@@ -254,7 +249,6 @@ namespace avk
 #endif
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties, 
-			vk::MemoryAllocateFlags aMemoryAllocateFlags,
 			std::initializer_list<queue*> aConcurrentQueueOwnership = {}
 		);
 		
@@ -268,7 +262,7 @@ namespace avk
 			vk::MemoryPropertyFlags aMemoryProperties,
 			vk::MemoryAllocateFlags aMemoryAllocateFlags)
 		{
-			return create_buffer(physical_device(), device(), std::move(aMetaData), aBufferUsage, aMemoryProperties, aMemoryAllocateFlags);
+			return create_buffer(physical_device(), device(), memory_allocator(), std::move(aMetaData), aBufferUsage, aMemoryProperties, aMemoryAllocateFlags);
 		}
 
 		template <typename Meta, typename... Metas>
@@ -323,20 +317,10 @@ namespace avk
 				aUsage |= (... | aConfigs.buffer_usage_flags());
 				(metas.push_back(aConfigs), ...);
 			}
-			
-#if VK_HEADER_VERSION >= 135
-			// If buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR bit set, memory must have been allocated with the 
-			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR bit set. The Vulkan spec states: If the VkPhysicalDeviceBufferDeviceAddressFeatures::bufferDeviceAddress
-			// feature is enabled and buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT bit set, memory must have been allocated with the
-			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT bit set
-			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddress;
-			}
-#endif
 
 			// Create buffer here to make use of named return value optimization.
 			// How it will be filled depends on where the memory is located at.
-			return create_buffer(aPhysicalDevice, aDevice, metas, aUsage, memoryFlags, memoryAllocateFlags);
+			return create_buffer(aPhysicalDevice, aDevice, metas, aUsage, memoryFlags);
 		}
 		
 		template <typename Meta, typename... Metas>

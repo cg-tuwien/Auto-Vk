@@ -2215,6 +2215,7 @@ namespace avk
 	buffer root::create_buffer(
 		const vk::PhysicalDevice& aPhysicalDevice, 
 		const vk::Device& aDevice,
+		const VmaAllocator& aAllocator,
 #if VK_HEADER_VERSION >= 135
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
@@ -2222,7 +2223,6 @@ namespace avk
 #endif
 		vk::BufferUsageFlags aBufferUsage, 
 		vk::MemoryPropertyFlags aMemoryProperties, 
-		vk::MemoryAllocateFlags aMemoryAllocateFlags,
 		std::initializer_list<queue*> aConcurrentQueueOwnership
 	)
 	{
@@ -2258,58 +2258,25 @@ namespace avk
 		}
 
 		VmaAllocationCreateInfo allocInfo = {};
-		allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aMemoryProperties);
+		allocInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
 				 
 		VkBuffer buffer;
 		VmaAllocation allocation;
-		vmaCreateBuffer(this->memory_allocator(), static_cast<VkBufferCreateInfo*>(&bufferCreateInfo), &allocInfo, &buffer, &allocation, nullptr);
+		
+		vmaCreateBuffer(aAllocator, &static_cast<VkBufferCreateInfo&>(bufferCreateInfo), &allocInfo, &buffer, &allocation, nullptr);
 
 		result.mCreateInfo = bufferCreateInfo;
-		result.mMemoryPropertyFlags = aMemoryProperties;
-		//result.mMemory = std::move(vkMemory);
 		result.mBufferUsageFlags = aBufferUsage;
+		result.mHandleAndAllocation = vma_handle<VkBuffer>{ buffer };
 		result.mPhysicalDevice = aPhysicalDevice;
-		result.mBuffer = 
-		
-//		// Create the buffer on the logical device
-//		auto vkBuffer = aDevice.createBufferUnique(bufferCreateInfo);
-//		
-//		// The buffer has been created, but it doesn't actually have any memory assigned to it yet. 
-//		// The first step of allocating memory for the buffer is to query its memory requirements [2]
-//		const auto memRequirements = aDevice.getBufferMemoryRequirements(vkBuffer.get());
-//
-//		auto allocInfo = vk::MemoryAllocateInfo()
-//			.setAllocationSize(memRequirements.size)
-//			.setMemoryTypeIndex(find_memory_type_index(
-//				aPhysicalDevice,
-//				memRequirements.memoryTypeBits, 
-//				aMemoryProperties));
-//
-//		auto allocateFlagsInfo = vk::MemoryAllocateFlagsInfo{};
-//		if (aMemoryAllocateFlags) {
-//			allocateFlagsInfo.setFlags(aMemoryAllocateFlags);
-//			allocInfo.setPNext(&allocateFlagsInfo);
-//		}
-//
-//		// Allocate the memory for the buffer:
-//		auto vkMemory = aDevice.allocateMemoryUnique(allocInfo);
-//
-//		// If memory allocation was successful, then we can now associate this memory with the buffer
-//		aDevice.bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
-//		// TODO: if(!succeeded) { throw avk::runtime_error("Binding memory to buffer failed."); }
-//
-//		result.mCreateInfo = bufferCreateInfo;
-//		result.mMemoryPropertyFlags = aMemoryProperties;
-//		result.mMemory = std::move(vkMemory);
-//		result.mBufferUsageFlags = aBufferUsage;
-//		result.mPhysicalDevice = aPhysicalDevice;
-//		result.mBuffer = std::move(vkBuffer);
-//
-//#if VK_HEADER_VERSION >= 135
-//		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-//			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
-//		}
-//#endif
+
+		// TODO: add VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT to VmaAllocatorCreateInfo::flags. => https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/enabling_buffer_device_address.html
+#if VK_HEADER_VERSION >= 135 
+		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
+		}
+#endif
 		
 		return result;
 	}

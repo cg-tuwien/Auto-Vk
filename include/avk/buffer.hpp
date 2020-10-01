@@ -80,13 +80,10 @@ namespace avk
 			return *reinterpret_cast<const Meta*>(metaPtr);
 		}
 		
-		auto& config() const					{ return mCreateInfo; }
-		const auto& memory_properties() const	{ return mMemoryPropertyFlags; }
-		const auto& memory_handle() const		{ return mMemory.get(); }
-		const auto* memory_handle_ptr() const	{ return &mMemory.get(); }
+		auto& config() const	{ return mCreateInfo; }
+		const auto& buffer_handle() const		{ return static_cast<const vk::Buffer&>(mHandleAndAllocation.get()); }
+		const auto* buffer_handle_ptr() const	{ return &buffer_handle(); }
 		const auto& buffer_usage_flags() const	{ return mBufferUsageFlags; }
-		const auto& buffer_handle() const		{ return mBuffer.get(); }
-		const auto* buffer_handle_ptr() const	{ return &mBuffer.get(); }
 		const auto has_device_address() const { return mDeviceAddress.has_value(); }
 		const auto device_address() const { return mDeviceAddress.value(); }
 
@@ -203,18 +200,15 @@ namespace avk
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> mMetaData;
 #endif
 		vk::BufferCreateInfo mCreateInfo;
-		//vk::MemoryPropertyFlags mMemoryPropertyFlags;
-		//vk::UniqueDeviceMemory mMemory;
-		//vk::BufferUsageFlags mBufferUsageFlags;
 		vk::PhysicalDevice mPhysicalDevice;
-		//vk::UniqueBuffer mBuffer;
-		
+		vk::BufferUsageFlags mBufferUsageFlags;
+		vma_handle<VkBuffer> mHandleAndAllocation;
 		std::optional<vk::DeviceAddress> mDeviceAddress;
 
 		mutable std::optional<vk::DescriptorBufferInfo> mDescriptorInfo;
 	};
 
-	/** Typedef representing any kind of OWNING image view representations. */
+	/** Typedef representing any kind of OWNING buffer representation. */
 	using buffer = owning_resource<buffer_t>;
 
 }
