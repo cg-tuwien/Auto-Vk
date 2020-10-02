@@ -113,6 +113,7 @@ namespace avk
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
 		vk::PhysicalDevice mPhysicalDevice;
 		vk::Device mDevice;
+		VmaAllocator mAllocator;
 		//vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic>>::type mAccStructure;
 		avk::handle_wrapper<vk::AccelerationStructureKHR> mAccStructure;
 		vk::DispatchLoaderDynamic mDynamicDispatch;

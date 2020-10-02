@@ -38,6 +38,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <vk_mem_alloc.h>
+#include <avk/vma_handle.hpp>
 
 namespace avk { class sync; }
 
@@ -216,6 +217,7 @@ namespace avk
 
 			result.mPhysicalDevice = physical_device();
 			result.mDevice = device();
+			result.mAllocator = memory_allocator();
 			result.mDynamicDispatch = dynamic_dispatch();
 			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dynamic_dispatch());
 		}
@@ -259,15 +261,14 @@ namespace avk
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #endif
 			vk::BufferUsageFlags aBufferUsage, 
-			vk::MemoryPropertyFlags aMemoryProperties,
-			vk::MemoryAllocateFlags aMemoryAllocateFlags)
+			vk::MemoryPropertyFlags aMemoryProperties)
 		{
-			return create_buffer(physical_device(), device(), memory_allocator(), std::move(aMetaData), aBufferUsage, aMemoryProperties, aMemoryAllocateFlags);
+			return create_buffer(physical_device(), device(), memory_allocator(), std::move(aMetaData), aBufferUsage, aMemoryProperties);
 		}
 
 		template <typename Meta, typename... Metas>
 		static buffer create_buffer(
-			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, 
+			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const VmaAllocator& aAllocator,
 			avk::memory_usage aMemoryUsage,
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
@@ -320,7 +321,7 @@ namespace avk
 
 			// Create buffer here to make use of named return value optimization.
 			// How it will be filled depends on where the memory is located at.
-			return create_buffer(aPhysicalDevice, aDevice, metas, aUsage, memoryFlags);
+			return create_buffer(aPhysicalDevice, aDevice, aAllocator, metas, aUsage, memoryFlags);
 		}
 		
 		template <typename Meta, typename... Metas>
@@ -329,7 +330,7 @@ namespace avk
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
 		{	
-			return create_buffer(physical_device(), device(), avk::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
+			return create_buffer(physical_device(), device(), memory_allocator(), avk::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
 		}
 
 		//template <typename Meta, typename... Metas>

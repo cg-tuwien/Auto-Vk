@@ -81,9 +81,10 @@ namespace avk
 		}
 		
 		auto& config() const	{ return mCreateInfo; }
-		const auto& buffer_handle() const		{ return static_cast<const vk::Buffer&>(mHandleAndAllocation.get()); }
-		const auto* buffer_handle_ptr() const	{ return &buffer_handle(); }
-		const auto& buffer_usage_flags() const	{ return mBufferUsageFlags; }
+		const auto& handle() const		{ return mVmaHandle.resource(); }
+		const auto* handle_ptr() const	{ return &handle(); }
+		const auto& usage_flags() const	{ return mBufferUsageFlags; }
+		auto memory_properties() const          { return mVmaHandle.memory_properties(); }
 		const auto has_device_address() const { return mDeviceAddress.has_value(); }
 		const auto device_address() const { return mDeviceAddress.value(); }
 
@@ -95,7 +96,7 @@ namespace avk
 		{
 			if (!mDescriptorInfo.has_value()) {
 				mDescriptorInfo = vk::DescriptorBufferInfo()
-					.setBuffer(buffer_handle())
+					.setBuffer(handle())
 					.setOffset(0)
 					.setRange(config().size); // TODO: Support different offsets and ranges
 			}
@@ -201,8 +202,9 @@ namespace avk
 #endif
 		vk::BufferCreateInfo mCreateInfo;
 		vk::PhysicalDevice mPhysicalDevice;
+		vk::Device mDevice;
 		vk::BufferUsageFlags mBufferUsageFlags;
-		vma_handle<VkBuffer> mHandleAndAllocation;
+		vma_handle<vk::Buffer> mVmaHandle;
 		std::optional<vk::DeviceAddress> mDeviceAddress;
 
 		mutable std::optional<vk::DescriptorBufferInfo> mDescriptorInfo;

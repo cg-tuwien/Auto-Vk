@@ -18,18 +18,27 @@ namespace avk
 		~image_t() = default;
 
 		/** Get the config which is used to created this image with the API. */
-		const auto& config() const { return mInfo; }
+		const auto& config() const { return mCreateInfo; }
 		/** Get the config which is used to created this image with the API. */
-		auto& config() { return mInfo; }
+		auto& config() { return mCreateInfo; }
 		/** Gets the image handle. */
 		const vk::Image& handle() const
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
-			return std::holds_alternative<vk::Image>(mImage) ? std::get<vk::Image>(mImage) : std::get<vk::UniqueImage>(mImage).get();
+			return std::holds_alternative<vma_handle<vk::Image>>(mImage)
+					? std::get<vma_handle<vk::Image>>(mImage).resource()
+					: std::get<vk::Image>(mImage);
+		}
+		/** Gets the memory properties, IF this instance represents an allocated image, not a wrapped one. */
+		auto memory_properties() const
+		{
+			assert(!std::holds_alternative<std::monostate>(mImage));
+			if (!std::holds_alternative<vma_handle<vk::Image>>(mImage)) {
+				throw avk::runtime_error("Can not determine memory property flags of a non-allocated (but wrapped) image.");
+			}
+			return std::get<vma_handle<vk::Image>>(mImage).memory_properties();
 		}
 
-		/** Gets the handle to the image's memory. */
-		auto memory_handle() const { return mMemory.get(); }
 		/** Gets the width of the image */
 		uint32_t width() const { return config().extent.width; }
 		/** Gets the height of the image */
@@ -79,20 +88,16 @@ namespace avk
 		std::optional<command_buffer> generate_mip_maps(sync aSyncHandler = sync::wait_idle());
 		
 	private:
-		// Memory property flags for this image
-		vk::MemoryPropertyFlags mMemoryPropertyFlags;
-		// The memory handle. This member will contain a valid handle only after successful image creation.
-		vk::UniqueDeviceMemory mMemory;
 		// The image create info which contains all the parameters for image creation
-		vk::ImageCreateInfo mInfo;
+		vk::ImageCreateInfo mCreateInfo;
 		// The image handle. This member will contain a valid handle only after successful image creation.
-		std::variant<std::monostate, vk::UniqueImage, vk::Image> mImage;
+		std::variant<std::monostate, vma_handle<vk::Image>, vk::Image> mImage;
 		// The image's target layout
 		vk::ImageLayout mTargetLayout;
 		// The current image layout
 		vk::ImageLayout mCurrentLayout;
 		// The image_usage flags specified during creation
-		avk::image_usage mImageUsage;
+		image_usage mImageUsage;
 		// Image aspect flags (set during creation)
 		vk::ImageAspectFlags mAspectFlags;
 	};
@@ -101,13 +106,12 @@ namespace avk
 	using image	= owning_resource<image_t>;
 
 	/** Compares two `image_t`s for equality.
-	 *	They are considered equal if all their handles (image, memory) are the same.
+	 *	They are considered equal if all their handle is the same.
 	 *	The config structs' data is not evaluated for equality comparison.
 	 */
 	static bool operator==(const image_t& left, const image_t& right)
 	{
-		return left.handle() == right.handle()
-			&& left.memory_handle() == right.memory_handle();
+		return left.handle() == right.handle();
 	}
 
 	/** Returns `true` if the two `image_t`s are not equal. */

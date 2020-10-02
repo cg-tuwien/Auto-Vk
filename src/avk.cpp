@@ -2,9 +2,6 @@
 #include <avk/avk_log.hpp>
 #include <avk/avk.hpp>
 
-#define VMA_IMPLEMENTATION
-#include "vk_mem_alloc.h"
-
 namespace avk
 {
 #pragma region root definitions
@@ -1525,7 +1522,7 @@ namespace avk
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice,
+				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
@@ -1634,7 +1631,7 @@ namespace avk
 	{
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
-			mPhysicalDevice, mDevice,
+			mPhysicalDevice, mDevice, mAllocator,
 			memory_usage::device, {},			
 			aabb_buffer_meta::create_from_data(aGeometries)
 		);
@@ -1783,7 +1780,7 @@ namespace avk
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice,
+				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
@@ -1797,7 +1794,7 @@ namespace avk
 		auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
 		
 		auto geomInstBuffer = root::create_buffer(
-			mPhysicalDevice, mDevice,
+			mPhysicalDevice, mDevice, mAllocator,
 			memory_usage::host_coherent, {},
 			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
@@ -2263,18 +2260,18 @@ namespace avk
 				 
 		VkBuffer buffer;
 		VmaAllocation allocation;
-		
+
 		vmaCreateBuffer(aAllocator, &static_cast<VkBufferCreateInfo&>(bufferCreateInfo), &allocInfo, &buffer, &allocation, nullptr);
 
 		result.mCreateInfo = bufferCreateInfo;
 		result.mBufferUsageFlags = aBufferUsage;
-		result.mHandleAndAllocation = vma_handle<VkBuffer>{ buffer };
+		result.mVmaHandle = avk::vma_handle<vk::Buffer>{ aAllocator, allocInfo, allocation, buffer };
 		result.mPhysicalDevice = aPhysicalDevice;
+		result.mDevice = aDevice;
 
-		// TODO: add VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT to VmaAllocatorCreateInfo::flags. => https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/enabling_buffer_device_address.html
 #if VK_HEADER_VERSION >= 135 
-		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
+		if (avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+			result.mDeviceAddress = get_buffer_address(aDevice, result.handle());
 		}
 #endif
 		
@@ -2286,25 +2283,12 @@ namespace avk
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		auto memProps = memory_properties();
-		auto device = mBuffer.getOwner();
 
 		// #1: Is our memory on the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-			void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
+			void* mapped = mVmaHandle.map_memory();
 			memcpy(mapped, pData, bufferSize);
-			// Coherent memory is done; non-coherent memory not yet
-			if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
-				// Setup the range 
-				auto range = vk::MappedMemoryRange()
-					.setMemory(memory_handle())
-					.setOffset(0)
-					.setSize(bufferSize);
-				// Flush the range
-				device.flushMappedMemoryRanges(1, &range);
-			}
-			device.unmapMemory(memory_handle());
-			// TODO: Handle has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCached) case
-
+			mVmaHandle.unmap_memory();
 			// No need to sync, so.. don't sync!
 			return {}; // TODO: This should be okay, is it?
 		}
@@ -2317,7 +2301,7 @@ namespace avk
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via sync
 			auto stagingBuffer = root::create_buffer(
-				mPhysicalDevice, device,
+				mPhysicalDevice, mDevice, mVmaHandle.allocator(),
 				avk::memory_usage::host_coherent,
 				vk::BufferUsageFlagBits::eTransferSrc,
 				generic_buffer_meta::create_from_size(bufferSize)
@@ -2333,7 +2317,7 @@ namespace avk
 				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
 				.setDstOffset(0u)
 				.setSize(bufferSize);
-			commandBuffer.handle().copyBuffer(stagingBuffer->buffer_handle(), buffer_handle(), { copyRegion });
+			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
 
 			// Sync after:
 			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
@@ -2353,24 +2337,13 @@ namespace avk
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		auto memProps = memory_properties();
-		auto device = mBuffer.getOwner();
 		
 		// #1: Is our memory accessible on the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
 			
-			const void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
-			if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
-				// Setup the range 
-				auto range = vk::MappedMemoryRange()
-					.setMemory(memory_handle())
-					.setOffset(0)
-					.setSize(bufferSize);
-				// Flush the range
-				device.invalidateMappedMemoryRanges(1, &range); // TODO: Test this! (should be okay, but double-check against spec.: https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/vkInvalidateMappedMemoryRanges.html)
-			}
+			const void* mapped = mVmaHandle.map_memory();
 			memcpy(aData, mapped, bufferSize);
-			device.unmapMemory(memory_handle());
-			// TODO: Handle has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCached) case
+			mVmaHandle.unmap_memory();
 			return {};
 		}
 
@@ -2382,7 +2355,7 @@ namespace avk
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via avk::sync!
 			auto stagingBuffer = root::create_buffer(
-				mPhysicalDevice, device,
+				mPhysicalDevice, mDevice, mVmaHandle.allocator(),
 				avk::memory_usage::host_coherent,
 				vk::BufferUsageFlagBits::eTransferDst,
 				generic_buffer_meta::create_from_size(bufferSize));
@@ -2398,7 +2371,7 @@ namespace avk
 				.setSrcOffset(0u)
 				.setDstOffset(0u)
 				.setSize(bufferSize);
-			commandBuffer.handle().copyBuffer(buffer_handle(), stagingBuffer->buffer_handle(), { copyRegion });
+			commandBuffer.handle().copyBuffer(handle(), stagingBuffer->handle(), { copyRegion });
 
 			// Sync after:
 			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
@@ -2422,7 +2395,7 @@ namespace avk
 	const vk::Buffer& buffer_view_t::buffer_handle() const
 	{
 		if (std::holds_alternative<buffer>(mBuffer)) {
-			return std::get<buffer>(mBuffer)->buffer_handle();
+			return std::get<buffer>(mBuffer)->handle();
 		}
 		return std::get<vk::Buffer>(std::get<std::tuple<vk::Buffer, vk::BufferCreateInfo>>(mBuffer));	
 	}
@@ -2660,7 +2633,7 @@ namespace avk
 					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
 					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
 					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-					aBuffer.buffer_handle(),
+					aBuffer.handle(),
 					0, aBuffer.meta_at_index<buffer_meta>().total_size()
 				}
 			},	
@@ -4497,8 +4470,7 @@ namespace avk
 	image_t::image_t(const image_t& aOther)
 	{
 		if (std::holds_alternative<vk::Image>(aOther.mImage)) {
-			assert(!aOther.mMemory);
-			mInfo = aOther.mInfo; 
+			mCreateInfo = aOther.mCreateInfo; 
 			mImage = std::get<vk::Image>(aOther.mImage);
 			mTargetLayout = aOther.mTargetLayout;
 			mCurrentLayout = aOther.mCurrentLayout;
@@ -4513,30 +4485,35 @@ namespace avk
 	image root::create_image_from_template(const image_t& aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		image_t result;
-		result.mMemoryPropertyFlags = aTemplate.mMemoryPropertyFlags;
-		result.mInfo = aTemplate.mInfo;
+		result.mCreateInfo = aTemplate.mCreateInfo;
 		result.mTargetLayout = aTemplate.mTargetLayout;
 		result.mCurrentLayout = vk::ImageLayout::eUndefined;
 		result.mImageUsage = aTemplate.mImageUsage;
 		result.mAspectFlags = aTemplate.mAspectFlags;
 
+		if (std::holds_alternative<vk::Image>(aTemplate.mImage)) {
+			// If the template is a wrapped image, there's not a lot we can do.
+			//result.mImage = std::get<vk::Image>(aTemplate.mImage);
+			return result;
+		}
+		
+		assert(!std::holds_alternative<std::monostate>(aTemplate.mImage));
+		
 		// Maybe alter the config?!
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
 
-		// Create the image...
-		result.mImage = device().createImageUnique(result.mInfo);
-		
-		// ... and the memory:
-		auto memRequirements = device().getImageMemoryRequirements(result.handle());
-		auto allocInfo = vk::MemoryAllocateInfo()
-			.setAllocationSize(memRequirements.size)
-			.setMemoryTypeIndex(find_memory_type_index(memRequirements.memoryTypeBits, result.mMemoryPropertyFlags));
-		result.mMemory = device().allocateMemoryUnique(allocInfo);
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aTemplate.memory_properties());
+		allocInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
+				 
+		VkImage image;
+		VmaAllocation allocation;
 
-		// bind them together:
-		device().bindImageMemory(result.handle(), result.memory_handle(), 0);
+		vmaCreateImage(memory_allocator(), &static_cast<VkImageCreateInfo&>(result.mCreateInfo), &allocInfo, &image, &allocation, nullptr);
+
+		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), allocInfo, allocation, image };
 		
 		return result;
 	}
@@ -4546,27 +4523,27 @@ namespace avk
 		// Determine image usage flags, image layout, and memory usage flags:
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 		
-		vk::MemoryPropertyFlags memoryFlags{};
+		vk::MemoryPropertyFlags memoryProperties{};
 		switch (aMemoryUsage) {
 		case avk::memory_usage::host_visible:
-			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible;
+			memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible;
 			break;
 		case avk::memory_usage::host_coherent:
-			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+			memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
 			break;
 		case avk::memory_usage::host_cached:
-			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
+			memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
 			break;
 		case avk::memory_usage::device:
-			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+			memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst; 
 			break;
 		case avk::memory_usage::device_readback:
-			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+			memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
 			break;
 		case avk::memory_usage::device_protected:
-			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eProtected;
+			memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eProtected;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst;
 			break;
 		}
@@ -4599,8 +4576,7 @@ namespace avk
 		}
 		
 		image_t result;
-		result.mMemoryPropertyFlags = memoryFlags;
-		result.mInfo = vk::ImageCreateInfo()
+		result.mCreateInfo = vk::ImageCreateInfo()
 			.setImageType(vk::ImageType::e2D) // TODO: Support 3D textures
 			.setExtent(vk::Extent3D(static_cast<uint32_t>(aWidth), static_cast<uint32_t>(aHeight), 1u))
 			.setMipLevels(mipLevels)
@@ -4622,18 +4598,16 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		// Create the image...
-		result.mImage = device().createImageUnique(result.mInfo);
-		
-		// ... and the memory:
-		auto memRequirements = device().getImageMemoryRequirements(result.handle());
-		auto allocInfo = vk::MemoryAllocateInfo()
-			.setAllocationSize(memRequirements.size)
-			.setMemoryTypeIndex(find_memory_type_index(memRequirements.memoryTypeBits, memoryFlags));
-		result.mMemory = device().allocateMemoryUnique(allocInfo);
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(memoryProperties);
+		allocInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
+				 
+		VkImage image;
+		VmaAllocation allocation;
 
-		// bind them together:
-		device().bindImageMemory(result.handle(), result.memory_handle(), 0);
+		vmaCreateImage(memory_allocator(), &static_cast<VkImageCreateInfo&>(result.mCreateInfo), &allocInfo, &image, &allocation, nullptr);
+
+		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), allocInfo, allocation, image };
 		
 		return result;
 	}
@@ -4695,7 +4669,7 @@ namespace avk
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 		
 		image_t result;
-		result.mInfo = aImageCreateInfo;
+		result.mCreateInfo = aImageCreateInfo;
 		result.mImage = aImageToWrap;		
 		result.mTargetLayout = targetLayout;
 		result.mCurrentLayout = vk::ImageLayout::eUndefined;
@@ -4708,8 +4682,8 @@ namespace avk
 	{
 		return vk::ImageSubresourceRange{
 			mAspectFlags,
-			0u, mInfo.mipLevels,	// MIP info
-			0u, mInfo.arrayLayers	// Layers info
+			0u, mCreateInfo.mipLevels,	// MIP info
+			0u, mCreateInfo.arrayLayers	// Layers info
 		};
 	}
 
@@ -5984,7 +5958,7 @@ namespace avk
 		std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
 		device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
 		
-		void* mapped = device().mapMemory(aPipeline.mShaderBindingTable->memory_handle(), 0, shaderBindingTableSize);
+		void* mapped = aPipeline.mShaderBindingTable->mVmaHandle.map_memory();
 		// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
 		vk::DeviceSize off = 0;
 		size_t iRaygen = 0;
@@ -6031,7 +6005,7 @@ namespace avk
 		//for(uint32_t g = 0; g < groupCount; g++)
 		//{
 		//}
-		device().unmapMemory(aPipeline.mShaderBindingTable->memory_handle());
+		aPipeline.mShaderBindingTable->mVmaHandle.unmap_memory();
 	}
 	
 	ray_tracing_pipeline root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
@@ -7345,7 +7319,7 @@ using namespace cpplinq;
 			.setImageOffset({ 0u, 0u, 0u })
 			.setImageExtent(extent);
 		commandBuffer.handle().copyBufferToImage(
-			aSrcBuffer.buffer_handle(),
+			aSrcBuffer.handle(),
 			aDstImage.handle(),
 			vk::ImageLayout::eTransferDstOptimal,
 			{ copyRegion });
@@ -7369,7 +7343,7 @@ using namespace cpplinq;
 		std::vector<vk::BufferMemoryBarrier> bmbs;
 		for (auto& data : mBufferMemoryBarriers) {
 			bmbs.emplace_back()
-				.setBuffer(data.mBufferRef->buffer_handle())
+				.setBuffer(data.mBufferRef->handle())
 				.setSrcQueueFamilyIndex(data.mSrcQueue.value()->family_index())
 				.setDstQueueFamilyIndex(data.mDstQueue.value()->family_index())
 				.setOffset(0)
@@ -7458,7 +7432,7 @@ using namespace cpplinq;
 		const auto& member = meta.member_description(content_description::query_result);
 		
 		auto& cmdBfr = aSync.get_or_create_command_buffer();
-		cmdBfr.handle().copyQueryPoolResults(handle(), aFirstQueryIndex, aNumQueries, aBuffer.buffer_handle(), member.mOffset, meta.sizeof_one_element(), aFlags);
+		cmdBfr.handle().copyQueryPoolResults(handle(), aFirstQueryIndex, aNumQueries, aBuffer.handle(), member.mOffset, meta.sizeof_one_element(), aFlags);
 		return aSync.submit_and_sync();
 	}
 
