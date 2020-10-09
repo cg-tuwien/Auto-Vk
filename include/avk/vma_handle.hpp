@@ -23,6 +23,12 @@ namespace avk
 			vmaGetAllocationInfo(mAllocator, mAllocation, &mAllocationInfo);
 		}
 
+		/**	Create VmaAllocator, VmaAllocationCreateInfo, and VmaAllocation internally.
+		 *	This is only implemented for certain types via template specialization: vk::Buffer, vk::Image
+		 */
+		template <typename C>
+		vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo);
+		
 		/** Move-construct a vma_handle */
 		vma_handle(vma_handle&& aOther) noexcept : mAllocator{nullptr}, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}, mResource{nullptr}
 		{
@@ -48,7 +54,10 @@ namespace avk
 
 		vma_handle& operator=(const vma_handle& aOther) = delete;
 
-		/** Destroy the resource and free the allocation */
+		/** Destroy the resource and free the allocation
+		 *	This is only implemented for certain types via template specialization: vk::Buffer, vk::Image
+		 *	That also means that this type is only usable with certain resource types.
+		 */
 		~vma_handle();
 
 		/** Get the allocator that was used to allocate this resource */
@@ -104,12 +113,54 @@ namespace avk
 		T mResource;
 	};
 
+	// Fail if not used with either vk::Buffer or vk::Image
+	template <typename T>
+	template <typename C>
+	vma_handle<T>::vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo)
+	{
+		throw avk::runtime_error(std::string("VMA allocation not implemented for type ") + typeid(T).name());
+	}
+
+	// Constructor's template specialization for vk::Buffer
+	template <>
+	template <typename C>
+	vma_handle<vk::Buffer>::vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo)
+		: mAllocator{ aAllocator }
+		, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}
+	{
+		mCreateInfo.requiredFlags = aMemPropFlags;
+		mCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
+
+		VkBuffer buffer;
+		auto result = vmaCreateBuffer(aAllocator, &static_cast<const VkBufferCreateInfo&>(aCreateInfo), &mCreateInfo, &buffer, &mAllocation, &mAllocationInfo);
+		assert(result >= 0);
+		mResource = buffer;
+	}
+	
+	// Constructor's template specialization for vk::Image
+	template <>
+	template <typename C>
+	vma_handle<vk::Image>::vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo)
+		: mAllocator{ aAllocator }
+		, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}
+	{
+		mCreateInfo.requiredFlags = aMemPropFlags;
+		mCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
+
+		VkImage image;
+		auto result = vmaCreateImage(aAllocator, &static_cast<const VkImageCreateInfo&>(aCreateInfo), &mCreateInfo, &image, &mAllocation, &mAllocationInfo);
+		assert(result >= 0);
+		mResource = image;
+	}
+	
+	// Fail if not used with either vk::Buffer or vk::Image
 	template <typename T>
 	vma_handle<T>::~vma_handle()
 	{
 		throw avk::runtime_error(std::string("VMA allocation not implemented for type ") + typeid(T).name());
 	}
 
+	// Destructor's template specialization for vk::Buffer
 	template <>
 	inline vma_handle<vk::Buffer>::~vma_handle()
 	{
@@ -123,6 +174,7 @@ namespace avk
 		}
 	}
 
+	// Destructor's template specialzation for vk::Image:
 	template <>
 	inline vma_handle<vk::Image>::~vma_handle()
 	{

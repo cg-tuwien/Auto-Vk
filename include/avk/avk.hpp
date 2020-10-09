@@ -129,10 +129,10 @@ namespace avk { class sync; }
 namespace avk
 {
 	// T must provide:
-	//    .physical_device()			returning a vk::PhysicalDevice&
-	//    .device()						returning a vk::Device&
-	//    .dynamic_dispatch()			returning a vk::DispatchLoaderDynamic&
-	//    .memory_allocator()           returning a VmaAllocator&
+	//    .physical_device()			returning a vk::PhysicalDevice
+	//    .device()						returning a vk::Device
+	//    .dynamic_dispatch()			returning a vk::DispatchLoaderDynamic
+	//    .memory_allocator()           returning a VmaAllocator
 	class root
 	{
 	public:

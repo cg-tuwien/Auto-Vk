@@ -2254,18 +2254,9 @@ namespace avk
 			// TODO: Untested ^ test vk::SharingMode::eConcurrent
 		}
 
-		VmaAllocationCreateInfo allocInfo = {};
-		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aMemoryProperties);
-		allocInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
-				 
-		VkBuffer buffer;
-		VmaAllocation allocation;
-
-		vmaCreateBuffer(aAllocator, &static_cast<VkBufferCreateInfo&>(bufferCreateInfo), &allocInfo, &buffer, &allocation, nullptr);
-
-		result.mCreateInfo = bufferCreateInfo;
+		result.mCreateInfo = std::move(bufferCreateInfo);
 		result.mBufferUsageFlags = aBufferUsage;
-		result.mVmaHandle = avk::vma_handle<vk::Buffer>{ aAllocator, allocInfo, allocation, buffer };
+		result.mVmaHandle = avk::vma_handle<vk::Buffer>{ aAllocator, static_cast<VkMemoryPropertyFlags>(aMemoryProperties), result.mCreateInfo };
 		result.mPhysicalDevice = aPhysicalDevice;
 		result.mDevice = aDevice;
 
@@ -4504,16 +4495,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		VmaAllocationCreateInfo allocInfo = {};
-		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aTemplate.memory_properties());
-		allocInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
-				 
-		VkImage image;
-		VmaAllocation allocation;
-
-		vmaCreateImage(memory_allocator(), &static_cast<VkImageCreateInfo&>(result.mCreateInfo), &allocInfo, &image, &allocation, nullptr);
-
-		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), allocInfo, allocation, image };
+		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), static_cast<VkMemoryPropertyFlags>(aTemplate.memory_properties()), result.mCreateInfo };
 		
 		return result;
 	}
@@ -4523,27 +4505,27 @@ namespace avk
 		// Determine image usage flags, image layout, and memory usage flags:
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 		
-		vk::MemoryPropertyFlags memoryProperties{};
+		vk::MemoryPropertyFlags memoryPropFlags{};
 		switch (aMemoryUsage) {
 		case avk::memory_usage::host_visible:
-			memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eHostVisible;
 			break;
 		case avk::memory_usage::host_coherent:
-			memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
 			break;
 		case avk::memory_usage::host_cached:
-			memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
 			break;
 		case avk::memory_usage::device:
-			memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst; 
 			break;
 		case avk::memory_usage::device_readback:
-			memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
 			break;
 		case avk::memory_usage::device_protected:
-			memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eProtected;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eProtected;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst;
 			break;
 		}
@@ -4598,16 +4580,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		VmaAllocationCreateInfo allocInfo = {};
-		allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(memoryProperties);
-		allocInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
-				 
-		VkImage image;
-		VmaAllocation allocation;
-
-		vmaCreateImage(memory_allocator(), &static_cast<VkImageCreateInfo&>(result.mCreateInfo), &allocInfo, &image, &allocation, nullptr);
-
-		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), allocInfo, allocation, image };
+		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), static_cast<VkMemoryPropertyFlags>(memoryPropFlags), result.mCreateInfo };
 		
 		return result;
 	}
