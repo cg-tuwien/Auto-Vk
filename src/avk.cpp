@@ -107,19 +107,19 @@ namespace avk
 		AVK_LOG_INFO("========== MEMORY PROPERTIES OF DEVICE '" + deviceName + "'");
 		AVK_LOG_INFO("-------------------------------------------------------------");
 		AVK_LOG_INFO(" HEAP TYPES:");
-		AVK_LOG_INFO(" heap-idx | bytes");
+		AVK_LOG_INFO(" heap-idx |               bytes | heap flags");
 		AVK_LOG_INFO("-------------------------------------------------------------");
 		for (auto i = 0u; i < memProperties.memoryHeapCount; ++i) {
-			std::string heapIndex =  "       " + std::to_string(i);
+			std::string heapIndex =  "        " + std::to_string(i);
 			heapIndex = heapIndex.substr(heapIndex.length() - 9);
 			std::string heapSize =  std::to_string(memProperties.memoryHeaps[i].size);
 			int n = static_cast<int>(heapSize.size());
-			for (int x = n - 3; x >= 0; x -= 3) {
+			for (int x = n - 3; x > 0; x -= 3) {
 				heapSize.insert(std::begin(heapSize) + x, ',');
 			}
 			heapSize = "                   " + heapSize;
 			if (memProperties.memoryHeaps[i].size <= 999999999999999) {
-				heapSize =  heapSize.substr(heapIndex.length() - 19);
+				heapSize =  heapSize.substr(heapSize.length() - 19);
 			}
 			std::string heapFlags = vk::to_string(memProperties.memoryHeaps[i].flags);
 			AVK_LOG_INFO(heapIndex + " | " + heapSize + " | " + heapFlags);
