@@ -27,7 +27,7 @@ namespace avk
 		 *	This is only implemented for certain types via template specialization: vk::Buffer, vk::Image
 		 */
 		template <typename C>
-		vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo);
+		vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo);
 		
 		/** Move-construct a vma_handle */
 		vma_handle(vma_handle&& aOther) noexcept : mAllocator{nullptr}, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}, mResource{nullptr}
@@ -92,17 +92,48 @@ namespace avk
 			return vk::MemoryPropertyFlags{ result };
 		}
 
-		void* map_memory() const
+		/**	Map the memory in order to write data into, or read data from it.
+		 *	If data shall be read from it and the memory is not host coherent, an invalidate-instruction will be issued.
+		 *
+		 *	Hint: Consider using avk::scoped_mapping instead of calling this method directly.
+		 *
+		 *	@param	aAccess		Specify your intent: Are you going to read from the memory, or write into it, or both?
+		 *	@return	Pointer to the mapped memory.
+		 */
+		void* map_memory(mapping_access aAccess) const
 		{
-			assert(has_flag(memory_properties(), vk::MemoryPropertyFlagBits::eHostVisible));
-			// Allocation ended up in mappable memory. You can map it and access it directly.
-		    void* mappedData;
-		    vmaMapMemory(mAllocator, mAllocation, &mappedData);
+			const auto memProps = memory_properties();
+			assert(has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)); // => Allocation ended up in mappable memory. You can map it and access it directly.
+
+			void* mappedData;
+		    auto result = vmaMapMemory(mAllocator, mAllocation, &mappedData);
+			assert(result >= 0);
+			
+			if (has_flag(aAccess, mapping_access::read) && !has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
+				result = vmaInvalidateAllocation(mAllocator, mAllocation, 0, VK_WHOLE_SIZE);
+				assert(result >= 0);
+			}
+			
 			return mappedData;
 		}
 
-		void unmap_memory() const
+		/**	Unmap memory that has been mapped before via mem_handle::map_memory.
+		 *	If data shall be written to it and the memory is not host coherent, a flush-instruction will be issued.
+		 *
+		 *	Hint: Consider using avk::scoped_mapping instead of calling this method directly.
+		 *
+		 *	@param	aAccess		Specify your intent: Are you going to read from the memory, or write into it, or both?
+		 */
+		void unmap_memory(mapping_access aAccess) const
 		{
+			const auto memProps = memory_properties();
+			assert(has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)); // => Allocation ended up in mappable memory. You can map it and access it directly.
+
+			if (has_flag(aAccess, mapping_access::write) && !has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
+				VkResult result = vmaFlushAllocation(mAllocator, mAllocation, 0, VK_WHOLE_SIZE);
+				assert(result >= 0);
+			}
+			
 		    vmaUnmapMemory(mAllocator, mAllocation);
 		}
 
@@ -116,7 +147,7 @@ namespace avk
 	// Fail if not used with either vk::Buffer or vk::Image
 	template <typename T>
 	template <typename C>
-	vma_handle<T>::vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo)
+	vma_handle<T>::vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo)
 	{
 		throw avk::runtime_error(std::string("VMA allocation not implemented for type ") + typeid(T).name());
 	}
@@ -124,15 +155,15 @@ namespace avk
 	// Constructor's template specialization for vk::Buffer
 	template <>
 	template <typename C>
-	vma_handle<vk::Buffer>::vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo)
+	vma_handle<vk::Buffer>::vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo)
 		: mAllocator{ aAllocator }
 		, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}
 	{
-		mCreateInfo.requiredFlags = aMemPropFlags;
+		mCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aMemPropFlags);
 		mCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
 
 		VkBuffer buffer;
-		auto result = vmaCreateBuffer(aAllocator, &static_cast<const VkBufferCreateInfo&>(aCreateInfo), &mCreateInfo, &buffer, &mAllocation, &mAllocationInfo);
+		auto result = vmaCreateBuffer(aAllocator, &static_cast<const VkBufferCreateInfo&>(aResourceCreateInfo), &mCreateInfo, &buffer, &mAllocation, &mAllocationInfo);
 		assert(result >= 0);
 		mResource = buffer;
 	}
@@ -140,15 +171,15 @@ namespace avk
 	// Constructor's template specialization for vk::Image
 	template <>
 	template <typename C>
-	vma_handle<vk::Image>::vma_handle(VmaAllocator aAllocator, VkMemoryPropertyFlags aMemPropFlags, const C& aCreateInfo)
+	vma_handle<vk::Image>::vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo)
 		: mAllocator{ aAllocator }
 		, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}
 	{
-		mCreateInfo.requiredFlags = aMemPropFlags;
+		mCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aMemPropFlags);
 		mCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
 
 		VkImage image;
-		auto result = vmaCreateImage(aAllocator, &static_cast<const VkImageCreateInfo&>(aCreateInfo), &mCreateInfo, &image, &mAllocation, &mAllocationInfo);
+		auto result = vmaCreateImage(aAllocator, &static_cast<const VkImageCreateInfo&>(aResourceCreateInfo), &mCreateInfo, &image, &mAllocation, &mAllocationInfo);
 		assert(result >= 0);
 		mResource = image;
 	}

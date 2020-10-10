@@ -37,8 +37,76 @@
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
 
+#include <avk/mapping_access.hpp>
+
+/** CONFIG SETTING: AVK_USE_VMA
+ *
+ *	Define the macro AVK_USE_VMA to enable memory allocation via Vulkan Memory Allocator.
+ *	Note 1: You'll have to #define AVK_USE_VMA before the #include <avk/avk.hpp> statement!
+ *	Note 2: Vulkan Memory Allocator is not enabled by default. By default, you'll get
+ *	        a very "stupid" memory allocation behavior with one allocation per resource.
+ *	Note 3: If you are opting-in for using Vulkan Memory Allocator, make sure to add the
+ *	        implementation file vk_mem_alloc.cpp to your project!
+ */
 #include <vk_mem_alloc.h>
+#if defined(AVK_USE_VMA)
+#if !defined(AVK_MEM_ALLOCATOR_TYPE)
+#define AVK_MEM_ALLOCATOR_TYPE       VmaAllocator
+#endif 
+#if !defined(AVK_MEM_IMAGE_HANDLE)
+#define AVK_MEM_IMAGE_HANDLE         avk::vma_handle<vk::Image>
+#endif 
+#if !defined(AVK_MEM_BUFFER_HANDLE)
+#define AVK_MEM_BUFFER_HANDLE        avk::vma_handle<vk::Buffer>
+#endif 
 #include <avk/vma_handle.hpp>
+#else
+#include <avk/mem_handle.hpp>
+#endif
+
+#include <avk/scoped_mapping.hpp>
+
+/** CONFIG SETTINGS: AVK_MEM_ALLOCATOR_TYPE, AVK_MEM_IMAGE_HANDLE, AVK_MEM_BUFFER_HANDLE
+ *
+ *	These can be used to plug-in custom memory allocation behavior into Auto-Vk.
+ *	This is definitely an advanced usage scenario, where you'll have to provide a type
+ *	similar to avk::mem_handle or avk::vma_handle which manages memory allocations.
+ *
+ *	If you want to plug-in custom memory allocation behavior, define ALL THREE of these
+ *	macros before the #include <avk/avk.hpp>
+ *
+ *	The default for these macros is "stupid" memory allocation behavior by the means of
+ *	mem_handle which creates one memory allocation per resource. If the AVK_USE_VMA macro
+ *	is defined, all three of these macros are set to Vulkan Memory Allocation counterparts
+ *	and the Vulkan Memory Allocation library will be used to handle all memory allocations.
+ */
+#if !defined(AVK_MEM_ALLOCATOR_TYPE)
+#define AVK_MEM_ALLOCATOR_TYPE       std::tuple<vk::PhysicalDevice, vk::Device>
+#endif 
+#if !defined(AVK_MEM_IMAGE_HANDLE)
+#define AVK_MEM_IMAGE_HANDLE         avk::mem_handle<vk::Image>
+#endif 
+#if !defined(AVK_MEM_BUFFER_HANDLE)
+#define AVK_MEM_BUFFER_HANDLE        avk::mem_handle<vk::Buffer>
+#endif 
+
+/** CONFIG SETTING: AVK_STAGING_BUFFER_MEMORY_USAGE
+ *
+ *	The following setting CAN be set BEFORE including avk.hpp in order to change
+ *	the behavior whenever staging buffers are created internally. There can be the
+ *	need for creating internal staging buffers in multiple situations: e.g. when
+ *	a device-only buffer shall be filled with data, when data shall be read back
+ *	from device-only memory, when a scratch buffer is needed to build acceleration
+ *	structures and none was provided, etc.
+ *
+ *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+ *	if nothing else is specified. Feel free to specify a different value by defining
+ *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
+ *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
+ */
+#if !defined(AVK_STAGING_BUFFER_MEMORY_USAGE)
+#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_visible
+#endif
 
 namespace avk { class sync; }
 
@@ -140,21 +208,22 @@ namespace avk
 		virtual vk::PhysicalDevice& physical_device()				= 0;
 		virtual vk::Device& device()								= 0;
 		virtual vk::DispatchLoaderDynamic& dynamic_dispatch()		= 0;
-		virtual VmaAllocator& memory_allocator()					= 0;
+		virtual AVK_MEM_ALLOCATOR_TYPE& memory_allocator()					= 0;
 
 #pragma region root helper functions
-		/** Find (index of) memory with parameters
-		 *	@param aMemoryTypeBits		Bit field of the memory types that are suitable for the buffer. [9]
-		 *	@param aMemoryProperties	Special features of the memory, like being able to map it so we can write to it from the CPU. [9]
-		 */
+		/** Prints all the different memory types that are available on the device along with its memory property flags. */
+		void print_available_memory_types();
 
-		static uint32_t find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
-		
 		/** Find (index of) memory with parameters
 		 *	@param aMemoryTypeBits		Bit field of the memory types that are suitable for the buffer. [9]
 		 *	@param aMemoryProperties	Special features of the memory, like being able to map it so we can write to it from the CPU. [9]
+		 *	@return	A tuple with the following elements:
+		 *			[0]: The selected memory index which satisfies the requirements indicated by both, aMemoryTypeBits and aMemoryProperties.
+		 *				 (If no suitable memory can be found, this function will throw.)
+		 *			[1]: The actual memory property flags which are supported by the selected memory. The include at least aMemoryProperties,
+		 *				 but can also have additional memory property flags set.
 		 */
-		uint32_t find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
+		std::tuple<uint32_t, vk::MemoryPropertyFlags> find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
 
 		bool is_format_supported(vk::Format pFormat, vk::ImageTiling pTiling, vk::FormatFeatureFlags aFormatFeatures);
 
@@ -187,12 +256,16 @@ namespace avk
 				result.mMemoryRequirementsForScratchBufferUpdate = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dynamic_dispatch());
 			}
 
+			// Find suitable memory for this acceleration structure
+			auto tpl = find_memory_type_index(
+				result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.memoryTypeBits, 
+				vk::MemoryPropertyFlagBits::eDeviceLocal // TODO: Does it make sense to support other memory locations as eDeviceLocal?
+			);                                           // TODO: This must probably be changed for Host builds?!
+
 			// 6. Assemble memory info
 			result.mMemoryAllocateInfo = vk::MemoryAllocateInfo{}
 				.setAllocationSize(result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.size)
-				.setMemoryTypeIndex(find_memory_type_index(
-					result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.memoryTypeBits,
-					vk::MemoryPropertyFlagBits::eDeviceLocal)); // TODO: Does it make sense to support other memory locations as eDeviceLocal?
+				.setMemoryTypeIndex(std::get<uint32_t>(tpl));  // Get the selected memory type index from the tuple
 
 			// 7. Maybe alter the config?
 			if (aAlterConfigBeforeMemoryAlloc) {
@@ -243,7 +316,7 @@ namespace avk
 		static buffer create_buffer(
 			const vk::PhysicalDevice& aPhysicalDevice, 
 			const vk::Device& aDevice,
-			const VmaAllocator& aAllocator,
+			const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
 #if VK_HEADER_VERSION >= 135
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
@@ -268,7 +341,7 @@ namespace avk
 
 		template <typename Meta, typename... Metas>
 		static buffer create_buffer(
-			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const VmaAllocator& aAllocator,
+			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
 			avk::memory_usage aMemoryUsage,
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)

@@ -81,10 +81,10 @@ namespace avk
 		}
 		
 		auto& config() const	{ return mCreateInfo; }
-		const auto& handle() const		{ return mVmaHandle.resource(); }
+		const auto& handle() const		{ return mBuffer.resource(); }
 		const auto* handle_ptr() const	{ return &handle(); }
 		const auto& usage_flags() const	{ return mBufferUsageFlags; }
-		auto memory_properties() const          { return mVmaHandle.memory_properties(); }
+		auto memory_properties() const          { return mBuffer.memory_properties(); }
 		const auto has_device_address() const { return mDeviceAddress.has_value(); }
 		const auto device_address() const { return mDeviceAddress.value(); }
 
@@ -173,11 +173,11 @@ namespace avk
 
 		/** Fill buffer with data.
 		 */
-		std::optional<command_buffer> fill(const void* pData, size_t aMetaDataIndex, sync aSyncHandler);
+		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler);
 
 		/** Read data from buffer back to the CPU-side.
 		 */
-		std::optional<command_buffer> read(void* aData, size_t aMetaDataIndex, sync aSyncHandler) const;
+		std::optional<command_buffer> read(void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler) const;
 
 		/**
 		 * Read back data from a buffer.
@@ -204,7 +204,7 @@ namespace avk
 		vk::PhysicalDevice mPhysicalDevice;
 		vk::Device mDevice;
 		vk::BufferUsageFlags mBufferUsageFlags;
-		vma_handle<vk::Buffer> mVmaHandle;
+		AVK_MEM_BUFFER_HANDLE mBuffer;
 		std::optional<vk::DeviceAddress> mDeviceAddress;
 
 		mutable std::optional<vk::DescriptorBufferInfo> mDescriptorInfo;

@@ -5,26 +5,14 @@
 namespace avk
 {
 #pragma region root definitions
-	uint32_t root::find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+	void root::print_available_memory_types()
 	{
-		// The VkPhysicalDeviceMemoryProperties structure has two arrays memoryTypes and memoryHeaps. 
-		// Memory heaps are distinct memory resources like dedicated VRAM and swap space in RAM for 
-		// when VRAM runs out. The different types of memory exist within these heaps. Right now we'll 
-		// only concern ourselves with the type of memory and not the heap it comes from, but you can 
-		// imagine that this can affect performance. (Source: https://vulkan-tutorial.com/)
-		auto memProperties = aPhysicalDevice.getMemoryProperties();
-
-		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
-			if ((aMemoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & aMemoryProperties) == aMemoryProperties) {
-				return i;
-			}
-		}
-		throw avk::runtime_error("failed to find suitable memory type!");
+		print_available_memory_types_for_device(physical_device());
 	}
-	
-	uint32_t root::find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+
+	std::tuple<uint32_t, vk::MemoryPropertyFlags> root::find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
 	{
-		return find_memory_type_index(physical_device(), aMemoryTypeBits, aMemoryProperties);
+		return find_memory_type_index_for_device(physical_device(), aMemoryTypeBits, aMemoryProperties);
 	}
 
 	bool root::is_format_supported(vk::Format pFormat, vk::ImageTiling pTiling, vk::FormatFeatureFlags aFormatFeatures)
@@ -111,6 +99,64 @@ namespace avk
 #pragma endregion
 
 #pragma region vk_utils
+	void print_available_memory_types_for_device(const vk::PhysicalDevice& aPhysicalDevice)
+	{
+		auto memProperties = aPhysicalDevice.getMemoryProperties();
+
+		const auto deviceName = std::string(static_cast<const char*>(aPhysicalDevice.getProperties().deviceName));
+		AVK_LOG_INFO("========== MEMORY PROPERTIES OF DEVICE '" + deviceName + "'");
+		AVK_LOG_INFO("-------------------------------------------------------------");
+		AVK_LOG_INFO(" HEAP TYPES:");
+		AVK_LOG_INFO(" heap-idx | bytes");
+		AVK_LOG_INFO("-------------------------------------------------------------");
+		for (auto i = 0u; i < memProperties.memoryHeapCount; ++i) {
+			std::string heapIndex =  "       " + std::to_string(i);
+			heapIndex = heapIndex.substr(heapIndex.length() - 9);
+			std::string heapSize =  std::to_string(memProperties.memoryHeaps[i].size);
+			int n = static_cast<int>(heapSize.size());
+			for (int x = n - 3; x >= 0; x -= 3) {
+				heapSize.insert(std::begin(heapSize) + x, ',');
+			}
+			heapSize = "                   " + heapSize;
+			if (memProperties.memoryHeaps[i].size <= 999999999999999) {
+				heapSize =  heapSize.substr(heapIndex.length() - 19);
+			}
+			std::string heapFlags = vk::to_string(memProperties.memoryHeaps[i].flags);
+			AVK_LOG_INFO(heapIndex + " | " + heapSize + " | " + heapFlags);
+		}
+		AVK_LOG_INFO("=============================================================");
+		AVK_LOG_INFO(" MEMORY TYPES:");
+		AVK_LOG_INFO(" mem-idx | heap-idx | memory propety flags");
+		AVK_LOG_INFO("-------------------------------------------------------------");
+		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
+			std::string memIndex =  "       " + std::to_string(i);
+			memIndex = memIndex.substr(memIndex.length() - 8);
+			std::string heapIndex = "        " + std::to_string(memProperties.memoryTypes[i].heapIndex);
+			heapIndex = heapIndex.substr(heapIndex.length() - 9);
+			std::string propFlags = vk::to_string(memProperties.memoryTypes[i].propertyFlags);
+			AVK_LOG_INFO(memIndex + " | " + heapIndex + " | " + propFlags);
+		}
+		AVK_LOG_INFO("=============================================================");
+		
+	}
+	
+	std::tuple<uint32_t, vk::MemoryPropertyFlags> find_memory_type_index_for_device(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+	{
+		// The VkPhysicalDeviceMemoryProperties structure has two arrays memoryTypes and memoryHeaps. 
+		// Memory heaps are distinct memory resources like dedicated VRAM and swap space in RAM for 
+		// when VRAM runs out. The different types of memory exist within these heaps. Right now we'll 
+		// only concern ourselves with the type of memory and not the heap it comes from, but you can 
+		// imagine that this can affect performance. (Source: https://vulkan-tutorial.com/)
+		auto memProperties = aPhysicalDevice.getMemoryProperties();
+		
+		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
+			if ((aMemoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & aMemoryProperties) == aMemoryProperties) {
+				return std::make_tuple(i, memProperties.memoryTypes[i].propertyFlags);
+			}
+		}
+		throw avk::runtime_error("failed to find suitable memory type!");
+	}
+	
 	bool is_srgb_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
@@ -1406,7 +1452,7 @@ namespace avk
 		case vk::ImageType::e3D:
 			return vk::ImageViewType::e3D;
 		}
-		throw new avk::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
+		throw avk::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
 	}
 #pragma endregion
 
@@ -1795,7 +1841,7 @@ namespace avk
 		
 		auto geomInstBuffer = root::create_buffer(
 			mPhysicalDevice, mDevice, mAllocator,
-			memory_usage::host_coherent, {},
+			AVK_STAGING_BUFFER_MEMORY_USAGE, {},
 			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
 		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
@@ -2212,7 +2258,7 @@ namespace avk
 	buffer root::create_buffer(
 		const vk::PhysicalDevice& aPhysicalDevice, 
 		const vk::Device& aDevice,
-		const VmaAllocator& aAllocator,
+		const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
 #if VK_HEADER_VERSION >= 135
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
@@ -2244,7 +2290,7 @@ namespace avk
 			// Always grant exclusive ownership to the queue.
 			.setSharingMode(vk::SharingMode::eExclusive)
 			// The flags parameter is used to configure sparse buffer memory, which is not relevant right now. We'll leave it at the default value of 0. [2]
-			.setFlags(vk::BufferCreateFlags()); 
+			.setFlags(vk::BufferCreateFlags());
 
 		if (queueFamilyIndices.size() > 0) {
 			bufferCreateInfo
@@ -2254,9 +2300,9 @@ namespace avk
 			// TODO: Untested ^ test vk::SharingMode::eConcurrent
 		}
 
-		result.mCreateInfo = std::move(bufferCreateInfo);
+		result.mCreateInfo = bufferCreateInfo;
 		result.mBufferUsageFlags = aBufferUsage;
-		result.mVmaHandle = avk::vma_handle<vk::Buffer>{ aAllocator, static_cast<VkMemoryPropertyFlags>(aMemoryProperties), result.mCreateInfo };
+		result.mBuffer = AVK_MEM_BUFFER_HANDLE{ aAllocator, aMemoryProperties, result.mCreateInfo };
 		result.mPhysicalDevice = aPhysicalDevice;
 		result.mDevice = aDevice;
 
@@ -2269,19 +2315,17 @@ namespace avk
 		return result;
 	}
 	
-	std::optional<command_buffer> buffer_t::fill(const void* pData, size_t aMetaDataIndex, sync aSyncHandler)
+	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler)
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		auto memProps = memory_properties();
 
-		// #1: Is our memory on the CPU-SIDE? 
+		// #1: Is our memory accessible from the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-			void* mapped = mVmaHandle.map_memory();
-			memcpy(mapped, pData, bufferSize);
-			mVmaHandle.unmap_memory();
-			// No need to sync, so.. don't sync!
-			return {}; // TODO: This should be okay, is it?
+			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
+			memcpy(mapped.get(), aDataPtr, bufferSize);
+			return {};
 		}
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
@@ -2292,12 +2336,12 @@ namespace avk
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via sync
 			auto stagingBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice, mVmaHandle.allocator(),
-				avk::memory_usage::host_coherent,
+				mPhysicalDevice, mDevice, mBuffer.allocator(),
+				AVK_STAGING_BUFFER_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferSrc,
 				generic_buffer_meta::create_from_size(bufferSize)
 			);
-			stagingBuffer->fill(pData, 0, sync::wait_idle()); // Recurse into the other if-branch
+			stagingBuffer->fill(aDataPtr, 0, sync::wait_idle()); // Recurse into the other if-branch
 
 			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 			// Sync before:
@@ -2323,7 +2367,7 @@ namespace avk
 		}
 	}
 
-	std::optional<command_buffer> buffer_t::read(void* aData, size_t aMetaDataIndex, sync aSyncHandler) const
+	std::optional<command_buffer> buffer_t::read(void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler) const
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
@@ -2331,10 +2375,8 @@ namespace avk
 		
 		// #1: Is our memory accessible on the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-			
-			const void* mapped = mVmaHandle.map_memory();
-			memcpy(aData, mapped, bufferSize);
-			mVmaHandle.unmap_memory();
+			auto mapped = scoped_mapping{mBuffer, mapping_access::read};
+			memcpy(aDataPtr, mapped.get(), bufferSize);
 			return {};
 		}
 
@@ -2346,8 +2388,8 @@ namespace avk
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via avk::sync!
 			auto stagingBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice, mVmaHandle.allocator(),
-				avk::memory_usage::host_coherent,
+				mPhysicalDevice, mDevice, mBuffer.allocator(),
+				AVK_STAGING_BUFFER_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferDst,
 				generic_buffer_meta::create_from_size(bufferSize));
 			// TODO: Creating a staging buffer in every read()-call is probably not optimal. => Think about alternative ways!
@@ -2371,9 +2413,9 @@ namespace avk
 			commandBuffer.set_custom_deleter([ 
 				lOwnedStagingBuffer{ std::move(stagingBuffer) },
 				aMetaDataIndex,
-				aData
+				aDataPtr
 			]() {
-				lOwnedStagingBuffer->read(aData, aMetaDataIndex, sync::not_required()); // TODO: not sure about that sync
+				lOwnedStagingBuffer->read(aDataPtr, aMetaDataIndex, sync::not_required()); // TODO: not sure about that sync
 			});
 
 			// Finish him:
@@ -4495,7 +4537,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), static_cast<VkMemoryPropertyFlags>(aTemplate.memory_properties()), result.mCreateInfo };
+		result.mImage = AVK_MEM_IMAGE_HANDLE{ memory_allocator(), aTemplate.memory_properties(), result.mCreateInfo };
 		
 		return result;
 	}
@@ -4580,7 +4622,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mImage = avk::vma_handle<vk::Image>{ memory_allocator(), static_cast<VkMemoryPropertyFlags>(memoryPropFlags), result.mCreateInfo };
+		result.mImage = AVK_MEM_IMAGE_HANDLE{ memory_allocator(), memoryPropFlags, result.mCreateInfo };
 		
 		return result;
 	}
@@ -5920,7 +5962,7 @@ namespace avk
 
 		// TODO: All of this SBT-stuff probably needs some refactoring
 		aPipeline.mShaderBindingTable = create_buffer(
-			memory_usage::host_coherent, // TODO: This should be a device buffer, right?!
+			AVK_STAGING_BUFFER_MEMORY_USAGE, // TODO: This should be a device buffer, right?!
 			vk::BufferUsageFlagBits::eRayTracingKHR,				
 			generic_buffer_meta::create_from_size(shaderBindingTableSize)
 		);
@@ -5930,15 +5972,15 @@ namespace avk
 		// Copy to temporary buffer:
 		std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
 		device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
-		
-		void* mapped = aPipeline.mShaderBindingTable->mVmaHandle.map_memory();
+
+		auto mapped = scoped_mapping{aPipeline.mShaderBindingTable->mBuffer, mapping_access::write};
 		// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
 		vk::DeviceSize off = 0;
 		size_t iRaygen = 0;
 		size_t iMiss = 0;
 		size_t iHit = 0;
 		size_t iCallable = 0;
-		auto* pData  = reinterpret_cast<uint8_t*>(mapped);
+		auto* pData  = reinterpret_cast<uint8_t*>(mapped.get());
 		size_t srcByteOffset = 0;
 		while (off < aPipeline.mShaderBindingTableGroupsInfo.mEndOffset) {
 			size_t dstOffset = 0;
@@ -5978,7 +6020,6 @@ namespace avk
 		//for(uint32_t g = 0; g < groupCount; g++)
 		//{
 		//}
-		aPipeline.mShaderBindingTable->mVmaHandle.unmap_memory();
 	}
 	
 	ray_tracing_pipeline root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)

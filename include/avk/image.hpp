@@ -25,18 +25,18 @@ namespace avk
 		const vk::Image& handle() const
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
-			return std::holds_alternative<vma_handle<vk::Image>>(mImage)
-					? std::get<vma_handle<vk::Image>>(mImage).resource()
+			return std::holds_alternative<AVK_MEM_IMAGE_HANDLE>(mImage)
+					? std::get<AVK_MEM_IMAGE_HANDLE>(mImage).resource()
 					: std::get<vk::Image>(mImage);
 		}
 		/** Gets the memory properties, IF this instance represents an allocated image, not a wrapped one. */
 		auto memory_properties() const
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
-			if (!std::holds_alternative<vma_handle<vk::Image>>(mImage)) {
+			if (!std::holds_alternative<AVK_MEM_IMAGE_HANDLE>(mImage)) {
 				throw avk::runtime_error("Can not determine memory property flags of a non-allocated (but wrapped) image.");
 			}
-			return std::get<vma_handle<vk::Image>>(mImage).memory_properties();
+			return std::get<AVK_MEM_IMAGE_HANDLE>(mImage).memory_properties();
 		}
 
 		/** Gets the width of the image */
@@ -91,7 +91,7 @@ namespace avk
 		// The image create info which contains all the parameters for image creation
 		vk::ImageCreateInfo mCreateInfo;
 		// The image handle. This member will contain a valid handle only after successful image creation.
-		std::variant<std::monostate, vma_handle<vk::Image>, vk::Image> mImage;
+		std::variant<std::monostate, AVK_MEM_IMAGE_HANDLE, vk::Image> mImage;
 		// The image's target layout
 		vk::ImageLayout mTargetLayout;
 		// The current image layout
