@@ -2796,7 +2796,8 @@ namespace avk
 			.setLayout(aPreparedPipeline.layout_handle())
 			.setBasePipelineHandle(nullptr) // Optional
 			.setBasePipelineIndex(-1); // Optional
-		aPreparedPipeline.mPipeline = device().createComputePipelineUnique(nullptr, pipelineInfo);
+		auto result = device().createComputePipelineUnique(nullptr, pipelineInfo);
+		aPreparedPipeline.mPipeline = std::move(result.value);
 	}
 	
 	compute_pipeline root::create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
@@ -4063,8 +4064,9 @@ namespace avk
 		}
 
 		// TODO: Shouldn't the config be altered HERE, after the pipelineInfo has been compiled?!
-		
-		aPreparedPipeline.mPipeline = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+
+		auto result = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+		aPreparedPipeline.mPipeline = std::move(result.value);
 	}
 	
 	graphics_pipeline root::create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
