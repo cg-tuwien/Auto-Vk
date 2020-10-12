@@ -127,7 +127,7 @@ namespace avk
 				consecutive_sep_cnt = 0;
 			}
 			if (consecutive_sep_cnt > 1) {
-				cleaned_up = cleaned_up.substr(0, i) + (i < cleaned_up.size() - 1 ? cleaned_up.substr(i + 1) : "");
+				cleaned_up = cleaned_up.substr(0, i) + (i < cleaned_up.size() - 1 ? cleaned_up.substr(static_cast<size_t>(i) + 1) : "");
 				consecutive_sep_cnt -= 1;
 				--i;
 			}
