@@ -3629,7 +3629,8 @@ namespace avk
 	void fence_t::wait_until_signalled(std::optional<uint64_t> aTimeout) const
 	{
 		// ReSharper disable once CppExpressionWithoutSideEffects
-		mFence.getOwner().waitForFences(1u, handle_ptr(), VK_TRUE, aTimeout.value_or(UINT64_MAX));
+		auto result = mFence.getOwner().waitForFences(1u, handle_ptr(), VK_TRUE, aTimeout.value_or(UINT64_MAX));
+		assert(static_cast<VkResult>(result) >= 0);
 	}
 
 	void fence_t::reset()

@@ -37,6 +37,33 @@
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
 
+/** CONFIG SETTING: AVK_STAGING_BUFFER_MEMORY_USAGE
+ *
+ *	The following setting CAN be set BEFORE including avk.hpp in order to change
+ *	the behavior whenever staging buffers are created internally. There can be the
+ *	need for creating internal staging buffers in multiple situations: e.g. when
+ *	a device-only buffer shall be filled with data, when data shall be read back
+ *	from device-only memory, when a scratch buffer is needed to build acceleration
+ *	structures and none was provided, etc.
+ *
+ *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+ *	if nothing else is specified. Feel free to specify a different value by defining
+ *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
+ *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
+ */
+#if !defined(AVK_STAGING_BUFFER_MEMORY_USAGE)
+#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_visible
+#endif
+
+namespace avk { class sync; }
+
+#include <avk/image_color_channel_order.hpp>
+#include <avk/image_color_channel_format.hpp>
+#include <avk/image_usage.hpp>
+#include <avk/filter_mode.hpp>
+#include <avk/border_handling_mode.hpp>
+
+#include <avk/vk_utils.hpp>
 #include <avk/mapping_access.hpp>
 
 /** CONFIG SETTING: AVK_USE_VMA
@@ -89,33 +116,6 @@
 #if !defined(AVK_MEM_BUFFER_HANDLE)
 #define AVK_MEM_BUFFER_HANDLE        avk::mem_handle<vk::Buffer>
 #endif 
-
-/** CONFIG SETTING: AVK_STAGING_BUFFER_MEMORY_USAGE
- *
- *	The following setting CAN be set BEFORE including avk.hpp in order to change
- *	the behavior whenever staging buffers are created internally. There can be the
- *	need for creating internal staging buffers in multiple situations: e.g. when
- *	a device-only buffer shall be filled with data, when data shall be read back
- *	from device-only memory, when a scratch buffer is needed to build acceleration
- *	structures and none was provided, etc.
- *
- *	By default, such a staging buffer is created with avk::memory_usage::host_visible
- *	if nothing else is specified. Feel free to specify a different value by defining
- *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
- *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
- */
-#if !defined(AVK_STAGING_BUFFER_MEMORY_USAGE)
-#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_visible
-#endif
-
-namespace avk { class sync; }
-
-#include <avk/image_color_channel_order.hpp>
-#include <avk/image_color_channel_format.hpp>
-#include <avk/image_usage.hpp>
-#include <avk/filter_mode.hpp>
-#include <avk/border_handling_mode.hpp>
-#include <avk/vk_utils.hpp>
 
 #include <avk/memory_access.hpp>
 #include <avk/memory_usage.hpp>
