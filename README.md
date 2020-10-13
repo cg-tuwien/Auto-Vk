@@ -12,7 +12,7 @@ _Auto-Vk_ requires
 _Auto-Vk_ consists of multiple C++ include files, two mandatory C++ source files (soon: one), and one optional C++ source file.
 * Add [`include/`](include/) to the include paths so that your compiler can find include files under paths `avk/*`
 * Add [`src/avk.cpp`](src/avk.cpp) (and currently also [`src/sync.cpp`](src/sync.cpp)) as a compiled C++ source code file
-* Optional: Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see section [Memory Allocation](https://github.com/cg-tuwien/Auto-Vk/blob/master/README.md#memory-allocation).
+* *Optional:* Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see section [Memory Allocation](https://github.com/cg-tuwien/Auto-Vk/blob/master/README.md#memory-allocation).
 
 # Motivating Example
 
