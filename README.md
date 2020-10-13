@@ -9,9 +9,10 @@ _Auto-Vk_ requires
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 * A C++20 compiler
 
-_Auto-Vk_ consists of multiple C++ include files and two (soon: one) C++ source file
+_Auto-Vk_ consists of multiple C++ include files, two mandatory C++ source files (soon: one), and one optional C++ source file.
 * Add [`include/`](include/) to the include paths so that your compiler can find include files under paths `avk/*`
 * Add [`src/avk.cpp`](src/avk.cpp) (and currently also [`src/sync.cpp`](src/sync.cpp)) as a compiled C++ source code file
+* Optional: Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see below.
 
 # Motivating Example
 
@@ -169,3 +170,29 @@ Synchronization by the means of
 is currently implemented in class `avk::sync`. Many functions/method which perform asynchronous operations take `avk::sync` parameters to allow modification of the synchronization strategy.
 
 _Attention:_ `avk::sync` is ugly and is subject to change. Expect breaking changes soon.
+
+# Memory Allocation
+
+By default _Auto-Vk_ uses a very straight-forward, but for most cases probably also suboptimal, way of handling memory allocations: One allocation per resource. This is especially suboptimal if many small resources are used. Implementation-wise, [`class mem_handle`](include/avk/mem_handle.hpp) is used in this case. 
+
+_Auto-Vk_, however, allows to easily swap this straight-froward way of memory handling with using the well-established [Vulkan Memory Allocator (VMA) library](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator). Only a small config-change is necessary to switch from [`class mem_handle`](include/avk/mem_handle.hpp) to [`class vma_handle`](include/avk/vma_handle.hpp), which uses VMA to alloc memory for all resources.
+
+To enable VMA, define `AVK_USE_VMA` *before* including `<avk/avk.hpp>`:
+```
+#define AVK_USE_VMA
+#include <avk/avk.hpp>
+```
+Furthermore, add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) to your source files. 
+
+This is all that is required to set-up VMA to handle all internal memory allocations.
+
+**Advanced:**
+
+By defining `AVK_USE_VMA`, internally the following definitions are set:
+```
+#define AVK_MEM_ALLOCATOR_TYPE       VmaAllocator
+#define AVK_MEM_IMAGE_HANDLE         avk::vma_handle<vk::Image>
+#define AVK_MEM_BUFFER_HANDLE        avk::vma_handle<vk::Buffer>
+```
+
+By defining them by yourself *before* including `<avk/avk.hpp>`, you can plug in custom memory allocation behavior into _Auto-Vk_. 
