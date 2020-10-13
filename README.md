@@ -177,7 +177,7 @@ By default _Auto-Vk_ uses a very straight-forward, but for most cases probably a
 
 _Auto-Vk_, however, allows to easily swap this straight-froward way of memory handling with using the well-established [Vulkan Memory Allocator (VMA) library](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator). Only a small config-change is necessary to switch from [`avk::mem_handle`](include/avk/mem_handle.hpp) to [`avk::vma_handle`](include/avk/vma_handle.hpp), which uses VMA to alloc memory for all resources.
 
-To enable VMA, define `AVK_USE_VMA` *before* including `<avk/avk.hpp>`:
+**To enable VMA**, define `AVK_USE_VMA` *before* including `<avk/avk.hpp>`:
 ```
 #define AVK_USE_VMA
 #include <avk/avk.hpp>
@@ -186,7 +186,7 @@ Furthermore, add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) to your source f
 
 This is all that is required to set-up VMA to handle all internal memory allocations.
 
-**Advanced:**
+**Advanced usage:**
 
 By defining `AVK_USE_VMA`, internally the following definitions are set:
 ```
