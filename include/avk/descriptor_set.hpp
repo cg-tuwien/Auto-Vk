@@ -27,13 +27,13 @@ namespace avk
 
 		const auto* store_image_infos(uint32_t aBindingId, std::vector<vk::DescriptorImageInfo> aStoredImageInfos)
 		{
-			auto back = mStoredImageInfos.emplace_back(aBindingId, std::move(aStoredImageInfos));
+			auto& back = mStoredImageInfos.emplace_back(aBindingId, std::move(aStoredImageInfos));
 			return std::get<std::vector<vk::DescriptorImageInfo>>(back).data();
 		}
 		
 		const auto* store_buffer_infos(uint32_t aBindingId, std::vector<vk::DescriptorBufferInfo> aStoredBufferInfos)
 		{
-			auto back = mStoredBufferInfos.emplace_back(aBindingId, std::move(aStoredBufferInfos));
+			auto& back = mStoredBufferInfos.emplace_back(aBindingId, std::move(aStoredBufferInfos));
 			return std::get<std::vector<vk::DescriptorBufferInfo>>(back).data();
 		}
 		
@@ -51,26 +51,26 @@ namespace avk
 
 			std::get<vk::WriteDescriptorSetAccelerationStructureKHR>(oneAndOnlyWrite).accelerationStructureCount = static_cast<uint32_t>(std::get<std::vector<vk::AccelerationStructureKHR>>(oneAndOnlyWrite).size());
 			
-			auto back = mStoredAccelerationStructureWrites.emplace_back(aBindingId, std::move(oneAndOnlyWrite));
+			auto& back = mStoredAccelerationStructureWrites.emplace_back(aBindingId, std::move(oneAndOnlyWrite));
 			return &std::get<vk::WriteDescriptorSetAccelerationStructureKHR>(std::get<1>(back));
 		}
 #endif
 
 		const auto* store_buffer_views(uint32_t aBindingId, std::vector<vk::BufferView> aStoredBufferViews)
 		{
-			auto back = mStoredBufferViews.emplace_back(aBindingId, std::move(aStoredBufferViews));
+			auto& back = mStoredBufferViews.emplace_back(aBindingId, std::move(aStoredBufferViews));
 			return std::get<std::vector<vk::BufferView>>(back).data();
 		}
 
 		const auto* store_image_info(uint32_t aBindingId, const vk::DescriptorImageInfo& aStoredImageInfo)
 		{
-			auto back = mStoredImageInfos.emplace_back(aBindingId, avk::make_vector( aStoredImageInfo ));
+			auto& back = mStoredImageInfos.emplace_back(aBindingId, avk::make_vector( aStoredImageInfo ));
 			return std::get<std::vector<vk::DescriptorImageInfo>>(back).data();
 		}
 		
 		const auto* store_buffer_info(uint32_t aBindingId, const vk::DescriptorBufferInfo& aStoredBufferInfo)
 		{
-			auto back = mStoredBufferInfos.emplace_back(aBindingId, avk::make_vector( aStoredBufferInfo ));
+			auto& back = mStoredBufferInfos.emplace_back(aBindingId, avk::make_vector( aStoredBufferInfo ));
 			return std::get<std::vector<vk::DescriptorBufferInfo>>(back).data();
 		}
 		
@@ -86,14 +86,14 @@ namespace avk
 				vk::WriteDescriptorSetAccelerationStructureKHR{aWriteAccelerationStructureInfo}, std::move(accStructureHandles)
 			);
 			
-			auto back = mStoredAccelerationStructureWrites.emplace_back(aBindingId, std::move(theWrite));
+			auto& back = mStoredAccelerationStructureWrites.emplace_back(aBindingId, std::move(theWrite));
 			return &std::get<vk::WriteDescriptorSetAccelerationStructureKHR>(std::get<1>(back));
 		}
 #endif
 
 		const auto* store_buffer_view(uint32_t aBindingId, const vk::BufferView& aStoredBufferView)
 		{
-			auto back = mStoredBufferViews.emplace_back(aBindingId, avk::make_vector( aStoredBufferView ));
+			auto& back = mStoredBufferViews.emplace_back(aBindingId, avk::make_vector( aStoredBufferView ));
 			return std::get<std::vector<vk::BufferView>>(back).data();
 		}
 

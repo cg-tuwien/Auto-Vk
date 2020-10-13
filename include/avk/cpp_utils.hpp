@@ -127,7 +127,7 @@ namespace avk
 				consecutive_sep_cnt = 0;
 			}
 			if (consecutive_sep_cnt > 1) {
-				cleaned_up = cleaned_up.substr(0, i) + (i < cleaned_up.size() - 1 ? cleaned_up.substr(i + 1) : "");
+				cleaned_up = cleaned_up.substr(0, i) + (i < cleaned_up.size() - 1 ? cleaned_up.substr(static_cast<size_t>(i) + 1) : "");
 				consecutive_sep_cnt -= 1;
 				--i;
 			}
@@ -532,46 +532,46 @@ namespace avk
 		(hash_combine(seed, rest), ...);
 	}
 
-	/**	Returns true if `_Element` is contained within `_Vector`, also provides 
+	/**	Returns true if `aElement` is contained within `aContainer`, also provides 
 	 *	the option to return the position where the element has been found.
-	 *	@param	_Vector			Where to look for `_Element`
-	 *	@param	_Element		The element to find
-	 *	@param	_OutPosition	(Optional) If the address of an iterator is set, it will be assigned the position of the element
+	 *	@param	aContainer		The container to search `aElement` in.
+	 *	@param	aElement		The element to be searched
+	 *	@param	aOutPosition	(Optional) If the address of an iterator is set, it will be assigned the position of the element
 	 */
 	template <typename T>
-	bool contains_element(const std::vector<T>& _Vector, const T& _Element, typename std::vector<T>::const_iterator* _OutPosition = nullptr)
+	bool contains(const T& aContainer, const typename T::value_type& aElement, typename T::const_iterator* aOutPosition = nullptr)
 	{
-		auto it = std::find(std::begin(_Vector), std::end(_Vector), _Element);
-		if (nullptr != _OutPosition) {
-			*_OutPosition = it;
+		auto it = std::find(std::begin(aContainer), std::end(aContainer), aElement);
+		if (nullptr != aOutPosition) {
+			*aOutPosition = it;
 		}
-		return _Vector.end() != it;
+		return std::end(aContainer) != it;
 	}
 
 	/** Returns the index of the first occurence of `_Element` within `_Vector`
 	 *	If the element is not contained, `_Vector.size()` will be returned.
 	 */
 	template <typename T>
-	size_t index_of(const std::vector<T>& _Vector, const T& _Element)
+	size_t index_of(const std::vector<T>& aVector, const T& aElement)
 	{
-		auto it = std::find(std::begin(_Vector), std::end(_Vector), _Element);
-		return std::distance(std::begin(_Vector), it);
+		auto it = std::find(std::begin(aVector), std::end(aVector), aElement);
+		return std::distance(std::begin(aVector), it);
 	}
 
 	/** Inserts a copy of `_Element` into `_Vector` if `_Element` is not already contained in `_Vector` 
-	 *	@param	_Vector				The collection where `_Element` shall be inserted
-	 *	@param	_Element			The element to be inserted into `_Vector`, if it is not already contained. `_Element` must be copy-constructible.
-	 *	@param	_PositionOfElement	(Optional) If the address of an iterator is set, it will be assigned the position of the 
+	 *	@param	aVector				The collection where `_Element` shall be inserted
+	 *	@param	aElement			The element to be inserted into `_Vector`, if it is not already contained. `_Element` must be copy-constructible.
+	 *	@param	aPositionOfElement	(Optional) If the address of an iterator is set, it will be assigned the position of the 
 	 *								newly inserted element into `_Vector`.
 	 *	@return	True if the element was inserted into the vector, meaning it was not contained before. False otherwise.
 	 */
 	template <typename T>
-	bool add_to_vector_if_not_already_contained(std::vector<T>& _Vector, const T& _Element, typename std::vector<T>::const_iterator* _PositionOfElement = nullptr)
+	bool add_to_vector_if_not_already_contained(std::vector<T>& aVector, const T& aElement, typename std::vector<T>::const_iterator* aPositionOfElement = nullptr)
 	{
-		if (!contains_element(_Vector, _Element, _PositionOfElement)) {
-			_Vector.push_back(_Element);
-			if (nullptr != _PositionOfElement) {
-				*_PositionOfElement = std::prev(_Vector.end());
+		if (!contains(aVector, aElement, aPositionOfElement)) {
+			aVector.push_back(aElement);
+			if (nullptr != aPositionOfElement) {
+				*aPositionOfElement = std::prev(aVector.end());
 			}
 			return true;
 		}
@@ -637,4 +637,5 @@ namespace avk
 
 		T mHandle;
 	};
+
 }

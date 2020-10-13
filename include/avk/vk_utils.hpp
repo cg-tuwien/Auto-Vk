@@ -3,6 +3,21 @@
 
 namespace avk
 {
+	/** Prints all the different memory types that are available on the device along with its memory property flags. */
+	extern void print_available_memory_types_for_device(const vk::PhysicalDevice& aPhysicalDevice);
+	
+	/** Find (index of) memory with parameters
+	 *	@param	aMemoryTypeBits		Bit field of the memory types that are suitable for the buffer. [9]
+	 *	@param	aMemoryProperties	Special features of the memory, like being able to map it so we can write to it from the CPU. [9]
+	 *	@return	A tuple with the following elements:
+	 *			[0]: The selected memory index which satisfies the requirements indicated by both, aMemoryTypeBits and aMemoryProperties.
+	 *				 (If no suitable memory can be found, this function will throw.)
+	 *			[1]: The actual memory property flags which are supported by the selected memory. The include at least aMemoryProperties,
+	 *				 but can also have additional memory property flags set.
+	 */
+	extern std::tuple<uint32_t, vk::MemoryPropertyFlags> find_memory_type_index_for_device(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
+	
+	
 	/** Returns true if the given image format is a sRGB format
 	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_srgb_format(const vk::Format& aImageFormat);

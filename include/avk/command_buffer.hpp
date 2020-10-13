@@ -137,7 +137,7 @@ namespace avk
 		template <typename... Bfrs>
 		void draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffer.buffer_handle(), aFurtherBuffers.buffer_handle() ... }, { vk::DeviceSize{0}, ((void)aFurtherBuffers, vk::DeviceSize{0}) ... });
+			handle().bindVertexBuffers(0u, { aVertexBuffer.handle(), aFurtherBuffers.handle() ... }, { vk::DeviceSize{0}, ((void)aFurtherBuffers, vk::DeviceSize{0}) ... });
 			//																									Make use of the discarding behavior of the comma operator ^, see: https://stackoverflow.com/a/61098748/387023
 			const auto& vertexMeta = aVertexBuffer.template meta<avk::vertex_buffer_meta>();
 			handle().draw(vertexMeta.num_elements(), aNumberOfInstances, aFirstVertex, aFirstInstance);                      
@@ -172,7 +172,7 @@ namespace avk
 		template <typename... Bfrs>
 		void draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers.buffer_handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
+			handle().bindVertexBuffers(0u, { aVertexBuffers.handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
 			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
 
 			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
@@ -183,7 +183,7 @@ namespace avk
 				default: AVK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
 			}
 			
-			handle().bindIndexBuffer(aIndexBuffer.buffer_handle(), 0u, indexType);
+			handle().bindIndexBuffer(aIndexBuffer.handle(), 0u, indexType);
 			handle().drawIndexed(indexMeta.num_elements(), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 		}
 		

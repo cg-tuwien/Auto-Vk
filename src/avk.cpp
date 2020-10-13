@@ -5,26 +5,14 @@
 namespace avk
 {
 #pragma region root definitions
-	uint32_t root::find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+	void root::print_available_memory_types()
 	{
-		// The VkPhysicalDeviceMemoryProperties structure has two arrays memoryTypes and memoryHeaps. 
-		// Memory heaps are distinct memory resources like dedicated VRAM and swap space in RAM for 
-		// when VRAM runs out. The different types of memory exist within these heaps. Right now we'll 
-		// only concern ourselves with the type of memory and not the heap it comes from, but you can 
-		// imagine that this can affect performance. (Source: https://vulkan-tutorial.com/)
-		auto memProperties = aPhysicalDevice.getMemoryProperties();
-
-		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
-			if ((aMemoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & aMemoryProperties) == aMemoryProperties) {
-				return i;
-			}
-		}
-		throw avk::runtime_error("failed to find suitable memory type!");
+		print_available_memory_types_for_device(physical_device());
 	}
-	
-	uint32_t root::find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+
+	std::tuple<uint32_t, vk::MemoryPropertyFlags> root::find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
 	{
-		return find_memory_type_index(physical_device(), aMemoryTypeBits, aMemoryProperties);
+		return find_memory_type_index_for_device(physical_device(), aMemoryTypeBits, aMemoryProperties);
 	}
 
 	bool root::is_format_supported(vk::Format pFormat, vk::ImageTiling pTiling, vk::FormatFeatureFlags aFormatFeatures)
@@ -111,6 +99,64 @@ namespace avk
 #pragma endregion
 
 #pragma region vk_utils
+	void print_available_memory_types_for_device(const vk::PhysicalDevice& aPhysicalDevice)
+	{
+		auto memProperties = aPhysicalDevice.getMemoryProperties();
+
+		const auto deviceName = std::string(static_cast<const char*>(aPhysicalDevice.getProperties().deviceName));
+		AVK_LOG_INFO("========== MEMORY PROPERTIES OF DEVICE '" + deviceName + "'");
+		AVK_LOG_INFO("-------------------------------------------------------------");
+		AVK_LOG_INFO(" HEAP TYPES:");
+		AVK_LOG_INFO(" heap-idx |               bytes | heap flags");
+		AVK_LOG_INFO("-------------------------------------------------------------");
+		for (auto i = 0u; i < memProperties.memoryHeapCount; ++i) {
+			std::string heapIndex =  "        " + std::to_string(i);
+			heapIndex = heapIndex.substr(heapIndex.length() - 9);
+			std::string heapSize =  std::to_string(memProperties.memoryHeaps[i].size);
+			int n = static_cast<int>(heapSize.size());
+			for (int x = n - 3; x > 0; x -= 3) {
+				heapSize.insert(std::begin(heapSize) + x, ',');
+			}
+			heapSize = "                   " + heapSize;
+			if (memProperties.memoryHeaps[i].size <= 999999999999999) {
+				heapSize =  heapSize.substr(heapSize.length() - 19);
+			}
+			std::string heapFlags = vk::to_string(memProperties.memoryHeaps[i].flags);
+			AVK_LOG_INFO(heapIndex + " | " + heapSize + " | " + heapFlags);
+		}
+		AVK_LOG_INFO("=============================================================");
+		AVK_LOG_INFO(" MEMORY TYPES:");
+		AVK_LOG_INFO(" mem-idx | heap-idx | memory propety flags");
+		AVK_LOG_INFO("-------------------------------------------------------------");
+		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
+			std::string memIndex =  "       " + std::to_string(i);
+			memIndex = memIndex.substr(memIndex.length() - 8);
+			std::string heapIndex = "        " + std::to_string(memProperties.memoryTypes[i].heapIndex);
+			heapIndex = heapIndex.substr(heapIndex.length() - 9);
+			std::string propFlags = vk::to_string(memProperties.memoryTypes[i].propertyFlags);
+			AVK_LOG_INFO(memIndex + " | " + heapIndex + " | " + propFlags);
+		}
+		AVK_LOG_INFO("=============================================================");
+		
+	}
+	
+	std::tuple<uint32_t, vk::MemoryPropertyFlags> find_memory_type_index_for_device(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties)
+	{
+		// The VkPhysicalDeviceMemoryProperties structure has two arrays memoryTypes and memoryHeaps. 
+		// Memory heaps are distinct memory resources like dedicated VRAM and swap space in RAM for 
+		// when VRAM runs out. The different types of memory exist within these heaps. Right now we'll 
+		// only concern ourselves with the type of memory and not the heap it comes from, but you can 
+		// imagine that this can affect performance. (Source: https://vulkan-tutorial.com/)
+		auto memProperties = aPhysicalDevice.getMemoryProperties();
+		
+		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
+			if ((aMemoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & aMemoryProperties) == aMemoryProperties) {
+				return std::make_tuple(i, memProperties.memoryTypes[i].propertyFlags);
+			}
+		}
+		throw avk::runtime_error("failed to find suitable memory type!");
+	}
+	
 	bool is_srgb_format(const vk::Format& aImageFormat)
 	{
 		// Note: Currently, the compressed formats are ignored => could/should be added in the future, maybe
@@ -1406,7 +1452,7 @@ namespace avk
 		case vk::ImageType::e3D:
 			return vk::ImageViewType::e3D;
 		}
-		throw new avk::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
+		throw avk::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
 	}
 #pragma endregion
 
@@ -1522,7 +1568,7 @@ namespace avk
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice,
+				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
@@ -1631,7 +1677,7 @@ namespace avk
 	{
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
-			mPhysicalDevice, mDevice,
+			mPhysicalDevice, mDevice, mAllocator,
 			memory_usage::device, {},			
 			aabb_buffer_meta::create_from_data(aGeometries)
 		);
@@ -1780,7 +1826,7 @@ namespace avk
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice,
+				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
@@ -1794,8 +1840,8 @@ namespace avk
 		auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
 		
 		auto geomInstBuffer = root::create_buffer(
-			mPhysicalDevice, mDevice,
-			memory_usage::host_coherent, {},
+			mPhysicalDevice, mDevice, mAllocator,
+			AVK_STAGING_BUFFER_MEMORY_USAGE, {},
 			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
 		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
@@ -2212,6 +2258,7 @@ namespace avk
 	buffer root::create_buffer(
 		const vk::PhysicalDevice& aPhysicalDevice, 
 		const vk::Device& aDevice,
+		const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
 #if VK_HEADER_VERSION >= 135
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
@@ -2219,7 +2266,6 @@ namespace avk
 #endif
 		vk::BufferUsageFlags aBufferUsage, 
 		vk::MemoryPropertyFlags aMemoryProperties, 
-		vk::MemoryAllocateFlags aMemoryAllocateFlags,
 		std::initializer_list<queue*> aConcurrentQueueOwnership
 	)
 	{
@@ -2244,7 +2290,7 @@ namespace avk
 			// Always grant exclusive ownership to the queue.
 			.setSharingMode(vk::SharingMode::eExclusive)
 			// The flags parameter is used to configure sparse buffer memory, which is not relevant right now. We'll leave it at the default value of 0. [2]
-			.setFlags(vk::BufferCreateFlags()); 
+			.setFlags(vk::BufferCreateFlags());
 
 		if (queueFamilyIndices.size() > 0) {
 			bufferCreateInfo
@@ -2253,76 +2299,33 @@ namespace avk
 				.setPQueueFamilyIndices(queueFamilyIndices.data());
 			// TODO: Untested ^ test vk::SharingMode::eConcurrent
 		}
-		
-		// Create the buffer on the logical device
-		auto vkBuffer = aDevice.createBufferUnique(bufferCreateInfo);
-
-		// The buffer has been created, but it doesn't actually have any memory assigned to it yet. 
-		// The first step of allocating memory for the buffer is to query its memory requirements [2]
-		const auto memRequirements = aDevice.getBufferMemoryRequirements(vkBuffer.get());
-
-		auto allocInfo = vk::MemoryAllocateInfo()
-			.setAllocationSize(memRequirements.size)
-			.setMemoryTypeIndex(find_memory_type_index(
-				aPhysicalDevice,
-				memRequirements.memoryTypeBits, 
-				aMemoryProperties));
-
-		auto allocateFlagsInfo = vk::MemoryAllocateFlagsInfo{};
-		if (aMemoryAllocateFlags) {
-			allocateFlagsInfo.setFlags(aMemoryAllocateFlags);
-			allocInfo.setPNext(&allocateFlagsInfo);
-		}
-
-		// Allocate the memory for the buffer:
-		auto vkMemory = aDevice.allocateMemoryUnique(allocInfo);
-
-		// If memory allocation was successful, then we can now associate this memory with the buffer
-		aDevice.bindBufferMemory(vkBuffer.get(), vkMemory.get(), 0);
-		// TODO: if(!succeeded) { throw avk::runtime_error("Binding memory to buffer failed."); }
 
 		result.mCreateInfo = bufferCreateInfo;
-		result.mMemoryPropertyFlags = aMemoryProperties;
-		result.mMemory = std::move(vkMemory);
 		result.mBufferUsageFlags = aBufferUsage;
+		result.mBuffer = AVK_MEM_BUFFER_HANDLE{ aAllocator, aMemoryProperties, result.mCreateInfo };
 		result.mPhysicalDevice = aPhysicalDevice;
-		result.mBuffer = std::move(vkBuffer);
+		result.mDevice = aDevice;
 
-#if VK_HEADER_VERSION >= 135
-		if (avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.buffer_usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-			result.mDeviceAddress = get_buffer_address(aDevice, result.buffer_handle());
+#if VK_HEADER_VERSION >= 135 
+		if (avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+			result.mDeviceAddress = get_buffer_address(aDevice, result.handle());
 		}
 #endif
 		
 		return result;
 	}
 	
-	std::optional<command_buffer> buffer_t::fill(const void* pData, size_t aMetaDataIndex, sync aSyncHandler)
+	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler)
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		auto memProps = memory_properties();
-		auto device = mBuffer.getOwner();
 
-		// #1: Is our memory on the CPU-SIDE? 
+		// #1: Is our memory accessible from the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-			void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
-			memcpy(mapped, pData, bufferSize);
-			// Coherent memory is done; non-coherent memory not yet
-			if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
-				// Setup the range 
-				auto range = vk::MappedMemoryRange()
-					.setMemory(memory_handle())
-					.setOffset(0)
-					.setSize(bufferSize);
-				// Flush the range
-				device.flushMappedMemoryRanges(1, &range);
-			}
-			device.unmapMemory(memory_handle());
-			// TODO: Handle has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCached) case
-
-			// No need to sync, so.. don't sync!
-			return {}; // TODO: This should be okay, is it?
+			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
+			memcpy(mapped.get(), aDataPtr, bufferSize);
+			return {};
 		}
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
@@ -2333,12 +2336,12 @@ namespace avk
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via sync
 			auto stagingBuffer = root::create_buffer(
-				mPhysicalDevice, device,
-				avk::memory_usage::host_coherent,
+				mPhysicalDevice, mDevice, mBuffer.allocator(),
+				AVK_STAGING_BUFFER_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferSrc,
 				generic_buffer_meta::create_from_size(bufferSize)
 			);
-			stagingBuffer->fill(pData, 0, sync::wait_idle()); // Recurse into the other if-branch
+			stagingBuffer->fill(aDataPtr, 0, sync::wait_idle()); // Recurse into the other if-branch
 
 			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 			// Sync before:
@@ -2349,7 +2352,7 @@ namespace avk
 				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
 				.setDstOffset(0u)
 				.setSize(bufferSize);
-			commandBuffer.handle().copyBuffer(stagingBuffer->buffer_handle(), buffer_handle(), { copyRegion });
+			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
 
 			// Sync after:
 			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
@@ -2364,29 +2367,16 @@ namespace avk
 		}
 	}
 
-	std::optional<command_buffer> buffer_t::read(void* aData, size_t aMetaDataIndex, sync aSyncHandler) const
+	std::optional<command_buffer> buffer_t::read(void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler) const
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		auto memProps = memory_properties();
-		auto device = mBuffer.getOwner();
 		
 		// #1: Is our memory accessible on the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-			
-			const void* mapped = device.mapMemory(memory_handle(), 0, bufferSize);
-			if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCoherent)) {
-				// Setup the range 
-				auto range = vk::MappedMemoryRange()
-					.setMemory(memory_handle())
-					.setOffset(0)
-					.setSize(bufferSize);
-				// Flush the range
-				device.invalidateMappedMemoryRanges(1, &range); // TODO: Test this! (should be okay, but double-check against spec.: https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/vkInvalidateMappedMemoryRanges.html)
-			}
-			memcpy(aData, mapped, bufferSize);
-			device.unmapMemory(memory_handle());
-			// TODO: Handle has_flag(memProps, vk::MemoryPropertyFlagBits::eHostCached) case
+			auto mapped = scoped_mapping{mBuffer, mapping_access::read};
+			memcpy(aDataPtr, mapped.get(), bufferSize);
 			return {};
 		}
 
@@ -2398,8 +2388,8 @@ namespace avk
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via avk::sync!
 			auto stagingBuffer = root::create_buffer(
-				mPhysicalDevice, device,
-				avk::memory_usage::host_coherent,
+				mPhysicalDevice, mDevice, mBuffer.allocator(),
+				AVK_STAGING_BUFFER_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferDst,
 				generic_buffer_meta::create_from_size(bufferSize));
 			// TODO: Creating a staging buffer in every read()-call is probably not optimal. => Think about alternative ways!
@@ -2414,7 +2404,7 @@ namespace avk
 				.setSrcOffset(0u)
 				.setDstOffset(0u)
 				.setSize(bufferSize);
-			commandBuffer.handle().copyBuffer(buffer_handle(), stagingBuffer->buffer_handle(), { copyRegion });
+			commandBuffer.handle().copyBuffer(handle(), stagingBuffer->handle(), { copyRegion });
 
 			// Sync after:
 			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
@@ -2423,9 +2413,9 @@ namespace avk
 			commandBuffer.set_custom_deleter([ 
 				lOwnedStagingBuffer{ std::move(stagingBuffer) },
 				aMetaDataIndex,
-				aData
+				aDataPtr
 			]() {
-				lOwnedStagingBuffer->read(aData, aMetaDataIndex, sync::not_required()); // TODO: not sure about that sync
+				lOwnedStagingBuffer->read(aDataPtr, aMetaDataIndex, sync::not_required()); // TODO: not sure about that sync
 			});
 
 			// Finish him:
@@ -2438,7 +2428,7 @@ namespace avk
 	const vk::Buffer& buffer_view_t::buffer_handle() const
 	{
 		if (std::holds_alternative<buffer>(mBuffer)) {
-			return std::get<buffer>(mBuffer)->buffer_handle();
+			return std::get<buffer>(mBuffer)->handle();
 		}
 		return std::get<vk::Buffer>(std::get<std::tuple<vk::Buffer, vk::BufferCreateInfo>>(mBuffer));	
 	}
@@ -2676,7 +2666,7 @@ namespace avk
 					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
 					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
 					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-					aBuffer.buffer_handle(),
+					aBuffer.handle(),
 					0, aBuffer.meta_at_index<buffer_meta>().total_size()
 				}
 			},	
@@ -2783,6 +2773,33 @@ namespace avk
 #pragma endregion
 
 #pragma compute pipeline definitions
+	void root::rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline)
+	{
+		aPreparedPipeline.mShaderStageCreateInfo
+			.setModule(aPreparedPipeline.mShader.handle())
+			.setPName(aPreparedPipeline.mShader.info().mEntryPoint.c_str());
+
+		if (aPreparedPipeline.mSpecializationInfo.has_value()) {
+			aPreparedPipeline.mShaderStageCreateInfo.setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfo.value());
+		}
+
+		// Layout must already be configured and created properly!
+
+		// Create the PIPELINE LAYOUT
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
+		
+		// Create the PIPELINE, a.k.a. putting it all together:
+		auto pipelineInfo = vk::ComputePipelineCreateInfo{}
+			.setFlags(aPreparedPipeline.mPipelineCreateFlags)
+			.setStage(aPreparedPipeline.mShaderStageCreateInfo)
+			.setLayout(aPreparedPipeline.layout_handle())
+			.setBasePipelineHandle(nullptr) // Optional
+			.setBasePipelineIndex(-1); // Optional
+		auto result = device().createComputePipelineUnique(nullptr, pipelineInfo);
+		aPreparedPipeline.mPipeline = std::move(result.value);
+	}
+	
 	compute_pipeline root::create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		compute_pipeline_t result;
@@ -2820,9 +2837,8 @@ namespace avk
 		// 3. Compile the PIPELINE LAYOUT data and create-info
 		// Get the descriptor set layouts
 		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
-		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		allocate_set_of_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
-		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// Gather the push constant data
 		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
@@ -2833,6 +2849,8 @@ namespace avk
 			);
 			// TODO: Push Constants need a prettier interface
 		}
+
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
 			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
 			.setPSetLayouts(descriptorSetLayoutHandles.data())
@@ -2844,19 +2862,35 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		// Create the PIPELINE LAYOUT
-		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(static_cast<bool>(result.layout_handle()));
+		rewire_config_and_create_compute_pipeline(result);
+		return result;
+	}
 
-		// Create the PIPELINE, a.k.a. putting it all together:
-		auto pipelineInfo = vk::ComputePipelineCreateInfo{}
-			.setFlags(result.mPipelineCreateFlags)
-			.setStage(result.mShaderStageCreateInfo)
-			.setLayout(result.layout_handle())
-			.setBasePipelineHandle(nullptr) // Optional
-			.setBasePipelineIndex(-1); // Optional
-		result.mPipeline = device().createComputePipelineUnique(nullptr, pipelineInfo);
+	compute_pipeline root::create_compute_pipeline_from_template(const compute_pipeline_t& aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		compute_pipeline_t result;
+		result.mPipelineCreateFlags			= aTemplate.mPipelineCreateFlags;
+		result.mShader						= create_shader_from_template(aTemplate.mShader);
+		result.mShaderStageCreateInfo		= aTemplate.mShaderStageCreateInfo;
+		result.mSpecializationInfo			= aTemplate.mSpecializationInfo;
+		result.mBasePipelineIndex			= aTemplate.mBasePipelineIndex;
+		result.mAllDescriptorSetLayouts		= create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
+		result.mPushConstantRanges			= aTemplate.mPushConstantRanges;
+		result.mPipelineLayoutCreateInfo	= aTemplate.mPipelineLayoutCreateInfo;
 
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size()))
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		// 4. Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		rewire_config_and_create_compute_pipeline(result);
 		return result;
 	}
 #pragma endregion
@@ -3089,10 +3123,19 @@ namespace avk
 			AVK_LOG_ERROR("descriptor_set_layout's handle already has a value => it most likely has already been allocated. Won't do it again.");
 		}
 	}
-	
+
 	void root::allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated)
 	{
 		return allocate_descriptor_set_layout(device(), aLayoutToBeAllocated);
+	}
+
+	descriptor_set_layout root::create_descriptor_set_layout_from_template(const descriptor_set_layout& aTemplate)
+	{
+		descriptor_set_layout result;
+		result.mBindingRequirements = aTemplate.mBindingRequirements;
+		result.mOrderedBindings = aTemplate.mOrderedBindings;
+		allocate_descriptor_set_layout(result);
+		return result;
 	}
 
 	set_of_descriptor_set_layouts set_of_descriptor_set_layouts::prepare(std::vector<binding_data> pBindings)
@@ -3150,12 +3193,23 @@ namespace avk
 		return result;
 	}
 
-	void root::allocate_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated)
+	void root::allocate_set_of_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated)
 	{
 		for (auto& dsl : aLayoutsToBeAllocated.mLayouts) {
 			allocate_descriptor_set_layout(dsl);
 		}
 	}
+
+	set_of_descriptor_set_layouts root::create_set_of_descriptor_set_layouts_from_template(const set_of_descriptor_set_layouts& aTemplate)
+	{
+		set_of_descriptor_set_layouts result;
+		result.mBindingRequirements = aTemplate.mBindingRequirements;
+		result.mFirstSetId = aTemplate.mFirstSetId;
+		for (const auto& lay : aTemplate.mLayouts) {
+			result.mLayouts.push_back(create_descriptor_set_layout_from_template(lay));
+		}
+		return result;
+	}	
 
 	std::vector<vk::DescriptorSetLayout> set_of_descriptor_set_layouts::layout_handles() const
 	{
@@ -3575,7 +3629,8 @@ namespace avk
 	void fence_t::wait_until_signalled(std::optional<uint64_t> aTimeout) const
 	{
 		// ReSharper disable once CppExpressionWithoutSideEffects
-		mFence.getOwner().waitForFences(1u, handle_ptr(), VK_TRUE, aTimeout.value_or(UINT64_MAX));
+		auto result = mFence.getOwner().waitForFences(1u, handle_ptr(), VK_TRUE, aTimeout.value_or(UINT64_MAX));
+		assert(static_cast<VkResult>(result) >= 0);
 	}
 
 	void fence_t::reset()
@@ -3931,6 +3986,90 @@ namespace avk
 #pragma endregion
 
 #pragma region graphics pipeline definitions
+	void root::rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline)
+	{
+		aPreparedPipeline.mPipelineVertexInputStateCreateInfo
+			.setPVertexBindingDescriptions(aPreparedPipeline.mOrderedVertexInputBindingDescriptions.data())
+			.setPVertexAttributeDescriptions(aPreparedPipeline.mVertexInputAttributeDescriptions.data());
+
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mShaderStageCreateInfos.size());
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mSpecializationInfos.size());
+		for (size_t i = 0; i < aPreparedPipeline.mShaders.size(); ++i) {
+			aPreparedPipeline.mShaderStageCreateInfos[i]
+				.setModule(aPreparedPipeline.mShaders[i].handle())
+				.setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
+			
+			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
+				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
+			}
+		}
+
+		aPreparedPipeline.mViewportStateCreateInfo
+			.setViewportCount(static_cast<uint32_t>(aPreparedPipeline.mViewports.size()))
+			.setPViewports(aPreparedPipeline.mViewports.data())
+			.setScissorCount(static_cast<uint32_t>(aPreparedPipeline.mScissors.size()))
+			.setPScissors(aPreparedPipeline.mScissors.data());
+
+		aPreparedPipeline.mColorBlendStateCreateInfo
+			.setAttachmentCount(static_cast<uint32_t>(aPreparedPipeline.mBlendingConfigsForColorAttachments.size()))
+			.setPAttachments(aPreparedPipeline.mBlendingConfigsForColorAttachments.data());
+
+		aPreparedPipeline.mMultisampleStateCreateInfo
+			.setPSampleMask(nullptr);
+
+		aPreparedPipeline.mDynamicStateCreateInfo
+			.setDynamicStateCount(static_cast<uint32_t>(aPreparedPipeline.mDynamicStateEntries.size()))
+			.setPDynamicStates(aPreparedPipeline.mDynamicStateEntries.data());
+
+		// Pipeline Layout must be rewired already before calling this function
+
+		// Create the PIPELINE LAYOUT
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
+		
+		// Create the PIPELINE, a.k.a. putting it all together:
+		auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
+			// 0. Render Pass
+			.setRenderPass((*aPreparedPipeline.mRenderPass).handle())
+			.setSubpass(aPreparedPipeline.mSubpassIndex)
+			// 1., 2., and 3.
+			.setPVertexInputState(&aPreparedPipeline.mPipelineVertexInputStateCreateInfo)
+			// 4.
+			.setPInputAssemblyState(&aPreparedPipeline.mInputAssemblyStateCreateInfo)
+			// 5.
+			.setStageCount(static_cast<uint32_t>(aPreparedPipeline.mShaderStageCreateInfos.size()))
+			.setPStages(aPreparedPipeline.mShaderStageCreateInfos.data())
+			// 6.
+			.setPViewportState(&aPreparedPipeline.mViewportStateCreateInfo)
+			// 7.
+			.setPRasterizationState(&aPreparedPipeline.mRasterizationStateCreateInfo)
+			// 8.
+			.setPDepthStencilState(&aPreparedPipeline.mDepthStencilConfig)
+			// 9.
+			.setPColorBlendState(&aPreparedPipeline.mColorBlendStateCreateInfo)
+			// 10.
+			.setPMultisampleState(&aPreparedPipeline.mMultisampleStateCreateInfo)
+			// 11.
+			.setPDynamicState(aPreparedPipeline.mDynamicStateEntries.size() == 0 ? nullptr : &aPreparedPipeline.mDynamicStateCreateInfo) // Optional
+			// 12.
+			.setFlags(aPreparedPipeline.mPipelineCreateFlags)
+			// LAYOUT:
+			.setLayout(aPreparedPipeline.layout_handle())
+			// Base pipeline:
+			.setBasePipelineHandle(nullptr) // Optional
+			.setBasePipelineIndex(-1); // Optional
+
+		// 13.
+		if (aPreparedPipeline.mPipelineTessellationStateCreateInfo.has_value()) {
+			pipelineInfo.setPTessellationState(&aPreparedPipeline.mPipelineTessellationStateCreateInfo.value());
+		}
+
+		// TODO: Shouldn't the config be altered HERE, after the pipelineInfo has been compiled?!
+
+		auto result = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+		aPreparedPipeline.mPipeline = std::move(result.value);
+	}
+	
 	graphics_pipeline root::create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		using namespace cpplinq;
@@ -4275,9 +4414,8 @@ namespace avk
 		// 14. Compile the PIPELINE LAYOUT data and create-info
 		// Get the descriptor set layouts
 		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
-		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		allocate_set_of_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
-		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// Gather the push constant data
 		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
@@ -4288,6 +4426,8 @@ namespace avk
 			);
 			// TODO: Push Constants need a prettier interface
 		}
+		
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// These uniform values (Anm.: passed to shaders) need to be specified during pipeline creation by creating a VkPipelineLayout object. [4]
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
 			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
@@ -4300,62 +4440,73 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		// Create the PIPELINE LAYOUT
-		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(static_cast<bool>(result.layout_handle()));
-
 		assert (aConfig.mRenderPassSubpass.has_value());
-		// Create the PIPELINE, a.k.a. putting it all together:
-		auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
-			// 0. Render Pass
-			.setRenderPass((*result.mRenderPass).handle())
-			.setSubpass(result.mSubpassIndex)
-			// 1., 2., and 3.
-			.setPVertexInputState(&result.mPipelineVertexInputStateCreateInfo)
-			// 4.
-			.setPInputAssemblyState(&result.mInputAssemblyStateCreateInfo)
-			// 5.
-			.setStageCount(static_cast<uint32_t>(result.mShaderStageCreateInfos.size()))
-			.setPStages(result.mShaderStageCreateInfos.data())
-			// 6.
-			.setPViewportState(&result.mViewportStateCreateInfo)
-			// 7.
-			.setPRasterizationState(&result.mRasterizationStateCreateInfo)
-			// 8.
-			.setPDepthStencilState(&result.mDepthStencilConfig)
-			// 9.
-			.setPColorBlendState(&result.mColorBlendStateCreateInfo)
-			// 10.
-			.setPMultisampleState(&result.mMultisampleStateCreateInfo)
-			// 11.
-			.setPDynamicState(result.mDynamicStateEntries.size() == 0 ? nullptr : &result.mDynamicStateCreateInfo) // Optional
-			// 12.
-			.setFlags(result.mPipelineCreateFlags)
-			// LAYOUT:
-			.setLayout(result.layout_handle())
-			// Base pipeline:
-			.setBasePipelineHandle(nullptr) // Optional
-			.setBasePipelineIndex(-1); // Optional
-
-		// 13.
-		if (result.mPipelineTessellationStateCreateInfo.has_value()) {
-			pipelineInfo.setPTessellationState(&result.mPipelineTessellationStateCreateInfo.value());
-		}
-
-		// TODO: Shouldn't the config be altered HERE, after the pipelineInfo has been compiled?!
-		
-		result.mPipeline = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+		rewire_config_and_create_graphics_pipeline(result);
 		return result;
 	}
 
+	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		graphics_pipeline_t result;
+
+		if (aTemplate.mRenderPass.is_shared_ownership_enabled()) {
+			result.mRenderPass							= aTemplate.mRenderPass								;
+		}
+		else {
+				result.mRenderPass = create_renderpass_from_template(aTemplate.mRenderPass, {});
+		}
+		
+		result.mSubpassIndex							= aTemplate.mSubpassIndex						   ;
+		result.mOrderedVertexInputBindingDescriptions	= aTemplate.mOrderedVertexInputBindingDescriptions;
+		result.mVertexInputAttributeDescriptions		= aTemplate.mVertexInputAttributeDescriptions	   ;
+		result.mPipelineVertexInputStateCreateInfo		= aTemplate.mPipelineVertexInputStateCreateInfo   ;
+		result.mInputAssemblyStateCreateInfo			= aTemplate.mInputAssemblyStateCreateInfo		   ;
+
+		for (const auto& shdr : aTemplate.mShaders) {
+			result.mShaders.push_back(create_shader_from_template(shdr));
+		}
+		
+		result.mShaderStageCreateInfos					= aTemplate.mShaderStageCreateInfos					;
+		result.mSpecializationInfos						= aTemplate.mSpecializationInfos				   ;
+		result.mViewports								= aTemplate.mViewports							   ;
+		result.mScissors								= aTemplate.mScissors							   ;
+		result.mViewportStateCreateInfo					= aTemplate.mViewportStateCreateInfo			   ;
+		result.mRasterizationStateCreateInfo			= aTemplate.mRasterizationStateCreateInfo		   ;
+		result.mDepthStencilConfig						= aTemplate.mDepthStencilConfig						;
+		result.mBlendingConfigsForColorAttachments		= aTemplate.mBlendingConfigsForColorAttachments   ;
+		result.mColorBlendStateCreateInfo				= aTemplate.mColorBlendStateCreateInfo			   ;
+		result.mMultisampleStateCreateInfo				= aTemplate.mMultisampleStateCreateInfo				;
+		result.mDynamicStateEntries						= aTemplate.mDynamicStateEntries				   ;
+		result.mDynamicStateCreateInfo					= aTemplate.mDynamicStateCreateInfo					;
+
+		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
+		
+		result.mPushConstantRanges						= aTemplate.mPushConstantRanges						;
+		result.mPipelineTessellationStateCreateInfo		= aTemplate.mPipelineTessellationStateCreateInfo  ;
+
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		// These uniform values (Anm.: passed to shaders) need to be specified during pipeline creation by creating a VkPipelineLayout object. [4]
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size())) 
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		// 15. Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+		
+		rewire_config_and_create_graphics_pipeline(result);
+		return result;
+	}
 #pragma endregion
 	
 #pragma region image definitions
 	image_t::image_t(const image_t& aOther)
 	{
 		if (std::holds_alternative<vk::Image>(aOther.mImage)) {
-			assert(!aOther.mMemory);
-			mInfo = aOther.mInfo; 
+			mCreateInfo = aOther.mCreateInfo; 
 			mImage = std::get<vk::Image>(aOther.mImage);
 			mTargetLayout = aOther.mTargetLayout;
 			mCurrentLayout = aOther.mCurrentLayout;
@@ -4366,33 +4517,60 @@ namespace avk
 			throw avk::runtime_error("Can not copy this image instance!");
 		}
 	}
+
+	image root::create_image_from_template(const image_t& aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	{
+		image_t result;
+		result.mCreateInfo = aTemplate.mCreateInfo;
+		result.mTargetLayout = aTemplate.mTargetLayout;
+		result.mCurrentLayout = vk::ImageLayout::eUndefined;
+		result.mImageUsage = aTemplate.mImageUsage;
+		result.mAspectFlags = aTemplate.mAspectFlags;
+
+		if (std::holds_alternative<vk::Image>(aTemplate.mImage)) {
+			// If the template is a wrapped image, there's not a lot we can do.
+			//result.mImage = std::get<vk::Image>(aTemplate.mImage);
+			return result;
+		}
+		
+		assert(!std::holds_alternative<std::monostate>(aTemplate.mImage));
+		
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		result.mImage = AVK_MEM_IMAGE_HANDLE{ memory_allocator(), aTemplate.memory_properties(), result.mCreateInfo };
+		
+		return result;
+	}
 	
 	image root::create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers, memory_usage aMemoryUsage, image_usage aImageUsage, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		// Determine image usage flags, image layout, and memory usage flags:
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 		
-		vk::MemoryPropertyFlags memoryFlags{};
+		vk::MemoryPropertyFlags memoryPropFlags{};
 		switch (aMemoryUsage) {
 		case avk::memory_usage::host_visible:
-			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eHostVisible;
 			break;
 		case avk::memory_usage::host_coherent:
-			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
 			break;
 		case avk::memory_usage::host_cached:
-			memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
 			break;
 		case avk::memory_usage::device:
-			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst; 
 			break;
 		case avk::memory_usage::device_readback:
-			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
 			break;
 		case avk::memory_usage::device_protected:
-			memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eProtected;
+			memoryPropFlags = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eProtected;
 			imageUsage |= vk::ImageUsageFlagBits::eTransferDst;
 			break;
 		}
@@ -4425,7 +4603,7 @@ namespace avk
 		}
 		
 		image_t result;
-		result.mInfo = vk::ImageCreateInfo()
+		result.mCreateInfo = vk::ImageCreateInfo()
 			.setImageType(vk::ImageType::e2D) // TODO: Support 3D textures
 			.setExtent(vk::Extent3D(static_cast<uint32_t>(aWidth), static_cast<uint32_t>(aHeight), 1u))
 			.setMipLevels(mipLevels)
@@ -4447,18 +4625,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		// Create the image...
-		result.mImage = device().createImageUnique(result.mInfo);
-		
-		// ... and the memory:
-		auto memRequirements = device().getImageMemoryRequirements(result.handle());
-		auto allocInfo = vk::MemoryAllocateInfo()
-			.setAllocationSize(memRequirements.size)
-			.setMemoryTypeIndex(find_memory_type_index(memRequirements.memoryTypeBits, memoryFlags));
-		result.mMemory = device().allocateMemoryUnique(allocInfo);
-
-		// bind them together:
-		device().bindImageMemory(result.handle(), result.memory_handle(), 0);
+		result.mImage = AVK_MEM_IMAGE_HANDLE{ memory_allocator(), memoryPropFlags, result.mCreateInfo };
 		
 		return result;
 	}
@@ -4520,7 +4687,7 @@ namespace avk
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 		
 		image_t result;
-		result.mInfo = aImageCreateInfo;
+		result.mCreateInfo = aImageCreateInfo;
 		result.mImage = aImageToWrap;		
 		result.mTargetLayout = targetLayout;
 		result.mCurrentLayout = vk::ImageLayout::eUndefined;
@@ -4533,8 +4700,8 @@ namespace avk
 	{
 		return vk::ImageSubresourceRange{
 			mAspectFlags,
-			0u, mInfo.mipLevels,	// MIP info
-			0u, mInfo.arrayLayers	// Layers info
+			0u, mCreateInfo.mipLevels,	// MIP info
+			0u, mCreateInfo.arrayLayers	// Layers info
 		};
 	}
 
@@ -4656,6 +4823,44 @@ namespace avk
 #pragma endregion
 
 #pragma region image view definitions
+	image_view root::create_image_view_from_template(const image_view_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation)
+	{
+		image_view_t result;
+		
+		// Transfer ownership:
+		if (std::holds_alternative<image>(aTemplate.mImage)) {
+			auto& im = std::get<image>(aTemplate.mImage);
+			result.mImage = create_image_from_template(im, std::move(aAlterImageConfigBeforeCreation));
+			if (im.is_shared_ownership_enabled()) {
+				std::get<image>(result.mImage).enable_shared_ownership();
+			}
+		}
+		else {
+			AVK_LOG_ERROR("Can not create an image_view from a template which wraps an image_t.");
+		}
+
+		result.mInfo = aTemplate.mInfo;
+		result.mInfo.setImage(result.get_image().handle());
+		result.mInfo.subresourceRange
+			.setLevelCount(result.get_image().config().mipLevels)
+			.setLayerCount(result.get_image().config().arrayLayers);
+
+		result.mUsageInfo = aTemplate.mUsageInfo;
+
+		// Maybe alter the config?!
+		if (aAlterImageViewConfigBeforeCreation) {
+			aAlterImageViewConfigBeforeCreation(result);
+		}
+
+		result.mImageView = device().createImageViewUnique(result.mInfo);
+		result.mDescriptorInfo = vk::DescriptorImageInfo{}
+			.setImageView(result.handle())
+			.setImageLayout(result.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout? 
+		
+		return result;
+	}
+
+	
 	image_view root::create_image_view(image aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
@@ -5705,6 +5910,121 @@ namespace avk
 		return max_recursion_depth{ rtProps.maxRecursionDepth };
 	}
 
+	void root::rewire_config_and_create_ray_tracing_pipeline(ray_tracing_pipeline_t& aPreparedPipeline)
+	{
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mShaderStageCreateInfos.size());
+		assert(aPreparedPipeline.mShaders.size() == aPreparedPipeline.mSpecializationInfos.size());
+		for (size_t i = 0; i < aPreparedPipeline.mShaders.size(); ++i) {
+			aPreparedPipeline.mShaderStageCreateInfos[i]
+				.setModule(aPreparedPipeline.mShaders[i].handle())
+				.setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
+			
+			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
+				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
+			}
+		}
+		
+		// Pipeline Layout must be rewired already before calling this function
+
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(aPreparedPipeline.layout_handle());
+
+
+		// Create the PIPELINE LAYOUT
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
+		
+		auto pipelineCreateInfo = vk::RayTracingPipelineCreateInfoKHR{}
+			.setFlags(vk::PipelineCreateFlagBits{}) // TODO: Support flags
+			.setStageCount(static_cast<uint32_t>(aPreparedPipeline.mShaderStageCreateInfos.size()))
+			.setPStages(aPreparedPipeline.mShaderStageCreateInfos.data())
+			.setGroupCount(static_cast<uint32_t>(aPreparedPipeline.mShaderGroupCreateInfos.size()))
+			.setPGroups(aPreparedPipeline.mShaderGroupCreateInfos.data())
+			.setLibraries(vk::PipelineLibraryCreateInfoKHR{0u, nullptr}) // TODO: Support libraries
+			.setPLibraryInterface(nullptr)
+			.setMaxRecursionDepth(aPreparedPipeline.mMaxRecursionDepth)
+			.setLayout(aPreparedPipeline.layout_handle());
+		
+		auto pipeCreationResult = device().createRayTracingPipelineKHR(
+			nullptr,
+			pipelineCreateInfo,
+			nullptr,
+			dynamic_dispatch());
+		
+		aPreparedPipeline.mPipeline = pipeCreationResult.value;
+
+		//result.mPipeline = std::move(pipeCreationResult.value);
+		// TODO: This ^ will be fixed with vulkan headers v 136 ... or maybe not?!
+	}
+
+	void root::build_shader_binding_table(ray_tracing_pipeline_t& aPipeline)
+	{
+		// According to https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable this is the way:
+		const size_t groupCount = aPipeline.mShaderGroupCreateInfos.size();
+		const size_t shaderBindingTableSize = aPipeline.mShaderBindingTableGroupsInfo.mTotalSize;
+
+		// TODO: All of this SBT-stuff probably needs some refactoring
+		aPipeline.mShaderBindingTable = create_buffer(
+			AVK_STAGING_BUFFER_MEMORY_USAGE, // TODO: This should be a device buffer, right?!
+			vk::BufferUsageFlagBits::eRayTracingKHR,				
+			generic_buffer_meta::create_from_size(shaderBindingTableSize)
+		);
+
+		assert(aPipeline.mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size() == shaderBindingTableSize);
+
+		// Copy to temporary buffer:
+		std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
+		device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
+
+		auto mapped = scoped_mapping{aPipeline.mShaderBindingTable->mBuffer, mapping_access::write};
+		// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
+		vk::DeviceSize off = 0;
+		size_t iRaygen = 0;
+		size_t iMiss = 0;
+		size_t iHit = 0;
+		size_t iCallable = 0;
+		auto* pData  = reinterpret_cast<uint8_t*>(mapped.get());
+		size_t srcByteOffset = 0;
+		while (off < aPipeline.mShaderBindingTableGroupsInfo.mEndOffset) {
+			size_t dstOffset = 0;
+			size_t copySize = 0;
+
+			if (iRaygen   < aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
+				dstOffset = aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset;
+				off      += aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries;
+				copySize  = aPipeline.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iRaygen;
+			}
+			else if (iMiss < aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mOffset == off) {
+				dstOffset  = aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset;
+				off       += aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries;
+				copySize   = aPipeline.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iMiss;
+			}
+			else if (iHit < aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mOffset == off) {
+				dstOffset = aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mByteOffset;
+				off      += aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries;
+				copySize  = aPipeline.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iHit;
+			}
+			else if (iCallable < aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.size() && aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mOffset == off) {
+				dstOffset = aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset;
+				off      += aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries;
+				copySize  = aPipeline.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries * aPipeline.mShaderGroupHandleSize;
+				++iCallable;
+			}
+			else {
+				throw avk::runtime_error("Can't be");
+			}
+			
+			memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
+			srcByteOffset += copySize;
+		}
+		//for(uint32_t g = 0; g < groupCount; g++)
+		//{
+		//}
+	}
+	
 	ray_tracing_pipeline root::create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		using namespace cfg;
@@ -5920,9 +6240,8 @@ namespace avk
 
 		// 5. Pipeline layout
 		result.mAllDescriptorSetLayouts = set_of_descriptor_set_layouts::prepare(std::move(aConfig.mResourceBindings));
-		allocate_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
+		allocate_set_of_descriptor_set_layouts(result.mAllDescriptorSetLayouts);
 		
-		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// Gather the push constant data
 		result.mPushConstantRanges.reserve(aConfig.mPushConstantsBindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 		for (const auto& pcBinding : aConfig.mPushConstantsBindings) {
@@ -5933,6 +6252,8 @@ namespace avk
 			);
 			// TODO: Push Constants need a prettier interface
 		}
+		
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
 			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
 			.setPSetLayouts(descriptorSetLayoutHandles.data())
@@ -5945,101 +6266,51 @@ namespace avk
 		}
 
 		// 8. Create the pipeline's layout
-		result.mPipelineLayout = device().createPipelineLayoutUnique(result.mPipelineLayoutCreateInfo);
-		assert(result.layout_handle());
-
 		// 9. Build the Ray Tracing Pipeline
-		auto pipelineCreateInfo = vk::RayTracingPipelineCreateInfoKHR{}
-			.setFlags(vk::PipelineCreateFlagBits{}) // TODO: Support flags
-			.setStageCount(static_cast<uint32_t>(result.mShaderStageCreateInfos.size()))
-			.setPStages(result.mShaderStageCreateInfos.data())
-			.setGroupCount(static_cast<uint32_t>(result.mShaderGroupCreateInfos.size()))
-			.setPGroups(result.mShaderGroupCreateInfos.data())
-			.setLibraries(vk::PipelineLibraryCreateInfoKHR{0u, nullptr}) // TODO: Support libraries
-			.setPLibraryInterface(nullptr)
-			.setMaxRecursionDepth(result.mMaxRecursionDepth)
-			.setLayout(result.layout_handle());
-		
-		auto pipeCreationResult = device().createRayTracingPipelineKHR(
-			nullptr,
-			pipelineCreateInfo,
-			nullptr,
-			dynamic_dispatch());
-		
-		result.mPipeline = pipeCreationResult.value;
-
-		//result.mPipeline = std::move(pipeCreationResult.value);
-		// TODO: This ^ will be fixed with vulkan headers v 136
+		rewire_config_and_create_ray_tracing_pipeline(result);
 		
 		// 10. Build the shader binding table
-		{
-			// According to https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable this is the way:
-			const size_t groupCount = result.mShaderGroupCreateInfos.size();
-			const size_t shaderBindingTableSize = result.mShaderBindingTableGroupsInfo.mTotalSize;
+		build_shader_binding_table(result);
+		return result;
+	}
 
-			// TODO: All of this SBT-stuff probably needs some refactoring
-			result.mShaderBindingTable = create_buffer(
-				memory_usage::host_coherent,
-				vk::BufferUsageFlagBits::eRayTracingKHR,				
-				generic_buffer_meta::create_from_size(shaderBindingTableSize)
-			);
+	ray_tracing_pipeline root::create_ray_tracing_pipeline_from_template(const ray_tracing_pipeline_t& aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		ray_tracing_pipeline_t result;
 
-			assert(result.mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size() == shaderBindingTableSize);
-
-			// Copy to temporary buffer:
-			std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
-			device().getRayTracingShaderGroupHandlesKHR(result.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
-			
-			void* mapped = device().mapMemory(result.mShaderBindingTable->memory_handle(), 0, shaderBindingTableSize);
-			// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
-			vk::DeviceSize off = 0;
-			size_t iRaygen = 0;
-			size_t iMiss = 0;
-			size_t iHit = 0;
-			size_t iCallable = 0;
-			auto* pData  = reinterpret_cast<uint8_t*>(mapped);
-			size_t srcByteOffset = 0;
-			while (off < result.mShaderBindingTableGroupsInfo.mEndOffset) {
-				size_t dstOffset = 0;
-				size_t copySize = 0;
-
-				if (iRaygen   < result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mOffset == off) {
-					dstOffset = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mByteOffset;
-					off      += result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries;
-					copySize  = result.mShaderBindingTableGroupsInfo.mRaygenGroupsInfo[iRaygen].mNumEntries * result.mShaderGroupHandleSize;
-					++iRaygen;
-				}
-				else if (iMiss < result.mShaderBindingTableGroupsInfo.mMissGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mOffset == off) {
-					dstOffset  = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mByteOffset;
-					off       += result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries;
-					copySize   = result.mShaderBindingTableGroupsInfo.mMissGroupsInfo[iMiss].mNumEntries * result.mShaderGroupHandleSize;
-					++iMiss;
-				}
-				else if (iHit < result.mShaderBindingTableGroupsInfo.mHitGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mOffset == off) {
-					dstOffset = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mByteOffset;
-					off      += result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries;
-					copySize  = result.mShaderBindingTableGroupsInfo.mHitGroupsInfo[iHit].mNumEntries * result.mShaderGroupHandleSize;
-					++iHit;
-				}
-				else if (iCallable < result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo.size() && result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mOffset == off) {
-					dstOffset = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mByteOffset;
-					off      += result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries;
-					copySize  = result.mShaderBindingTableGroupsInfo.mCallableGroupsInfo[iCallable].mNumEntries * result.mShaderGroupHandleSize;
-					++iCallable;
-				}
-				else {
-					throw avk::runtime_error("Can't be");
-				}
-				
-				memcpy(pData + dstOffset, shaderHandleStorage.data() + srcByteOffset, copySize);
-				srcByteOffset += copySize;
-			}
-			//for(uint32_t g = 0; g < groupCount; g++)
-			//{
-			//}
-			device().unmapMemory(result.mShaderBindingTable->memory_handle());
+		result.mPipelineCreateFlags						= aTemplate.mPipelineCreateFlags;
+		for (const auto& shdr : aTemplate.mShaders) {
+			result.mShaders.push_back(create_shader_from_template(shdr));
 		}
+		result.mShaderStageCreateInfos					= aTemplate.mShaderStageCreateInfos;
+		result.mSpecializationInfos						= aTemplate.mSpecializationInfos;
+		result.mShaderGroupCreateInfos					= aTemplate.mShaderGroupCreateInfos;
+		result.mShaderBindingTableGroupsInfo			= aTemplate.mShaderBindingTableGroupsInfo;
+		result.mMaxRecursionDepth						= aTemplate.mMaxRecursionDepth;
+		result.mBasePipelineIndex						= aTemplate.mBasePipelineIndex;
+		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
+		result.mPushConstantRanges						= aTemplate.mPushConstantRanges;
 
+		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
+		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
+			.setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayoutHandles.size()))
+			.setPSetLayouts(descriptorSetLayoutHandles.data())
+			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size()))
+			.setPPushConstantRanges(result.mPushConstantRanges.data());
+
+		result.mShaderGroupBaseAlignment				= aTemplate.mShaderGroupBaseAlignment;
+		result.mShaderGroupHandleSize					= aTemplate.mShaderGroupHandleSize;
+
+		result.mDevice									= aTemplate.mDevice;
+		result.mDynamicDispatch							= aTemplate.mDynamicDispatch;
+		
+		// 15. Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+		
+		rewire_config_and_create_ray_tracing_pipeline(result);
+		build_shader_binding_table(result);
 		return result;
 	}
 
@@ -6202,6 +6473,36 @@ using namespace cpplinq;
 		std::vector<uint32_t> mPreserveAttachments;
 	};
 
+	void root::rewire_subpass_descriptions(renderpass_t& aRenderpass)
+	{
+		const auto nSubpasses = aRenderpass.mSubpassData.size();
+
+		aRenderpass.mSubpasses.clear(); // Start with a clean state
+		aRenderpass.mSubpasses.reserve(nSubpasses);
+		
+		for (size_t i = 0; i < nSubpasses; ++i) {
+			auto& b = aRenderpass.mSubpassData[i];
+			
+			aRenderpass.mSubpasses.push_back(vk::SubpassDescription()
+				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
+				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+				.setColorAttachmentCount(static_cast<uint32_t>(b.mOrderedColorAttachmentRefs.size()))
+				.setPColorAttachments(b.mOrderedColorAttachmentRefs.data())
+				// If pResolveAttachments is not NULL, each of its elements corresponds to a color attachment 
+				//  (the element in pColorAttachments at the same index), and a multisample resolve operation 
+				//  is defined for each attachment. [1]
+				.setPResolveAttachments(b.mOrderedResolveAttachmentRefs.size() == 0 ? nullptr : b.mOrderedResolveAttachmentRefs.data())
+				// If pDepthStencilAttachment is NULL, or if its attachment index is VK_ATTACHMENT_UNUSED, it 
+				//  indicates that no depth/stencil attachment will be used in the subpass. [1]
+				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.size() == 0 ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
+				// The following two attachment types are probably totally irrelevant if we only have one subpass
+				.setInputAttachmentCount(static_cast<uint32_t>(b.mOrderedInputAttachmentRefs.size()))
+				.setPInputAttachments(b.mOrderedInputAttachmentRefs.data())
+				.setPreserveAttachmentCount(static_cast<uint32_t>(b.mPreserveAttachments.size()))
+				.setPPreserveAttachments(b.mPreserveAttachments.data()));
+		}
+	}
+
 	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
@@ -6343,7 +6644,7 @@ using namespace cpplinq;
 			// ^^^ I have no idea what I'm assuming ^^^
 
 			// 1. Create the attachment descriptions
-			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription()
+			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription{}
 				.setFormat(a.format())
 				.setSamples(a.sample_count())
 				.setLoadOp(to_vk_load_op(a.mLoadOperation))
@@ -6508,28 +6809,7 @@ using namespace cpplinq;
 		subpasses.clear();
 		
 		// 4. Now we can fill the subpass description
-		result.mSubpasses.reserve(numSubpassesFirst);
-		for (size_t i = 0; i < numSubpassesFirst; ++i) {
-			auto& b = result.mSubpassData[i];
-			
-			result.mSubpasses.push_back(vk::SubpassDescription()
-				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
-				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-				.setColorAttachmentCount(static_cast<uint32_t>(b.mOrderedColorAttachmentRefs.size()))
-				.setPColorAttachments(b.mOrderedColorAttachmentRefs.data())
-				// If pResolveAttachments is not NULL, each of its elements corresponds to a color attachment 
-				//  (the element in pColorAttachments at the same index), and a multisample resolve operation 
-				//  is defined for each attachment. [1]
-				.setPResolveAttachments(b.mOrderedResolveAttachmentRefs.size() == 0 ? nullptr : b.mOrderedResolveAttachmentRefs.data())
-				// If pDepthStencilAttachment is NULL, or if its attachment index is VK_ATTACHMENT_UNUSED, it 
-				//  indicates that no depth/stencil attachment will be used in the subpass. [1]
-				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.size() == 0 ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
-				// The following two attachment types are probably totally irrelevant if we only have one subpass
-				.setInputAttachmentCount(static_cast<uint32_t>(b.mOrderedInputAttachmentRefs.size()))
-				.setPInputAttachments(b.mOrderedInputAttachmentRefs.data())
-				.setPreserveAttachmentCount(static_cast<uint32_t>(b.mPreserveAttachments.size()))
-				.setPPreserveAttachments(b.mPreserveAttachments.data()));
-		}
+		rewire_subpass_descriptions(result);
 		
 		// ======== Regarding Subpass Dependencies ==========
 		// At this point, we can not know how a subpass shall 
@@ -6613,7 +6893,6 @@ using namespace cpplinq;
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
 		result.mRenderPass = device().createRenderPassUnique(createInfo);
-		//result.mTracker.setTrackee(result);
 		return result; 
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
@@ -6622,6 +6901,32 @@ using namespace cpplinq;
 		// [1] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkSubpassDescription.html
 		// [2] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkSubpassDescriptionDepthStencilResolveKHR.html
 		// [3] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkPipelineStageFlagBits.html
+	}
+
+	renderpass root::create_renderpass_from_template(const renderpass_t& aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	{
+		renderpass_t result;
+		result.mAttachmentDescriptions = aTemplate.mAttachmentDescriptions;
+		result.mClearValues			   = aTemplate.mClearValues			  ;
+		result.mSubpassData			   = aTemplate.mSubpassData			  ;
+		rewire_subpass_descriptions(result); // this will set result.mSubpasses
+		result.mSubpassDependencies	   = aTemplate.mSubpassDependencies	  ;
+
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		// Finally, create the render pass
+		auto createInfo = vk::RenderPassCreateInfo()
+			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
+			.setPAttachments(result.mAttachmentDescriptions.data())
+			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
+			.setPSubpasses(result.mSubpasses.data())
+			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
+			.setPDependencies(result.mSubpassDependencies.data());
+		result.mRenderPass = device().createRenderPassUnique(createInfo);
+		return result; 
 	}
 
 	bool renderpass_t::is_input_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -6760,24 +7065,24 @@ using namespace cpplinq;
 		return result;
 	}
 
-	vk::UniqueShaderModule root::build_shader_module_from_binary_code(const std::vector<char>& pCode)
+	vk::UniqueShaderModule root::build_shader_module_from_binary_code(const std::vector<char>& aCode)
 	{
 		auto createInfo = vk::ShaderModuleCreateInfo()
-			.setCodeSize(pCode.size())
-			.setPCode(reinterpret_cast<const uint32_t*>(pCode.data()));
+			.setCodeSize(aCode.size())
+			.setPCode(reinterpret_cast<const uint32_t*>(aCode.data()));
 
 		return device().createShaderModuleUnique(createInfo);
 	}
 	
-	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& pPath)
+	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& aPath)
 	{
-		auto binFileContents = avk::load_binary_file(pPath);
+		auto binFileContents = avk::load_binary_file(aPath);
 		return build_shader_module_from_binary_code(binFileContents);
 	}
 	
-	shader root::create_shader(shader_info pInfo)
+	shader root::create_shader(shader_info aInfo)
 	{
-		auto shdr = shader::prepare(std::move(pInfo));
+		auto shdr = shader::prepare(std::move(aInfo));
 
 		if (std::filesystem::exists(shdr.info().mPath)) {
 			try {
@@ -6795,6 +7100,11 @@ using namespace cpplinq;
 		shdr.mActualShaderLoadPath = secondTry;
 
 		return shdr;
+	}
+
+	shader root::create_shader_from_template(const shader& aTemplate)
+	{
+		return create_shader(aTemplate.info());
 	}
 
 	bool shader::has_been_built() const
@@ -7026,7 +7336,7 @@ using namespace cpplinq;
 			.setImageOffset({ 0u, 0u, 0u })
 			.setImageExtent(extent);
 		commandBuffer.handle().copyBufferToImage(
-			aSrcBuffer.buffer_handle(),
+			aSrcBuffer.handle(),
 			aDstImage.handle(),
 			vk::ImageLayout::eTransferDstOptimal,
 			{ copyRegion });
@@ -7050,7 +7360,7 @@ using namespace cpplinq;
 		std::vector<vk::BufferMemoryBarrier> bmbs;
 		for (auto& data : mBufferMemoryBarriers) {
 			bmbs.emplace_back()
-				.setBuffer(data.mBufferRef->buffer_handle())
+				.setBuffer(data.mBufferRef->handle())
 				.setSrcQueueFamilyIndex(data.mSrcQueue.value()->family_index())
 				.setDstQueueFamilyIndex(data.mDstQueue.value()->family_index())
 				.setOffset(0)
@@ -7139,7 +7449,7 @@ using namespace cpplinq;
 		const auto& member = meta.member_description(content_description::query_result);
 		
 		auto& cmdBfr = aSync.get_or_create_command_buffer();
-		cmdBfr.handle().copyQueryPoolResults(handle(), aFirstQueryIndex, aNumQueries, aBuffer.buffer_handle(), member.mOffset, meta.sizeof_one_element(), aFlags);
+		cmdBfr.handle().copyQueryPoolResults(handle(), aFirstQueryIndex, aNumQueries, aBuffer.handle(), member.mOffset, meta.sizeof_one_element(), aFlags);
 		return aSync.submit_and_sync();
 	}
 

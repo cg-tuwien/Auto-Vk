@@ -37,6 +37,24 @@
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
 
+/** CONFIG SETTING: AVK_STAGING_BUFFER_MEMORY_USAGE
+ *
+ *	The following setting CAN be set BEFORE including avk.hpp in order to change
+ *	the behavior whenever staging buffers are created internally. There can be the
+ *	need for creating internal staging buffers in multiple situations: e.g. when
+ *	a device-only buffer shall be filled with data, when data shall be read back
+ *	from device-only memory, when a scratch buffer is needed to build acceleration
+ *	structures and none was provided, etc.
+ *
+ *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+ *	if nothing else is specified. Feel free to specify a different value by defining
+ *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
+ *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
+ */
+#if !defined(AVK_STAGING_BUFFER_MEMORY_USAGE)
+#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_visible
+#endif
+
 namespace avk { class sync; }
 
 #include <avk/image_color_channel_order.hpp>
@@ -44,7 +62,60 @@ namespace avk { class sync; }
 #include <avk/image_usage.hpp>
 #include <avk/filter_mode.hpp>
 #include <avk/border_handling_mode.hpp>
+
 #include <avk/vk_utils.hpp>
+#include <avk/mapping_access.hpp>
+
+/** CONFIG SETTING: AVK_USE_VMA
+ *
+ *	Define the macro AVK_USE_VMA to enable memory allocation via Vulkan Memory Allocator.
+ *	Note 1: You'll have to #define AVK_USE_VMA before the #include <avk/avk.hpp> statement!
+ *	Note 2: Vulkan Memory Allocator is not enabled by default. By default, you'll get
+ *	        a very "stupid" memory allocation behavior with one allocation per resource.
+ *	Note 3: If you are opting-in for using Vulkan Memory Allocator, make sure to add the
+ *	        implementation file vk_mem_alloc.cpp to your project!
+ */
+#include <vk_mem_alloc.h>
+#if defined(AVK_USE_VMA)
+#if !defined(AVK_MEM_ALLOCATOR_TYPE)
+#define AVK_MEM_ALLOCATOR_TYPE       VmaAllocator
+#endif 
+#if !defined(AVK_MEM_IMAGE_HANDLE)
+#define AVK_MEM_IMAGE_HANDLE         avk::vma_handle<vk::Image>
+#endif 
+#if !defined(AVK_MEM_BUFFER_HANDLE)
+#define AVK_MEM_BUFFER_HANDLE        avk::vma_handle<vk::Buffer>
+#endif 
+#include <avk/vma_handle.hpp>
+#else
+#include <avk/mem_handle.hpp>
+#endif
+
+#include <avk/scoped_mapping.hpp>
+
+/** CONFIG SETTINGS: AVK_MEM_ALLOCATOR_TYPE, AVK_MEM_IMAGE_HANDLE, AVK_MEM_BUFFER_HANDLE
+ *
+ *	These can be used to plug-in custom memory allocation behavior into Auto-Vk.
+ *	This is definitely an advanced usage scenario, where you'll have to provide a type
+ *	similar to avk::mem_handle or avk::vma_handle which manages memory allocations.
+ *
+ *	If you want to plug-in custom memory allocation behavior, define ALL THREE of these
+ *	macros before the #include <avk/avk.hpp>
+ *
+ *	The default for these macros is "stupid" memory allocation behavior by the means of
+ *	mem_handle which creates one memory allocation per resource. If the AVK_USE_VMA macro
+ *	is defined, all three of these macros are set to Vulkan Memory Allocation counterparts
+ *	and the Vulkan Memory Allocation library will be used to handle all memory allocations.
+ */
+#if !defined(AVK_MEM_ALLOCATOR_TYPE)
+#define AVK_MEM_ALLOCATOR_TYPE       std::tuple<vk::PhysicalDevice, vk::Device>
+#endif 
+#if !defined(AVK_MEM_IMAGE_HANDLE)
+#define AVK_MEM_IMAGE_HANDLE         avk::mem_handle<vk::Image>
+#endif 
+#if !defined(AVK_MEM_BUFFER_HANDLE)
+#define AVK_MEM_BUFFER_HANDLE        avk::mem_handle<vk::Buffer>
+#endif 
 
 #include <avk/memory_access.hpp>
 #include <avk/memory_usage.hpp>
@@ -126,13 +197,10 @@ namespace avk { class sync; }
 namespace avk
 {
 	// T must provide:
-	//    .physical_device()			returning a vk::PhysicalDevice&
-	//    .device()						returning a vk::Device&
-	//    .queue()						returning a vk::Queue&
-	//    .queue_family_index()         returning a uint32_t
-	//    .dynamic_dispatch()			returning a vk::DispatchLoaderDynamic&
-	//    .command_pool_for_flags()     returning a vk::CommandPool&
-	//    .descriptor_cache()           returning a descriptor_cache_interface&
+	//    .physical_device()			returning a vk::PhysicalDevice
+	//    .device()						returning a vk::Device
+	//    .dynamic_dispatch()			returning a vk::DispatchLoaderDynamic
+	//    .memory_allocator()           returning a VmaAllocator
 	class root
 	{
 	public:
@@ -140,20 +208,22 @@ namespace avk
 		virtual vk::PhysicalDevice& physical_device()				= 0;
 		virtual vk::Device& device()								= 0;
 		virtual vk::DispatchLoaderDynamic& dynamic_dispatch()		= 0;
+		virtual AVK_MEM_ALLOCATOR_TYPE& memory_allocator()					= 0;
 
 #pragma region root helper functions
-		/** Find (index of) memory with parameters
-		 *	@param aMemoryTypeBits		Bit field of the memory types that are suitable for the buffer. [9]
-		 *	@param aMemoryProperties	Special features of the memory, like being able to map it so we can write to it from the CPU. [9]
-		 */
+		/** Prints all the different memory types that are available on the device along with its memory property flags. */
+		void print_available_memory_types();
 
-		static uint32_t find_memory_type_index(const vk::PhysicalDevice& aPhysicalDevice, uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
-		
 		/** Find (index of) memory with parameters
 		 *	@param aMemoryTypeBits		Bit field of the memory types that are suitable for the buffer. [9]
 		 *	@param aMemoryProperties	Special features of the memory, like being able to map it so we can write to it from the CPU. [9]
+		 *	@return	A tuple with the following elements:
+		 *			[0]: The selected memory index which satisfies the requirements indicated by both, aMemoryTypeBits and aMemoryProperties.
+		 *				 (If no suitable memory can be found, this function will throw.)
+		 *			[1]: The actual memory property flags which are supported by the selected memory. The include at least aMemoryProperties,
+		 *				 but can also have additional memory property flags set.
 		 */
-		uint32_t find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
+		std::tuple<uint32_t, vk::MemoryPropertyFlags> find_memory_type_index(uint32_t aMemoryTypeBits, vk::MemoryPropertyFlags aMemoryProperties);
 
 		bool is_format_supported(vk::Format pFormat, vk::ImageTiling pTiling, vk::FormatFeatureFlags aFormatFeatures);
 
@@ -186,12 +256,16 @@ namespace avk
 				result.mMemoryRequirementsForScratchBufferUpdate = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dynamic_dispatch());
 			}
 
+			// Find suitable memory for this acceleration structure
+			auto tpl = find_memory_type_index(
+				result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.memoryTypeBits, 
+				vk::MemoryPropertyFlagBits::eDeviceLocal // TODO: Does it make sense to support other memory locations as eDeviceLocal?
+			);                                           // TODO: This must probably be changed for Host builds?!
+
 			// 6. Assemble memory info
 			result.mMemoryAllocateInfo = vk::MemoryAllocateInfo{}
 				.setAllocationSize(result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.size)
-				.setMemoryTypeIndex(find_memory_type_index(
-					result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.memoryTypeBits,
-					vk::MemoryPropertyFlagBits::eDeviceLocal)); // TODO: Does it make sense to support other memory locations as eDeviceLocal?
+				.setMemoryTypeIndex(std::get<uint32_t>(tpl));  // Get the selected memory type index from the tuple
 
 			// 7. Maybe alter the config?
 			if (aAlterConfigBeforeMemoryAlloc) {
@@ -216,6 +290,7 @@ namespace avk
 
 			result.mPhysicalDevice = physical_device();
 			result.mDevice = device();
+			result.mAllocator = memory_allocator();
 			result.mDynamicDispatch = dynamic_dispatch();
 			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dynamic_dispatch());
 		}
@@ -240,7 +315,8 @@ namespace avk
 #pragma region buffer
 		static buffer create_buffer(
 			const vk::PhysicalDevice& aPhysicalDevice, 
-			const vk::Device& aDevice, 
+			const vk::Device& aDevice,
+			const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
 #if VK_HEADER_VERSION >= 135
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #else
@@ -248,7 +324,6 @@ namespace avk
 #endif
 			vk::BufferUsageFlags aBufferUsage, 
 			vk::MemoryPropertyFlags aMemoryProperties, 
-			vk::MemoryAllocateFlags aMemoryAllocateFlags,
 			std::initializer_list<queue*> aConcurrentQueueOwnership = {}
 		);
 		
@@ -259,15 +334,14 @@ namespace avk
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> aMetaData,
 #endif
 			vk::BufferUsageFlags aBufferUsage, 
-			vk::MemoryPropertyFlags aMemoryProperties,
-			vk::MemoryAllocateFlags aMemoryAllocateFlags)
+			vk::MemoryPropertyFlags aMemoryProperties)
 		{
-			return create_buffer(physical_device(), device(), std::move(aMetaData), aBufferUsage, aMemoryProperties, aMemoryAllocateFlags);
+			return create_buffer(physical_device(), device(), memory_allocator(), std::move(aMetaData), aBufferUsage, aMemoryProperties);
 		}
 
 		template <typename Meta, typename... Metas>
 		static buffer create_buffer(
-			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, 
+			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
 			avk::memory_usage aMemoryUsage,
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
@@ -317,20 +391,10 @@ namespace avk
 				aUsage |= (... | aConfigs.buffer_usage_flags());
 				(metas.push_back(aConfigs), ...);
 			}
-			
-#if VK_HEADER_VERSION >= 135
-			// If buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR bit set, memory must have been allocated with the 
-			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR bit set. The Vulkan spec states: If the VkPhysicalDeviceBufferDeviceAddressFeatures::bufferDeviceAddress
-			// feature is enabled and buffer was created with the VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT bit set, memory must have been allocated with the
-			// VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT bit set
-			if (avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(aUsage, vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
-				memoryAllocateFlags |= vk::MemoryAllocateFlagBits::eDeviceAddress;
-			}
-#endif
 
 			// Create buffer here to make use of named return value optimization.
 			// How it will be filled depends on where the memory is located at.
-			return create_buffer(aPhysicalDevice, aDevice, metas, aUsage, memoryFlags, memoryAllocateFlags);
+			return create_buffer(aPhysicalDevice, aDevice, aAllocator, metas, aUsage, memoryFlags);
 		}
 		
 		template <typename Meta, typename... Metas>
@@ -339,7 +403,7 @@ namespace avk
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
 		{	
-			return create_buffer(physical_device(), device(), avk::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
+			return create_buffer(physical_device(), device(), memory_allocator(), avk::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
 		}
 
 		//template <typename Meta, typename... Metas>
@@ -421,7 +485,9 @@ namespace avk
 #pragma endregion 
 
 #pragma region compute pipeline
+		void rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline);
 		compute_pipeline create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		compute_pipeline create_compute_pipeline_from_template(const compute_pipeline_t& aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Convenience function for gathering the compute pipeline's configuration.
 		 *
@@ -444,10 +510,7 @@ namespace avk
 			add_config(config, alterConfigFunction, std::move(args)...);
 
 			// 2. CREATE PIPELINE according to the config
-			// ============================================ Vk ============================================ 
-			//    => VULKAN CODE HERE:
 			return create_compute_pipeline(std::move(config), std::move(alterConfigFunction));
-			// ============================================================================================ 
 		}
 #pragma endregion
 
@@ -460,7 +523,9 @@ namespace avk
 #pragma region descriptor set layout and set of descriptor set layouts
 		static void allocate_descriptor_set_layout(vk::Device aDevice, descriptor_set_layout& aLayoutToBeAllocated);
 		void allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated);
-		void allocate_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated);
+		descriptor_set_layout create_descriptor_set_layout_from_template(const descriptor_set_layout& aTemplate);
+		void allocate_set_of_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated);
+		set_of_descriptor_set_layouts create_set_of_descriptor_set_layouts_from_template(const set_of_descriptor_set_layouts& aTemplate);
 #pragma endregion
 
 #pragma region fence
@@ -504,8 +569,9 @@ namespace avk
 #pragma endregion
 
 #pragma region graphics pipeline
+		void rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline);
 		graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
-
+		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 			
 		/**	Convenience function for gathering the graphic pipeline's configuration.
 		 *	
@@ -566,6 +632,8 @@ namespace avk
 #pragma endregion
 
 #pragma region image
+		image create_image_from_template(const image_t& aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		
 		/** Creates a new image
 		 *	@param	aWidth						The width of the image to be created
 		 *	@param	aHeight						The height of the image to be created
@@ -616,6 +684,8 @@ namespace avk
 #pragma endregion
 
 #pragma region image view
+		image_view create_image_view_from_template(const image_view_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {});
+		
 		/** Creates a new image view upon a given image
 		*	@param	aImageToOwn					The image which to create an image view for
 		*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
@@ -646,8 +716,11 @@ namespace avk
 #pragma region ray tracing pipeline
 #if VK_HEADER_VERSION >= 135
 		max_recursion_depth get_max_ray_tracing_recursion_depth();
-			
+
+		void rewire_config_and_create_ray_tracing_pipeline(ray_tracing_pipeline_t& aPipeline);
+		void build_shader_binding_table(ray_tracing_pipeline_t& aPipeline);
 		ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		ray_tracing_pipeline create_ray_tracing_pipeline_from_template(const ray_tracing_pipeline_t& aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
 			
 		/**	Convenience function for gathering the ray tracing pipeline's configuration.
 		 *
@@ -687,6 +760,12 @@ namespace avk
 #pragma endregion
 
 #pragma region renderpass
+		/**	Sets all the subpass descriptions of the given (at least partially configured) renderpass to the right locations.
+		 *	In particular, that means that the mSubpasses member will be recreated, setting all the pointers to the other
+		 *	members.
+		 */
+		void rewire_subpass_descriptions(renderpass_t& aRenderpass);
+		
 		/** Create a renderpass from a given set of attachments.
 		 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
 		 *	To specify custom subpass dependencies, pass a callback to the second parameter!
@@ -697,6 +776,8 @@ namespace avk
 		 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
 		 */
 		renderpass create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+
+		renderpass create_renderpass_from_template(const renderpass_t& aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region semaphore
@@ -705,9 +786,10 @@ namespace avk
 #pragma endregion
 
 #pragma region shader
-		vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& pCode);
-		vk::UniqueShaderModule build_shader_module_from_file(const std::string& pPath);
-		shader create_shader(shader_info pInfo);
+		vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& aCode);
+		vk::UniqueShaderModule build_shader_module_from_file(const std::string& aPath);
+		shader create_shader(shader_info aInfo);
+		shader create_shader_from_template(const shader& aTemplate);
 #pragma endregion
 	
 #pragma region query pool and query

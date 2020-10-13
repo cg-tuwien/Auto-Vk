@@ -19,6 +19,7 @@ namespace avk
 		const auto& handle() const { return mShaderModule.get(); }
 		const auto* handle_addr() const { return &mShaderModule.get(); }
 		const auto& info() const { return mInfo; }
+		const auto& actual_load_path() const { return mActualShaderLoadPath; }
 
 		bool has_been_built() const;
 

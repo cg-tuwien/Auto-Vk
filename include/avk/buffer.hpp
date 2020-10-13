@@ -34,7 +34,8 @@ namespace avk
 	{
 		friend class root;
 
-		struct get_buffer_meta {
+		struct get_buffer_meta
+		{
 			get_buffer_meta(const buffer_meta*& aOut) : mOut{ &aOut } {}
 			const buffer_meta** mOut = nullptr;
 			void operator()(const buffer_meta& data)					const	{ *mOut = &data; }
@@ -79,13 +80,11 @@ namespace avk
 			return *reinterpret_cast<const Meta*>(metaPtr);
 		}
 		
-		auto& config() const					{ return mCreateInfo; }
-		const auto& memory_properties() const	{ return mMemoryPropertyFlags; }
-		const auto& memory_handle() const		{ return mMemory.get(); }
-		const auto* memory_handle_ptr() const	{ return &mMemory.get(); }
-		const auto& buffer_usage_flags() const	{ return mBufferUsageFlags; }
-		const auto& buffer_handle() const		{ return mBuffer.get(); }
-		const auto* buffer_handle_ptr() const	{ return &mBuffer.get(); }
+		auto& config() const	{ return mCreateInfo; }
+		const auto& handle() const		{ return mBuffer.resource(); }
+		const auto* handle_ptr() const	{ return &handle(); }
+		const auto& usage_flags() const	{ return mBufferUsageFlags; }
+		auto memory_properties() const          { return mBuffer.memory_properties(); }
 		const auto has_device_address() const { return mDeviceAddress.has_value(); }
 		const auto device_address() const { return mDeviceAddress.value(); }
 
@@ -97,7 +96,7 @@ namespace avk
 		{
 			if (!mDescriptorInfo.has_value()) {
 				mDescriptorInfo = vk::DescriptorBufferInfo()
-					.setBuffer(buffer_handle())
+					.setBuffer(handle())
 					.setOffset(0)
 					.setRange(config().size); // TODO: Support different offsets and ranges
 			}
@@ -174,11 +173,11 @@ namespace avk
 
 		/** Fill buffer with data.
 		 */
-		std::optional<command_buffer> fill(const void* pData, size_t aMetaDataIndex, sync aSyncHandler);
+		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler);
 
 		/** Read data from buffer back to the CPU-side.
 		 */
-		std::optional<command_buffer> read(void* aData, size_t aMetaDataIndex, sync aSyncHandler) const;
+		std::optional<command_buffer> read(void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler) const;
 
 		/**
 		 * Read back data from a buffer.
@@ -202,17 +201,16 @@ namespace avk
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta>> mMetaData;
 #endif
 		vk::BufferCreateInfo mCreateInfo;
-		vk::MemoryPropertyFlags mMemoryPropertyFlags;
-		vk::UniqueDeviceMemory mMemory;
-		vk::BufferUsageFlags mBufferUsageFlags;
 		vk::PhysicalDevice mPhysicalDevice;
-		vk::UniqueBuffer mBuffer;
+		vk::Device mDevice;
+		vk::BufferUsageFlags mBufferUsageFlags;
+		AVK_MEM_BUFFER_HANDLE mBuffer;
 		std::optional<vk::DeviceAddress> mDeviceAddress;
 
 		mutable std::optional<vk::DescriptorBufferInfo> mDescriptorInfo;
 	};
 
-	/** Typedef representing any kind of OWNING image view representations. */
+	/** Typedef representing any kind of OWNING buffer representation. */
 	using buffer = owning_resource<buffer_t>;
 
 }

@@ -7,6 +7,10 @@ namespace avk
 	 *	stored in binding-order, and the accumulated descriptor counts
 	 *	per bindings which is information that can be used for configuring
 	 *	descriptor pools.
+	 *
+	 *	Note: descriptor_set_layout is not wrapped into owning_resource because
+	 *	      it is actually never exposed to the user but only used internally.
+	 *	      Therefore, there's no point in giving the user different ownership options.
 	 */
 	class descriptor_set_layout
 	{
