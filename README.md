@@ -12,7 +12,7 @@ _Auto-Vk_ requires
 _Auto-Vk_ consists of multiple C++ include files, two mandatory C++ source files (soon: one), and one optional C++ source file.
 * Add [`include/`](include/) to the include paths so that your compiler can find include files under paths `avk/*`
 * Add [`src/avk.cpp`](src/avk.cpp) (and currently also [`src/sync.cpp`](src/sync.cpp)) as a compiled C++ source code file
-* Optional: Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see below.
+* Optional: Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see section [Memory Allocation](https://github.com/cg-tuwien/Auto-Vk/blob/master/README.md#memory-allocation).
 
 # Motivating Example
 
@@ -173,9 +173,9 @@ _Attention:_ `avk::sync` is ugly and is subject to change. Expect breaking chang
 
 # Memory Allocation
 
-By default _Auto-Vk_ uses a very straight-forward, but for most cases probably also suboptimal, way of handling memory allocations: One allocation per resource. This is especially suboptimal if many small resources are used. Implementation-wise, [`class mem_handle`](include/avk/mem_handle.hpp) is used in this case. 
+By default _Auto-Vk_ uses a very straight-forward, but for most cases probably also suboptimal, way of handling memory allocations: One allocation per resource. This is especially suboptimal if many small resources are used. Implementation-wise, [`avk::mem_handle`](include/avk/mem_handle.hpp) is used in this case. 
 
-_Auto-Vk_, however, allows to easily swap this straight-froward way of memory handling with using the well-established [Vulkan Memory Allocator (VMA) library](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator). Only a small config-change is necessary to switch from [`class mem_handle`](include/avk/mem_handle.hpp) to [`class vma_handle`](include/avk/vma_handle.hpp), which uses VMA to alloc memory for all resources.
+_Auto-Vk_, however, allows to easily swap this straight-froward way of memory handling with using the well-established [Vulkan Memory Allocator (VMA) library](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator). Only a small config-change is necessary to switch from [`avk::mem_handle`](include/avk/mem_handle.hpp) to [`avk::vma_handle`](include/avk/vma_handle.hpp), which uses VMA to alloc memory for all resources.
 
 To enable VMA, define `AVK_USE_VMA` *before* including `<avk/avk.hpp>`:
 ```
