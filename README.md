@@ -18,7 +18,7 @@ _Auto-Vk_ consists of multiple C++ include files, two mandatory C++ source files
 
 _Auto-Vk_ aims to hit the sweet spot between full controllability and convenience without having a noticeable impact on performance.
 
-**Creating a graphics pipeline** in Vulkan require hundreds of lines of code. Here is what it can look like using _Auto-Vk_:
+**Creating a graphics pipeline** in Vulkan might require several hundreds of lines of code. Here is what it can look like with _Auto-Vk_:
 
 ```
 auto graphicsPipeline = myRoot.create_graphics_pipeline_for(
