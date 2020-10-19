@@ -5079,7 +5079,7 @@ namespace avk
 			addressMode = vk::SamplerAddressMode::eMirrorClampToEdge;
 			break;
 		case border_handling_mode::clamp_to_border:
-			addressMode = vk::SamplerAddressMode::eClampToEdge;
+			addressMode = vk::SamplerAddressMode::eClampToBorder;
 			break;
 		case border_handling_mode::repeat:
 			addressMode = vk::SamplerAddressMode::eRepeat;
