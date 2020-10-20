@@ -61,7 +61,7 @@ namespace avk
 			// copy data:
 			memcpy(data.data() + currentSize, &aValue, insertSize);
 			// make entry:
-			entries.emplace_back(aConstantId, currentSize, insertSize);
+			entries.emplace_back(aConstantId, static_cast<uint32_t>(currentSize), insertSize);
 
 			return *this;
 		}
