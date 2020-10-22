@@ -184,7 +184,7 @@ namespace avk
 			}
 			
 			handle().bindIndexBuffer(aIndexBuffer.handle(), 0u, indexType);
-			handle().drawIndexed(indexMeta.num_elements(), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
+			handle().drawIndexed(static_cast<uint32_t>(indexMeta.num_elements()), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 		}
 		
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
