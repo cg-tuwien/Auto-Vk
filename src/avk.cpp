@@ -2780,6 +2780,9 @@ namespace avk
 			.setPName(aPreparedPipeline.mShader.info().mEntryPoint.c_str());
 
 		if (aPreparedPipeline.mSpecializationInfo.has_value()) {
+			assert(aPreparedPipeline.mShader.info().mSpecializationConstants.has_value());
+			aPreparedPipeline.mSpecializationInfo.value().pMapEntries = aPreparedPipeline.mShader.info().mSpecializationConstants.value().mMapEntries.data();
+			aPreparedPipeline.mSpecializationInfo.value().pData = aPreparedPipeline.mShader.info().mSpecializationConstants.value().mData.data();
 			aPreparedPipeline.mShaderStageCreateInfo.setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfo.value());
 		}
 
@@ -4004,6 +4007,9 @@ namespace avk
 				.setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
 			
 			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
+				assert(aPreparedPipeline.mShaders[i].info().mSpecializationConstants.has_value());
+				aPreparedPipeline.mSpecializationInfos[i].pMapEntries = aPreparedPipeline.mShaders[i].info().mSpecializationConstants.value().mMapEntries.data();
+				aPreparedPipeline.mSpecializationInfos[i].pData = aPreparedPipeline.mShaders[i].info().mSpecializationConstants.value().mData.data();
 				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
 			}
 		}
@@ -5928,6 +5934,9 @@ namespace avk
 				.setPName(aPreparedPipeline.mShaders[i].info().mEntryPoint.c_str());
 			
 			if (aPreparedPipeline.mSpecializationInfos[i] != vk::SpecializationInfo{}) {
+				assert(aPreparedPipeline.mShaders[i].info().mSpecializationConstants.has_value());
+				aPreparedPipeline.mSpecializationInfos[i].pMapEntries = aPreparedPipeline.mShaders[i].info().mSpecializationConstants.value().mMapEntries.data();
+				aPreparedPipeline.mSpecializationInfos[i].pData = aPreparedPipeline.mShaders[i].info().mSpecializationConstants.value().mData.data();
 				aPreparedPipeline.mShaderStageCreateInfos[i].setPSpecializationInfo(&aPreparedPipeline.mSpecializationInfos[i]);
 			}
 		}
