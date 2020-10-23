@@ -203,6 +203,52 @@ namespace avk
 			draw_indexed(aIndexBuffer, 1u, 0u, 0u, 0u, aVertexBuffers ...);
 		}
 		
+		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		*	There can be no gaps between buffer bindings.
+		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		*	@param	aIndexBuffer		Reference to an index buffer
+		*	@param	aNumberOfDraws		Number of draws to execute
+		*	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
+		*	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
+		*	@param	aVertexBuffers		References to one or multiple vertex buffers
+		*
+		*   NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
+		*/
+		template <typename... Bfrs>
+		void draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const Bfrs&... aVertexBuffers)
+		{
+			handle().bindVertexBuffers(0u, { aVertexBuffers.handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
+			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
+
+			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
+			vk::IndexType indexType;
+			switch (indexMeta.sizeof_one_element()) {
+				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
+				case sizeof(uint32_t): indexType = vk::IndexType::eUint32; break;
+				default: AVK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
+			}
+
+			handle().bindIndexBuffer(aIndexBuffer.handle(), 0u, indexType);
+			handle().drawIndexedIndirect(aParametersBuffer.handle(), aParametersOffset, aNumberOfDraws, aParametersStride);
+		}
+
+		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		*	There can be no gaps between buffer bindings.
+		*	The parameter offset is set to 0.
+		*	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
+		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		*	@param	aIndexBuffer		Reference to an index buffer
+		*	@param	aNumberOfDraws		Number of draws to execute
+		*	@param	aVertexBuffers		References to one or multiple vertex buffers
+		*/
+		template <typename... Bfrs>
+		void draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, const Bfrs&... aVertexBuffers)
+		{
+			draw_indexed_indirect(aParametersBuffer, aIndexBuffer, aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aVertexBuffers ...);
+		}
+
 		auto& begin_info() const { return mBeginInfo; }
 		const vk::CommandBuffer& handle() const { return mCommandBuffer.get(); }
 		const vk::CommandBuffer* handle_ptr() const { return &mCommandBuffer.get(); }

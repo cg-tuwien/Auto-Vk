@@ -735,6 +735,60 @@ namespace avk
 #endif
 	};
 
+	/** This struct contains information for a draw indexed indirect command buffer.
+	*/
+	class draw_indexed_indirect_command_buffer_meta : public buffer_meta
+	{
+	public:
+		/** Gets buffer usage flags for this kind of buffer. */
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eIndirectBuffer; }
+
+		/** Create meta info from the total size of the represented data. */
+		static draw_indexed_indirect_command_buffer_meta create_from_size(size_t aSize) 
+		{ 
+			draw_indexed_indirect_command_buffer_meta result; 
+			result.mSizeOfOneElement = aSize;
+			result.mNumElements = 1; 
+			return result; 
+		}
+
+		/** Create meta info from the number of elements, i.e. the maximum draw count the buffer can be used with in vkCmdDrawIndexedIndirect
+		*   Each single element corresponds to a vk::DrawIndexedIndirectCommand struct
+		*/
+		static draw_indexed_indirect_command_buffer_meta create_from_num_elements(size_t aNumElements) 
+		{
+			return create_from_num_elements(aNumElements, sizeof(vk::DrawIndexedIndirectCommand));
+		}
+
+		/** Create meta info from the number of elements, i.e. the maximum draw count the buffer can be used with in vkCmdDrawIndexedIndirect
+		*   The size of each element is specified manually to allow to store extra data besides the vk::DrawIndexedIndirectCommand struct
+		*/
+		static draw_indexed_indirect_command_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride) 
+		{
+#if defined(_DEBUG)
+			if (aStride < sizeof(vk::DrawIndexedIndirectCommand)) {
+				AVK_LOG_WARNING("The specified stride of " + std::to_string(aStride) + " bytes is less than the size of vk::DrawIndexedIndirectCommand (" + std::to_string(sizeof(vk::DrawIndexedIndirectCommand)) + ") bytes");
+			}
+#endif
+			draw_indexed_indirect_command_buffer_meta result; 
+			result.mSizeOfOneElement = aStride;
+			result.mNumElements = aNumElements; 
+			return result; 
+		}
+
+		/** Create meta info from a STL-container like data structure or a single struct.
+		*	Container types must provide a `size()` method and the index operator.
+		*/
+		template <typename T>
+		static std::enable_if_t<!std::is_pointer_v<T>, draw_indexed_indirect_command_buffer_meta> create_from_data(const T& aData)
+		{
+			draw_indexed_indirect_command_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
+			result.mNumElements = how_many_elements(aData);
+			return result; 
+		}
+	};
+
 #if VK_HEADER_VERSION >= 135
 	/**	This struct contains information for a buffer which is intended to be used as 
 	*	geometries buffer for real-time ray tracing, containing AABB data.
