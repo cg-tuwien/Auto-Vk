@@ -792,6 +792,7 @@ namespace avk
 		{
 			indirect_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
+			assert(std::min(sizeof(vk::DrawIndexedIndirectCommand), sizeof(vk::DrawIndirectCommand)) <= result.mSizeOfOneElement);
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
@@ -829,7 +830,7 @@ namespace avk
 		{
 			aabb_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(sizeof(first_or_only_element(aData)) == sizeof(VkAabbPositionsKHR));
+			assert(sizeof(VkAabbPositionsKHR) == result.mSizeOfOneElement); // TODO: Stride != (most interestingly >=) sizeof(VkAabbPositionsKHR) not supported? really?
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
@@ -908,7 +909,7 @@ namespace avk
 		{
 			geometry_instance_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(sizeof(first_or_only_element(aData)) == sizeof(VkAccelerationStructureInstanceKHR));
+			assert(sizeof(VkAccelerationStructureInstanceKHR) == result.mSizeOfOneElement); // TODO: Stride != (most interestingly >=) sizeof(VkAccelerationStructureInstanceKHR) not supported? really?
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
