@@ -735,6 +735,69 @@ namespace avk
 #endif
 	};
 
+	/** This struct contains information for an indirect buffer, such as used in vkCmdDrawIndirect, vkCmdDrawIndexedIndirect, etc.
+	*
+	* Known Vulkan commands and structure members that use indirect buffers:
+	* vkCmdDrawIndirect, vkCmdDrawIndexedIndirect, vkCmdDrawMeshTasksIndirectNV, vkCmdDrawMeshTasksIndirectCountNV, vkCmdDispatchIndirect
+	* VkIndirectCommandsStreamNV (buffer member)
+	* VkGeneratedCommandsInfoNV (sequencesCountBuffer, sequencesIndexBuffer, preprocessedBuffer member)
+	*/
+	class indirect_buffer_meta : public buffer_meta
+	{
+	public:
+		/** Gets buffer usage flags for this kind of buffer. */
+		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eIndirectBuffer; }
+
+		/** Create meta info from the total size of the represented data. */
+		static indirect_buffer_meta create_from_size(size_t aSize) 
+		{ 
+			indirect_buffer_meta result; 
+			result.mSizeOfOneElement = aSize;
+			result.mNumElements = 1; 
+			return result; 
+		}
+
+		/** Create meta info from the number of elements, i.e. the maximum draw count the buffer can be used with in vkCmdDrawIndexedIndirect
+		*   Each single element corresponds to a vk::DrawIndexedIndirectCommand struct
+		*/
+		static indirect_buffer_meta create_from_num_elements_for_draw_indexed_indirect(size_t aNumElements) 
+		{
+			return create_from_num_elements(aNumElements, sizeof(vk::DrawIndexedIndirectCommand));
+		}
+
+		/** Create meta info from the number of elements, i.e. the maximum draw count the buffer can be used with in vkCmdDrawIndirect
+		*   Each single element corresponds to a vk::DrawIndirectCommand struct
+		*/
+		static indirect_buffer_meta create_from_num_elements_for_draw_indirect(size_t aNumElements) 
+		{
+			return create_from_num_elements(aNumElements, sizeof(vk::DrawIndirectCommand));
+		}
+
+		/** Create meta info from the number of elements, i.e. the maximum draw count the buffer can be used with in vkCmdDrawIndexedIndirect
+		*   The size of each element is specified manually to allow to store extra data besides the vk::DrawIndexedIndirectCommand struct
+		*/
+		static indirect_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride) 
+		{
+			indirect_buffer_meta result; 
+			result.mSizeOfOneElement = aStride;
+			result.mNumElements = aNumElements; 
+			return result; 
+		}
+
+		/** Create meta info from a STL-container like data structure or a single struct.
+		*	Container types must provide a `size()` method and the index operator.
+		*/
+		template <typename T>
+		static std::enable_if_t<!std::is_pointer_v<T>, indirect_buffer_meta> create_from_data(const T& aData)
+		{
+			indirect_buffer_meta result; 
+			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
+			assert(std::min(sizeof(vk::DrawIndexedIndirectCommand), sizeof(vk::DrawIndirectCommand)) <= result.mSizeOfOneElement);
+			result.mNumElements = how_many_elements(aData);
+			return result; 
+		}
+	};
+
 #if VK_HEADER_VERSION >= 135
 	/**	This struct contains information for a buffer which is intended to be used as 
 	*	geometries buffer for real-time ray tracing, containing AABB data.
@@ -767,7 +830,7 @@ namespace avk
 		{
 			aabb_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(sizeof(first_or_only_element(aData)) == sizeof(VkAabbPositionsKHR));
+			assert(sizeof(VkAabbPositionsKHR) == result.mSizeOfOneElement); // TODO: Stride != (most interestingly >=) sizeof(VkAabbPositionsKHR) not supported? really?
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
@@ -846,7 +909,7 @@ namespace avk
 		{
 			geometry_instance_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(sizeof(first_or_only_element(aData)) == sizeof(VkAccelerationStructureInstanceKHR));
+			assert(sizeof(VkAccelerationStructureInstanceKHR) == result.mSizeOfOneElement); // TODO: Stride != (most interestingly >=) sizeof(VkAccelerationStructureInstanceKHR) not supported? really?
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
