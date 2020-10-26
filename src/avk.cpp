@@ -1443,7 +1443,17 @@ namespace avk
 				return vk::ImageViewType::e1D;
 			}
 		case vk::ImageType::e2D:
-			if (info.arrayLayers > 1) {
+			if (info.flags & vk::ImageCreateFlagBits::eCubeCompatible)
+			{
+				// TODO: should a cubemap array with only 1 cubemap be supported?
+				if (info.arrayLayers == 6) {
+					return vk::ImageViewType::eCube;
+				}
+				else if (info.arrayLayers > 6) {
+					return vk::ImageViewType::eCubeArray;
+				}
+			}
+			else if (info.arrayLayers > 1) {
 				return vk::ImageViewType::e2DArray;
 			}
 			else {
@@ -4708,7 +4718,7 @@ namespace avk
 			.setImageType(vk::ImageType::e2D) // TODO: Support 3D textures
 			.setExtent(vk::Extent3D(static_cast<uint32_t>(aWidth), static_cast<uint32_t>(aHeight), 1u))
 			.setMipLevels(mipLevels)
-			.setArrayLayers(1u) // TODO: support multiple array layers!!!!!!!!!
+			.setArrayLayers(aNumLayers)
 			.setFormat(format)
 			.setTiling(imageTiling)
 			.setInitialLayout(vk::ImageLayout::eUndefined)
@@ -7443,6 +7453,46 @@ using namespace cpplinq;
 		return aSyncHandler.submit_and_sync();
 	}
 
+	std::optional<command_buffer> copy_buffer_to_image_layer_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	{
+		
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		// Sync before:
+		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
+		auto extent = aDstImage->config().extent;
+		auto levelDivisor = std::pow(2u, aDstLevel);
+		extent.width  = extent.width  > 1u ? extent.width  / levelDivisor : 1u;
+		extent.height = extent.height > 1u ? extent.height / levelDivisor : 1u;
+		extent.depth  = extent.depth  > 1u ? extent.depth  / levelDivisor : 1u;
+		
+		// Operation:
+		auto copyRegion = vk::BufferImageCopy()
+			.setBufferOffset(0)
+			// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
+			// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
+			.setBufferRowLength(0)
+			.setBufferImageHeight(0)
+			.setImageSubresource(vk::ImageSubresourceLayers()
+				.setAspectMask(aAspectFlagsOverride.value_or(aDstImage->aspect_flags())) // Used to be vk::ImageAspectFlagBits::eColor
+				.setMipLevel(aDstLevel)
+				.setBaseArrayLayer(aDstLayer)
+				.setLayerCount(1u))
+			.setImageOffset({ 0u, 0u, 0u })
+			.setImageExtent(extent);
+		commandBuffer.handle().copyBufferToImage(
+			aSrcBuffer->handle(),
+			aDstImage->handle(),
+			vk::ImageLayout::eTransferDstOptimal, // TODO: Should image layout transitions be handled somehow automatically or so? If not => Document that this function expects the image to be in eTransferDstOptimal Layout.
+			{ copyRegion });
+
+		// Sync after:
+		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+
+		// Finish him:
+		return aSyncHandler.submit_and_sync();
+	}
+
 	std::optional<command_buffer> copy_buffer_to_image_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
 	{
 		
@@ -7466,7 +7516,7 @@ using namespace cpplinq;
 			.setImageSubresource(vk::ImageSubresourceLayers()
 				.setAspectMask(aAspectFlagsOverride.value_or(aDstImage->aspect_flags())) // Used to be vk::ImageAspectFlagBits::eColor
 				.setMipLevel(aDstLevel)
-				.setBaseArrayLayer(0u)
+				.setBaseArrayLayer(aDstLayer)
 				.setLayerCount(1u))
 			.setImageOffset({ 0u, 0u, 0u })
 			.setImageExtent(extent);
@@ -7483,7 +7533,12 @@ using namespace cpplinq;
 		return aSyncHandler.submit_and_sync();
 	}
 	
-	std::optional<command_buffer> copy_buffer_to_image(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	std::optional<command_buffer> copy_buffer_to_image_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	{
+		return copy_buffer_to_image_layer_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstLevel, aAspectFlagsOverride, std::move(aSyncHandler));
+	}
+
+	std::optional<command_buffer> copy_buffer_to_image(const buffer_t& aSrcBuffer, image_t& aDstImage, sync aSyncHandler)
 	{
 		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aAspectFlagsOverride, std::move(aSyncHandler));
 	}

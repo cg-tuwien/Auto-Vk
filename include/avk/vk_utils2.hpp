@@ -10,6 +10,7 @@ namespace avk
 	extern std::optional<command_buffer> copy_image_to_another(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<image_t> aDstImage, sync aSyncHandler = sync::wait_idle(), bool aRestoreSrcLayout = true, bool aRestoreDstLayout = true);
 	extern std::optional<command_buffer> blit_image(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<image_t> aDstImage, sync aSyncHandler = sync::wait_idle(), bool aRestoreSrcLayout = true, bool aRestoreDstLayout = true);
 
+	extern std::optional<command_buffer> copy_buffer_to_image_layer_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride = {}, sync aSyncHandler = sync::wait_idle());
 	extern std::optional<command_buffer> copy_buffer_to_image_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride = {}, sync aSyncHandler = sync::wait_idle());
 	extern std::optional<command_buffer> copy_buffer_to_image(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride = {}, sync aSyncHandler = sync::wait_idle());
 
