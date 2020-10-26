@@ -792,7 +792,6 @@ namespace avk
 		{
 			indirect_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(std::min(sizeof(vk::DrawIndexedIndirectCommand), sizeof(vk::DrawIndirectCommand)) <= result.mSizeOfOneElement);
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
@@ -830,7 +829,7 @@ namespace avk
 		{
 			aabb_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(sizeof(VkAabbPositionsKHR) == result.mSizeOfOneElement); // TODO: Stride != (most interestingly >=) sizeof(VkAabbPositionsKHR) not supported? really?
+			assert(sizeof(VkAabbPositionsKHR) <= result.mSizeOfOneElement); // Strides bigger than sizeof(VkAabbPositionsKHR) should be fine; they're set for vk::AccelerationStructureGeometryKHR's stride member in bottom_level_acceleration_structure_t::build_or_update
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
@@ -909,7 +908,7 @@ namespace avk
 		{
 			geometry_instance_buffer_meta result; 
 			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
-			assert(sizeof(VkAccelerationStructureInstanceKHR) == result.mSizeOfOneElement); // TODO: Stride != (most interestingly >=) sizeof(VkAccelerationStructureInstanceKHR) not supported? really?
+			assert(sizeof(VkAccelerationStructureInstanceKHR) == result.mSizeOfOneElement); // TODO: Support different strides! This will require some modifications to top_level_acceleration_structure_t::build_or_update => maybe requiring 'array of pointers' instead of 'pointer to array'?! (Not sure about device-memory, though => further research required!)
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}

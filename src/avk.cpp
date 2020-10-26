@@ -1886,7 +1886,7 @@ namespace avk
 			// For geometries of type VK_GEOMETRY_TYPE_INSTANCES_KHR, primitiveCount is the number of acceleration
 			// structures. primitiveCount VkAccelerationStructureInstanceKHR structures are consumed from
 			// VkAccelerationStructureGeometryInstancesDataKHR::data, starting at an offset of primitiveOffset.
-			.setPrimitiveCount(numInstances) 
+			.setPrimitiveCount(numInstances)
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
