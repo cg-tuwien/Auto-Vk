@@ -2314,11 +2314,17 @@ namespace avk
 		
 		return result;
 	}
-	
+
 	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler)
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
+		return fill_partially(aDataPtr, bufferSize, std::move(aSyncHandler));
+	}
+
+	std::optional<command_buffer> buffer_t::fill_partially(const void* aDataPtr, size_t aDataSizeInBytes, sync aSyncHandler)
+	{
+		auto bufferSize = static_cast<vk::DeviceSize>(aDataSizeInBytes);
 		auto memProps = memory_properties();
 
 		// #1: Is our memory accessible from the CPU-SIDE? 
