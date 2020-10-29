@@ -2319,24 +2319,25 @@ namespace avk
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
-		return fill_partially(aDataPtr, bufferSize, 0u, aMetaDataIndex, std::move(aSyncHandler));
+		return fill(aDataPtr, aMetaDataIndex, 0u, bufferSize, std::move(aSyncHandler));
 	}
 
-	std::optional<command_buffer> buffer_t::fill_partially(const void* aDataPtr, size_t aDataSizeInBytes, size_t aOffset, size_t aMetaDataIndex, sync aSyncHandler)
+	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes, sync aSyncHandler)
 	{
 		auto dataSize = static_cast<vk::DeviceSize>(aDataSizeInBytes);
 		auto memProps = memory_properties();
 
 #ifdef _DEBUG
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-		if (aOffset + aDataSizeInBytes > metaData.total_size())
+		if (aOffsetInBytes + aDataSizeInBytes > metaData.total_size()) {
 			throw avk::runtime_error("The fill operation would write beyond the buffer's size.");
+		}
 #endif
 
 		// #1: Is our memory accessible from the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
 			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
-			memcpy(static_cast<uint8_t *>(mapped.get()) + aOffset, aDataPtr, dataSize);
+			memcpy(static_cast<uint8_t *>(mapped.get()) + aOffsetInBytes, aDataPtr, dataSize);
 			return {};
 		}
 
@@ -2362,7 +2363,7 @@ namespace avk
 			// Operation:
 			auto copyRegion = vk::BufferCopy{}
 				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
-				.setDstOffset(static_cast<uint32_t>(aOffset))
+				.setDstOffset(static_cast<uint32_t>(aOffsetInBytes))
 				.setSize(dataSize);
 			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
 
