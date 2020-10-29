@@ -2319,18 +2319,24 @@ namespace avk
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
-		return fill_partially(aDataPtr, bufferSize, std::move(aSyncHandler));
+		return fill_partially(aDataPtr, bufferSize, 0u, aMetaDataIndex, std::move(aSyncHandler));
 	}
 
-	std::optional<command_buffer> buffer_t::fill_partially(const void* aDataPtr, size_t aDataSizeInBytes, sync aSyncHandler)
+	std::optional<command_buffer> buffer_t::fill_partially(const void* aDataPtr, size_t aDataSizeInBytes, size_t aOffset, size_t aMetaDataIndex, sync aSyncHandler)
 	{
-		auto bufferSize = static_cast<vk::DeviceSize>(aDataSizeInBytes);
+		auto dataSize = static_cast<vk::DeviceSize>(aDataSizeInBytes);
 		auto memProps = memory_properties();
+
+#ifdef _DEBUG
+		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
+		if (aOffset + aDataSizeInBytes > metaData.total_size())
+			throw avk::runtime_error("The fill operation would write beyond the buffer's size.");
+#endif
 
 		// #1: Is our memory accessible from the CPU-SIDE? 
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
 			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
-			memcpy(mapped.get(), aDataPtr, bufferSize);
+			memcpy(static_cast<uint8_t *>(mapped.get()) + aOffset, aDataPtr, dataSize);
 			return {};
 		}
 
@@ -2345,7 +2351,7 @@ namespace avk
 				mPhysicalDevice, mDevice, mBuffer.allocator(),
 				AVK_STAGING_BUFFER_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferSrc,
-				generic_buffer_meta::create_from_size(bufferSize)
+				generic_buffer_meta::create_from_size(dataSize)
 			);
 			stagingBuffer->fill(aDataPtr, 0, sync::wait_idle()); // Recurse into the other if-branch
 
@@ -2356,8 +2362,8 @@ namespace avk
 			// Operation:
 			auto copyRegion = vk::BufferCopy{}
 				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
-				.setDstOffset(0u)
-				.setSize(bufferSize);
+				.setDstOffset(static_cast<uint32_t>(aOffset))
+				.setSize(dataSize);
 			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
 
 			// Sync after:

@@ -173,9 +173,22 @@ namespace avk
 		auto as_storage_buffer() const { return get_buffer_descriptor<storage_buffer_meta>(); }
 
 		/** Fill buffer with data.
+		 *  The buffer's size is determined from its metadata
+		 *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
+		 *  @param aMetaDataIndex	Index of the buffer metadata to use (for determining the buffer size)
+		 *  @param aSyncHandler		Synchronization handler for the copy operation
 		 */
 		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler);
-		std::optional<command_buffer> fill_partially(const void* aDataPtr, size_t aDataSizeInBytes, sync aSyncHandler);
+
+		/** Fill buffer partially with data.
+		*
+		*  @param aDataPtr			Pointer to the data to copy to the buffer
+		*  @param aDataSizeInBytes	Number of bytes to copy
+		*  @param aOffset			Offset from the start of the buffer (data will be copied to bufferstart + aOffset)
+		*  @param aMetaDataIndex	Index of the buffer metadata to use (for size validation only)
+		*  @param aSyncHandler		Synchronization handler for the copy operation
+		*/
+		std::optional<command_buffer> fill_partially(const void* aDataPtr, size_t aDataSizeInBytes, size_t aOffset, size_t aMetaDataIndex, sync aSyncHandler);
 
 		/** Read data from buffer back to the CPU-side.
 		 */
