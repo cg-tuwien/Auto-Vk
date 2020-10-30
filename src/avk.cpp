@@ -2328,10 +2328,8 @@ namespace avk
 		auto memProps = memory_properties();
 
 #ifdef _DEBUG
-		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-		if (aOffsetInBytes + aDataSizeInBytes > metaData.total_size()) {
-			throw avk::runtime_error("The fill operation would write beyond the buffer's size.");
-		}
+		const auto& metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
+		assert(aOffsetInBytes + aDataSizeInBytes <= metaData.total_size()); // The fill operation would write beyond the buffer's size.
 #endif
 
 		// #1: Is our memory accessible from the CPU-SIDE? 
@@ -2361,11 +2359,7 @@ namespace avk
 			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
 
 			// Operation:
-			auto copyRegion = vk::BufferCopy{}
-				.setSrcOffset(0u)
-				.setDstOffset(static_cast<uint32_t>(aOffsetInBytes))
-				.setSize(dataSize);
-			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
+			copy_buffer_to_another(stagingBuffer, *this, 0, static_cast<vk::DeviceSize>(aOffsetInBytes), dataSize, sync::with_barriers_into_existing_command_buffer(commandBuffer, {}, {}));
 
 			// Sync after:
 			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
@@ -7381,6 +7375,42 @@ using namespace cpplinq;
 	std::optional<command_buffer> copy_buffer_to_image(const buffer_t& aSrcBuffer, image_t& aDstImage, sync aSyncHandler)
 	{
 		return copy_buffer_to_image_mip_level(aSrcBuffer, aDstImage, 0u, std::move(aSyncHandler));
+	}
+
+	std::optional<command_buffer> copy_buffer_to_another(buffer_t& aSrcBuffer, buffer_t& aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize, sync aSyncHandler)
+	{
+		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+		// Sync before:
+		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
+		vk::DeviceSize dataSize{0};
+		if (aDataSize.has_value()) {
+			dataSize = aDataSize.value();
+		}
+		else {
+			dataSize = aSrcBuffer.meta_at_index<buffer_meta>().total_size();
+		}
+		
+#ifdef _DEBUG
+		{
+			const auto& metaDataSrc = aSrcBuffer.meta_at_index<buffer_meta>();
+			const auto& metaDataDst = aDstBuffer.meta_at_index<buffer_meta>();
+			assert (aSrcOffset.value_or(0) + dataSize <= metaDataSrc.total_size());
+			assert (aDstOffset.value_or(0) + dataSize <= metaDataDst.total_size());
+			assert (aSrcOffset.value_or(0) + dataSize <= metaDataDst.total_size());
+		}
+#endif
+		
+		auto copyRegion = vk::BufferCopy{}
+			.setSrcOffset(aSrcOffset.value_or(0))
+			.setDstOffset(aDstOffset.value_or(0))
+			.setSize(dataSize);
+		commandBuffer.handle().copyBuffer(aSrcBuffer.handle(), aDstBuffer.handle(), 1u, &copyRegion);
+		
+		// Sync after:
+		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+		// Finish him:
+		return aSyncHandler.submit_and_sync();
 	}
 #pragma endregion
 

@@ -12,4 +12,6 @@ namespace avk
 
 	extern std::optional<command_buffer> copy_buffer_to_image_mip_level(const buffer_t& aSrcBuffer, image_t& aDstImage, uint32_t aDstLevel, sync aSyncHandler = sync::wait_idle());
 	extern std::optional<command_buffer> copy_buffer_to_image(const buffer_t& aSrcBuffer, image_t& aDstImage, sync aSyncHandler = sync::wait_idle());
+
+	extern std::optional<command_buffer> copy_buffer_to_another(buffer_t& aSrcBuffer, buffer_t& aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset = {}, std::optional<vk::DeviceSize> aDstOffset = {}, std::optional<vk::DeviceSize> aDataSize = {}, sync aSyncHandler = sync::wait_idle());
 }
