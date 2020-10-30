@@ -2362,7 +2362,8 @@ namespace avk
 
 			// Operation:
 			auto copyRegion = vk::BufferCopy{}
-				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
+				.setSrcOffset(0u)
+
 				.setDstOffset(static_cast<uint32_t>(aOffsetInBytes))
 				.setSize(dataSize);
 			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
