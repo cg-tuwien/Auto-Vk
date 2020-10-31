@@ -79,7 +79,7 @@ namespace avk
 		}
 
 		/** Get the resource handle. */
-		const T& resource() const
+		T resource() const
 		{
 			return mResource;
 		}
