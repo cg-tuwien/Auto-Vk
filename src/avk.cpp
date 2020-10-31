@@ -2432,7 +2432,7 @@ namespace avk
 #pragma endregion
 
 #pragma region buffer view definitions
-	const vk::Buffer& buffer_view_t::buffer_handle() const
+	vk::Buffer buffer_view_t::buffer_handle() const
 	{
 		if (std::holds_alternative<buffer>(mBuffer)) {
 			return std::get<buffer>(mBuffer)->handle();

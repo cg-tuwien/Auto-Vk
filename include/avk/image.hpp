@@ -22,7 +22,7 @@ namespace avk
 		/** Get the config which is used to created this image with the API. */
 		auto& config() { return mCreateInfo; }
 		/** Gets the image handle. */
-		const vk::Image& handle() const
+		vk::Image handle() const
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
 			return std::holds_alternative<AVK_MEM_IMAGE_HANDLE>(mImage)

@@ -46,7 +46,7 @@ namespace avk
 		vk::DeviceSize table_offset_size() const { return static_cast<vk::DeviceSize>(mShaderGroupBaseAlignment); }
 		vk::DeviceSize table_entry_size() const { return static_cast<vk::DeviceSize>(mShaderGroupHandleSize); }
 		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size()); }
-		const auto& shader_binding_table_handle() const { return mShaderBindingTable->handle(); }
+		auto shader_binding_table_handle() const { return mShaderBindingTable->handle(); }
 		const auto& shader_binding_table_groups() const { return mShaderBindingTableGroupsInfo; }
 		shader_binding_table_ref shader_binding_table() const
 		{

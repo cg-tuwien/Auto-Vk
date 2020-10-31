@@ -82,9 +82,8 @@ namespace avk
 		}
 		
 		auto& config() const	{ return mCreateInfo; }
-		const auto& handle() const		{ return mBuffer.resource(); }
-		const auto* handle_ptr() const	{ return &handle(); }
-		const auto& usage_flags() const	{ return mBufferUsageFlags; }
+		auto handle() const		{ return mBuffer.resource(); }
+		auto usage_flags() const	{ return mBufferUsageFlags; }
 		auto memory_properties() const          { return mBuffer.memory_properties(); }
 		const auto has_device_address() const { return mDeviceAddress.has_value(); }
 		const auto device_address() const { return mDeviceAddress.value(); }

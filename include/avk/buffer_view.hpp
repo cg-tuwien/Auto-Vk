@@ -44,7 +44,7 @@ namespace avk
 		auto& config() { return mInfo; }
 
 		/** Gets the buffer handle which this view has been created for. */
-		const vk::Buffer& buffer_handle() const;
+		vk::Buffer buffer_handle() const;
 		/** Gets the buffer's config */
 		const vk::BufferCreateInfo& buffer_config() const;
 		
