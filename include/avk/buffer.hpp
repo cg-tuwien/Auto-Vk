@@ -83,6 +83,20 @@ namespace avk
 		
 		auto& config() const	{ return mCreateInfo; }
 		auto handle() const		{ return mBuffer.resource(); }
+
+		/** Returns a reference to this buffer's memory handle.
+		 *	Attention: It returns a reference! => Use with caution,
+		 *	           and consider using map_memory instead if that's what you're after!
+		 */
+		const auto& memory_handle() const { return mBuffer; }
+
+		/**	Invokes ::map_memory on the memory_handle, i.e. IF the buffer is in host-visible
+		 *	memory, its data pointer can be used to read or write to/from the mapped memory.
+		 *	A scoped_mapping is returned which will automatically unmap the memory upon destruction.
+		 *	Use its .get() method to get the data pointer, but do not unmap manually!
+		 */
+		scoped_mapping<AVK_MEM_BUFFER_HANDLE> map_memory(mapping_access aAcces) const { return {mBuffer, aAcces}; }
+		
 		auto usage_flags() const	{ return mBufferUsageFlags; }
 		auto memory_properties() const          { return mBuffer.memory_properties(); }
 		const auto has_device_address() const { return mDeviceAddress.has_value(); }

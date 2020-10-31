@@ -34,6 +34,29 @@ namespace avk
 			mMappedMemory = mMemHandle->map_memory(mAccess);
 		}
 
+		scoped_mapping(const scoped_mapping&) = delete; // Makes absolutely no sense
+		
+		scoped_mapping(scoped_mapping&& aOther) noexcept
+			: mMemHandle{ aOther.mMemHandle }
+			, mAccess{ aOther.mAccess }
+			, mMappedMemory{ aOther.mMappedMemory }
+		{
+			aOther.mMemHandle = nullptr;
+			aOther.mMappedMemory = nullptr;
+		}
+
+		scoped_mapping& operator=(const scoped_mapping& aOther) = delete; // Makes absolutely no sense
+		
+		scoped_mapping& operator=(scoped_mapping&& aOther) noexcept
+		{
+			mMemHandle = aOther.mMemHandle;
+			mAccess = aOther.mAccess;
+			mMappedMemory = aOther.mMappedMemory;
+			
+			aOther.mMemHandle = nullptr;
+			aOther.mMappedMemory = nullptr;
+		}
+
 		/**	Get the memory address of the mapped memory.
 		 *	Use this data pointer to write to or read from!
 		 */
@@ -46,8 +69,10 @@ namespace avk
 		 */
 		~scoped_mapping()
 		{
-			mMemHandle->unmap_memory(mAccess);
-			mMemHandle = nullptr;
+			if (nullptr != mMemHandle) {
+				mMemHandle->unmap_memory(mAccess);
+				mMemHandle = nullptr;
+			}
 		}
 
 	private:
