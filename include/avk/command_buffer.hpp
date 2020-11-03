@@ -140,7 +140,8 @@ namespace avk
 		 *	@param	aNumberOfInstances	Number of instances to draw
 		 *	@param	aFirstVertex		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
-		 *	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
+		 *	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
 		void draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
@@ -159,7 +160,8 @@ namespace avk
 		*	@param	aNumberOfInstances	Number of instances to draw
 		*	@param	aFirstVertex		Offset to the first vertex
 		*	@param	aFirstInstance		The ID of the first instance
-		*	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
+		*	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		*/
 		template <typename... Bfrs>
 		void draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
@@ -177,7 +179,8 @@ namespace avk
 		 *	The ID of the first instance is set to 0.
 		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
 		 *								to get the number of vertices to draw.
-		 *	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
+		 *	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
 		void draw_vertices(avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
@@ -193,7 +196,8 @@ namespace avk
 		 *	@param	aFirstIndex			Offset to the first index
 		 *	@param	aVertexOffset		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
-		 *	@param	aVertexBuffers		References to one or multiple vertex buffers
+		 *	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
 		void draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, Bfrs... aVertexBuffers)
@@ -221,7 +225,8 @@ namespace avk
 		 *	The vertex offset is set to 0.
 		 *	The ID of the first instance is set to 0.
 		 *	@param	aIndexBuffer		Reference to an index buffer
-		 *	@param	aVertexBuffers		References to one or multiple vertex buffers
+		 *	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
 		void draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, Bfrs... aVertexBuffers)
@@ -237,7 +242,8 @@ namespace avk
 		*	@param	aNumberOfDraws		Number of draws to execute
 		*	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
 		*	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
-		*	@param	aVertexBuffers		References to one or multiple vertex buffers
+		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		*
 		*   NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
 		*/
@@ -267,7 +273,8 @@ namespace avk
 		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
 		*	@param	aIndexBuffer		Reference to an index buffer
 		*	@param	aNumberOfDraws		Number of draws to execute
-		*	@param	aVertexBuffers		References to one or multiple vertex buffers
+		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		*/
 		template <typename... Bfrs>
 		void draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, Bfrs... aVertexBuffers)

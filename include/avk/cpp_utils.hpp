@@ -549,16 +549,16 @@ namespace avk
 	class resource_reference
 	{
 	public:
-		// Explicitly construct a reference to owning_resource<T>
-		explicit resource_reference(const owning_resource<std::remove_const<T>>& aOwningResource)
+		// Implicitly allow the construction of a reference to owning_resource<T>
+		resource_reference(const owning_resource<std::remove_const_t<T>>& aOwningResource)
 			: mResource{ const_cast<T*>(aOwningResource.operator->()) }
 #if _DEBUG
 			, mOwner{ &aOwningResource }
 #endif
 		{ }
 
-		// Explicitly construct a reference to resource T
-		explicit resource_reference(T& aResource)
+		// Implicitly allow the construction of a reference to resource T
+		resource_reference(T& aResource)
 			: mResource{ &aResource }
 #if _DEBUG
 			, mOwner{ nullptr }
@@ -657,7 +657,7 @@ namespace avk
 	private:
 		T* mResource;
 #if _DEBUG
-		const owning_resource<std::remove_const<T>>* mOwner;
+		const owning_resource<std::remove_const_t<T>>* mOwner;
 #endif
 	};
 
@@ -665,17 +665,9 @@ namespace avk
 	template <typename T> requires has_value_type<T>
 	resource_reference<typename T::value_type> referenced(T& aResource)
 	{
-		// TODO: Do not use aResource.get() but instead, pass the owning_resource<T::value_type> to the explicit constructor!!
-		resource_reference<typename T::value_type> result{ aResource.get() };
+		resource_reference<typename T::value_type> result{ aResource };
 		return result;
 	}
-
-	//// Indicate the intent to use the given resource via non-owning reference
-	//template <typename T>
-	//resource_reference<T> referenced(owning_resource<std::remove_const<T>>& aResource)
-	//{
-	//	return resource_reference<T>{ aResource };
-	//}
 
 	// Indicate the intent to use the given resource via non-owning reference
 	template <typename T> requires has_handle<T>
@@ -703,8 +695,7 @@ namespace avk
 	template <typename T> requires has_value_type<T>
 	resource_reference<const typename T::value_type> const_referenced(const T& aResource)
 	{
-		// TODO: Do not use aResource.get() but instead, pass the owning_resource<T::value_type> to the explicit constructor!!
-		return resource_reference<const typename T::value_type>{ aResource.get() };
+		return resource_reference<const typename T::value_type>{ aResource };
 	}
 
 	// Indicate the intent to use the given resource via non-owning reference
@@ -736,8 +727,15 @@ namespace avk
 	class resource_ownership
 	{
 	public:
-		// Explicitly construct an element that takes ownership of an owning_resource<T>
-		explicit resource_ownership(owning_resource<T> aOwningResource)
+		// Explicitly construct an element that takes ownership of a reference to owning_resource<T>
+		explicit resource_ownership(owning_resource<T>& aOwningResource)
+			: mOwnership{ std::move(aOwningResource) }
+		{
+			assert(!aOwningResource.has_value());
+		}
+
+		// Implicitly allow construction of an rvalue-reference to owning_resource<T>
+		resource_ownership(owning_resource<T>&& aOwningResource)
 			: mOwnership{ std::move(aOwningResource) }
 		{
 			assert(!aOwningResource.has_value());
@@ -872,7 +870,9 @@ namespace avk
 	resource_ownership<T> shared(owning_resource<T>& aResource)
 	{
 		aResource.enable_shared_ownership();
-		return resource_ownership<T>{ aResource };
+		// We must not destroy the original, but create a copy:
+		owning_resource<T> copy{ aResource };
+		return resource_ownership<T>{ std::move(copy) };
 	}
 
 	// Pass-through method for resources that are already wrapped in resource_ownership
