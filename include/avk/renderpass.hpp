@@ -44,13 +44,13 @@ namespace avk
 		renderpass_t& operator=(const renderpass_t&) = delete;
 		~renderpass_t() = default;
 
-		const auto& attachment_descriptions() const { return mAttachmentDescriptions; }
-		const auto& clear_values() const { return mClearValues; }
+		auto number_of_attachment_descriptions() const { return mAttachmentDescriptions.size(); }
+		auto attachment_descriptions() const { return mAttachmentDescriptions; }
+		auto clear_values() const { return mClearValues; }
 
 		const auto& subpasses() const { return mSubpasses; }
 		const auto& subpass_dependencies() const { return mSubpassDependencies; }
 
-		auto& attachment_descriptions() { return mAttachmentDescriptions; }
 		auto& subpasses() { return mSubpasses; }
 		auto& subpass_dependencies() { return mSubpassDependencies; }
 
@@ -66,7 +66,7 @@ namespace avk
 		const std::vector<vk::AttachmentReference>& resolve_attachments_for_subpass(uint32_t aSubpassId);
 		const std::vector<uint32_t>& preserve_attachments_for_subpass(uint32_t aSubpassId);
 
-		const auto& handle() const { return mRenderPass.get(); }
+		auto handle() const { return mRenderPass.get(); }
 
 	private:
 		// All the attachments to this renderpass

@@ -111,7 +111,7 @@ namespace avk
 
 		void begin_recording();
 		void end_recording();
-		void begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+		void begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
 		void next_subpass();
 		void establish_execution_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage);
 		void establish_global_memory_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible);
@@ -143,9 +143,9 @@ namespace avk
 		 *	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
 		 */
 		template <typename... Bfrs>
-		void draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
+		void draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffer.handle(), aFurtherBuffers.handle() ... }, { vk::DeviceSize{0}, ((void)aFurtherBuffers, vk::DeviceSize{0}) ... });
+			handle().bindVertexBuffers(0u, { aVertexBuffer->handle(), aFurtherBuffers->handle() ... }, { vk::DeviceSize{0}, ((void)aFurtherBuffers, vk::DeviceSize{0}) ... });
 			//																									Make use of the discarding behavior of the comma operator ^, see: https://stackoverflow.com/a/61098748/387023
 			handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);                      
 		}
@@ -162,10 +162,10 @@ namespace avk
 		*	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
 		*/
 		template <typename... Bfrs>
-		void draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
+		void draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
-			const auto& vertexMeta = aVertexBuffer.template meta<avk::vertex_buffer_meta>();
-			draw_vertices(static_cast<uint32_t>(vertexMeta.num_elements()), aNumberOfInstances, aFirstVertex, aFirstInstance, aVertexBuffer, aFurtherBuffers...);
+			const auto& vertexMeta = aVertexBuffer->template meta<avk::vertex_buffer_meta>();
+			draw_vertices(static_cast<uint32_t>(vertexMeta.num_elements()), aNumberOfInstances, aFirstVertex, aFirstInstance, std::move(aVertexBuffer), std::move(aFurtherBuffers)...);
 		}
 
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
@@ -180,9 +180,9 @@ namespace avk
 		 *	@param	aFurtherBuffers		And optionally, there can be further vertex buffers.
 		 */
 		template <typename... Bfrs>
-		void draw_vertices(const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
+		void draw_vertices(avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
-			draw_vertices(1u, 0u, 0u, aVertexBuffer, aFurtherBuffers...);
+			draw_vertices(1u, 0u, 0u, std::move(aVertexBuffer), std::move(aFurtherBuffers)...);
 		}
 
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -196,12 +196,12 @@ namespace avk
 		 *	@param	aVertexBuffers		References to one or multiple vertex buffers
 		 */
 		template <typename... Bfrs>
-		void draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
+		void draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, Bfrs... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers.handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
+			handle().bindVertexBuffers(0u, { aVertexBuffers->handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
 			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
 
-			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
@@ -209,7 +209,7 @@ namespace avk
 				default: AVK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
 			}
 			
-			handle().bindIndexBuffer(aIndexBuffer.handle(), 0u, indexType);
+			handle().bindIndexBuffer(aIndexBuffer->handle(), 0u, indexType);
 			handle().drawIndexed(static_cast<uint32_t>(indexMeta.num_elements()), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 		}
 		
@@ -224,9 +224,9 @@ namespace avk
 		 *	@param	aVertexBuffers		References to one or multiple vertex buffers
 		 */
 		template <typename... Bfrs>
-		void draw_indexed(const buffer_t& aIndexBuffer, const Bfrs&... aVertexBuffers)
+		void draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, Bfrs... aVertexBuffers)
 		{
-			draw_indexed(aIndexBuffer, 1u, 0u, 0u, 0u, aVertexBuffers ...);
+			draw_indexed(std::move(aIndexBuffer), 1u, 0u, 0u, 0u, std::move(aVertexBuffers) ...);
 		}
 		
 		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -242,12 +242,12 @@ namespace avk
 		*   NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
 		*/
 		template <typename... Bfrs>
-		void draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const Bfrs&... aVertexBuffers)
+		void draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, Bfrs... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers.handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
+			handle().bindVertexBuffers(0u, { aVertexBuffers->handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
 			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
 
-			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
@@ -255,8 +255,8 @@ namespace avk
 				default: AVK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
 			}
 
-			handle().bindIndexBuffer(aIndexBuffer.handle(), 0u, indexType);
-			handle().drawIndexedIndirect(aParametersBuffer.handle(), aParametersOffset, aNumberOfDraws, aParametersStride);
+			handle().bindIndexBuffer(aIndexBuffer->handle(), 0u, indexType);
+			handle().drawIndexedIndirect(aParametersBuffer->handle(), aParametersOffset, aNumberOfDraws, aParametersStride);
 		}
 
 		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -270,9 +270,9 @@ namespace avk
 		*	@param	aVertexBuffers		References to one or multiple vertex buffers
 		*/
 		template <typename... Bfrs>
-		void draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, const Bfrs&... aVertexBuffers)
+		void draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, Bfrs... aVertexBuffers)
 		{
-			draw_indexed_indirect(aParametersBuffer, aIndexBuffer, aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aVertexBuffers ...);
+			draw_indexed_indirect(std::move(aParametersBuffer), std::move(aIndexBuffer), aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aVertexBuffers) ...);
 		}
 
 		auto& begin_info() const { return mBeginInfo; }
@@ -282,10 +282,10 @@ namespace avk
 
 		// Template specializations are implemented in the respective pipeline's header files
 		template <typename T> // Expected to be just the pipeline's type
-		void bind_pipeline(const T& aPipeline)
+		void bind_pipeline(T aPipeline)
 		{
-			assert(false);
-			throw avk::logic_error("No suitable bind_pipeline overload found for the given argument.");
+			static_assert(false);
+			throw avk::logic_error("No suitable bind_pipeline overload found for the given argument => You'll probably want to use avk::const_referenced(yourPipeline).");
 		}
 
 		void bind_descriptors(vk::PipelineBindPoint aBindingPoint, vk::PipelineLayout aLayoutHandle, std::vector<descriptor_set> aDescriptorSets);

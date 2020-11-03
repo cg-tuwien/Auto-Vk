@@ -11,7 +11,7 @@ namespace avk
 	{
 		static attachment declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp);
 		static attachment declare(vk::Format aFormat, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp);
-		static attachment declare_for(const image_view_t& aImageView, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp);
+		static attachment declare_for(resource_reference<const image_view_t> aImageView, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp);
 
 		attachment& set_clear_color(std::array<float, 4> aColor)    { mColorClearValue = aColor; return *this; }
 		attachment& set_depth_clear_value(float aDepthClear)        { mDepthClearValue = aDepthClear; return *this; }

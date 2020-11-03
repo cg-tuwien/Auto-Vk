@@ -18,14 +18,16 @@ namespace avk
 		framebuffer_t& operator=(const framebuffer_t&) = delete;
 		~framebuffer_t() = default;
 
-		const auto& get_renderpass() const { return mRenderpass; }
-		const auto& image_views() const { return mImageViews; }
-		const auto& image_view_at(size_t i) const { return mImageViews[i]; }
-		auto& get_renderpass() { return mRenderpass; }
-		auto& image_views() { return mImageViews; }
-		auto& image_view_at(size_t i) { return mImageViews[i]; }
-		const auto& create_info() const { return mCreateInfo; }
-		const auto& handle() const { return mFramebuffer.get(); }
+		avk::resource_reference<const renderpass_t> get_renderpass() const { return avk::const_referenced(mRenderpass); }
+		const auto& image_views() const { return mImageViews; } // TODO: Probably remove this?!
+		avk::resource_reference<const image_t> image_at(size_t i) const { return avk::const_referenced(mImageViews[i]->get_image()); }
+		avk::resource_reference<const image_view_t> image_view_at(size_t i) const { return avk::const_referenced(mImageViews[i]); }
+		avk::resource_reference<renderpass_t> get_renderpass() { return avk::referenced(mRenderpass); }
+		auto& image_views() { return mImageViews; } // TODO: Probably remove this?!
+		avk::resource_reference<image_t> image_at(size_t i) { return avk::referenced(mImageViews[i]->get_image()); }
+		avk::resource_reference<image_view_t> image_view_at(size_t i) { return avk::referenced(mImageViews[i]); }
+		auto create_info() const { return mCreateInfo; }
+		auto handle() const { return mFramebuffer.get(); }
 
 		/**	Initializes the attachments by transferring their image layouts away from uninitialized into something useful.
 		 *	You don't have to do this, but it could be very helpful in some situations, where you are going to use the

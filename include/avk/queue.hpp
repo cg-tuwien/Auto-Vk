@@ -137,31 +137,31 @@ namespace avk
 		const auto* handle_ptr() const { return &mQueue; }
 
 		/** TODO */
-		void submit_with_semaphore(semaphore_t& aSemaphoreToSignal, command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphores = {});
+		void submit_with_semaphore(resource_reference<semaphore_t> aSemaphoreToSignal, resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores = {});
 
 		/** TODO */
-		semaphore submit_with_semaphore(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphores = {});
+		semaphore submit_with_semaphore(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores = {});
 		
 		/** TODO */
-		void submit(command_buffer_t& aCommandBuffer, std::optional<std::reference_wrapper<semaphore_t>> aWaitSemaphore = {});
+		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphore = {});
 
-		void submit(command_buffer_t& aCommandBuffer, std::vector<std::reference_wrapper<semaphore_t>> aWaitSemaphores = {});
+		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_reference<semaphore_t>> aWaitSemaphores = {});
 		
 		/** TODO */
-		void submit(std::vector<std::reference_wrapper<command_buffer_t>> aCommandBuffers);
-
-		/** TODO */
-		fence submit_with_fence(command_buffer_t& aCommandBuffer, std::vector<semaphore> aWaitSemaphores = {});
-		
-		/** TODO */
-		fence submit_with_fence(std::vector<std::reference_wrapper<command_buffer_t>> aCommandBuffers, std::vector<semaphore> aWaitSemaphores = {});
+		void submit(std::vector<resource_reference<command_buffer_t>> aCommandBuffers);
 
 		/** TODO */
-		semaphore submit_and_handle_with_semaphore(command_buffer aCommandBuffer, std::vector<semaphore> aWaitSemaphores = {});
-		semaphore submit_and_handle_with_semaphore(std::optional<command_buffer> aCommandBuffer, std::vector<semaphore> aWaitSemaphores = {});
+		fence submit_with_fence(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
 		
 		/** TODO */
-		semaphore submit_and_handle_with_semaphore(std::vector<command_buffer> aCommandBuffers, std::vector<semaphore> aWaitSemaphores = {});
+		fence submit_with_fence(std::vector<resource_reference<command_buffer_t>> aCommandBuffers, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
+
+		/** TODO */
+		semaphore submit_and_handle_with_semaphore(resource_ownership<command_buffer_t> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
+		semaphore submit_and_handle_with_semaphore(std::optional<resource_ownership<command_buffer_t>> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
+		
+		/** TODO */
+		semaphore submit_and_handle_with_semaphore(std::vector<resource_ownership<command_buffer_t>> aCommandBuffers, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
 
 		bool is_prepared() const { return static_cast<bool>(mPhysicalDevice); }
 		

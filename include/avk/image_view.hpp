@@ -57,14 +57,14 @@ namespace avk
 		const image_t& get_image() const
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
-			return std::holds_alternative<helper_t>(mImage) ? std::get<helper_t>(mImage).mImage : static_cast<const image_t&>(std::get<image>(mImage));
+			return std::holds_alternative<helper_t>(mImage) ? std::get<helper_t>(mImage).mImage : std::get<image>(mImage).get();
 		}
 
 		/** Gets the associated image or throws if no `ak::image` is associated. */
 		image_t& get_image() 
 		{
 			assert(!std::holds_alternative<std::monostate>(mImage));
-			return std::holds_alternative<helper_t>(mImage) ? std::get<helper_t>(mImage).mImage : static_cast<image_t&>(std::get<image>(mImage));
+			return std::holds_alternative<helper_t>(mImage) ? std::get<helper_t>(mImage).mImage : std::get<image>(mImage).get();
 		}
 		
 		/** Gets the image view's vulkan handle */

@@ -14,14 +14,17 @@ namespace avk
 		image_sampler_t& operator=(const image_sampler_t&) = delete;
 		~image_sampler_t() = default;
 
-		const auto& get_image_view() const		{ return mImageView; }
-		auto& get_image_view()					{ return mImageView; }
-		const auto& get_sampler() const			{ return mSampler; }
-		const auto& view_handle() const			{ return mImageView->handle(); }
-		const auto& image_handle() const		{ return mImageView->get_image().handle(); }
-		const auto& sampler_handle() const		{ return mSampler->handle(); }
-		const auto& descriptor_info() const		{ return mDescriptorInfo; }
-		const auto& descriptor_type() const		{ return mDescriptorType; }
+		[[nodiscard]] avk::resource_reference<const image_view_t> get_image_view() const	{ return avk::const_referenced(mImageView); }
+		[[nodiscard]] avk::resource_reference<image_view_t> get_image_view()				{ return avk::referenced(mImageView); }
+		[[nodiscard]] avk::resource_reference<const sampler_t> get_sampler() const			{ return avk::const_referenced(mSampler); }
+		[[nodiscard]] avk::resource_reference<sampler_t> get_sampler()						{ return avk::referenced(mSampler); }
+		[[nodiscard]] avk::resource_reference<const image_t> get_image() const				{ return avk::const_referenced(mImageView->get_image()); }
+		[[nodiscard]] avk::resource_reference<image_t> get_image()							{ return avk::referenced(mImageView->get_image()); }
+		auto view_handle() const				{ return mImageView->handle(); }
+		auto image_handle() const					{ return mImageView->get_image().handle(); }
+		auto sampler_handle() const				{ return mSampler->handle(); }
+		auto descriptor_info() const		{ return mDescriptorInfo; }
+		auto descriptor_type() const		{ return mDescriptorType; }
 		/** Gets the width of the image */
 		uint32_t width() const { return mImageView->get_image().width(); }
 		/** Gets the height of the image */

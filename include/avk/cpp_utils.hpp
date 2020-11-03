@@ -7,7 +7,7 @@ namespace avk
 	 *	Source: https://stackoverflow.com/questions/54125515/partial-template-argument-deduction-or-workaround-for-stdarray
 	 */
 	template<typename Type, typename ... T>
-	constexpr auto make_array(T&&... t) -> std::array<Type, sizeof...(T)>
+	constexpr auto make_array(T&&... t)->std::array<Type, sizeof...(T)>
 	{
 		return { {std::forward<T>(t)...} };
 	}
@@ -24,20 +24,28 @@ namespace avk
 	 *	Source: https://stackoverflow.com/questions/36994727/how-do-i-write-a-make-vector-similar-to-stdmake-tuple
 	 */
 	template<class D = void, class... Ts>
-	std::vector<ret_t<D, Ts...>> make_vector(Ts&&... args) {
+	std::vector<ret_t<D, Ts...>> make_vector(Ts&&... args)
+	{
 		std::vector<ret_t<D, Ts...>>  ret;
 		ret.reserve(sizeof...(args));
 		using expander = int[];
-		(void) expander{ ((void)ret.emplace_back(std::forward<Ts>(args)), 0)..., 0 };
+		(void)expander
+		{
+			((void)ret.emplace_back(std::forward<Ts>(args)), 0)..., 0
+		};
 		return ret;
 	}
 
 	template<class D = void, class... Ts>
-	std::vector<ret_t<D, Ts...>> move_into_vector(Ts&&... args) {
+	std::vector<ret_t<D, Ts...>> move_into_vector(Ts&&... args)
+	{
 		std::vector<ret_t<D, Ts...>>  ret;
 		ret.reserve(sizeof...(args));
 		using expander = int[];
-		(void) expander{ ((void)ret.emplace_back(std::move(std::forward<Ts>(args))), 0)..., 0 };
+		(void)expander
+		{
+			((void)ret.emplace_back(std::move(std::forward<Ts>(args))), 0)..., 0
+		};
 		return ret;
 	}
 
@@ -47,7 +55,7 @@ namespace avk
 		return (((major) << 22) | ((minor) << 12) | (patch));
 	}
 
-	/** Find Case Insensitive Sub String in a given substring 
+	/** Find Case Insensitive Sub String in a given substring
 	 *  Credits: https://thispointer.com/implementing-a-case-insensitive-stringfind-in-c/
 	 */
 	static size_t find_case_insensitive(std::string data, std::string toFind, size_t startingPos)
@@ -101,7 +109,7 @@ namespace avk
 		}
 		auto pos1 = s.find_first_not_of(' ');
 		auto pos2 = s.find_last_not_of(' ');
-		return std::string(s.substr(pos1, pos2-pos1+1));
+		return std::string(s.substr(pos1, pos2 - pos1 + 1));
 	}
 
 #ifdef USE_BACKSPACES_FOR_PATHS
@@ -164,7 +172,7 @@ namespace avk
 	{
 		auto pathCleaned = clean_up_path(_Path);
 #if defined(_WIN32)
-		std::transform(pathCleaned.begin(),  pathCleaned.end(),  pathCleaned.begin(),  [](auto c){ return std::tolower(c); });
+		std::transform(pathCleaned.begin(), pathCleaned.end(), pathCleaned.begin(), [](auto c) { return std::tolower(c); });
 #endif
 		return pathCleaned;
 	}
@@ -175,8 +183,8 @@ namespace avk
 		auto secondPathTransformed = transform_path_for_comparison(second);
 		return firstPathTransformed == secondPathTransformed;
 	}
-	
-	
+
+
 	template <typename V, typename F>
 	bool has_flag(V value, F flag)
 	{
@@ -184,10 +192,11 @@ namespace avk
 	}
 
 	template <typename InQuestion, typename... Existing>
-	constexpr bool has_type(std::tuple<Existing...>) {
-	    return std::disjunction_v<std::is_same<InQuestion, Existing>...>;
+	constexpr bool has_type(std::tuple<Existing...>)
+	{
+		return std::disjunction_v<std::is_same<InQuestion, Existing>...>;
 	}
-	
+
 	// SFINAE test for detecting if a type has a `.size()` member and iterators
 	template <typename T>
 	class has_size_and_iterators
@@ -197,12 +206,12 @@ namespace avk
 		typedef char YesType[2];
 
 		template<typename C> static auto Test(void*)
-			-> std::tuple<YesType, decltype(std::declval<C const>().size()), decltype(std::declval<C const>().begin()), decltype(std::declval<C const>().end())>;
+			->std::tuple<YesType, decltype(std::declval<C const>().size()), decltype(std::declval<C const>().begin()), decltype(std::declval<C const>().end())>;
 
-		  template<typename> static NoType& Test(...);
+		template<typename> static NoType& Test(...);
 
-		public:
-			static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
+	public:
+		static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
 	};
 
 	// SFINAE test for detecting if a type has a `.size()` member and iterators
@@ -214,32 +223,36 @@ namespace avk
 		typedef char YesType[2];
 
 		template<typename C> static auto Test(void*)
-			-> std::tuple<YesType, typename C::value_type::value_type>;
+			->std::tuple<YesType, typename C::value_type::value_type>;
 
-		  template<typename> static NoType& Test(...);
+		template<typename> static NoType& Test(...);
 
-		public:
-			static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
+	public:
+		static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
 	};
 
 
-	template<typename T> 
-	typename std::enable_if<has_size_and_iterators<T>::value, uint32_t>::type how_many_elements(const T& t) {
+	template<typename T>
+	typename std::enable_if<has_size_and_iterators<T>::value, uint32_t>::type how_many_elements(const T& t)
+	{
 		return static_cast<uint32_t>(t.size());
 	}
 
-	template<typename T> 
-	typename std::enable_if<!has_size_and_iterators<T>::value, uint32_t>::type how_many_elements(const T& t) {
+	template<typename T>
+	typename std::enable_if<!has_size_and_iterators<T>::value, uint32_t>::type how_many_elements(const T& t)
+	{
 		return 1u;
 	}
 
-	template<typename T> 
-	typename std::enable_if<has_size_and_iterators<T>::value, const typename T::value_type&>::type first_or_only_element(const T& t) {
+	template<typename T>
+	typename std::enable_if<has_size_and_iterators<T>::value, const typename T::value_type&>::type first_or_only_element(const T& t)
+	{
 		return t[0];
 	}
 
-	template<typename T> 
-	typename std::enable_if<!has_size_and_iterators<T>::value, const T&>::type first_or_only_element(const T& t) {
+	template<typename T>
+	typename std::enable_if<!has_size_and_iterators<T>::value, const T&>::type first_or_only_element(const T& t)
+	{
 		return t;
 	}
 
@@ -254,22 +267,29 @@ namespace avk
 		typedef char YesType[2];
 
 		template<typename C> static auto Test(void*)
-			-> std::tuple<YesType, decltype(std::declval<C const>().operator*())>;
+			->std::tuple<YesType, decltype(std::declval<C const>().operator*())>;
 
-		  template<typename> static NoType& Test(...);
+		template<typename> static NoType& Test(...);
 
-		public:
-			static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
+	public:
+		static bool const value = sizeof(Test<T>(0)) != sizeof(NoType);
 	};
 
-	
+
 	// A concept which requires a type to have a .resize(size_t)
 	template <typename T>
 	concept has_resize = requires (T x)
 	{
 		x.resize(size_t{1});
 	};
+
+	// is_same test for a variadic arguments pack
+	template <class T, class... Ts>
+	struct are_same : std::conjunction<std::is_same<T, Ts>...> {};
 	
+	// A concept which requires a type to be non-const
+	template <typename T>
+	concept non_const = !std::is_const_v<T>;
 	// A concept which requires a type to have a subscript operator
 	template <typename T>
 	concept has_subscript_operator = requires (T x)
@@ -279,20 +299,103 @@ namespace avk
 	
 
 
+	// A concept which requires a type to have ::value_type
 	template <typename T>
+	concept has_value_type = requires
+	{
+		typename T::value_type; // Meaning: "Nested type T::value_type exists"
+	};
+
+	// A concept which requires a type to have a .handle()
+	template <typename T>
+	concept has_handle = requires (T x)
+	{
+		x.handle();
+	};
+	
+
+	// This class represents a/the owner of a specific resource T.
+	//
+	// The resource is either held locally on the stack, or -- as an additional features -- moved onto
+	// the heap by the means of a shared pointer. If a resource lives on the heap, copy constructor
+	// and copy assignment operator will be enabled. If it doesn't. they will throw an exception.
+	//
+	// Resource types T are expected to be move-only types, otherwise handling their lifetime with
+	// this class does probably not really make any sense.
+	template <typename T> requires non_const<T>
 	class owning_resource : public std::variant<std::monostate, T, std::shared_ptr<T>>
 	{
 	public:
+		// The type of the resource being owned and handled
 		using value_type = T;
 
-		owning_resource() : std::variant<std::monostate, T, std::shared_ptr<T>>() {}
-		owning_resource(T&& r) noexcept : std::variant<std::monostate, T, std::shared_ptr<T>>(std::move(r)) {}
-		owning_resource(owning_resource<T>&&) noexcept = default;
-		owning_resource(const T&) = delete;
-		owning_resource(const owning_resource<T>& other)
+		// Cast the this-pointer to what it is: a std::variant-pointer (and to const)
+		const std::variant<std::monostate, T, std::shared_ptr<T>>* this_as_variant() const noexcept
 		{
-			if (other.has_value()) {
-				if (!other.is_shared_ownership_enabled()) {
+			return static_cast<const std::variant<std::monostate, T, std::shared_ptr<T>>*>(this);
+		}
+		
+		// Cast the this-pointer to what it is: a std::variant-pointer
+		std::variant<std::monostate, T, std::shared_ptr<T>>* this_as_variant() noexcept
+		{
+			return static_cast<std::variant<std::monostate, T, std::shared_ptr<T>>*>(this);
+		}
+
+		// Construct an owning_resource instance and initialize it to std::monostate.
+		owning_resource()
+			: std::variant<std::monostate, T, std::shared_ptr<T>>{}
+		{}
+
+		// Construct an owning_resource by rvalue reference of a resource T.
+		// The original resource that is moved from might not be modified by the move.
+		owning_resource(T&& aResource) noexcept
+			: std::variant<std::monostate, T, std::shared_ptr<T>>{ std::move(aResource) }
+		{}
+		
+		// Move-assign an owning_resource from an rvalue reference of a resource T.
+		// The original resource that is moved from might not be modified by the move.
+		owning_resource<T>& operator=(T&& aResource) noexcept
+		{
+			*this_as_variant() = std::move(aResource);
+			return *this;
+		}
+
+		// Move-construct an owning_resource from another owning_resource.
+		// The other owning_reference is reset to std::monostate.
+		owning_resource(owning_resource<T>&& aOther) noexcept
+			: std::variant<std::monostate, T, std::shared_ptr<T>>{ std::move(aOther) }
+		{
+			if (aOther.has_value()) {
+				aOther = owning_resource<T>{};
+			}
+		}
+
+		// Move-assign an owning_resource from another owning_resource.
+		// The other owning_reference is reset to std::monostate.
+		owning_resource<T>& operator=(owning_resource<T>&& aOther) noexcept
+		{
+			*this_as_variant() = std::move(aOther);
+			if (aOther.has_value()) {
+				aOther = owning_resource<T>{};
+			}
+			return *this;
+		}
+
+		// Resource types are expected to be move-only types. Therefore, an owning_resource
+		// can not be created by copying a resource.
+		owning_resource(const T&) = delete;
+
+		// Resource types are expected to be move-only types. Therefore, an owning_resource
+		// can not be assigned a copy of a resource.
+		owning_resource<T>& operator=(const T&) = delete;
+
+		// owning_resources not always can be copy-constructed. But when they can, they
+		// can only due to a preceeding call to enable_shared_ownership, which moves the
+		// resource onto the heap.
+		owning_resource(const owning_resource<T>& aOther)
+		{
+			if (aOther.has_value()) {
+				if (!aOther.is_shared_ownership_enabled()) {
 					//
 					//	Why are you getting this exception?
 					//	The most obvious reason would be that you have intentionally
@@ -309,22 +412,20 @@ namespace avk
 					//
 					throw avk::logic_error("You are trying to copy-construct a resource of type '" + std::string(typeid(T).name()) + "' which does not have shared ownership enabled. This call will fail now. You can try to use owning_resource::enable_shared_ownership().");
 				}
-				*this_as_variant() = std::get<std::shared_ptr<T>>(other);
+				*this_as_variant() = std::get<std::shared_ptr<T>>(aOther);
 			}
 			else {
 				assert(!has_value());
 			}
 		}
-		owning_resource<T>& operator=(T&& r) noexcept
+
+		// owning_resources not always can be copy-assigned. But when they can, they
+		// can only due to a preceeding call to enable_shared_ownership, which moves the
+		// resource onto the heap.
+		owning_resource<T>& operator=(const owning_resource<T>& aOther)
 		{
-			*this_as_variant() = std::move(r); return *this;
-		}
-		owning_resource<T>& operator=(const T&) = delete;
-		owning_resource<T>& operator=(owning_resource<T>&& r) noexcept = default;
-		owning_resource<T>& operator=(const owning_resource<T>& other)
-		{
-			if (other.has_value()) {
-				if (!other.is_shared_ownership_enabled()) {
+			if (aOther.has_value()) {
+				if (!aOther.is_shared_ownership_enabled()) {
 					//
 					//	Why are you getting this exception?
 					//	The most obvious reason would be that you have intentionally
@@ -341,21 +442,20 @@ namespace avk
 					//
 					throw avk::logic_error("Can only copy assign owning_resources which have shared ownership enabled.");
 				}
-				*this_as_variant() = std::get<std::shared_ptr<T>>(other);
+				*this_as_variant() = std::get<std::shared_ptr<T>>(aOther);
 			}
 			else {
 				assert(!has_value());
 			}
 			return *this;
 		}
+
+		// Nothing wrong with default destruction
 		~owning_resource() = default;
 
-		bool is_shared_ownership_enabled() const noexcept { return std::holds_alternative<std::shared_ptr<T>>(*this); }
-		bool has_value() const noexcept { return !std::holds_alternative<std::monostate>(*this); }
-		bool holds_item_directly() const noexcept { return std::holds_alternative<T>(*this); }
-		const std::variant<std::monostate, T, std::shared_ptr<T>>* this_as_variant() const noexcept { return static_cast<const std::variant<std::monostate, T, std::shared_ptr<T>>*>(this); }
-		std::variant<std::monostate, T, std::shared_ptr<T>>* this_as_variant() noexcept { return static_cast<std::variant<std::monostate, T, std::shared_ptr<T>>*>(this); }
-
+		// Enable shared ownership of this resource. That means: Transfer the resource
+		// from the stack to the heap and manage its lifetime through a shared pointer.
+		// (Unless it already has been.)
 		void enable_shared_ownership()
 		{
 			if (is_shared_ownership_enabled()) {
@@ -366,96 +466,485 @@ namespace avk
 			}
 			*this_as_variant() = std::make_shared<T>(std::move(std::get<T>(*this)));
 		}
+		
+		// Has this owning_resource instance shared ownership enabled.
+		// Or put differently: Is the resource T living on the heap and
+		// and referenced via a shared pointer?
+		bool is_shared_ownership_enabled() const noexcept
+		{
+			return std::holds_alternative<std::shared_ptr<T>>(*this);
+		}
 
-		operator const T&() const
-		{ 
-			if (is_shared_ownership_enabled()) { return *std::get<std::shared_ptr<T>>(*this_as_variant()); }
+		// Does this owning_resource store the resource on the stack?
+		bool holds_item_directly() const noexcept
+		{
+			return std::holds_alternative<T>(*this);
+		}
+
+		// Does this owning_resource actually store a resource?
+		// (Or does it refer to std::monostate?)
+		bool has_value() const noexcept
+		{
+			return !std::holds_alternative<std::monostate>(*this);
+		}
+
+		// Get a const reference to the owned resource T
+		const T& get() const
+		{
 			if (holds_item_directly()) { return std::get<T>(*this_as_variant()); }
+			if (is_shared_ownership_enabled()) { return *std::get<std::shared_ptr<T>>(*this_as_variant()); }
 			throw avk::logic_error("This owning_resource is uninitialized, i.e. std::monostate.");
 		}
 
-		operator T&() 
-		{ 
+		// Get a reference to the owned resource T
+		T& get()
+		{
 			if (is_shared_ownership_enabled()) { return *std::get<std::shared_ptr<T>>(*this_as_variant()); }
 			if (holds_item_directly()) { return std::get<T>(*this_as_variant()); }
 			throw avk::logic_error("This owning_resource is uninitialized, i.e. std::monostate.");
 		}
 		
+		//// Explicitly cast to the resource type and return a reference to it
+		//explicit operator const T&() const
+		//{
+		//	return get();
+		//}
+
+		//// Explicitly cast to the resource type and return a reference to it
+		//explicit operator T&()
+		//{
+		//	return get();
+		//}
+
+		// Access the resource by returning a reference to it
 		const T& operator*() const
 		{
-			return this->operator const T&();
+			return get();
 		}
-		
+
+		// Access the resource by returning a reference to it
 		T& operator*()
 		{
-			return this->operator T&();
+			return get();
 		}
-		
+
+		// Access the resource by returning its address
 		const T* operator->() const
 		{
-			return &this->operator const T&();
+			return &get();
 		}
-		
+
+		// Access the resource by returning its address
 		T* operator->()
 		{
-			return &this->operator T&();
+			return &get();
 		}
 	};
-	
 
+
+	// A reference to an (owning/non-owning) resource
+	//  - Can be initialized with owning_resource<T>
+	//  - or with resource T
+	template <typename T>
+	class resource_reference
+	{
+	public:
+		// Explicitly construct a reference to owning_resource<T>
+		explicit resource_reference(const owning_resource<std::remove_const<T>>& aOwningResource)
+			: mResource{ const_cast<T*>(aOwningResource.operator->()) }
+#if _DEBUG
+			, mOwner{ &aOwningResource }
+#endif
+		{ }
+
+		// Explicitly construct a reference to resource T
+		explicit resource_reference(T& aResource)
+			: mResource{ &aResource }
+#if _DEBUG
+			, mOwner{ nullptr }
+#endif
+		{ }
+
+		// Move-constructing, resetting aOther
+		resource_reference(resource_reference<T>&& aOther) noexcept
+			: mResource{ aOther.mResource }
+#if _DEBUG
+			, mOwner{ aOther.mOwner }
+#endif
+		{
+#if _DEBUG
+			aOther.mResource = nullptr;
+			aOther.mOwner = nullptr;
+#endif
+		}
+
+		// Copy the data from aOther 
+		resource_reference(const resource_reference<T>& aOther)
+			: mResource{ aOther.mResource }
+#if _DEBUG
+			, mOwner{ aOther.mOwner }
+#endif
+		{ }
+
+		// Move-assigning, resetting aOther
+		resource_reference& operator=(resource_reference<T>&& aOther) noexcept
+		{
+			mResource = aOther.mResource;
+#if _DEBUG
+			mOwner = aOther.mOwner;
+			aOther.mResource = nullptr;
+			aOther.mOwner = nullptr;
+#endif
+			return *this;
+		}
+
+		// Copy the data from aOther
+		resource_reference& operator=(const resource_reference<T>& aOther)
+		{
+			mResource = aOther.mResource;
+#if _DEBUG
+			mOwner = aOther.mOwner;
+#endif
+			return *this;
+		}
+
+		// Assign a resource T, storing a reference to it
+		resource_reference& operator=(T& aResource)
+		{
+			mResource = &aResource;
+#if _DEBUG
+			mOwner = nullptr;
+#endif		
+			return *this;
+		}
+
+		// Get reference to the resource
+		const T& get() const
+		{
+			return *mResource;
+		}
+
+		// Get reference to the resource
+		T& get()
+		{
+			return *mResource;
+		}
+
+		// Get reference to the resource
+		const T& operator*() const
+		{
+			return get();
+		}
+
+		// Get reference to the resource
+		T& operator*()
+		{
+			return get();
+		}
+
+		// Get pointer to the resource
+		const T* operator->() const
+		{
+			return mResource;
+		}
+
+		// Get pointer to the resource
+		T* operator->()
+		{
+			return mResource;
+		}
+
+	private:
+		T* mResource;
+#if _DEBUG
+		const owning_resource<std::remove_const<T>>* mOwner;
+#endif
+	};
+
+	// Indicate the intent to use the given resource via non-owning reference
+	template <typename T> requires has_value_type<T>
+	resource_reference<typename T::value_type> referenced(T& aResource)
+	{
+		// TODO: Do not use aResource.get() but instead, pass the owning_resource<T::value_type> to the explicit constructor!!
+		resource_reference<typename T::value_type> result{ aResource.get() };
+		return result;
+	}
+
+	//// Indicate the intent to use the given resource via non-owning reference
+	//template <typename T>
+	//resource_reference<T> referenced(owning_resource<std::remove_const<T>>& aResource)
+	//{
+	//	return resource_reference<T>{ aResource };
+	//}
+
+	// Indicate the intent to use the given resource via non-owning reference
+	template <typename T> requires has_handle<T>
+	resource_reference<T> referenced(T& aResource)
+	{
+		return resource_reference<T>{ aResource };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_reference
+	template <typename T>
+	resource_reference<T> referenced(resource_reference<T>& aResourceReference)
+	{
+		return resource_reference<T>{ aResourceReference };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_reference
+	template <typename T>
+	resource_reference<T> referenced(resource_reference<T>&& aResourceReference)
+	{
+		return resource_reference<T>{ aResourceReference };
+	}
+
+	
+	// Indicate the intent to use the given resource via non-owning reference
+	template <typename T> requires has_value_type<T>
+	resource_reference<const typename T::value_type> const_referenced(const T& aResource)
+	{
+		// TODO: Do not use aResource.get() but instead, pass the owning_resource<T::value_type> to the explicit constructor!!
+		return resource_reference<const typename T::value_type>{ aResource.get() };
+	}
+
+	// Indicate the intent to use the given resource via non-owning reference
+	template <typename T> requires has_handle<T>
+	resource_reference<const T> const_referenced(const T& aResource)
+	{
+		return resource_reference<const T>{ aResource };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_reference
+	template <typename T> requires has_handle<T>
+	resource_reference<const T> const_referenced(resource_reference<T>& aResourceReference)
+	{
+		return resource_reference<const T>{ aResourceReference.get() };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_reference
+	template <typename T>
+	resource_reference<const T> const_referenced(resource_reference<T>&& aResourceReference)
+	{
+		return resource_reference<const T>{ aResourceReference.get() };
+	}
+
+
+	// A resource_owner owns a resource.
+	//  - Can be initialized with owning_resource<T>
+	//  x but not with resource T
+	template <typename T>
+	class resource_ownership
+	{
+	public:
+		// Explicitly construct an element that takes ownership of an owning_resource<T>
+		explicit resource_ownership(owning_resource<T> aOwningResource)
+			: mOwnership{ std::move(aOwningResource) }
+		{
+			assert(!aOwningResource.has_value());
+		}
+
+		// Move-constructing from the other
+		resource_ownership(resource_ownership<T>&& aOther) noexcept
+			: mOwnership{ std::move(aOther.mOwnership) }
+		{
+			assert(!aOther.mOwnership.has_value());
+		}
+
+		// Move-assigning from the other
+		resource_ownership& operator=(resource_ownership<T>&& aOther) noexcept
+		{
+			mOwnership = std::move(aOther);
+			assert(!aOther.mOwnership.has_value());
+			return *this;
+		}
+
+		// Copy-constructing from the other.
+		// Can fail if aOther does not have shared ownership enabled.
+		resource_ownership(const resource_ownership<T>& aOther)
+			: mOwnership{ aOther.mOwnership }
+		{ }
+
+		// Copy-assigning from the other.
+		// Can fail if aOther does not have shared ownership enabled.
+		resource_ownership& operator=(const resource_ownership<T>& aOther)
+		{
+			mOwnership = aOther.mOwnership;
+			return *this;
+		}
+
+		// Get the owning_resource<T> of resource T
+		const owning_resource<T>& get_owner() const
+		{
+			return mOwnership;
+		}
+
+		// Get the owning_resource<T> of resource T
+		owning_resource<T>& get_owner()
+		{
+			return mOwnership;
+		}
+		
+		// Get the ownership with the intent of stealing its guts
+		owning_resource<T>&& own()
+		{
+			return std::move(mOwnership);
+		}
+
+		// Get reference to the resource T
+		const T& get() const
+		{
+			return mOwnership.get();
+		}
+
+		// Get reference to the resource T
+		T& get()
+		{
+			return mOwnership.get();
+		}
+		
+		// Get reference to the resource T
+		const T& operator*() const
+		{
+			return get();
+		}
+
+		// Get reference to the resource T
+		T& operator*()
+		{
+			return get();
+		}
+
+		// Get pointer to the resource T
+		const T* operator->() const
+		{
+			return &get();
+		}
+
+		// Get pointer to the resource T
+		T* operator->()
+		{
+			return &get();
+		}
+
+	private:
+		owning_resource<T> mOwnership;
+	};
+
+	// Indicate the intent to own the given resource
+	template <typename T>
+	resource_ownership<T> owned(owning_resource<T>&& aResource)
+	{
+		return resource_ownership<T>{ std::move(aResource) };
+	}
+
+	// Indicate the intent to own the given resource, transferring the ownership.
+	// Attention: The original owner no longer owns it afterwards!
+	template <typename T>
+	resource_ownership<T> owned(owning_resource<T>& aResource)
+	{
+		return resource_ownership<T>{ std::move(aResource) };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> owned(resource_ownership<T>&& aResourceOwnership)
+	{
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> owned(resource_ownership<T>& aResourceOwnership)
+	{
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+	// Indicate the intent to co-own the given resource
+	template <typename T>
+	resource_ownership<T> shared(owning_resource<T>&& aResource)
+	{
+		// No need to enable shared ownership just for the move constructor
+		return resource_ownership<T>{ std::move(aResource) };
+	}
+
+	// Indicate the intent to co-own the given resource
+	template <typename T>
+	resource_ownership<T> shared(owning_resource<T>& aResource)
+	{
+		aResource.enable_shared_ownership();
+		return resource_ownership<T>{ aResource };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> shared(resource_ownership<T>&& aResourceOwnership)
+	{
+		// No need to enable shared ownership just for the move constructor
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> shared(resource_ownership<T>& aResourceOwnership)
+	{
+		aResourceOwnership.get_owner().enable_shared_ownership();
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+	
 
 	template<typename T>
 	class unique_function : protected std::function<T>
 	{
-	    template<typename Fn, typename En = void>
-	    struct wrapper;
+		template<typename Fn, typename En = void>
+		struct wrapper;
 
-	    // specialization for CopyConstructible Fn
-	    template<typename Fn>
-	    struct wrapper<Fn, std::enable_if_t< std::is_copy_constructible<Fn>::value >>
-	    {
-	        Fn fn;
+		// specialization for CopyConstructible Fn
+		template<typename Fn>
+		struct wrapper<Fn, std::enable_if_t< std::is_copy_constructible<Fn>::value >>
+		{
+			Fn fn;
 
-	        template<typename... Args>
-	        auto operator()(Args&&... args) noexcept { return fn(std::forward<Args>(args)...); }
-	    };
+			template<typename... Args>
+			auto operator()(Args&&... args) noexcept { return fn(std::forward<Args>(args)...); }
+		};
 
-	    // specialization for MoveConstructible-only Fn
-	    template<typename Fn>
-	    struct wrapper<Fn, std::enable_if_t< !std::is_copy_constructible<Fn>::value
-											 && std::is_move_constructible<Fn>::value >>
-	    {
-	        Fn fn;
+		// specialization for MoveConstructible-only Fn
+		template<typename Fn>
+		struct wrapper<Fn, std::enable_if_t< !std::is_copy_constructible<Fn>::value
+			&& std::is_move_constructible<Fn>::value >>
+		{
+			Fn fn;
 
-	        wrapper(Fn fn) : fn(std::move(fn)) { }
+			wrapper(Fn fn) noexcept : fn(std::move(fn)) {}
 
-	        wrapper(wrapper&&) noexcept = default;
-	        wrapper& operator=(wrapper&&) noexcept = default;
+			wrapper(wrapper&&) noexcept = default;
+			wrapper& operator=(wrapper&&) noexcept = default;
 
-	        // these two functions are instantiated by std::function and are never called
-	        wrapper(const wrapper& rhs) noexcept : fn(const_cast<Fn&&>(rhs.fn)) { throw avk::logic_error("never called"); } // hack to initialize fn for non-DefaultContructible types
-	        wrapper& operator=(const wrapper&) noexcept { throw avk::logic_error("never called"); }
+			// these two functions are instantiated by std::function and are never called
+			wrapper(const wrapper& rhs) : fn(const_cast<Fn&&>(rhs.fn)) { throw avk::logic_error("never called"); } // hack to initialize fn for non-DefaultContructible types
+			wrapper& operator=(const wrapper&) { throw avk::logic_error("never called"); }
 
 			~wrapper() = default;
 
-	        template<typename... Args>
-	        auto operator()(Args&&... args) noexcept { return fn(std::forward<Args>(args)...); }
-	    };
+			template<typename... Args>
+			auto operator()(Args&&... args) noexcept { return fn(std::forward<Args>(args)...); }
+		};
 
-	    using base = std::function<T>;
+		using base = std::function<T>;
 
 	public:
-		unique_function() = default;
+		unique_function() noexcept = default;
 		unique_function(std::nullptr_t) noexcept : base(nullptr) {}
-		unique_function(const unique_function&) noexcept = default;
+		unique_function(const unique_function&) = default;
 		unique_function(unique_function&&) noexcept = default;
 
-		template<class Fn> 
-		unique_function(Fn f) noexcept : base( wrapper<Fn>{ std::move(f) }) {}
+		template<class Fn>
+		unique_function(Fn f) noexcept : base(wrapper<Fn>{ std::move(f) }) {}
 
 		~unique_function() = default;
 
-		unique_function& operator=(const unique_function&) noexcept = default;
+		unique_function& operator=(const unique_function&) = default;
 		unique_function& operator=(unique_function&&) noexcept = default;
 		unique_function& operator=(std::nullptr_t) noexcept
 		{
@@ -463,57 +952,67 @@ namespace avk
 		}
 
 		template<typename Fn>
-	    unique_function& operator=(Fn&& f) noexcept
-	    { base::operator=(wrapper<Fn>{ std::forward<Fn>(f) }); return *this; }
+		unique_function& operator=(Fn&& f) noexcept
+		{
+			base::operator=(wrapper<Fn>{ std::forward<Fn>(f) }); return *this;
+		}
 
 		template<typename Fn>
-	    unique_function& operator=(std::reference_wrapper<Fn> f) noexcept
-	    { base::operator=(wrapper<Fn>{ std::move(f) }); return *this; }
+		unique_function& operator=(std::reference_wrapper<Fn> f) noexcept
+		{
+			base::operator=(wrapper<Fn>{ std::move(f) }); return *this;
+		}
 
-		template<class Fn> 
+		template<class Fn>
 		Fn* target() noexcept
-		{ return &base::template target<wrapper<Fn>>()->fn; }
+		{
+			return &base::template target<wrapper<Fn>>()->fn;
+		}
 
-		template<class Fn> 
+		template<class Fn>
 		const Fn* target() const noexcept // TODO/ATTENTION/NOTE: changed this to const Fn* in order to allow `const unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)>& aToTest` in `ak::sync` (i.e. the CONST&). Not sure if this is totally okay or has any side effects.
-		{ return &base::template target<wrapper<Fn>>()->fn; }
+		{
+			return &base::template target<wrapper<Fn>>()->fn;
+		}
 
-		template<class Fn> 
+		template<class Fn>
 		const std::type_info& target_type() const noexcept
-		{ return typeid(*target<Fn>()); }
+		{
+			return typeid(*target<Fn>());
+		}
 
 		using base::swap;
-	    using base::operator();
+		using base::operator();
 		using base::operator bool;
 	};
 
-		
+
 	template< class R, class... Args >
-	static void swap( unique_function<R(Args...)> &lhs, unique_function<R(Args...)> &rhs )
+	static void swap(unique_function<R(Args...)> &lhs, unique_function<R(Args...)> &rhs)
 	{
 		lhs.swap(rhs);
 	}
 
 	template< class R, class... ArgTypes >
-	static bool operator==( const unique_function<R(ArgTypes...)>& f, std::nullptr_t ) noexcept
+	static bool operator==(const unique_function<R(ArgTypes...)>& f, std::nullptr_t) noexcept
 	{
 		return !f;
 	}
 
 	template< class R, class... ArgTypes >
-	static bool operator==( std::nullptr_t, const unique_function<R(ArgTypes...)>& f ) noexcept
+	static bool operator==(std::nullptr_t, const unique_function<R(ArgTypes...)>& f) noexcept
 	{
 		return !f;
 	}
 
 	template< class R, class... ArgTypes >
-	static bool operator!=( const unique_function<R(ArgTypes...)>& f, std::nullptr_t ) noexcept
+	static bool operator!=(const unique_function<R(ArgTypes...)>& f, std::nullptr_t) noexcept
 	{
 		return static_cast<bool>(f);
 	}
 
 	template< class R, class... ArgTypes >
-	static bool operator!=( std::nullptr_t, const unique_function<R(ArgTypes...)>& f ) noexcept
+	static bool operator!=(std::nullptr_t, const unique_function<R(ArgTypes...)>& f) noexcept
 	{
 		return static_cast<bool>(f);
 	}
@@ -525,11 +1024,11 @@ namespace avk
 	template <typename T, typename... Rest>
 	void hash_combine(std::size_t& seed, const T& v, const Rest&... rest) noexcept
 	{
-		seed ^= std::hash<T>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		seed ^= std::hash<T>{}(v)+0x9e3779b9 + (seed << 6) + (seed >> 2);
 		(hash_combine(seed, rest), ...);
 	}
 
-	/**	Returns true if `aElement` is contained within `aContainer`, also provides 
+	/**	Returns true if `aElement` is contained within `aContainer`, also provides
 	 *	the option to return the position where the element has been found.
 	 *	@param	aContainer		The container to search `aElement` in.
 	 *	@param	aElement		The element to be searched
@@ -555,10 +1054,10 @@ namespace avk
 		return std::distance(std::begin(aVector), it);
 	}
 
-	/** Inserts a copy of `_Element` into `_Vector` if `_Element` is not already contained in `_Vector` 
+	/** Inserts a copy of `_Element` into `_Vector` if `_Element` is not already contained in `_Vector`
 	 *	@param	aVector				The collection where `_Element` shall be inserted
 	 *	@param	aElement			The element to be inserted into `_Vector`, if it is not already contained. `_Element` must be copy-constructible.
-	 *	@param	aPositionOfElement	(Optional) If the address of an iterator is set, it will be assigned the position of the 
+	 *	@param	aPositionOfElement	(Optional) If the address of an iterator is set, it will be assigned the position of the
 	 *								newly inserted element into `_Vector`.
 	 *	@return	True if the element was inserted into the vector, meaning it was not contained before. False otherwise.
 	 */
@@ -585,8 +1084,7 @@ namespace avk
 		fourccBuf[0] = static_cast<char>(0x000000FF & (fourcc >> 24));
 
 		// convert 000000000 to spaces
-		for (int i = 0; i < 4; i++)
-		{
+		for (int i = 0; i < 4; i++) {
 			if (0 == fourccBuf[i])
 				fourccBuf[i] = ' ';
 		}
@@ -600,21 +1098,24 @@ namespace avk
 	{
 		handle_wrapper()
 			: mHandle{ nullptr }
-		{ }
-		
+		{
+		}
+
 		handle_wrapper(T aHandle)
 			: mHandle{ std::move(aHandle) }
-		{ }
+		{
+		}
 
 		handle_wrapper(handle_wrapper&& aOther) noexcept
 		{
 			std::swap(mHandle, aOther.mHandle);
 		}
-		
+
 		handle_wrapper(const handle_wrapper& aOther)
 			: mHandle{ aOther.mHandle }
-		{ }
-		
+		{
+		}
+
 		handle_wrapper& operator=(handle_wrapper&& aOther) noexcept
 		{
 			std::swap(mHandle, aOther.mHandle);

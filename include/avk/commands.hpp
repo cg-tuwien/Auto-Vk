@@ -3,54 +3,37 @@
 
 namespace avk
 {
-	class vk_given_state {};
-	class vk_barrier {};
-	class vk_command {};
+	class command_buffer_t;
+	using command_buffer = avk::owning_resource<command_buffer_t>;
 	
 	class commands
 	{
-		using CT = std::variant<
-			vk_given_state,
-			vk_barrier,
-			vk_command,
-			std::function<void(avk::command_buffer_t&)>
-		>;
+		using rec_cmd = std::function<void(avk::command_buffer_t&)>;
+		using sync_data = std::tuple<avk::pipeline_stage, avk::memory_access>;
 		
 	public:
-		commands() = default;
+		/** You're not supposed to store an instance of commands anywhere. */
+		commands() = delete;
 		commands(commands&&) noexcept = default;
 		commands(const commands&) = delete;
 		commands& operator=(commands&&) noexcept = default;
 		commands& operator=(const commands&) = delete;
 		~commands() = default;
 
-		void add(vk_given_state aGivenState) { mRecordedCommands.push_back(std::move(aGivenState)); }
-		void add(vk_barrier aBarrier) { mRecordedCommands.push_back(std::move(aBarrier)); }
-		void add(vk_command aCommand) { mRecordedCommands.push_back(std::move(aCommand)); }
 		template <typename F>
-		void add(F&& aCustomFunctionality) { mRecordedCommands.emplace_back(std::forward(aCustomFunctionality)); }
-
+		commands(avk::pipeline_stage aPreSyncDst, avk::memory_access aPreAccessDst, F&& aCommands, avk::pipeline_stage aPostSyncSrc, avk::memory_access aPostAccessSrc)
+			: mRecordCommands{ std::forward(aCommands) }
+			, mPreSync{ aPreSyncDst, aPreAccessDst }
+			, mPostSync{ aPostSyncSrc, aPostAccessSrc }
+		{ }
+		
 		void record_into(command_buffer_t& aCommandBuffer)
 		{
-			for (auto& c : mRecordedCommands) {
-				if (std::holds_alternative<vk_given_state>(c)) {
-					continue;
-				}
-				if (std::holds_alternative<vk_barrier>(c)) {
-					// TODO: If it is an auto-barrier => find stage masks and access masks!
-					continue;
-				}
-				if (std::holds_alternative<vk_command>(c)) {
-					// TODO: Add command to aCommandBuffer
-					continue;
-				}
-				if (std::holds_alternative<std::function<void(avk::command_buffer_t&)>>(c)) {
-					std::get<std::function<void(avk::command_buffer_t&)>>(c)(aCommandBuffer);
-				}
-			}
+			mRecordCommands(aCommandBuffer);
 		}
 		
-	private:
-		std::vector<CT> mRecordedCommands;
+		rec_cmd mRecordCommands;
+		sync_data mPreSync;
+		sync_data mPostSync;
 	};
 }

@@ -32,7 +32,7 @@ namespace avk
 		const auto& layout_create_info() const { return mPipelineLayoutCreateInfo; }
 		const auto& layout_handle() const { return mPipelineLayout.get(); }
 		std::tuple<const compute_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> layout() const { return std::make_tuple(this, layout_handle(), &mPushConstantRanges); }
-		const auto& handle() const { return mPipeline.get(); }
+		auto handle() const  { return mPipeline.get(); }
 		
 		
 	private:
@@ -60,15 +60,9 @@ namespace avk
 	using compute_pipeline = avk::owning_resource<compute_pipeline_t>;
 
 	template <>
-	inline void command_buffer_t::bind_pipeline<compute_pipeline_t>(const compute_pipeline_t& aPipeline)
+	inline void command_buffer_t::bind_pipeline<resource_reference<const compute_pipeline_t>>(resource_reference<const compute_pipeline_t> aPipelineRef)
 	{
-		handle().bindPipeline(vk::PipelineBindPoint::eCompute, aPipeline.handle());
-	}
-
-	template <>
-	inline void command_buffer_t::bind_pipeline<compute_pipeline>(const compute_pipeline& aPipeline)
-	{
-		bind_pipeline<compute_pipeline_t>(aPipeline);
+		handle().bindPipeline(vk::PipelineBindPoint::eCompute, aPipelineRef->handle());
 	}
 
 	template <>

@@ -16,8 +16,8 @@ namespace avk
 		graphics_pipeline_t& operator=(const graphics_pipeline_t&) = delete;
 		~graphics_pipeline_t() = default;
 
-		const renderpass_t& get_renderpass() const { return mRenderPass; }
-		const auto& renderpass_handle() const { return mRenderPass->handle(); }
+		[[nodiscard]] resource_reference<const renderpass_t> get_renderpass() const { return const_referenced(mRenderPass); }
+		auto renderpass_handle() const { return mRenderPass->handle(); }
 		auto subpass_id() const { return mSubpassIndex; }
 		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }
 		auto& vertex_input_attribute_descriptions() { return mVertexInputAttributeDescriptions; }
@@ -113,15 +113,9 @@ namespace avk
 	using graphics_pipeline = avk::owning_resource<graphics_pipeline_t>;
 	
 	template <>
-	inline void command_buffer_t::bind_pipeline<graphics_pipeline_t>(const graphics_pipeline_t& aPipeline)
+	inline void command_buffer_t::bind_pipeline<resource_reference<const graphics_pipeline_t>>(resource_reference<const graphics_pipeline_t> aPipelineRef)
 	{
-		handle().bindPipeline(vk::PipelineBindPoint::eGraphics, aPipeline.handle());
-	}
-
-	template <>
-	inline void command_buffer_t::bind_pipeline<graphics_pipeline>(const graphics_pipeline& aPipeline)
-	{
-		bind_pipeline<graphics_pipeline_t>(aPipeline);
+		handle().bindPipeline(vk::PipelineBindPoint::eGraphics, aPipelineRef->handle());
 	}
 
 	template <>

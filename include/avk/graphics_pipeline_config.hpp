@@ -116,7 +116,8 @@ namespace avk
 				}; 
 			}
 
-			static viewport_depth_scissors_config from_framebuffer(const framebuffer_t& aFramebuffer);
+			static viewport_depth_scissors_config from_framebuffer(resource_reference<const framebuffer_t> aFramebuffer);
+			static viewport_depth_scissors_config from_framebuffer(resource_reference<framebuffer_t> aFramebuffer);
 
 			/** Enables dynamic viewport and scissors. */
 			static viewport_depth_scissors_config dynamic(bool aDynamicViewport = true, bool aDynamicScissors = true)

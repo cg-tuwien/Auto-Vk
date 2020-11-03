@@ -100,15 +100,9 @@ namespace avk
 	using ray_tracing_pipeline = avk::owning_resource<ray_tracing_pipeline_t>;
 	
 	template <>
-	inline void command_buffer_t::bind_pipeline<ray_tracing_pipeline_t>(const ray_tracing_pipeline_t& aPipeline)
+	inline void command_buffer_t::bind_pipeline<resource_reference<const ray_tracing_pipeline_t>>(resource_reference<const ray_tracing_pipeline_t> aPipelineRef)
 	{
-		handle().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, aPipeline.handle());
-	}
-
-	template <>
-	inline void command_buffer_t::bind_pipeline<ray_tracing_pipeline>(const ray_tracing_pipeline& aPipeline)
-	{
-		bind_pipeline<ray_tracing_pipeline_t>(aPipeline);
+		handle().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, aPipelineRef->handle());
 	}
 
 	template <>

@@ -284,7 +284,7 @@ namespace avk
 			}
 			mCommandBuffer.value()->begin_recording(); // Immediately start recording
 		}
-		return mCommandBuffer.value();
+		return mCommandBuffer.value().get();
 	}
 	
 	//std::reference_wrapper<queue> sync::queue_to_transfer_to() const
@@ -326,6 +326,13 @@ namespace avk
 	{
 		queue& queue = queue_to_use();
 		auto syncType = get_sync_type();
+
+		// TODO: Use ranges
+		std::vector<resource_ownership<semaphore_t>> waitSemaphoreOwnerships;
+		for (auto& e : mWaitBeforeSemaphores) {
+			waitSemaphoreOwnerships.push_back(owned(e));
+		}
+
 		switch (syncType) {
 		case sync_type::via_semaphore:
 			{
@@ -337,7 +344,7 @@ namespace avk
 					std::optional<memory_access>{memory_access::any_access}, 
 					std::optional<memory_access>{memory_access::any_access});
 				mCommandBuffer.value()->end_recording();	// What started in get_or_create_command_buffer() ends here.
-				auto sema = queue.submit_and_handle_with_semaphore(std::move(mCommandBuffer.value()), std::move(mWaitBeforeSemaphores));
+				auto sema = queue.submit_and_handle_with_semaphore(owned(mCommandBuffer.value()), std::move(waitSemaphoreOwnerships));
 				mSemaphoreLifetimeHandler(std::move(sema)); // Transfer ownership and be done with it
 				mCommandBuffer.reset();						// Command buffer has been moved from. It's gone.
 				mWaitBeforeSemaphores.clear();				// Never ever use them again (they have been moved from)
@@ -348,7 +355,7 @@ namespace avk
 			if (std::holds_alternative<unique_function<void(command_buffer)>>(mCommandBufferRefOrLifetimeHandler)) {
 				assert(mCommandBuffer.has_value());
 				mCommandBuffer.value()->end_recording();	// What started in get_or_create_command_buffer() ends here.
-				queue.submit(mCommandBuffer.value(), std::optional<std::reference_wrapper<semaphore_t>>{});
+				queue.submit(referenced(mCommandBuffer.value()), std::optional<resource_reference<semaphore_t>>{});
 				std::get<unique_function<void(command_buffer)>>(mCommandBufferRefOrLifetimeHandler)(std::move(mCommandBuffer.value())); // Transfer ownership and be done with it.
 				mCommandBuffer.reset();						// Command buffer has been moved from. It's gone.
 			}
@@ -362,7 +369,7 @@ namespace avk
 		case sync_type::via_wait_idle_deliberately:
 			assert(mCommandBuffer.has_value());
 			mCommandBuffer.value()->end_recording();		// What started in get_or_create_command_buffer() ends here.
-			queue.submit(mCommandBuffer.value(), std::optional<std::reference_wrapper<semaphore_t>>{});
+			queue.submit(referenced(mCommandBuffer.value()), std::optional<resource_reference<semaphore_t>>{});
 			queue_to_use().get().handle().waitIdle();
 			mCommandBuffer.reset();							// Command buffer is fully handled after waitIdle() and can be destroyed.
 			break;
