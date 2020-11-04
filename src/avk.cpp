@@ -6106,7 +6106,8 @@ namespace avk
 
 		// Copy to temporary buffer:
 		std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
-		device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
+		auto result = device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
+		assert(static_cast<VkResult>(result) >= 0);
 
 		auto mapped = scoped_mapping{aPipeline.mShaderBindingTable->mBuffer, mapping_access::write};
 		// Transfer all the groups into the buffer's memory, taking all the offsets determined in step 3 into account:
