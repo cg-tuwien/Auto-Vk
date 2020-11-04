@@ -4069,11 +4069,6 @@ namespace avk
 				false
 			}; 
 		}
-
-		viewport_depth_scissors_config viewport_depth_scissors_config::from_framebuffer(resource_reference<framebuffer_t> aFramebuffer)
-		{
-			return from_framebuffer(avk::const_referenced(aFramebuffer));
-		}
 	}
 #pragma endregion
 

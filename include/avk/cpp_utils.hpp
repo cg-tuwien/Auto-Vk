@@ -618,6 +618,20 @@ namespace avk
 			return *this;
 		}
 
+		// Implicitly allow casting a non-const-reference to a const-reference IF we're inside a non-const-reference-type instance.
+		template<
+			typename U = T,
+			typename = std::enable_if<std::is_same_v<resource_reference<std::remove_const_t<T>>, resource_reference<T>>, resource_reference<const T>>
+		>
+		operator resource_reference<const std::remove_const_t<T>>() {
+#if _DEBUG
+			if (nullptr != mOwner) {
+				return resource_reference<const T>{ *mOwner };
+			}
+#endif
+			return resource_reference<const T>{ *mResource };
+		}
+		
 		// Get reference to the resource
 		const T& get() const
 		{
@@ -629,6 +643,14 @@ namespace avk
 		{
 			return *mResource;
 		}
+
+#if _DEBUG
+		// Get reference to the owner
+		const owning_resource<std::remove_const_t<T>>* get_owner() const
+		{
+			return mOwner;
+		}
+#endif
 
 		// Get reference to the resource
 		const T& operator*() const

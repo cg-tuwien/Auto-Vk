@@ -547,19 +547,19 @@ namespace avk
 		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 
-		template <typename ...ImViews> requires are_same<image_view, ImViews...>::value
-		framebuffer create_framebuffer(std::vector<avk::attachment> aAttachments, ImViews&&... aImViews)
+		template <typename ...ImViews> requires are_same<resource_ownership<image_view_t>, ImViews...>::value
+		framebuffer create_framebuffer(std::vector<avk::attachment> aAttachments, ImViews... aImViews)
 		{
 			std::vector<resource_ownership<image_view_t>> imageViews;
-			(imageViews.push_back(owned<image_view_t>(aImViews)), ...); // owned == move
+			(imageViews.push_back(std::move(aImViews)), ...);
 			return create_framebuffer(std::move(aAttachments), std::move(imageViews));
 		}
 
-		template <typename ...ImViews> requires are_same<image_view, ImViews...>::value
-		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, ImViews&&... aImViews)
+		template <typename ...ImViews> requires are_same<resource_ownership<image_view_t>, ImViews...>::value
+		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, ImViews... aImViews)
 		{
 			std::vector<resource_ownership<image_view_t>> imageViews;
-			(imageViews.push_back(owned<image_view_t>(aImViews)), ...); // owned == move
+			(imageViews.push_back(std::move(aImViews)), ...);
 			return create_framebuffer(std::move(aRenderpass), std::move(imageViews));
 		}
 #pragma endregion
