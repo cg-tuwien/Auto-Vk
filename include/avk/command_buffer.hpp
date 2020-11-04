@@ -291,7 +291,11 @@ namespace avk
 		template <typename T> // Expected to be just the pipeline's type
 		void bind_pipeline(T aPipeline)
 		{
+#if defined(_MSC_VER) && defined(__cplusplus)
 			static_assert(false);
+#else
+			assert(false);
+#endif
 			throw avk::logic_error("No suitable bind_pipeline overload found for the given argument => You'll probably want to use avk::const_referenced(yourPipeline).");
 		}
 
