@@ -128,10 +128,10 @@ namespace avk
 		 *  from_buffer_binding(13) -> stream_per_vertex(mVertexBuffer, content_description::position) -> to_location(2)
 		 *	```
 		 */
-		partial_input_binding_to_location_mapping& stream_per_vertex(const buffer_t& aBuffer, content_description aMember, size_t aBufferMetaSkip = 0)
+		partial_input_binding_to_location_mapping& stream_per_vertex(resource_reference<const buffer_t> aBuffer, content_description aMember, size_t aBufferMetaSkip = 0)
 		{
-			assert(aBuffer.has_meta<vertex_buffer_meta>(aBufferMetaSkip));
-			auto& metaData = aBuffer.meta<vertex_buffer_meta>(aBufferMetaSkip);
+			assert(aBuffer->has_meta<vertex_buffer_meta>(aBufferMetaSkip));
+			auto& metaData = aBuffer->meta<vertex_buffer_meta>(aBufferMetaSkip);
 			auto& member = metaData.member_description(aMember);
 			return stream_per_vertex(member.mOffset, member.mFormat, metaData.sizeof_one_element());
 		}
@@ -249,10 +249,10 @@ namespace avk
 		 *  from_buffer_binding(13) -> stream_per_instance(mVertexBuffer, content_description::position) -> to_location(2)
 		 *	```
 		 */
-		partial_input_binding_to_location_mapping& stream_per_instance(const buffer_t& aBuffer, content_description aMember, size_t aBufferMetaSkip = 0)
+		partial_input_binding_to_location_mapping& stream_per_instance(resource_reference<const buffer_t> aBuffer, content_description aMember, size_t aBufferMetaSkip = 0)
 		{
-			assert(aBuffer.has_meta<instance_buffer_meta>(aBufferMetaSkip));
-			auto& metaData = aBuffer.meta<instance_buffer_meta>(aBufferMetaSkip);
+			assert(aBuffer->has_meta<instance_buffer_meta>(aBufferMetaSkip));
+			auto& metaData = aBuffer->meta<instance_buffer_meta>(aBufferMetaSkip);
 			auto& member = metaData.member_description(aMember);
 			return stream_per_instance(member.mOffset, member.mFormat, metaData.sizeof_one_element());
 		}
