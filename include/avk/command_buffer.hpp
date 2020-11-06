@@ -124,6 +124,13 @@ namespace avk
 		void copy_image(const image_t& aSource, const vk::Image& aDestination);
 		void end_render_pass();
 
+		/** Prepare a command buffer for re-recording.
+		*   This essentially calls (and removes) any custom deleters, and removes any post-execution-handlers.
+		*   Call this method before re-recording an existing command buffer.
+		*/
+		void prepare_for_reuse();
+
+
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.

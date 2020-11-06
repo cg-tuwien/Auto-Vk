@@ -2520,6 +2520,21 @@ namespace avk
 		return result;
 	}
 
+	// prepare command buffer for re-recording
+	void command_buffer_t::prepare_for_reuse()
+	{
+		if (mPostExecutionHandler.has_value()) {
+			// Clear post-execution handler
+			mPostExecutionHandler.reset();
+		}
+		if (mCustomDeleter.has_value() && *mCustomDeleter) {
+			// If there is a custom deleter => call it now
+			(*mCustomDeleter)();
+			mCustomDeleter.reset();
+		}
+	}
+
+
 	command_buffer_t::~command_buffer_t()
 	{
 		if (mCustomDeleter.has_value() && *mCustomDeleter) {
