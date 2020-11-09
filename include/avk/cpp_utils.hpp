@@ -270,6 +270,13 @@ namespace avk
 		x.resize(size_t{1});
 	};
 	
+	// A concept which requires a type to have a subscript operator
+	template <typename T>
+	concept has_subscript_operator = requires (T x)
+	{
+		x[size_t{1}];
+	};
+	
 
 
 	template <typename T>
