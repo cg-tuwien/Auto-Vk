@@ -2534,14 +2534,13 @@ namespace avk
 		}
 	}
 
-
 	command_buffer_t::~command_buffer_t()
 	{
-		if (mCustomDeleter.has_value() && *mCustomDeleter) {
-			// If there is a custom deleter => call it now
-			(*mCustomDeleter)();
-			mCustomDeleter.reset();
-		}
+		// prepare_for_reuse() invokes and cleans up the custom deleter. This is
+		// exactly what we need here. ATTENTION: If prepare_for_reuse() gets some
+		// additional functionality in the future which would not be appropriate
+		// to being executed from the destructor, don't call it anymore from here!
+		prepare_for_reuse();
 		// Destroy the dependant instance before destroying myself
 		// ^ This is ensured by the order of the members
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
@@ -2553,6 +2552,7 @@ namespace avk
 			(*mPostExecutionHandler)();
 		}
 	}
+	
 	void command_buffer_t::begin_recording()
 	{
 		mCommandBuffer->begin(mBeginInfo);
