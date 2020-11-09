@@ -26,6 +26,8 @@
 #include <utility>
 #include <variant>
 #include <vector>
+#include <concepts>
+#include <ranges>
 
 #include <cpplinq.hpp>
 
