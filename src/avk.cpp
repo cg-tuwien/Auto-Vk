@@ -2351,36 +2351,33 @@ namespace avk
 			// We need to take care though, to not try to allocate buffer of size zero here.
 			// If dataSize is zero, skip staging buffer creation and the copy command, but still
 			// process the synchronization calls, as user code may rely on those.
-			buffer stagingBuffer;
+
+			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+
+			// Sync before:
+			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+
 			if (dataSize != 0) {
-				stagingBuffer = root::create_buffer(
+				auto stagingBuffer = root::create_buffer(
 					mPhysicalDevice, mDevice, mBuffer.allocator(),
 					AVK_STAGING_BUFFER_MEMORY_USAGE,
 					vk::BufferUsageFlagBits::eTransferSrc,
 					generic_buffer_meta::create_from_size(dataSize)
 				);
 				stagingBuffer->fill(aDataPtr, 0, sync::wait_idle()); // Recurse into the other if-branch
-			}
 
-			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-			// Sync before:
-			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-			// Operation:
-			if (stagingBuffer.has_value()) {
+				// Operation:
 				copy_buffer_to_another(avk::referenced(stagingBuffer), avk::referenced(*this), 0, static_cast<vk::DeviceSize>(aOffsetInBytes), dataSize, sync::with_barriers_into_existing_command_buffer(commandBuffer, {}, {}));
+
+				// Take care of the lifetime handling of the stagingBuffer, it might still be in use when this method returns:
+				commandBuffer.set_custom_deleter([
+					lOwnedStagingBuffer{ std::move(stagingBuffer) }
+				]() { /* Nothing to do here, the buffers' destructors will do the cleanup, the lambda is just storing it. */ });
 			}
 
 			// Sync after:
 			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
 
-			// Take care of the lifetime handling of the stagingBuffer, it might still be in use:
-			if (stagingBuffer.has_value()) {
-				commandBuffer.set_custom_deleter([
-					lOwnedStagingBuffer{ std::move(stagingBuffer) }
-				]() { /* Nothing to do here, the buffers' destructors will do the cleanup, the lambda is just storing it. */ });
-			}
-			
 			// Finish him:
 			return aSyncHandler.submit_and_sync();			
 		}
