@@ -282,6 +282,62 @@ namespace avk
 			draw_indexed_indirect(std::move(aParametersBuffer), std::move(aIndexBuffer), aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aVertexBuffers) ...);
 		}
 
+#if defined(VK_VERSION_1_2)
+		/**	Perform an indexed indirect count draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		*	There can be no gaps between buffer bindings.
+		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		*	@param	aIndexBuffer		Reference to an index buffer
+		*	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
+		*	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
+		*	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
+		*   @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
+		*	@param	aDrawCountOffset	Byte offset into the draw count buffer where the actual draw count is located
+		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
+		*								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		*
+		*   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
+		*/
+		template <typename... Bfrs>
+		void draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, avk::resource_reference<const buffer_t> aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, Bfrs... aVertexBuffers)
+		{
+			handle().bindVertexBuffers(0u, { aVertexBuffers->handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
+			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
+
+			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
+			vk::IndexType indexType;
+			switch (indexMeta.sizeof_one_element()) {
+				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
+				case sizeof(uint32_t): indexType = vk::IndexType::eUint32; break;
+				default: AVK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
+			}
+
+			handle().bindIndexBuffer(aIndexBuffer->handle(), 0u, indexType);
+			handle().drawIndexedIndirectCount(aParametersBuffer->handle(), aParametersOffset, aDrawCountBuffer->handle(), aDrawCountOffset, aMaxNumberOfDraws, aParametersStride);
+		}
+
+		/**	Perform an indexed indirect count draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		*	There can be no gaps between buffer bindings.
+		*	The parameter offset is set to 0.
+		*	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
+		*   The draw count offset is set to 0.
+		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		*	@param	aIndexBuffer		Reference to an index buffer
+		*	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
+		*   @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
+		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
+		*								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		*
+		*   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
+		*/
+		template <typename... Bfrs>
+		void draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, avk::resource_reference<const buffer_t> aDrawCountBuffer, Bfrs... aVertexBuffers)
+		{
+			draw_indexed_indirect_count(std::move(aParametersBuffer), std::move(aIndexBuffer), aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aDrawCountBuffer), vk::DeviceSize{ 0 }, std::move(aVertexBuffers) ...);
+		}
+#endif
+
 		auto& begin_info() const { return mBeginInfo; }
 		const vk::CommandBuffer& handle() const { return mCommandBuffer.get(); }
 		const vk::CommandBuffer* handle_ptr() const { return &mCommandBuffer.get(); }
