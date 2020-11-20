@@ -7443,7 +7443,7 @@ using namespace cpplinq;
 		return aSyncHandler.submit_and_sync();
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLevel, sync aSyncHandler)
+	std::optional<command_buffer> copy_buffer_to_image_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
 	{
 		
 		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
@@ -7464,7 +7464,7 @@ using namespace cpplinq;
 			.setBufferRowLength(0)
 			.setBufferImageHeight(0)
 			.setImageSubresource(vk::ImageSubresourceLayers()
-				.setAspectMask(vk::ImageAspectFlagBits::eColor)
+				.setAspectMask(aAspectFlagsOverride.value_or(aDstImage->aspect_flags())) // Used to be vk::ImageAspectFlagBits::eColor
 				.setMipLevel(aDstLevel)
 				.setBaseArrayLayer(0u)
 				.setLayerCount(1u))
@@ -7483,9 +7483,9 @@ using namespace cpplinq;
 		return aSyncHandler.submit_and_sync();
 	}
 	
-	std::optional<command_buffer> copy_buffer_to_image(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, sync aSyncHandler)
+	std::optional<command_buffer> copy_buffer_to_image(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
 	{
-		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, std::move(aSyncHandler));
+		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aAspectFlagsOverride, std::move(aSyncHandler));
 	}
 
 	std::optional<command_buffer> copy_buffer_to_another(avk::resource_reference<buffer_t> aSrcBuffer, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize, sync aSyncHandler)
@@ -7524,12 +7524,28 @@ using namespace cpplinq;
 		return aSyncHandler.submit_and_sync();
 	}
 
-	std::optional<command_buffer> copy_image_mip_level_to_buffer(avk::resource_reference<const image_t> aSrcImage, uint32_t aSrcLevel, avk::resource_reference<buffer_t> aDstBuffer, sync aSyncHandler)
-	{	
+	std::optional<command_buffer> copy_image_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, uint32_t aSrcLevel, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler, bool aRestoreSrcLayout)
+	{
+		const auto originalSrcLayout = aSrcImage->target_layout();
+
 		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 		// Sync before:
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
 
+		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
+		const auto srcLayoutAfterBarrier = aSrcImage->current_layout();
+		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
+									//|| initialSrcLayout == vk::ImageLayout::eGeneral
+									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
+		if (suitableSrcLayout) {
+			// Just make sure that is really is in target layout:
+			aSrcImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {})); 
+		}
+		else {
+			// Not a suitable src layout => must transform
+			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
+		
 		auto extent = aSrcImage->config().extent;
 		auto levelDivisor = std::pow(2u, aSrcLevel);
 		extent.width  = extent.width  > 1u ? extent.width  / levelDivisor : 1u;
@@ -7542,7 +7558,7 @@ using namespace cpplinq;
 			.setBufferRowLength(0)
 			.setBufferImageHeight(0)
 			.setImageSubresource(vk::ImageSubresourceLayers()
-				.setAspectMask(vk::ImageAspectFlagBits::eColor)
+				.setAspectMask(aAspectFlagsOverride.value_or(aSrcImage->aspect_flags()))
 				.setMipLevel(aSrcLevel)
 				.setBaseArrayLayer(0u)
 				.setLayerCount(1u))
@@ -7553,6 +7569,10 @@ using namespace cpplinq;
 			vk::ImageLayout::eTransferSrcOptimal, // TODO: Should image layout transitions be handled somehow automatically or so? If not => Document that this function expects the image to be in eTransferSrcOptimal Layout.
 			aDstBuffer->handle(),
 			{ copyRegion });
+		
+		if (aRestoreSrcLayout) { // => restore original layout of the src image
+			aSrcImage->transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
+		}
 
 		// Sync after:
 		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
@@ -7561,9 +7581,9 @@ using namespace cpplinq;
 		return aSyncHandler.submit_and_sync();
 	}
 
-	std::optional<command_buffer> copy_image_to_buffer(avk::resource_reference<const image_t> aSrcImage, avk::resource_reference<buffer_t> aDstBuffer, sync aSyncHandler)
+	std::optional<command_buffer> copy_image_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler, bool aRestoreSrcLayout)
 	{
-		return copy_image_mip_level_to_buffer(std::move(aSrcImage), 0u, std::move(aDstBuffer), std::move(aSyncHandler));
+		return copy_image_mip_level_to_buffer(std::move(aSrcImage), 0u, std::move(aDstBuffer), aAspectFlagsOverride, std::move(aSyncHandler), aRestoreSrcLayout);
 	}
 #pragma endregion
 
