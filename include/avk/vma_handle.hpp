@@ -154,15 +154,15 @@ namespace avk
 
 	// Constructor's template specialization for vk::Buffer
 	template <>
-	template <typename C>
-	vma_handle<vk::Buffer>::vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo)
+	template <>
+	inline vma_handle<vk::Buffer>::vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const vk::BufferCreateInfo& aResourceCreateInfo)
 		: mAllocator{ aAllocator }
 		, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}
 	{
 		mCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aMemPropFlags);
 		mCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
 
-		VkBuffer buffer;
+		VkBuffer buffer; vk::BufferCreateInfo asdf;
 		auto result = vmaCreateBuffer(aAllocator, &static_cast<const VkBufferCreateInfo&>(aResourceCreateInfo), &mCreateInfo, &buffer, &mAllocation, &mAllocationInfo);
 		assert(result >= 0);
 		mResource = buffer;
@@ -170,8 +170,8 @@ namespace avk
 	
 	// Constructor's template specialization for vk::Image
 	template <>
-	template <typename C>
-	vma_handle<vk::Image>::vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo)
+	template <>
+	inline vma_handle<vk::Image>::vma_handle(VmaAllocator aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const vk::ImageCreateInfo& aResourceCreateInfo)
 		: mAllocator{ aAllocator }
 		, mCreateInfo{}, mAllocation{nullptr}, mAllocationInfo{}
 	{
