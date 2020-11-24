@@ -142,8 +142,8 @@ namespace avk
 
 	// Constructor's template specialization for vk::Buffer
 	template <>
-	template <typename C>
-	mem_handle<vk::Buffer>::mem_handle(std::tuple<vk::PhysicalDevice, vk::Device> aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo)
+	template <>
+	inline mem_handle<vk::Buffer>::mem_handle(std::tuple<vk::PhysicalDevice, vk::Device> aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const vk::BufferCreateInfo& aResourceCreateInfo)
 		: mAllocator{ aAllocator }
 	{
 		auto& physicalDevice = std::get<vk::PhysicalDevice>(mAllocator);
@@ -189,8 +189,8 @@ namespace avk
 	
 	// Constructor's template specialization for vk::Image
 	template <>
-	template <typename C>
-	mem_handle<vk::Image>::mem_handle(std::tuple<vk::PhysicalDevice, vk::Device> aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const C& aResourceCreateInfo)
+	template <>
+	inline mem_handle<vk::Image>::mem_handle(std::tuple<vk::PhysicalDevice, vk::Device> aAllocator, vk::MemoryPropertyFlags aMemPropFlags, const vk::ImageCreateInfo& aResourceCreateInfo)
 		: mAllocator{ aAllocator }
 	{
 		auto& physicalDevice = std::get<vk::PhysicalDevice>(mAllocator);

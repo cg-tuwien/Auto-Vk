@@ -162,7 +162,7 @@ namespace avk
 		mCreateInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(aMemPropFlags);
 		mCreateInfo.usage = VMA_MEMORY_USAGE_UNKNOWN;
 
-		VkBuffer buffer; vk::BufferCreateInfo asdf;
+		VkBuffer buffer;
 		auto result = vmaCreateBuffer(aAllocator, &static_cast<const VkBufferCreateInfo&>(aResourceCreateInfo), &mCreateInfo, &buffer, &mAllocation, &mAllocationInfo);
 		assert(result >= 0);
 		mResource = buffer;
