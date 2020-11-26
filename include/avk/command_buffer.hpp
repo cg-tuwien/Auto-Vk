@@ -130,7 +130,6 @@ namespace avk
 		*/
 		void prepare_for_reuse();
 
-
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
@@ -188,6 +187,28 @@ namespace avk
 			draw_vertices(1u, 0u, 0u, std::move(aVertexBuffer), std::move(aFurtherBuffers)...);
 		}
 
+		template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr)
+		{
+			// stop this reCURSEion!
+		}
+		
+		template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, resource_reference<const buffer_t> aVertexBuffer, Rest... aRest)
+		{
+			*aHandlePtr = aVertexBuffer->handle();
+			*aOffsetPtr = 0;
+			bind_vertex_buffer(aHandlePtr + 1, aOffsetPtr + 1, aRest...);
+		}
+
+		template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, std::tuple<resource_reference<const buffer_t>, size_t> aVertexBufferAndOffset, Rest... aRest)
+		{
+			*aHandlePtr = std::get<resource_reference<const buffer_t>>(aVertexBufferAndOffset)->handle();
+			*aOffsetPtr = static_cast<vk::DeviceSize>(std::get<size_t>(aVertexBufferAndOffset));
+			bind_vertex_buffer(aHandlePtr + 1, aOffsetPtr + 1, aRest...);
+		}
+
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
@@ -202,8 +223,14 @@ namespace avk
 		template <typename... Bfrs>
 		void draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, Bfrs... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers->handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
-			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
+			constexpr size_t N = sizeof...(aVertexBuffers);
+			std::array<vk::Buffer,     N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
+			handle().bindVertexBuffers(
+				0u, // TODO: Should the first binding really always be 0?
+				static_cast<uint32_t>(N), handles.data(), offsets.data()
+			);
 
 			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
