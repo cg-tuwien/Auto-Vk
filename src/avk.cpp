@@ -4862,72 +4862,76 @@ namespace avk
 
 		const auto originalLayout = current_layout();
 		const auto targetLayout = target_layout();
-		auto w = static_cast<int32_t>(width());
-		auto h = static_cast<int32_t>(height());
 
-		std::array layoutTransitions = { // during the loop, we'll use 1 or 2 of these
-			vk::ImageMemoryBarrier{
-				{}, {}, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
-				originalLayout, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 0u, 1u, 0u, 1u }},
-			vk::ImageMemoryBarrier{
-				{}, vk::AccessFlagBits::eTransferWrite, // This is the first mip-level we're going to write to
-				originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 1u, 1u, 0u, 1u }},
-			vk::ImageMemoryBarrier{} // To be used in loop
-		};
+		for (uint32_t l = 0u; l < config().arrayLayers; ++l) {
 
-		commandBuffer.handle().pipelineBarrier(
-			vk::PipelineStageFlagBits::eTransfer,
-			vk::PipelineStageFlagBits::eTransfer, // Can we also use bottom of pipe here??
-			vk::DependencyFlags{},
-			0u, nullptr,
-			0u, nullptr,
-			2u /* initially, only 2 required */, layoutTransitions.data()
-		);
+			auto w = static_cast<int32_t>(width());
+			auto h = static_cast<int32_t>(height());
 
-		for (uint32_t i = 1u; i < config().mipLevels; ++i) {
+			std::array layoutTransitions = { // during the loop, we'll use 1 or 2 of these
+				vk::ImageMemoryBarrier{
+					{}, {}, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
+					originalLayout, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 0u, 1u, l, 1u }},
+				vk::ImageMemoryBarrier{
+					{}, vk::AccessFlagBits::eTransferWrite, // This is the first mip-level we're going to write to
+					originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 1u, 1u, l, 1u }},
+				vk::ImageMemoryBarrier{} // To be used in loop
+			};
 
-			commandBuffer.handle().blitImage(
-				handle(), vk::ImageLayout::eTransferSrcOptimal,
-				handle(), vk::ImageLayout::eTransferDstOptimal,
-				{ vk::ImageBlit{
-					vk::ImageSubresourceLayers{ mAspectFlags, i-1, 0u, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w      , h      , 1 } },
-					vk::ImageSubresourceLayers{ mAspectFlags, i  , 0u, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w > 1 ? w / 2 : 1, h > 1 ? h / 2 : 1, 1 } }
-				  }
-				},
-				vk::Filter::eLinear
-			);
-
-			// mip-level  i-1  is done:
-			layoutTransitions[0] = vk::ImageMemoryBarrier{
-				{}, {}, // Blit Read -> Done
-				vk::ImageLayout::eTransferSrcOptimal, targetLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i-1, 1u, 0u, 1u }};
-			// mip-level   i   has been transfer destination, but is going to be transfer source:
-			layoutTransitions[1] = vk::ImageMemoryBarrier{
-				vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead, // Blit Write -> Blit Read
-				vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i, 1u, 0u, 1u }};
-			// mip-level  i+1  is entering the game:
-			layoutTransitions[2] = vk::ImageMemoryBarrier{
-				{}, vk::AccessFlagBits::eTransferWrite, // make visible to Blit Write
-				originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i+1, 1u, 0u, 1u }};
-
-			uint32_t numBarriersRequired = std::min(3u, config().mipLevels - i + 1);
-			if (config().mipLevels - 1 == i) {
-				layoutTransitions[1].newLayout = targetLayout; // Last one => done
-			}
-			
 			commandBuffer.handle().pipelineBarrier(
 				vk::PipelineStageFlagBits::eTransfer,
-				vk::PipelineStageFlagBits::eTransfer, // Dependency from previous BLIT to subsequent BLIT
+				vk::PipelineStageFlagBits::eTransfer, // Can we also use bottom of pipe here??
 				vk::DependencyFlags{},
 				0u, nullptr,
 				0u, nullptr,
-				numBarriersRequired, layoutTransitions.data()
+				2u /* initially, only 2 required */, layoutTransitions.data()
 			);
 
-			w = w > 1 ? w / 2 : 1;
-			h = h > 1 ? h / 2 : 1;
+			for (uint32_t i = 1u; i < config().mipLevels; ++i) {
+
+				commandBuffer.handle().blitImage(
+					handle(), vk::ImageLayout::eTransferSrcOptimal,
+					handle(), vk::ImageLayout::eTransferDstOptimal,
+					{ vk::ImageBlit{
+						vk::ImageSubresourceLayers{ mAspectFlags, i - 1, l, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w      , h      , 1 } },
+						vk::ImageSubresourceLayers{ mAspectFlags, i  , l, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w > 1 ? w / 2 : 1, h > 1 ? h / 2 : 1, 1 } }
+					  }
+					},
+					vk::Filter::eLinear
+				);
+
+				// mip-level  i-1  is done:
+				layoutTransitions[0] = vk::ImageMemoryBarrier{
+					{}, {}, // Blit Read -> Done
+					vk::ImageLayout::eTransferSrcOptimal, targetLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i - 1, 1u, l, 1u } };
+				// mip-level   i   has been transfer destination, but is going to be transfer source:
+				layoutTransitions[1] = vk::ImageMemoryBarrier{
+					vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead, // Blit Write -> Blit Read
+					vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i, 1u, l, 1u } };
+				// mip-level  i+1  is entering the game:
+				layoutTransitions[2] = vk::ImageMemoryBarrier{
+					{}, vk::AccessFlagBits::eTransferWrite, // make visible to Blit Write
+					originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i + 1, 1u, l, 1u } };
+
+				uint32_t numBarriersRequired = std::min(3u, config().mipLevels - i + 1);
+				if (config().mipLevels - 1 == i) {
+					layoutTransitions[1].newLayout = targetLayout; // Last one => done
+				}
+
+				commandBuffer.handle().pipelineBarrier(
+					vk::PipelineStageFlagBits::eTransfer,
+					vk::PipelineStageFlagBits::eTransfer, // Dependency from previous BLIT to subsequent BLIT
+					vk::DependencyFlags{},
+					0u, nullptr,
+					0u, nullptr,
+					numBarriersRequired, layoutTransitions.data()
+				);
+
+				w = w > 1 ? w / 2 : 1;
+				h = h > 1 ? h / 2 : 1;
+			}
 		}
-		
+
 		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{ memory_access::transfer_write_access });
 		return aSyncHandler.submit_and_sync();
 	}
