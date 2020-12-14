@@ -552,7 +552,7 @@ namespace avk
 		// Implicitly allow the construction of a reference to owning_resource<T>
 		resource_reference(const owning_resource<std::remove_const_t<T>>& aOwningResource)
 			: mResource{ const_cast<T*>(aOwningResource.operator->()) }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ &aOwningResource }
 #endif
 		{ }
@@ -560,7 +560,7 @@ namespace avk
 		// Implicitly allow the construction of a reference to resource T
 		resource_reference(T& aResource)
 			: mResource{ &aResource }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ nullptr }
 #endif
 		{ }
@@ -568,11 +568,11 @@ namespace avk
 		// Move-constructing, resetting aOther
 		resource_reference(resource_reference<T>&& aOther) noexcept
 			: mResource{ aOther.mResource }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ aOther.mOwner }
 #endif
 		{
-#if _DEBUG
+#ifdef _DEBUG
 			aOther.mResource = nullptr;
 			aOther.mOwner = nullptr;
 #endif
@@ -581,7 +581,7 @@ namespace avk
 		// Copy the data from aOther 
 		resource_reference(const resource_reference<T>& aOther)
 			: mResource{ aOther.mResource }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ aOther.mOwner }
 #endif
 		{ }
@@ -590,7 +590,7 @@ namespace avk
 		resource_reference& operator=(resource_reference<T>&& aOther) noexcept
 		{
 			mResource = aOther.mResource;
-#if _DEBUG
+#ifdef _DEBUG
 			mOwner = aOther.mOwner;
 			aOther.mResource = nullptr;
 			aOther.mOwner = nullptr;
@@ -602,7 +602,7 @@ namespace avk
 		resource_reference& operator=(const resource_reference<T>& aOther)
 		{
 			mResource = aOther.mResource;
-#if _DEBUG
+#ifdef _DEBUG
 			mOwner = aOther.mOwner;
 #endif
 			return *this;
@@ -612,7 +612,7 @@ namespace avk
 		resource_reference& operator=(T& aResource)
 		{
 			mResource = &aResource;
-#if _DEBUG
+#ifdef _DEBUG
 			mOwner = nullptr;
 #endif		
 			return *this;
@@ -624,7 +624,7 @@ namespace avk
 			typename = std::enable_if<std::is_same_v<resource_reference<std::remove_const_t<T>>, resource_reference<T>>, resource_reference<const T>>
 		>
 		operator resource_reference<const std::remove_const_t<T>>() {
-#if _DEBUG
+#ifdef _DEBUG
 			if (nullptr != mOwner) {
 				return resource_reference<const T>{ *mOwner };
 			}
@@ -644,7 +644,7 @@ namespace avk
 			return *mResource;
 		}
 
-#if _DEBUG
+#ifdef _DEBUG
 		// Get reference to the owner
 		const owning_resource<std::remove_const_t<T>>* get_owner() const
 		{
@@ -678,7 +678,7 @@ namespace avk
 
 	private:
 		T* mResource;
-#if _DEBUG
+#ifdef _DEBUG
 		const owning_resource<std::remove_const_t<T>>* mOwner;
 #endif
 	};

@@ -3082,7 +3082,7 @@ namespace avk
 		const auto& weNeed = pRequest.accumulated_pool_sizes();
 		const auto& weHave = mRemainingCapacities;
 
-#if _DEBUG
+#ifdef _DEBUG
 		for (size_t i = 0; i < weNeed.size() - 1; ++i) {
 			assert(weNeed[i].type < weNeed[i + 1].type);
 		}
