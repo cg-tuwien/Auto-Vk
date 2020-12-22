@@ -35,6 +35,7 @@
 #include <avk/avk_error.hpp>
 #include <avk/cpp_utils.hpp>
 
+// TODO: #include <vulkan/vulkan_core.h> => #if VK_HEADER_VERSION >= 162
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
@@ -300,7 +301,11 @@ namespace avk
 			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dynamic_dispatch());
 		}
 
+#if VK_HEADER_VERSION >= 162
+		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR get_ray_tracing_properties();
+#else
 		vk::PhysicalDeviceRayTracingPropertiesKHR get_ray_tracing_properties();
+#endif
 		
 		static vk::DeviceAddress get_buffer_address(const vk::Device& aDevice, vk::Buffer aBufferHandle);
 		

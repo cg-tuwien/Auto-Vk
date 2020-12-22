@@ -467,11 +467,19 @@ namespace avk
 		void trace_rays(
 			vk::Extent3D aRaygenDimensions, 
 			const shader_binding_table_ref& aShaderBindingTableRef, 
-			vk::DispatchLoaderDynamic aDynamicDispatch, 
+			vk::DispatchLoaderDynamic aDynamicDispatch,
+#if VK_HEADER_VERSION >= 162
+			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef   = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
+			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef  = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
+			const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef   = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
+			const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 }
+
+#else
 			const vk::StridedBufferRegionKHR& aRaygenSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aRaymissSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aRayhitSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aCallableSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0}
+#endif
 		);
 
 		// End of recursive variadic template handling

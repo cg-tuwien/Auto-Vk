@@ -110,6 +110,7 @@ namespace avk
 
 		std::vector<vk::AccelerationStructureCreateGeometryTypeInfoKHR> mGeometryInfos;
 		//std::vector<vk::GeometryKHR> mGeometries;
+		vk::BuildAccelerationStructureFlagsKHR mFlags;
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
 		vk::PhysicalDevice mPhysicalDevice;
 		vk::Device mDevice;

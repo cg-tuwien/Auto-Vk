@@ -97,6 +97,7 @@ namespace avk
 		vk::UniqueDeviceMemory mMemory;
 
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
+		vk::BuildAccelerationStructureFlagsKHR mFlags;
 		vk::PhysicalDevice mPhysicalDevice;
 		vk::Device mDevice;
 		AVK_MEM_ALLOCATOR_TYPE mAllocator;
