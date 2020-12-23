@@ -51,7 +51,17 @@ namespace avk
 		const auto& shader_binding_table_groups() const { return mShaderBindingTableGroupsInfo; }
 		shader_binding_table_ref shader_binding_table() const
 		{
-			return shader_binding_table_ref{ shader_binding_table_handle(), shader_binding_table_device_address(), table_entry_size(), std::cref(shader_binding_table_groups()), mDynamicDispatch };
+			return shader_binding_table_ref{ 
+				shader_binding_table_handle(), 
+#if VK_HEADER_VERSION >= 162
+				shader_binding_table_device_address(), 
+#else 
+				0,
+#endif
+				table_entry_size(), 
+				std::cref(shader_binding_table_groups()), 
+				mDynamicDispatch 
+			};
 		}
 		size_t num_raygen_groups_in_shader_binding_table() const;
 		size_t num_miss_groups_in_shader_binding_table() const;

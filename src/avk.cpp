@@ -2064,7 +2064,7 @@ namespace avk
 #if VK_HEADER_VERSION >= 162
 			.setMode(aBuildAction == tlas_action::build ? vk::BuildAccelerationStructureModeKHR::eBuild : vk::BuildAccelerationStructureModeKHR::eUpdate)
 #else 
-			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
+			.setUpdate(aBuildAction == tlas_action::build ? VK_FALSE : VK_TRUE)
 			.setGeometryArrayOfPointers(VK_FALSE)
 #endif
 			.setSrcAccelerationStructure(aBuildAction == tlas_action::build ? nullptr : acceleration_structure_handle())
