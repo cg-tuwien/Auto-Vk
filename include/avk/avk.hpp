@@ -35,6 +35,7 @@
 #include <avk/avk_error.hpp>
 #include <avk/cpp_utils.hpp>
 
+// TODO: #include <vulkan/vulkan_core.h> => #if VK_HEADER_VERSION >= 162
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
@@ -239,6 +240,35 @@ namespace avk
 		{
 			// ------------- Memory ------------
 			// 5. Query memory requirements
+#if VK_HEADER_VERSION >= 162
+			auto buildSizesInfo = vk::AccelerationStructureBuildSizesInfoKHR{};
+			device().getAccelerationStructureBuildSizesKHR(
+				vk::AccelerationStructureBuildTypeKHR::eDevice,
+				&result.mBuildGeometryInfo,
+				result.mBuildPrimitiveCounts.data(),
+				&buildSizesInfo,
+				dynamic_dispatch()
+			);
+			result.mMemoryRequirementsForAccelerationStructure = buildSizesInfo.accelerationStructureSize;
+			result.mMemoryRequirementsForBuildScratchBuffer    = buildSizesInfo.buildScratchSize;
+			result.mMemoryRequirementsForScratchBufferUpdate   = buildSizesInfo.updateScratchSize;
+
+			result.mAccStructureBuffer = create_buffer(
+				memory_usage::device,                                                                                         // TODO: Make meta data for it!
+				vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR, // TODO: eShaderDeviceAddressKHR or eShaderDeviceAddress?
+				generic_buffer_meta::create_from_size(result.mMemoryRequirementsForAccelerationStructure)
+			);
+
+			result.mCreateInfo
+				.setBuffer(result.mAccStructureBuffer->handle())
+				.setOffset(0) // TODO: Support one buffer for multiple acceleration structures and => offset
+				.setSize(result.mMemoryRequirementsForAccelerationStructure);
+
+			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
+#else
+			// 4. Create it
+			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
+
 			{
 				auto memReqInfo = vk::AccelerationStructureMemoryRequirementsInfoKHR{}
 					.setType(vk::AccelerationStructureMemoryRequirementsTypeKHR::eObject)
@@ -289,6 +319,7 @@ namespace avk
 				.setPDeviceIndices(nullptr);
 			device().bindAccelerationStructureMemoryKHR({ memBindInfo }, dynamic_dispatch());
 
+#endif
 			// 10. Get an "opaque" handle which can be used on the device
 			auto addressInfo = vk::AccelerationStructureDeviceAddressInfoKHR{}
 				.setAccelerationStructure(result.acceleration_structure_handle());
@@ -300,7 +331,11 @@ namespace avk
 			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dynamic_dispatch());
 		}
 
+#if VK_HEADER_VERSION >= 162
+		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR get_ray_tracing_properties();
+#else
 		vk::PhysicalDeviceRayTracingPropertiesKHR get_ray_tracing_properties();
+#endif
 		
 		static vk::DeviceAddress get_buffer_address(const vk::Device& aDevice, vk::Buffer aBufferHandle);
 		

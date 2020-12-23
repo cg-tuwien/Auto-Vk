@@ -467,22 +467,41 @@ namespace avk
 		void trace_rays(
 			vk::Extent3D aRaygenDimensions, 
 			const shader_binding_table_ref& aShaderBindingTableRef, 
-			vk::DispatchLoaderDynamic aDynamicDispatch, 
+			vk::DispatchLoaderDynamic aDynamicDispatch,
+#if VK_HEADER_VERSION >= 162
+			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef   = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
+			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef  = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
+			const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef   = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
+			const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef = vk::StridedDeviceAddressRegionKHR{0, 0, 0}
+
+#else
 			const vk::StridedBufferRegionKHR& aRaygenSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aRaymissSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aRayhitSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aCallableSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0}
+#endif
 		);
 
+#if VK_HEADER_VERSION >= 162
+#define STRIDED_REGION_PARAMS vk::StridedDeviceAddressRegionKHR& aRaygen, vk::StridedDeviceAddressRegionKHR& aRaymiss, vk::StridedDeviceAddressRegionKHR& aRayhit, vk::StridedDeviceAddressRegionKHR& aCallable
+#else
+#define STRIDED_REGION_PARAMS vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable
+#endif
+
 		// End of recursive variadic template handling
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable) { /* We're done here. */ }
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS) { /* We're done here. */ }
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_raygen_group_at_index& aRaygenGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_raygen_group_at_index& aRaygenGroupAtIndex, const Ts&... args)
 		{
-			aRaygen.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aRaygen
+#if VK_HEADER_VERSION >= 162
+			       .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -490,10 +509,15 @@ namespace avk
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_miss_group_at_index& aMissGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_miss_group_at_index& aMissGroupAtIndex, const Ts&... args)
 		{
-			aRaymiss.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aRaymiss
+#if VK_HEADER_VERSION >= 162
+				   .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -501,10 +525,15 @@ namespace avk
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_hit_group_at_index& aHitGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_hit_group_at_index& aHitGroupAtIndex, const Ts&... args)
 		{
-			aRayhit.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aRayhit
+#if VK_HEADER_VERSION >= 162
+				   .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -512,10 +541,15 @@ namespace avk
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_callable_group_at_index& aCallableGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_callable_group_at_index& aCallableGroupAtIndex, const Ts&... args)
 		{
-			aCallable.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aCallable
+#if VK_HEADER_VERSION >= 162
+				   .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -523,11 +557,11 @@ namespace avk
 
 		/**	Issue a trace rays call.
 		 *
-		 *	First two parameters are mandatory explicitely:
+		 *	First two parameters are mandatory explicitly:
 		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
 		 *	@param	aShaderBindingTableRef		Reference to the shader binding table to be used for this trace rays call.
 		 *
-		 *	Further parameters are mandatory implicitely - i.e. there must be at least some information given about which
+		 *	Further parameters are mandatory implicitly - i.e. there must be at least some information given about which
 		 *	shader binding table entries to be used from the given shader binding table during this trace rays call.
 		 *	@param args							Possible values:
 		 *											- using_raygen_group_at_index
@@ -541,10 +575,17 @@ namespace avk
 		void trace_rays(vk::Extent3D aRaygenDimensions, const shader_binding_table_ref& aShaderBindingTableRef, const Ts&... args)
 		{
 			// 1. GATHER CONFIG
-			auto raygen  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-			auto raymiss = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-			auto rayhit  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-			auto callable= vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+#if VK_HEADER_VERSION >= 162
+			auto raygen   = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+			auto raymiss  = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+			auto rayhit   = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+			auto callable = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+#else
+			auto raygen   = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto raymiss  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto rayhit   = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto callable = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+#endif
 			add_config(aShaderBindingTableRef, raygen, raymiss, rayhit, callable, args...);
 
 			// 2. TRACE. RAYS.
