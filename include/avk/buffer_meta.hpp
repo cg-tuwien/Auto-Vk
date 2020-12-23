@@ -805,7 +805,14 @@ namespace avk
 	{
 	public:
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR; }
+		vk::BufferUsageFlags buffer_usage_flags() const override
+		{
+#if VK_HEADER_VERSION >= 162
+			return vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
+#else
+			return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
+#endif
+		}
 		
 		static aabb_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride = sizeof(VkAabbPositionsKHR)) 
 		{ 
@@ -884,7 +891,14 @@ namespace avk
 	{
 	public:
 		/** Gets buffer usage flags for this kind of buffer. */
-		vk::BufferUsageFlags buffer_usage_flags() const override { return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR; }
+		vk::BufferUsageFlags buffer_usage_flags() const override
+		{
+#if VK_HEADER_VERSION >= 162
+			return vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
+#else
+			return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
+#endif
+		}
 		
 		static geometry_instance_buffer_meta create_from_num_elements(size_t aNumElements, size_t aStride = sizeof(VkAccelerationStructureInstanceKHR)) 
 		{ 

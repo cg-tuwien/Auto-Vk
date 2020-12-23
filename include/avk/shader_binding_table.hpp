@@ -45,6 +45,7 @@ namespace avk
 	struct shader_binding_table_ref
 	{
 		vk::Buffer mSbtBufferHandle;
+		vk::DeviceAddress mSbtBufferDeviceAddress;
 		vk::DeviceSize mSbtEntrySize;
 		std::reference_wrapper<const shader_binding_table_groups_info> mSbtGroupsInfo;
 		vk::DispatchLoaderDynamic mDynamicDispatch;

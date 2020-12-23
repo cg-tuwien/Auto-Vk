@@ -47,10 +47,11 @@ namespace avk
 		vk::DeviceSize table_entry_size() const { return static_cast<vk::DeviceSize>(mShaderGroupHandleSize); }
 		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size()); }
 		auto shader_binding_table_handle() const { return mShaderBindingTable->handle(); }
+		auto shader_binding_table_device_address() const { return mShaderBindingTable->device_address(); }
 		const auto& shader_binding_table_groups() const { return mShaderBindingTableGroupsInfo; }
 		shader_binding_table_ref shader_binding_table() const
 		{
-			return shader_binding_table_ref{ shader_binding_table_handle(), table_entry_size(), std::cref(shader_binding_table_groups()), mDynamicDispatch };
+			return shader_binding_table_ref{ shader_binding_table_handle(), shader_binding_table_device_address(), table_entry_size(), std::cref(shader_binding_table_groups()), mDynamicDispatch };
 		}
 		size_t num_raygen_groups_in_shader_binding_table() const;
 		size_t num_miss_groups_in_shader_binding_table() const;
