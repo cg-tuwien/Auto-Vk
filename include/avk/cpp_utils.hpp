@@ -1158,4 +1158,75 @@ namespace avk
 		T mHandle;
 	};
 
+
+#pragma region swap & DESSSTROY help functions
+
+	// TODO - better naming perhaps? end result is not a swap anymore really
+
+	template <typename T>
+	concept has_size = requires (T x) {x.size();};
+
+	template <class T>
+	concept boolean_convertible = requires(T(&f)()) { static_cast<bool>(f()); };
+
+	/*
+	* disposes rhs and moves the lhs value to rhs
+	*
+	* The purpose of the functions in this section swap and handle lifetime
+	* in a more clean structure in the source code.
+	*
+	* Additionally, when possible, lifetime_handler+swap is ignored if the
+	* rhs parameter contains no values.
+	*
+	* Be aware that inital value  of rhs  will be disposed of
+	*
+	* after the call, rhs will contain initial lhs value
+	*
+	* @param lhs					Left hand side object which will be moved to rhs after operation
+	* @param rhs					Right hand side object will be disposed of
+	* @param rhs_lifetime_handler	Life time handler for rhs value
+	*
+	*/
+	template<typename T, typename F>
+	void swap_and_dispose_rhs(T& lhs, T&& rhs, F& rhs_lifetime_handler)
+	{
+		std::swap(lhs, rhs);
+		rhs_lifetime_handler(std::move(lhs));
+	}
+
+	template<typename T, typename F> requires has_size<T>
+	void swap_and_dispose_rhs(T& lhs, T&& rhs, F& rhs_lifetime_handler)
+	{
+		if (rhs.size() == 0) rhs = std::move(lhs);
+		else
+		{
+			std::swap(lhs, rhs);
+			rhs_lifetime_handler(std::move(lhs));
+		}
+	}
+
+	template<typename T, typename F>
+	void swap_and_dispose_rhs(owning_resource<T>& lhs, owning_resource<T>&& rhs, F& rhs_lifetime_handler)
+	{
+		if (!rhs.has_value()) rhs = std::move(lhs);
+		else
+		{
+			std::swap(lhs, rhs);
+			rhs_lifetime_handler(std::move(lhs));
+		}
+	}
+
+	// covers most vulkan resources
+	template<typename T, typename F> requires boolean_convertible<T>
+	void swap_and_dispose_rhs(T& lhs, T&& rhs, F& rhs_lifetime_handler)
+	{
+		if (!rhs) rhs = std::move(lhs);
+		else
+		{
+			std::swap(lhs, rhs);
+			rhs_lifetime_handler(std::move(lhs));
+		}
+	}
+#pragma endregion
+
 }
