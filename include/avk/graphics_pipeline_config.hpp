@@ -56,7 +56,7 @@ namespace avk
 			static depth_test enabled() { return depth_test{ true, compare_operation::less }; }
 			static depth_test disabled() { return depth_test{ false, compare_operation::less }; }
 
-			depth_test& set_compare_operation(compare_operation& aWhichOne) { mCompareOperation = aWhichOne; return *this; }
+			depth_test& set_compare_operation(compare_operation aWhichOne) { mCompareOperation = aWhichOne; return *this; }
 
 			auto is_enabled() const { return mEnabled; }
 			auto depth_compare_operation() const { return mCompareOperation; }
