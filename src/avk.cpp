@@ -7196,20 +7196,37 @@ using namespace cpplinq;
 			addDependency(syncBefore);
 		}
 
-		for (auto i = firstSubpassId + 1; i <= lastSubpassId; ++i) {
-			auto prevSubpassId = i - 1;
-			auto nextSubpassId = i;
-			renderpass_sync syncBetween {static_cast<int>(prevSubpassId), static_cast<int>(nextSubpassId),
+		// Iterate over all combinations of [id, id] and [id, id+1]
+		for (auto i = firstSubpassId, j = firstSubpassId; j <= lastSubpassId; i += (j-i), j += static_cast<uint32_t>(i==j)) {
+
+			// Default to ALL_GRAPHICS -> ALL_GRAPHICS sync between different sub passes,
+			// but default to NO SYNC for subpass self-dependencies, and leave them out if not set by the user
+			// (because subpass self-dependency rules have stricter rules to follow: https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies)
+			renderpass_sync syncBetween {static_cast<int>(i), static_cast<int>(j),
 				pipeline_stage::all_graphics,	memory_access::any_graphics_basic_write_access,
 				pipeline_stage::all_graphics,	memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access,
 			};
+			if (i == j) {
+				syncBetween.mSourceStage = pipeline_stage::top_of_pipe;
+				syncBetween.mSourceMemoryDependency = std::nullopt;
+				syncBetween.mDestinationStage = pipeline_stage::bottom_of_pipe;
+				syncBetween.mDestinationMemoryDependency = std::nullopt;
+			}
+			
 			// Let the user modify this sync
 			if (aSync) {
 				aSync(syncBetween);
 			}
-			assert(syncBetween.source_vk_subpass_id() == prevSubpassId);
-			assert(syncBetween.destination_vk_subpass_id() == nextSubpassId);
-			addDependency(syncBetween);
+			assert(syncBetween.source_vk_subpass_id() == i);
+			assert(syncBetween.destination_vk_subpass_id() == j);
+
+			if (i != j // or else -- if it is a self dependency -- if the user has set some values:
+				|| syncBetween.mSourceStage != pipeline_stage::top_of_pipe 
+				|| syncBetween.mSourceMemoryDependency.has_value() 
+				|| syncBetween.mDestinationStage != pipeline_stage::bottom_of_pipe 
+				|| syncBetween.mDestinationMemoryDependency.has_value()) {
+				addDependency(syncBetween);
+			}
 		}
 
 		{

@@ -21,6 +21,7 @@ namespace avk
 		bool is_external_pre_sync() const { return sExternal == mSrcPass; }
 		bool is_external_post_sync() const { return sExternal == mDstPass; }
 		bool is_intra_subpass_sync() const { return !is_external_pre_sync() && !is_external_post_sync(); }
+		bool is_subpass_self_dependency() const { return is_intra_subpass_sync() && mSrcPass == mDstPass; }
 		int source_subpass_id() const { return mSrcPass; }
 		int destination_subpass_id() const { return mDstPass; }
 		uint32_t source_vk_subpass_id() const { return mSrcPass == -1 ? VK_SUBPASS_EXTERNAL : static_cast<uint32_t>(mSrcPass); }
