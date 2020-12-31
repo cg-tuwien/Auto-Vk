@@ -1210,7 +1210,8 @@ namespace avk
 	{
 		if (aOld.size() == 0) {
 			aOld = std::move(aNew);
-		} else {
+		} 
+		else {
 			std::swap(aNew, aOld);
 			aLifeTimeHandler(std::move(aNew));
 		}
@@ -1221,7 +1222,8 @@ namespace avk
 	{
 		if (!aOld.has_value()) {
 			aOld = std::move(aNew);
-		} else {
+		} 
+		else {
 			std::swap(aNew, aOld);
 			aLifeTimeHandler(std::move(aNew));
 		}
@@ -1232,7 +1234,8 @@ namespace avk
 	{
 		if (!aOld) {
 			aOld = std::move(aNew);
-		} else {
+		} 
+		else {
 			std::swap(aNew, aOld);
 			aLifeTimeHandler(std::move(aNew));
 		}
