@@ -3854,8 +3854,7 @@ namespace avk
 		const auto& templateImageViews = aTemplate->image_views();
 		std::vector<resource_ownership<avk::image_view_t>> imageViews;
 
-		for (auto& imView : templateImageViews)
-		{
+		for (auto& imView : templateImageViews)	{
 			auto imageView = create_image_view_from_template(imView, aAlterImageConfigBeforeCreation, aAlterImageViewConfigBeforeCreation);
 			imageViews.emplace_back(std::move(imageView));
 		}	
@@ -3863,6 +3862,8 @@ namespace avk
 		return create_framebuffer(
 			owned(create_renderpass_from_template(aTemplate->get_renderpass())),
 			std::move(imageViews),
+			aTemplate.get().mCreateInfo.width,
+			aTemplate.get().mCreateInfo.height,
 			aAlterFramebufferConfigBeforeCreation
 		);
 	}

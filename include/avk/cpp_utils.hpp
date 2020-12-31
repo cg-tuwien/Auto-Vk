@@ -1159,18 +1159,29 @@ namespace avk
 	};
 
 
-#pragma region swap & DESSSTROY help functions
+#pragma region swap + dispose and handle help functions
 
-	// TODO - better naming perhaps? end result is not a swap anymore really
-
+	/**
+	*	This concept captures those objects which have a size() method, like vectors	*	
+	*/
 	template <typename T>
-	concept has_size = requires (T x) {x.size();};
+	concept has_size = requires (T x)
+	{
+		x.size();
+	};
 
+	/**
+	*	This concept captures those objects that are explicitely convertible to boolean
+	*  
+	*	Note: most vulkan resources contain an explicit boolean converter
+	*/
 	template <class T>
-	concept boolean_convertible = requires(T(&f)()) { static_cast<bool>(f()); };
+	concept boolean_convertible = requires(T(&f)()) {
+		static_cast<bool>(f());
+	};
 
-	/*
-	* disposes rhs and moves the lhs value to rhs
+	/**
+	* Swaps aOld and aNew and handles the life time of aOld
 	*
 	* The purpose of the functions in this section swap and handle lifetime
 	* in a more clean structure in the source code.
@@ -1178,53 +1189,52 @@ namespace avk
 	* Additionally, when possible, lifetime_handler+swap is ignored if the
 	* rhs parameter contains no values.
 	*
-	* Be aware that inital value  of rhs  will be disposed of
+	* Be aware that inital value  of aOld  will be disposed of
 	*
-	* after the call, rhs will contain initial lhs value
+	* after the call, aOld's memory will contain initial aNew's value
 	*
-	* @param lhs					Left hand side object which will be moved to rhs after operation
-	* @param rhs					Right hand side object will be disposed of
-	* @param rhs_lifetime_handler	Life time handler for rhs value
+	* @param aNew				new Resource which will be moved to old Resource's place after operation
+	* @param aOld				old Resource object will be disposed of
+	* @param aLifeTimeHandler	Life time handler for aOld
 	*
 	*/
 	template<typename T, typename F>
-	void swap_and_dispose_rhs(T& lhs, T&& rhs, F& rhs_lifetime_handler)
+	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
 	{
-		std::swap(lhs, rhs);
-		rhs_lifetime_handler(std::move(lhs));
+		std::swap(aNew, aOld);
+		aLifeTimeHandler(std::move(aNew));
 	}
 
 	template<typename T, typename F> requires has_size<T>
-	void swap_and_dispose_rhs(T& lhs, T&& rhs, F& rhs_lifetime_handler)
+	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
 	{
-		if (rhs.size() == 0) rhs = std::move(lhs);
-		else
-		{
-			std::swap(lhs, rhs);
-			rhs_lifetime_handler(std::move(lhs));
+		if (aOld.size() == 0) {
+			aOld = std::move(aNew);
+		} else {
+			std::swap(aNew, aOld);
+			aLifeTimeHandler(std::move(aNew));
 		}
 	}
 
 	template<typename T, typename F>
-	void swap_and_dispose_rhs(owning_resource<T>& lhs, owning_resource<T>&& rhs, F& rhs_lifetime_handler)
+	void emplace_and_handle_previous(owning_resource<T>& aNew, owning_resource<T>&& aOld, F&& aLifeTimeHandler)
 	{
-		if (!rhs.has_value()) rhs = std::move(lhs);
-		else
-		{
-			std::swap(lhs, rhs);
-			rhs_lifetime_handler(std::move(lhs));
+		if (!aOld.has_value()) {
+			aOld = std::move(aNew);
+		} else {
+			std::swap(aNew, aOld);
+			aLifeTimeHandler(std::move(aNew));
 		}
 	}
-
-	// covers most vulkan resources
+		
 	template<typename T, typename F> requires boolean_convertible<T>
-	void swap_and_dispose_rhs(T& lhs, T&& rhs, F& rhs_lifetime_handler)
+	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
 	{
-		if (!rhs) rhs = std::move(lhs);
-		else
-		{
-			std::swap(lhs, rhs);
-			rhs_lifetime_handler(std::move(lhs));
+		if (!aOld) {
+			aOld = std::move(aNew);
+		} else {
+			std::swap(aNew, aOld);
+			aLifeTimeHandler(std::move(aNew));
 		}
 	}
 #pragma endregion
