@@ -4032,6 +4032,26 @@ namespace avk
 		);
 	}
 
+	framebuffer root::create_framebuffer_from_template(resource_reference<const framebuffer_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation,
+		std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation)
+	{
+		const auto& templateImageViews = aTemplate->image_views();
+		std::vector<resource_ownership<avk::image_view_t>> imageViews;
+
+		for (auto& imView : templateImageViews)	{
+			auto imageView = create_image_view_from_template(imView, aAlterImageConfigBeforeCreation, aAlterImageViewConfigBeforeCreation);
+			imageViews.emplace_back(std::move(imageView));
+		}	
+
+		return create_framebuffer(
+			owned(create_renderpass_from_template(aTemplate->get_renderpass())),
+			std::move(imageViews),
+			aTemplate.get().mCreateInfo.width,
+			aTemplate.get().mCreateInfo.height,
+			aAlterFramebufferConfigBeforeCreation
+		);
+	}
+
 	std::optional<command_buffer> framebuffer_t::initialize_attachments(sync aSync)
 	{
 		aSync.establish_barrier_before_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring

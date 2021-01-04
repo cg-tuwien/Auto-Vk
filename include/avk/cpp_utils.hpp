@@ -1158,4 +1158,88 @@ namespace avk
 		T mHandle;
 	};
 
+
+#pragma region swap + dispose and handle help functions
+
+	/**
+	*	This concept captures those objects which have a size() method, like vectors	*	
+	*/
+	template <typename T>
+	concept has_size = requires (T x)
+	{
+		x.size();
+	};
+
+	/**
+	*	This concept captures those objects that are explicitely convertible to boolean
+	*  
+	*	Note: most vulkan resources contain an explicit boolean converter
+	*/
+	template <class T>
+	concept boolean_convertible = requires(T(&f)()) {
+		static_cast<bool>(f());
+	};
+
+	/**
+	* Swaps aOld and aNew and handles the life time of aOld
+	*
+	* The purpose of the functions in this section swap and handle lifetime
+	* in a more clean structure in the source code.
+	*
+	* Additionally, when possible, lifetime_handler+swap is ignored if the
+	* rhs parameter contains no values.
+	*
+	* Be aware that inital value  of aOld  will be disposed of
+	*
+	* after the call, aOld's memory will contain initial aNew's value
+	*
+	* @param aNew				new Resource which will be moved to old Resource's place after operation
+	* @param aOld				old Resource object will be disposed of
+	* @param aLifeTimeHandler	Life time handler for aOld
+	*
+	*/
+	template<typename T, typename F>
+	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
+	{
+		std::swap(aNew, aOld);
+		aLifeTimeHandler(std::move(aNew));
+	}
+
+	template<typename T, typename F> requires has_size<T>
+	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
+	{
+		if (aOld.size() == 0) {
+			aOld = std::move(aNew);
+		} 
+		else {
+			std::swap(aNew, aOld);
+			aLifeTimeHandler(std::move(aNew));
+		}
+	}
+
+	template<typename T, typename F>
+	void emplace_and_handle_previous(owning_resource<T>& aNew, owning_resource<T>&& aOld, F&& aLifeTimeHandler)
+	{
+		if (!aOld.has_value()) {
+			aOld = std::move(aNew);
+		} 
+		else {
+			std::swap(aNew, aOld);
+			aLifeTimeHandler(std::move(aNew));
+		}
+	}
+		
+	template<typename T, typename F> requires boolean_convertible<T>
+	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
+	{
+		if (!aOld) {
+			aOld = std::move(aNew);
+		} 
+		else {
+			std::swap(aNew, aOld);
+			aLifeTimeHandler(std::move(aNew));
+		}
+	}
+#pragma endregion
+
 }

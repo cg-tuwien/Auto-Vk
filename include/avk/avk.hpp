@@ -581,6 +581,7 @@ namespace avk
 		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer_from_template(resource_reference<const framebuffer_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {}, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation = {});
 
 		template <typename ...ImViews> requires are_same<resource_ownership<image_view_t>, ImViews...>::value
 		framebuffer create_framebuffer(std::vector<avk::attachment> aAttachments, ImViews... aImViews)
