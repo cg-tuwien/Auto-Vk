@@ -62,7 +62,7 @@ jobs:
         run: |
           export CC=${{ matrix.config.cc }}
           export CXX=${{ matrix.config.cxx }}
-          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC $GITHUB_WORKSPACE
 
       - name: Build
         shell: bash
@@ -96,7 +96,7 @@ jobs:
         # Some projects don't allow in-source building, so create a separate build directory
         # We'll use this as our working directory for all subsequent commands
         run: |
-          curl -LS -o vulkan-sdk.exe https://vulkan.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
+          curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/latest/windows/VulkanSDK-Installer.exe
 
           7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}"
 
@@ -118,7 +118,7 @@ jobs:
           $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
 
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-          cmake ${{ runner.workspace }}/Auto-Vk -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Visual Studio 16 2019" -A x64
+          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC ${{ runner.workspace }}/Auto-Vk -G "Visual Studio 16 2019" -A x64
 
       - name: Build
         shell: bash
