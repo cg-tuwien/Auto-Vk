@@ -18,8 +18,11 @@ set(avk_IncludeDirs
         include)
 set(avk_Sources
         src/avk.cpp
-        src/sync.cpp
-        $<$<BOOL:${avk_UseVMA}>:src/vk_mem_alloc.cpp>)
+        src/sync.cpp)
+
+if(avk_UseVMA)
+    list(APPEND avk_Sources src/vk_mem_alloc.cpp)
+endif()
 
 add_library(${PROJECT_NAME} ${avk_LibraryType})
 
