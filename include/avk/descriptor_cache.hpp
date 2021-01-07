@@ -42,6 +42,11 @@ namespace avk
 		std::shared_ptr<descriptor_pool> get_descriptor_pool_for_layouts(const descriptor_alloc_request& aAllocRequest, bool aRequestNewPool = false);
 
 		std::vector<descriptor_set> get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings);
+
+		int remove_sets_with_handle(vk::ImageView aHandle);
+		int remove_sets_with_handle(vk::Buffer aHandle);
+		int remove_sets_with_handle(vk::Sampler aHandle);
+		int remove_sets_with_handle(vk::BufferView aHandle);
 		
 	private:
 		std::string mName = "descriptor cache";

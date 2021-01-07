@@ -1242,4 +1242,24 @@ namespace avk
 	}
 #pragma endregion
 
+#pragma region lambda overload
+	// A "lambda overload" pattern which can be used to create one lambda for different parameters
+	//
+	// Example:
+	//
+	//  std::variant<Fluid, LightItem, HeavyItem, FragileItem> package;
+	//	
+	//	std::visit(lambda_overload{
+	//		[](Fluid&) { cout << "fluid\n"; },
+	//		[](LightItem&) { cout << "light item\n"; },
+	//		[](HeavyItem&) { cout << "heavy item\n"; },
+	//		[](FragileItem&) { cout << "fragile\n"; }
+	//	}, package);
+	//
+	//	All credits go to Bartlomiej Filipek: https://www.bfilipek.com/2018/09/visit-variants.html
+	//	
+	template<class... Ts> struct lambda_overload : Ts... { using Ts::operator()...; };
+	template<class... Ts> lambda_overload(Ts...) -> lambda_overload<Ts...>;
+#pragma endregion 
+	
 }

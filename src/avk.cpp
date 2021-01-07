@@ -3881,6 +3881,135 @@ namespace avk
 		}
 		return cachedSets;
 	}
+
+	int descriptor_cache::remove_sets_with_handle(vk::ImageView aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pImageInfo) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pImageInfo[di].imageView == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+			});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+	
+	int descriptor_cache::remove_sets_with_handle(vk::Buffer aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pBufferInfo) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pBufferInfo[di].buffer == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+				});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+
+	int descriptor_cache::remove_sets_with_handle(vk::Sampler aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pImageInfo) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pImageInfo[di].sampler == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+				});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+
+	int descriptor_cache::remove_sets_with_handle(vk::BufferView aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pTexelBufferView) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pTexelBufferView[di] == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+				});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+
 #pragma endregion
 
 #pragma region fence definitions
