@@ -286,7 +286,7 @@ namespace avk
 	// is_same test for a variadic arguments pack
 	template <class T, class... Ts>
 	struct are_same : std::conjunction<std::is_same<T, Ts>...> {};
-	
+
 	// A concept which requires a type to be non-const
 	template <typename T>
 	concept non_const = !std::is_const_v<T>;
@@ -296,7 +296,7 @@ namespace avk
 	{
 		x[size_t{1}];
 	};
-	
+
 
 
 	// A concept which requires a type to have ::value_type
@@ -312,7 +312,7 @@ namespace avk
 	{
 		x.handle();
 	};
-	
+
 
 	// This class represents a/the owner of a specific resource T.
 	//
@@ -334,7 +334,7 @@ namespace avk
 		{
 			return static_cast<const std::variant<std::monostate, T, std::shared_ptr<T>>*>(this);
 		}
-		
+
 		// Cast the this-pointer to what it is: a std::variant-pointer
 		std::variant<std::monostate, T, std::shared_ptr<T>>* this_as_variant() noexcept
 		{
@@ -351,7 +351,7 @@ namespace avk
 		owning_resource(T&& aResource) noexcept
 			: std::variant<std::monostate, T, std::shared_ptr<T>>{ std::move(aResource) }
 		{}
-		
+
 		// Move-assign an owning_resource from an rvalue reference of a resource T.
 		// The original resource that is moved from might not be modified by the move.
 		owning_resource<T>& operator=(T&& aResource) noexcept
@@ -466,7 +466,7 @@ namespace avk
 			}
 			*this_as_variant() = std::make_shared<T>(std::move(std::get<T>(*this)));
 		}
-		
+
 		// Has this owning_resource instance shared ownership enabled.
 		// Or put differently: Is the resource T living on the heap and
 		// and referenced via a shared pointer?
@@ -503,7 +503,7 @@ namespace avk
 			if (holds_item_directly()) { return std::get<T>(*this_as_variant()); }
 			throw avk::logic_error("This owning_resource is uninitialized, i.e. std::monostate.");
 		}
-		
+
 		//// Explicitly cast to the resource type and return a reference to it
 		//explicit operator const T&() const
 		//{
@@ -578,7 +578,7 @@ namespace avk
 #endif
 		}
 
-		// Copy the data from aOther 
+		// Copy the data from aOther
 		resource_reference(const resource_reference<T>& aOther)
 			: mResource{ aOther.mResource }
 #ifdef _DEBUG
@@ -614,7 +614,7 @@ namespace avk
 			mResource = &aResource;
 #ifdef _DEBUG
 			mOwner = nullptr;
-#endif		
+#endif
 			return *this;
 		}
 
@@ -631,7 +631,7 @@ namespace avk
 #endif
 			return resource_reference<const T>{ *mResource };
 		}
-		
+
 		// Get reference to the resource
 		const T& get() const
 		{
@@ -712,7 +712,7 @@ namespace avk
 		return resource_reference<T>{ aResourceReference };
 	}
 
-	
+
 	// Indicate the intent to use the given resource via non-owning reference
 	template <typename T> requires has_value_type<T>
 	resource_reference<const typename T::value_type> const_referenced(const T& aResource)
@@ -803,7 +803,7 @@ namespace avk
 		{
 			return mOwnership;
 		}
-		
+
 		// Get the ownership with the intent of stealing its guts
 		owning_resource<T>&& own()
 		{
@@ -821,7 +821,7 @@ namespace avk
 		{
 			return mOwnership.get();
 		}
-		
+
 		// Get reference to the resource T
 		const T& operator*() const
 		{
@@ -913,7 +913,7 @@ namespace avk
 		return resource_ownership<T>{ std::move(aResourceOwnership) };
 	}
 
-	
+
 
 	template<typename T>
 	class unique_function : protected std::function<T>
@@ -1162,7 +1162,7 @@ namespace avk
 #pragma region swap + dispose and handle help functions
 
 	/**
-	*	This concept captures those objects which have a size() method, like vectors	*	
+	*	This concept captures those objects which have a size() method, like vectors	*
 	*/
 	template <typename T>
 	concept has_size = requires (T x)
@@ -1172,7 +1172,7 @@ namespace avk
 
 	/**
 	*	This concept captures those objects that are explicitely convertible to boolean
-	*  
+	*
 	*	Note: most vulkan resources contain an explicit boolean converter
 	*/
 	template <class T>
@@ -1210,7 +1210,7 @@ namespace avk
 	{
 		if (aOld.size() == 0) {
 			aOld = std::move(aNew);
-		} 
+		}
 		else {
 			std::swap(aNew, aOld);
 			aLifeTimeHandler(std::move(aNew));
@@ -1222,22 +1222,33 @@ namespace avk
 	{
 		if (!aOld.has_value()) {
 			aOld = std::move(aNew);
-		} 
+		}
 		else {
 			std::swap(aNew, aOld);
 			aLifeTimeHandler(std::move(aNew));
 		}
 	}
-		
+
 	template<typename T, typename F> requires boolean_convertible<T>
 	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
 	{
 		if (!aOld) {
 			aOld = std::move(aNew);
-		} 
+		}
 		else {
 			std::swap(aNew, aOld);
 			aLifeTimeHandler(std::move(aNew));
+		}
+	}
+
+	template<typename T, typename F>
+	void emplace_and_handle_previous(T& aNew, std::optional<T>&& aOld, F&& aLifeTimeHandler)
+	{
+		if (!aOld.has_value()) {
+			aOld = std::move(aNew);
+		}
+		else {
+			emplace_and_handle_previous(aNew, std::move(*aOld), aLifeTimeHandler);
 		}
 	}
 #pragma endregion
@@ -1248,7 +1259,7 @@ namespace avk
 	// Example:
 	//
 	//  std::variant<Fluid, LightItem, HeavyItem, FragileItem> package;
-	//	
+	//
 	//	std::visit(lambda_overload{
 	//		[](Fluid&) { cout << "fluid\n"; },
 	//		[](LightItem&) { cout << "light item\n"; },
@@ -1257,9 +1268,9 @@ namespace avk
 	//	}, package);
 	//
 	//	All credits go to Bartlomiej Filipek: https://www.bfilipek.com/2018/09/visit-variants.html
-	//	
+	//
 	template<class... Ts> struct lambda_overload : Ts... { using Ts::operator()...; };
 	template<class... Ts> lambda_overload(Ts...) -> lambda_overload<Ts...>;
-#pragma endregion 
-	
+#pragma endregion
+
 }

@@ -4934,6 +4934,17 @@ namespace avk
 		rewire_config_and_create_graphics_pipeline(result);
 		return result;
 	}
+
+	renderpass&& root::replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass)
+	{
+		if (aPipeline->mRenderPass.is_shared_ownership_enabled()) {
+			aNewRenderPass.enable_shared_ownership();
+		}
+
+		std::swap(aPipeline->mRenderPass, aNewRenderPass);
+
+		return std::move(aNewRenderPass); // now old render pass
+	}
 #pragma endregion
 	
 #pragma region image definitions
