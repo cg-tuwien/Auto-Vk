@@ -83,13 +83,13 @@ namespace avk { class sync; }
 #if defined(AVK_USE_VMA)
 #if !defined(AVK_MEM_ALLOCATOR_TYPE)
 #define AVK_MEM_ALLOCATOR_TYPE       VmaAllocator
-#endif 
+#endif
 #if !defined(AVK_MEM_IMAGE_HANDLE)
 #define AVK_MEM_IMAGE_HANDLE         avk::vma_handle<vk::Image>
-#endif 
+#endif
 #if !defined(AVK_MEM_BUFFER_HANDLE)
 #define AVK_MEM_BUFFER_HANDLE        avk::vma_handle<vk::Buffer>
-#endif 
+#endif
 #include <avk/vma_handle.hpp>
 #else
 #include <avk/mem_handle.hpp>
@@ -113,13 +113,13 @@ namespace avk { class sync; }
  */
 #if !defined(AVK_MEM_ALLOCATOR_TYPE)
 #define AVK_MEM_ALLOCATOR_TYPE       std::tuple<vk::PhysicalDevice, vk::Device>
-#endif 
+#endif
 #if !defined(AVK_MEM_IMAGE_HANDLE)
 #define AVK_MEM_IMAGE_HANDLE         avk::mem_handle<vk::Image>
-#endif 
+#endif
 #if !defined(AVK_MEM_BUFFER_HANDLE)
 #define AVK_MEM_BUFFER_HANDLE        avk::mem_handle<vk::Buffer>
-#endif 
+#endif
 
 #include <avk/memory_access.hpp>
 #include <avk/memory_usage.hpp>
@@ -293,7 +293,7 @@ namespace avk
 
 			// Find suitable memory for this acceleration structure
 			auto tpl = find_memory_type_index(
-				result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.memoryTypeBits, 
+				result.mMemoryRequirementsForAccelerationStructure.memoryRequirements.memoryTypeBits,
 				vk::MemoryPropertyFlagBits::eDeviceLocal // TODO: Does it make sense to support other memory locations as eDeviceLocal?
 			);                                           // TODO: This must probably be changed for Host builds?!
 
@@ -336,9 +336,9 @@ namespace avk
 #else
 		vk::PhysicalDeviceRayTracingPropertiesKHR get_ray_tracing_properties();
 #endif
-		
+
 		static vk::DeviceAddress get_buffer_address(const vk::Device& aDevice, vk::Buffer aBufferHandle);
-		
+
 		vk::DeviceAddress get_buffer_address(vk::Buffer aBufferHandle);
 #endif
 
@@ -350,11 +350,11 @@ namespace avk
 		bottom_level_acceleration_structure create_bottom_level_acceleration_structure(std::vector<avk::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
 		top_level_acceleration_structure create_top_level_acceleration_structure(uint32_t aInstanceCount, bool aAllowUpdates = true, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeCreation = {}, std::function<void(top_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc = {});
 #endif
-#pragma endregion 
+#pragma endregion
 
 #pragma region buffer
 		static buffer create_buffer(
-			const vk::PhysicalDevice& aPhysicalDevice, 
+			const vk::PhysicalDevice& aPhysicalDevice,
 			const vk::Device& aDevice,
 			const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
 #if VK_HEADER_VERSION >= 135
@@ -362,18 +362,18 @@ namespace avk
 #else
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta, indirect_buffer_meta>> aMetaData,
 #endif
-			vk::BufferUsageFlags aBufferUsage, 
-			vk::MemoryPropertyFlags aMemoryProperties, 
+			vk::BufferUsageFlags aBufferUsage,
+			vk::MemoryPropertyFlags aMemoryProperties,
 			std::initializer_list<queue*> aConcurrentQueueOwnership = {}
 		);
-		
+
 		buffer create_buffer(
 #if VK_HEADER_VERSION >= 135
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta, indirect_buffer_meta>> aMetaData,
 #else
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, query_results_buffer_meta, indirect_buffer_meta>> aMetaData,
 #endif
-			vk::BufferUsageFlags aBufferUsage, 
+			vk::BufferUsageFlags aBufferUsage,
 			vk::MemoryPropertyFlags aMemoryProperties)
 		{
 			return create_buffer(physical_device(), device(), memory_allocator(), std::move(aMetaData), aBufferUsage, aMemoryProperties);
@@ -392,7 +392,7 @@ namespace avk
 			vk::MemoryAllocateFlags memoryAllocateFlags;
 			vk::BufferUsageFlags aUsage = aAdditionalUsageFlags;
 
-			// We've got two major branches here: 
+			// We've got two major branches here:
 			// 1) Memory will stay on the host and there will be no dedicated memory on the device
 			// 2) Memory will be transfered to the device. (Only in this case, we'll need to make use of sync.)
 			switch (aMemoryUsage)
@@ -408,7 +408,7 @@ namespace avk
 				break;
 			case avk::memory_usage::device:
 				memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-				aUsage |= vk::BufferUsageFlagBits::eTransferDst; 
+				aUsage |= vk::BufferUsageFlagBits::eTransferDst;
 				break;
 			case avk::memory_usage::device_readback:
 				memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
@@ -436,13 +436,13 @@ namespace avk
 			// How it will be filled depends on where the memory is located at.
 			return create_buffer(aPhysicalDevice, aDevice, aAllocator, metas, aUsage, memoryFlags);
 		}
-		
+
 		template <typename Meta, typename... Metas>
 		buffer create_buffer(
 			avk::memory_usage aMemoryUsage,
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
-		{	
+		{
 			return create_buffer(physical_device(), device(), memory_allocator(), avk::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
 		}
 
@@ -508,7 +508,7 @@ namespace avk
 			}
 			throw avk::runtime_error("Buffer has both, uniform_texel_buffer_meta and storage_texel_buffer_meta. Don't know which one to use. => Use the templated create_buffer_view overload and specify the meta type explicitly!");
 		}
-		
+
 		/**	Create a buffer view over the given buffer in the specified format.
 		 *
 		 *	@param	aBufferToReference			The buffer to create a view for. Only a reference to the buffer is stored.
@@ -522,7 +522,7 @@ namespace avk
 
 #pragma region command pool and command buffer
 		command_pool create_command_pool(uint32_t aQueueFamilyIndex, vk::CommandPoolCreateFlags aCreateFlags = vk::CommandPoolCreateFlags());
-#pragma endregion 
+#pragma endregion
 
 #pragma region compute pipeline
 		void rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline);
@@ -576,7 +576,7 @@ namespace avk
 #pragma region framebuffer
 		// Helper methods for the create methods that take attachments and image views
 		void check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<resource_ownership<image_view_t>>& aImageViews);
-		
+
 		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
@@ -599,7 +599,7 @@ namespace avk
 			return create_framebuffer(std::move(aRenderpass), std::move(imageViews));
 		}
 #pragma endregion
-		
+
 #pragma region geometry instance
 #if VK_HEADER_VERSION >= 135
 		/** Create a geometry instance for a specific geometry, which is represented by a bottom level acceleration structure.
@@ -613,10 +613,10 @@ namespace avk
 		void rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline);
 		graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 		graphics_pipeline create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
-			
+
 		/**	Convenience function for gathering the graphic pipeline's configuration.
-		 *	
-		 *	It supports the following types: 
+		 *
+		 *	It supports the following types:
 		 *   - cfg::pipeline_settings (flags)
 		 *   - renderpass
 		 *   - avk::attachment (use either attachments or renderpass!)
@@ -665,16 +665,32 @@ namespace avk
 			}
 
 			// 2. CREATE PIPELINE according to the config
-			// ============================================ Vk ============================================ 
+			// ============================================ Vk ============================================
 			//    => VULKAN CODE HERE:
 			return create_graphics_pipeline(std::move(config), std::move(alterConfigFunction));
-			// ============================================================================================ 
+			// ============================================================================================
 		}
+
+		/**	replaces the pipeline's render pass to a render pass other than the one that the pipeline
+		*	was created with.
+		*
+		*	This call potentially INVALIDATE the pipeline structure and should only be used when the pipeline
+		*	is no longer deployed or is about to be deleted.
+		*
+		*	In the case where the pipeline is to be used as a template, the addition of a new render pass
+		*	may be necessary.
+		*
+		*	@param	aPipeline			associated graphics pipeline
+		*	@param	aNewRenderPass		the new render pass
+		*
+		*	@return returns the old render pass.
+		*/
+		renderpass&& replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass);
 #pragma endregion
 
 #pragma region image
 		image create_image_from_template(resource_reference<const image_t> aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
-		
+
 		/** Creates a new image
 		 *	@param	aWidth						The width of the image to be created
 		 *	@param	aHeight						The height of the image to be created
@@ -686,7 +702,7 @@ namespace avk
 		 *	@return	Returns a newly created image.
 		 */
 		image create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
-		
+
 		/** Creates a new image
 		 *	@param	aWidth						The width of the image to be created
 		 *	@param	aHeight						The height of the image to be created
@@ -726,7 +742,7 @@ namespace avk
 
 #pragma region image view
 		image_view create_image_view_from_template(resource_reference<const image_view_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {});
-		
+
 		/** Creates a new image view upon a given image
 		*	@param	aImageToOwn					The image which to create an image view for
 		*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
@@ -762,7 +778,7 @@ namespace avk
 		void build_shader_binding_table(ray_tracing_pipeline_t& aPipeline);
 		ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
 		ray_tracing_pipeline create_ray_tracing_pipeline_from_template(resource_reference<const ray_tracing_pipeline_t> aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
-			
+
 		/**	Convenience function for gathering the ray tracing pipeline's configuration.
 		 *
 		 *	It supports the following types:
@@ -780,7 +796,7 @@ namespace avk
 		 *   - std::function<void(compute_pipeline_t&)> (a function to alter the pipeline config before it is created)
 		 *
 		 *	For building the shader table in a convenient fashion, use the `ak::define_shader_table` function!
-		 *	
+		 *
 		 *	For the actual Vulkan-calls which finally create the pipeline, please refer to @ref create_ray_tracing_pipeline
 		 */
 		template <typename... Ts>
@@ -792,10 +808,10 @@ namespace avk
 			add_config(config, alterConfigFunction, std::move(args)...);
 
 			// 2. CREATE PIPELINE according to the config
-			// ============================================ Vk ============================================ 
+			// ============================================ Vk ============================================
 			//    => VULKAN CODE HERE:
 			return create_ray_tracing_pipeline(std::move(config), std::move(alterConfigFunction));
-			// ============================================================================================ 
+			// ============================================================================================
 		}
 #endif
 #pragma endregion
@@ -806,7 +822,7 @@ namespace avk
 		 *	members.
 		 */
 		void rewire_subpass_descriptions(renderpass_t& aRenderpass);
-		
+
 		/** Create a renderpass from a given set of attachments.
 		 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
 		 *	To specify custom subpass dependencies, pass a callback to the second parameter!
@@ -832,7 +848,7 @@ namespace avk
 		shader create_shader(shader_info aInfo);
 		shader create_shader_from_template(const shader& aTemplate);
 #pragma endregion
-	
+
 #pragma region query pool and query
 		query_pool create_query_pool(vk::QueryType aQueryType, uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
 		query_pool create_query_pool_for_occlusion_queries(uint32_t aQueryCount = 2u);
