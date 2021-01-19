@@ -674,7 +674,8 @@ namespace avk
 		/**	replaces the pipeline's render pass to a render pass other than the one that the pipeline
 		*	was created with.
 		*
-		*	This call potentially INVALIDATE the pipeline structure and should only be used when the pipeline
+		*	This call potentially INVALIDATES the pipeline structure and should only be used when the pipeline
+
 		*	is no longer deployed or is about to be deleted.
 		*
 		*	In the case where the pipeline is to be used as a template, the addition of a new render pass
@@ -683,7 +684,8 @@ namespace avk
 		*	@param	aPipeline			associated graphics pipeline
 		*	@param	aNewRenderPass		the new render pass
 		*
-		*	@return returns the old render pass.
+		*	@return the old render pass.
+
 		*/
 		renderpass replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass);
 #pragma endregion
