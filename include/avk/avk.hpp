@@ -685,7 +685,7 @@ namespace avk
 		*
 		*	@return returns the old render pass.
 		*/
-		renderpass&& replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass);
+		renderpass replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass);
 #pragma endregion
 
 #pragma region image

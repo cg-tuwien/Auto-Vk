@@ -1161,43 +1161,35 @@ namespace avk
 
 #pragma region swap + dispose and handle help functions
 
-	/**
-	*	This concept captures those objects which have a size() method, like vectors	*
-	*/
+	/**  This concept captures those objects which have a size() method, like vectors
+	 */
 	template <typename T>
 	concept has_size = requires (T x)
 	{
 		x.size();
 	};
 
-	/**
-	*	This concept captures those objects that are explicitely convertible to boolean
-	*
-	*	Note: most vulkan resources contain an explicit boolean converter
-	*/
+	/** This concept captures those objects that are explicitely convertible to boolean
+	 *
+	 *	Note: most vulkan resources contain an explicit boolean converter.
+	 */
 	template <class T>
 	concept boolean_convertible = requires(T(&f)()) {
 		static_cast<bool>(f());
 	};
 
-	/**
-	* Swaps aOld and aNew and handles the life time of aOld
-	*
-	* The purpose of the functions in this section swap and handle lifetime
-	* in a more clean structure in the source code.
-	*
-	* Additionally, when possible, lifetime_handler+swap is ignored if the
-	* rhs parameter contains no values.
-	*
-	* Be aware that inital value  of aOld  will be disposed of
-	*
-	* after the call, aOld's memory will contain initial aNew's value
-	*
-	* @param aNew				new Resource which will be moved to old Resource's place after operation
-	* @param aOld				old Resource object will be disposed of
-	* @param aLifeTimeHandler	Life time handler for aOld
-	*
-	*/
+	/** Swaps aOld and aNew and handles the life time of aOld.
+	 *
+	 *  Be aware that inital value of aOld will be disposed of.
+	 *  Ater the execution: 1) The reference aNew will be in an undefined state after the execution.
+	 *                      2) aOld's memory will contain initial aNew's value.
+	 *
+	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *
+	 *  @param aNew				New Resource which will be moved to old Resource's place after operation
+	 *  @param aOld				Old Resource object to be disposed of
+	 *  @param aLifeTimeHandler	Life time handler for aOld
+	 */
 	template<typename T, typename F>
 	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
 	{
@@ -1205,6 +1197,20 @@ namespace avk
 		aLifeTimeHandler(std::move(aNew));
 	}
 
+	/** Swaps aOld and aNew and handles the life time of aOld.
+	 *
+	 *  If aOld size is zero, moves the content of aNew to aOld without invoking swap, or the aLifeTimeHandler.
+	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *
+	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
+	 *                  2) aOld's memory will contain initial aNew's value.
+	 *
+	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *
+	 *  @param aNew				New Resource object which will be moved to old Resource's place after operation
+	 *  @param aOld				Old Resource object to be disposed of.
+	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 */
 	template<typename T, typename F> requires has_size<T>
 	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
 	{
@@ -1217,6 +1223,20 @@ namespace avk
 		}
 	}
 
+	/** Swaps aOld and aNew and handles the life time of aOld.
+	 *
+	 *  If aOld has no value, moves the content of aNew to aOld without invoking swap, or the aLifeTimeHandler.
+	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *
+	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
+	 *                  2) aOld's memory will contain initial aNew's content.
+	 *
+	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *
+	 *  @param aNew				New Resource object which will be moved to old Resource's place after operation
+	 *  @param aOld				Old Resource object to be disposed of.
+	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 */
 	template<typename T, typename F>
 	void emplace_and_handle_previous(owning_resource<T>& aNew, owning_resource<T>&& aOld, F&& aLifeTimeHandler)
 	{
@@ -1229,6 +1249,20 @@ namespace avk
 		}
 	}
 
+	/** Swaps aOld and aNew and handles the life time of aOld.
+	 *
+	 *  If aOld explicitely converts to false, moves the content of aNew to aOld without invoking swap, or the aLifeTimeHandler.
+	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *
+	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
+	 *                  2) aOld's memory will contain initial aNew's content.
+	 *
+	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *
+	 *  @param aNew				New Resource object which will be moved to old Resource's place after operation
+	 *  @param aOld				Old Resource object to be disposed of.
+	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 */
 	template<typename T, typename F> requires boolean_convertible<T>
 	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
 	{
@@ -1241,6 +1275,20 @@ namespace avk
 		}
 	}
 
+	/** Swaps aOld and aNew and handles the life time of aOld.
+	 *
+	 *  If aOld contains no value, moves the content of aNew as the value of aOld without invoking swap, or the aLifeTimeHandler.
+	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *
+	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
+	 *                  2) the optional aOld will contain initial aNew's content.
+	 *
+	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *
+	 *  @param aNew				New Resource object to be moved within the optional indicated by aOld
+	 *  @param aOld				Optional containing old Resource, whose value will be disposed of.
+	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 */
 	template<typename T, typename F>
 	void emplace_and_handle_previous(T& aNew, std::optional<T>&& aOld, F&& aLifeTimeHandler)
 	{
