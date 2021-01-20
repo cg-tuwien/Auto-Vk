@@ -1178,125 +1178,125 @@ namespace avk
 		static_cast<bool>(f());
 	};
 
-	/** Swaps aOld and aNew and handles the life time of aOld.
+	/** Swaps aRhs and aLhs and handles the life time of aRhs.
 	 *
-	 *  Be aware that inital value of aOld will be disposed of.
-	 *  Ater the execution: 1) The reference aNew will be in an undefined state after the execution.
-	 *                      2) aOld's memory will contain initial aNew's value.
+	 *  Be aware that inital content of aRhs will be disposed of.
+	 *  Ater the execution: 1) The reference aLhs will be in an unspecified state after the execution.
+	 *                      2) aRhs's memory will contain initial aLhs's value.
 	 *
-	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *  Be aware that inital value of aRhs will be passed on to aRhsLifeTimeHandler.
 	 *
-	 *  @param aNew				New Resource which will be moved to old Resource's place after operation
-	 *  @param aOld				Old Resource object to be disposed of
-	 *  @param aLifeTimeHandler	Life time handler for aOld
+	 *  @param aLhs                 Left-hand side object, the content of which will be moved to aRhs's place after operation
+	 *  @param aRhs                 Right-hand side object, the contect of which to be disposed of.
+	 *  @param aRhsLifeTimeHandler	Life time handler for aRhs
 	 */
 	template<typename T, typename F>
-	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
+	void swap_and_lifetime_handle_rhs(T& aLhs, T&& aRhs, F&& aRhsLifeTimeHandler)
 	{
-		std::swap(aNew, aOld);
-		aLifeTimeHandler(std::move(aNew));
+		std::swap(aLhs, aRhs);
+		aRhsLifeTimeHandler(std::move(aLhs));
 	}
 
-	/** Swaps aOld and aNew and handles the life time of aOld.
+	/** Swaps aRhs and aLhs and handles the life time of aRhs.
 	 *
-	 *  If aOld size is zero, moves the content of aNew to aOld without invoking swap, or the aLifeTimeHandler.
-	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *  If aRhs size is zero, moves the content of aLhs to aRhs without invoking swap, or the aRhsLifeTimeHandler.
+	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
 	 *
-	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
-	 *                  2) aOld's memory will contain initial aNew's value.
+	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
+	 *                  2) aRhs's memory will contain initial aLhs's value.
 	 *
-	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *  Be aware that inital content of aRhs will be passed on to aRhsLifeTimeHandler.
 	 *
-	 *  @param aNew				New Resource object which will be moved to old Resource's place after operation
-	 *  @param aOld				Old Resource object to be disposed of.
-	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 *  @param aLhs                  Left-hand side object, the content of which will be moved to aRhs's place after operation
+	 *  @param aRhs                  Right-hand side object, the contect of which to be disposed of.
+	 *  @param aRhsLifeTimeHandler   Life time handler for aRhs.
 	 */
 	template<typename T, typename F> requires has_size<T>
-	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
+	void swap_and_lifetime_handle_rhs(T& aLhs, T&& aRhs, F&& aRhsLifeTimeHandler)
 	{
-		if (aOld.size() == 0) {
-			aOld = std::move(aNew);
+		if (aRhs.size() == 0) {
+			aRhs = std::move(aLhs);
 		}
 		else {
-			std::swap(aNew, aOld);
-			aLifeTimeHandler(std::move(aNew));
+			std::swap(aLhs, aRhs);
+			aRhsLifeTimeHandler(std::move(aLhs));
 		}
 	}
 
-	/** Swaps aOld and aNew and handles the life time of aOld.
+	/** Swaps aRhs and aLhs and handles the life time of aRhs.
 	 *
-	 *  If aOld has no value, moves the content of aNew to aOld without invoking swap, or the aLifeTimeHandler.
-	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *  If aRhs has no value, moves the content of aLhs to aRhs without invoking swap, or the aRhsLifeTimeHandler.
+	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
 	 *
-	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
-	 *                  2) aOld's memory will contain initial aNew's content.
+	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
+	 *                  2) aRhs's memory will contain initial aLhs's content.
 	 *
-	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *  Be aware that inital content of aRhs will be passed on to aRhsLifeTimeHandler.
 	 *
-	 *  @param aNew				New Resource object which will be moved to old Resource's place after operation
-	 *  @param aOld				Old Resource object to be disposed of.
-	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 *  @param aLhs                  Left-hand side object, the content of which will be moved to aRhs's place after operation
+	 *  @param aRhs                  Right-hand side object, the contect of which to be disposed of.
+	 *  @param aRhsLifeTimeHandler   Life time handler for aRhs.
 	 */
 	template<typename T, typename F>
-	void emplace_and_handle_previous(owning_resource<T>& aNew, owning_resource<T>&& aOld, F&& aLifeTimeHandler)
+	void swap_and_lifetime_handle_rhs(owning_resource<T>& aLhs, owning_resource<T>&& aRhs, F&& aRhsLifeTimeHandler)
 	{
-		if (!aOld.has_value()) {
-			aOld = std::move(aNew);
+		if (!aRhs.has_value()) {
+			aRhs = std::move(aLhs);
 		}
 		else {
-			std::swap(aNew, aOld);
-			aLifeTimeHandler(std::move(aNew));
+			std::swap(aLhs, aRhs);
+			aRhsLifeTimeHandler(std::move(aLhs));
 		}
 	}
 
-	/** Swaps aOld and aNew and handles the life time of aOld.
+	/** Swaps aRhs and aLhs and handles the life time of aRhs.
 	 *
-	 *  If aOld explicitely converts to false, moves the content of aNew to aOld without invoking swap, or the aLifeTimeHandler.
-	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *  If aRhs explicitely converts to false, moves the content of aLhs to aRhs without invoking swap, or the aRhsLifeTimeHandler.
+	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
 	 *
-	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
-	 *                  2) aOld's memory will contain initial aNew's content.
+	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
+	 *                  2) aRhs's memory will contain initial aLhs's content.
 	 *
-	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *  Be aware that inital content of aRhs will be passed on to aRhsLifeTimeHandler.
 	 *
-	 *  @param aNew				New Resource object which will be moved to old Resource's place after operation
-	 *  @param aOld				Old Resource object to be disposed of.
-	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 *  @param aLhs                 Left-hand side object, the content of which will be moved to aRhs's place after operation
+	 *  @param aRhs                 Right-hand side object, the contect of which to be disposed of.
+	 *  @param aRhsLifeTimeHandler  Life time handler for aRhs.
 	 */
 	template<typename T, typename F> requires boolean_convertible<T>
-	void emplace_and_handle_previous(T& aNew, T&& aOld, F&& aLifeTimeHandler)
+	void swap_and_lifetime_handle_rhs(T& aLhs, T&& aRhs, F&& aRhsLifeTimeHandler)
 	{
-		if (!aOld) {
-			aOld = std::move(aNew);
+		if (!aRhs) {
+			aRhs = std::move(aLhs);
 		}
 		else {
-			std::swap(aNew, aOld);
-			aLifeTimeHandler(std::move(aNew));
+			std::swap(aLhs, aRhs);
+			aRhsLifeTimeHandler(std::move(aLhs));
 		}
 	}
 
-	/** Swaps aOld and aNew and handles the life time of aOld.
+	/** Swaps aRhs and aLhs and handles the life time of aRhs.
 	 *
-	 *  If aOld contains no value, moves the content of aNew as the value of aOld without invoking swap, or the aLifeTimeHandler.
-	 *  Otherwise, swaps aOld and aNew and dispose of the original aOld content.
+	 *  If aRhs contains no value, moves the content of aLhs as the value of aRhs without invoking swap, or the aRhsLifeTimeHandler.
+	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
 	 *
-	 *  In either case: 1) The reference aNew will be in an undefined state after the execution.
-	 *                  2) the optional aOld will contain initial aNew's content.
+	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
+	 *                  2) the optional aRhs will contain initial aLhs's content.
 	 *
-	 *  Be aware that inital value of aOld will be disposed of depending on the functionality of aLifeTimeHandler.
+	 *  Be aware that inital value held by optional aRhs will be passed on to aRhsLifeTimeHandler.
 	 *
-	 *  @param aNew				New Resource object to be moved within the optional indicated by aOld
-	 *  @param aOld				Optional containing old Resource, whose value will be disposed of.
-	 *  @param aLifeTimeHandler	Life time handler for aOld.
+	 *  @param aLhs                 Left-hand side object, the content of which will be moved within the optional referenced by aRhs
+	 *  @param aRhs                 Optional containing an old resource, whose value will be disposed of.
+	 *  @param aRhsLifeTimeHandler	Life time handler for aRhs.
 	 */
 	template<typename T, typename F>
-	void emplace_and_handle_previous(T& aNew, std::optional<T>&& aOld, F&& aLifeTimeHandler)
+	void swap_and_lifetime_handle_rhs(T& aLhs, std::optional<T>&& aRhs, F&& aRhsLifeTimeHandler)
 	{
-		if (!aOld.has_value()) {
-			aOld = std::move(aNew);
+		if (!aRhs.has_value()) {
+			aRhs = std::move(aLhs);
 		}
 		else {
-			emplace_and_handle_previous(aNew, std::move(*aOld), aLifeTimeHandler);
+			swap_and_lifetime_handle_rhs(aLhs, std::move(*aRhs), aRhsLifeTimeHandler);
 		}
 	}
 #pragma endregion

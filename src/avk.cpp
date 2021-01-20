@@ -4941,9 +4941,10 @@ namespace avk
 			aNewRenderPass.enable_shared_ownership();
 		}
 
-		std::swap(aPipeline->mRenderPass, aNewRenderPass);
+		auto oldRenderPass = std::move(aPipeline->mRenderPass);
+		aPipeline->mRenderPass = std::move(aNewRenderPass);
 
-		return aNewRenderPass; // now old render pass
+		return oldRenderPass;
 	}
 #pragma endregion
 
