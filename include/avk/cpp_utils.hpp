@@ -1178,125 +1178,106 @@ namespace avk
 		static_cast<bool>(f());
 	};
 
-	/** Swaps aRhs and aLhs and handles the life time of aRhs.
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
 	 *
-	 *  Be aware that inital content of aRhs will be disposed of.
-	 *  Ater the execution: 1) The reference aLhs will be in an unspecified state after the execution.
-	 *                      2) aRhs's memory will contain initial aLhs's value.
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
 	 *
-	 *  Be aware that inital value of aRhs will be passed on to aRhsLifeTimeHandler.
-	 *
-	 *  @param aLhs                 Left-hand side object, the content of which will be moved to aRhs's place after operation
-	 *  @param aRhs                 Right-hand side object, the contect of which to be disposed of.
-	 *  @param aRhsLifeTimeHandler	Life time handler for aRhs
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
 	 */
 	template<typename T, typename F>
-	void swap_and_lifetime_handle_rhs(T& aLhs, T&& aRhs, F&& aRhsLifeTimeHandler)
+	void assign_and_lifetime_handle_previous(T& aLhs, T&& aRhs, F&& aLifeTimeHandler)
 	{
-		std::swap(aLhs, aRhs);
-		aRhsLifeTimeHandler(std::move(aLhs));
+		aLifeTimeHandler(std::move(aLhs));
+		aLhs = std::move(aRhs);
 	}
 
-	/** Swaps aRhs and aLhs and handles the life time of aRhs.
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
 	 *
-	 *  If aRhs size is zero, moves the content of aLhs to aRhs without invoking swap, or the aRhsLifeTimeHandler.
-	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
 	 *
-	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
-	 *                  2) aRhs's memory will contain initial aLhs's value.
+	 *  life-time handle will not be invoked if the size of aLhs is zero.
 	 *
-	 *  Be aware that inital content of aRhs will be passed on to aRhsLifeTimeHandler.
-	 *
-	 *  @param aLhs                  Left-hand side object, the content of which will be moved to aRhs's place after operation
-	 *  @param aRhs                  Right-hand side object, the contect of which to be disposed of.
-	 *  @param aRhsLifeTimeHandler   Life time handler for aRhs.
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
 	 */
 	template<typename T, typename F> requires has_size<T>
-	void swap_and_lifetime_handle_rhs(T& aLhs, T&& aRhs, F&& aRhsLifeTimeHandler)
+	void assign_and_lifetime_handle_previous(T& aLhs, T&& aRhs, F&& aLifeTimeHandler)
 	{
-		if (aRhs.size() == 0) {
-			aRhs = std::move(aLhs);
+		if (aLhs.size() > 0) {
+			aLifeTimeHandler(std::move(aLhs));
 		}
-		else {
-			std::swap(aLhs, aRhs);
-			aRhsLifeTimeHandler(std::move(aLhs));
-		}
+		aLhs = std::move(aRhs);
 	}
 
-	/** Swaps aRhs and aLhs and handles the life time of aRhs.
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
 	 *
-	 *  If aRhs has no value, moves the content of aLhs to aRhs without invoking swap, or the aRhsLifeTimeHandler.
-	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
 	 *
-	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
-	 *                  2) aRhs's memory will contain initial aLhs's content.
+	 *  life-time handle will not be invoked if aLhs contains no value.
 	 *
-	 *  Be aware that inital content of aRhs will be passed on to aRhsLifeTimeHandler.
-	 *
-	 *  @param aLhs                  Left-hand side object, the content of which will be moved to aRhs's place after operation
-	 *  @param aRhs                  Right-hand side object, the contect of which to be disposed of.
-	 *  @param aRhsLifeTimeHandler   Life time handler for aRhs.
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
 	 */
 	template<typename T, typename F>
-	void swap_and_lifetime_handle_rhs(owning_resource<T>& aLhs, owning_resource<T>&& aRhs, F&& aRhsLifeTimeHandler)
+	void assign_and_lifetime_handle_previous(owning_resource<T>& aLhs, owning_resource<T>&& aRhs, F&& aLifeTimeHandler)
 	{
-		if (!aRhs.has_value()) {
-			aRhs = std::move(aLhs);
+		if (aLhs.has_value()) {
+			aLifeTimeHandler(std::move(aLhs));
 		}
-		else {
-			std::swap(aLhs, aRhs);
-			aRhsLifeTimeHandler(std::move(aLhs));
-		}
+		aLhs = std::move(aRhs);
 	}
 
-	/** Swaps aRhs and aLhs and handles the life time of aRhs.
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
 	 *
-	 *  If aRhs explicitely converts to false, moves the content of aLhs to aRhs without invoking swap, or the aRhsLifeTimeHandler.
-	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
 	 *
-	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
-	 *                  2) aRhs's memory will contain initial aLhs's content.
+	 *  life-time handle will not be invoked if aLhs explicitely converts to false.
 	 *
-	 *  Be aware that inital content of aRhs will be passed on to aRhsLifeTimeHandler.
-	 *
-	 *  @param aLhs                 Left-hand side object, the content of which will be moved to aRhs's place after operation
-	 *  @param aRhs                 Right-hand side object, the contect of which to be disposed of.
-	 *  @param aRhsLifeTimeHandler  Life time handler for aRhs.
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
 	 */
 	template<typename T, typename F> requires boolean_convertible<T>
-	void swap_and_lifetime_handle_rhs(T& aLhs, T&& aRhs, F&& aRhsLifeTimeHandler)
+	void assign_and_lifetime_handle_previous(T& aLhs, T&& aRhs, F&& aLifeTimeHandler)
 	{
-		if (!aRhs) {
-			aRhs = std::move(aLhs);
+		if (!!aLhs) {
+			aLifeTimeHandler(std::move(aLhs));
 		}
-		else {
-			std::swap(aLhs, aRhs);
-			aRhsLifeTimeHandler(std::move(aLhs));
-		}
+		aLhs = std::move(aRhs);
 	}
 
-	/** Swaps aRhs and aLhs and handles the life time of aRhs.
+	/** Passes the content held by optional aLhs to the lifetime handler and subsequently moves the content of aRhs within aLhs.
 	 *
-	 *  If aRhs contains no value, moves the content of aLhs as the value of aRhs without invoking swap, or the aRhsLifeTimeHandler.
-	 *  Otherwise, swaps aRhs and aLhs and dispose of the original aRhs content.
+	 *  aLhs's initial value will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
 	 *
-	 *  In either case: 1) The reference aLhs will be in an unspecified state after the execution.
-	 *                  2) the optional aRhs will contain initial aLhs's content.
+	 *  life-time handle will not be invoked if aLhs contains no value.
 	 *
-	 *  Be aware that inital value held by optional aRhs will be passed on to aRhsLifeTimeHandler.
-	 *
-	 *  @param aLhs                 Left-hand side object, the content of which will be moved within the optional referenced by aRhs
-	 *  @param aRhs                 Optional containing an old resource, whose value will be disposed of.
-	 *  @param aRhsLifeTimeHandler	Life time handler for aRhs.
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
 	 */
 	template<typename T, typename F>
-	void swap_and_lifetime_handle_rhs(T& aLhs, std::optional<T>&& aRhs, F&& aRhsLifeTimeHandler)
+	void assign_and_lifetime_handle_previous(std::optional<T>& aLhs, T&& aRhs, F&& aLifeTimeHandler)
 	{
-		if (!aRhs.has_value()) {
-			aRhs = std::move(aLhs);
+		if (!aLhs.has_value()) {
+			aLhs = std::move(aRhs);
 		}
 		else {
-			swap_and_lifetime_handle_rhs(aLhs, std::move(*aRhs), aRhsLifeTimeHandler);
+			assign_and_lifetime_handle_previous(aLhs.value(), std::move(aRhs), aLifeTimeHandler);
 		}
 	}
 #pragma endregion
