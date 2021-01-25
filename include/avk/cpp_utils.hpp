@@ -1277,8 +1277,7 @@ namespace avk
 			aLhs = std::move(aRhs);
 		}
 		else {
-			assign_and_lifetime_handle_previous(aLhs.value(), std::forward(aRhs), aLifeTimeHandler);
-
+			assign_and_lifetime_handle_previous<T, F>(aLhs.value(), std::forward<T>(aRhs), std::forward<F>(aLifeTimeHandler));
 		}
 	}
 #pragma endregion
