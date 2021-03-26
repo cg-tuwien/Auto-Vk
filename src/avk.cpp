@@ -1417,22 +1417,22 @@ namespace avk
 	{
 		if (aMipMappingAvailable) {
 			if (aVulkanAnisotropy > 1.0f) {
-				if (std::abs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 16.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_16x;
 				}
-				if (std::abs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 8.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_8x;
 				}
-				if (std::abs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 4.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_4x;
 				}
-				if (std::abs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 2.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_2x;
 				}
-				if (std::abs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 32.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_32x;
 				}
-				if (std::abs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 64.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_64x;
 				}
 				AVK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
