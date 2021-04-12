@@ -167,10 +167,10 @@ namespace avk
 		template <typename... Bfrs>
 		void draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
-			constexpr size_t N = sizeof...(aFurtherBuffers);
+			constexpr size_t N = 1 + sizeof...(aFurtherBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
-			bind_vertex_buffer(&handles[0], &offsets[0], aFurtherBuffers...);
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffer, aFurtherBuffers...);
 			handle().bindVertexBuffers(
 				0u, // TODO: Should the first binding really always be 0?
 				static_cast<uint32_t>(N), handles.data(), offsets.data()
