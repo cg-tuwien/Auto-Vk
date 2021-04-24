@@ -510,6 +510,26 @@ namespace avk
 				aContent);
 		}
 #endif
+
+		/** Describe the texel buffer's format in the most generic way. This method also enables
+		 *	to set a format which combines several consecutive elements, but can generally be used
+		 *	to just set an arbitrary format.
+		 *
+		 *	Usage example:
+		 *	```
+		 *	std::vector<uint32_t> indices;
+		 *	storage_texel_buffer_meta meta = storage_texel_buffer_meta::create_from_data(indices)
+		 *										.set_format<glm::uvec3>(content_description::index);
+		 *	```
+		 */
+		template <typename T>
+		storage_texel_buffer_meta& set_format(content_description aContent = content_description::unspecified)
+		{
+			// Do NOT assert(sizeof(_Member) == mSizeOfOneElement), since for storage_texel_buffer_meta, this could be okay! 
+			// => it means that the buffer view views the data in a different format, that can also combine multiple consecutive elements 
+			return describe_member(0, format_for<T>(), aContent);
+		}
+
 	};
 
 	/**	This struct contains information for a buffer which is intended to be used as 

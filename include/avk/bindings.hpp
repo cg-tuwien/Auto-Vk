@@ -112,7 +112,7 @@ namespace avk
 			aSet,
 			vk::DescriptorSetLayoutBinding{}
 				.setBinding(aBinding)
-				.setDescriptorCount(1u)
+				.setDescriptorCount(aCount)
 				.setDescriptorType(descriptor_type_of<T>(nullptr))
 				.setStageFlags(to_vk_shader_stages(aShaderStages))
 				.setPImmutableSamplers(nullptr), // The pImmutableSamplers field is only relevant for image sampling related descriptors [3]
