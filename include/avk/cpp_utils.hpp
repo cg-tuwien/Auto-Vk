@@ -298,7 +298,6 @@ namespace avk
 	};
 
 
-
 	// A concept which requires a type to have ::value_type
 	template <typename T>
 	concept has_value_type = requires
@@ -312,7 +311,7 @@ namespace avk
 	{
 		x.handle();
 	};
-
+	
 
 	// This class represents a/the owner of a specific resource T.
 	//
