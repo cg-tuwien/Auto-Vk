@@ -478,7 +478,7 @@ namespace avk
 		buffer_view create_buffer_view(resource_ownership<buffer_t> aBufferToOwn, size_t aMetaSkip = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {})
 		{
 			const auto& meta = aBufferToOwn->meta<M>(aMetaSkip);
-			if (meta.member_descriptions().size() == 0) {
+			if (meta.member_descriptions().empty()) {
 				throw avk::runtime_error("The passed buffer does not contain any member descriptions => unable to figure out format for buffer view.");
 			}
 			if (meta.member_descriptions().size() > 1) {
