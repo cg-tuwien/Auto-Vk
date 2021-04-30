@@ -763,11 +763,33 @@ namespace avk
 #pragma region sampler and image sampler
 		/**	Create a new sampler with the given configuration parameters
 		 *	@param	aFilterMode					Filtering strategy for the sampler to be created
-		 *	@param	aBorderHandlingMode			Border handling strategy for the sampler to be created
+		 *	@param	aBorderHandlingModes		Border handling strategy for the sampler to be created for u, v, and w coordinates (in that order)
 		 *	@param	aMipMapMaxLod				Default value = house number
 		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
-		 */                                                                                               // TODO: vvv Which value by default? vvv
-		sampler create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 20.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
+		 */                                                                                                      // TODO: vvv Which value by default for the mip-map max lod?
+		sampler create_sampler(filter_mode aFilterMode, std::array<border_handling_mode, 3> aBorderHandlingModes, float aMipMapMaxLod = 32.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {});
+
+		/**	Create a new sampler with the given configuration parameters
+		 *	@param	aFilterMode					Filtering strategy for the sampler to be created
+		 *	@param	aBorderHandlingModes		Border handling strategy for the sampler to be created for u, and v coordinates (in that order). (The w direction will get the same strategy assigned as v)
+		 *	@param	aMipMapMaxLod				Default value = house number
+		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
+		 */                                                                                                      // TODO: vvv Which value by default for the mip-map max lod?
+		sampler create_sampler(filter_mode aFilterMode, std::array<border_handling_mode, 2> aBorderHandlingModes, float aMipMapMaxLod = 32.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {})
+		{
+			return create_sampler(aFilterMode, { aBorderHandlingModes[0], aBorderHandlingModes[1], aBorderHandlingModes[1] }, aMipMapMaxLod, std::move(aAlterConfigBeforeCreation));
+		}
+
+		/**	Create a new sampler with the given configuration parameters
+		 *	@param	aFilterMode					Filtering strategy for the sampler to be created
+		 *	@param	aBorderHandlingMode		Border handling strategy for all coordinates u, v, and w.
+		 *	@param	aMipMapMaxLod				Default value = house number
+		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to alter the configuration before the sampler is created.
+		 */                                                                                                      // TODO: vvv Which value by default for the mip-map max lod?
+		sampler create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod = 32.0f, std::function<void(sampler_t&)> aAlterConfigBeforeCreation = {})
+		{
+			return create_sampler(aFilterMode, { aBorderHandlingMode, aBorderHandlingMode, aBorderHandlingMode }, aMipMapMaxLod, std::move(aAlterConfigBeforeCreation));
+		}
 
 		image_sampler create_image_sampler(resource_ownership<image_view_t> aImageView, resource_ownership<sampler_t> aSampler);
 #pragma endregion

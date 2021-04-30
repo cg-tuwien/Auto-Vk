@@ -5431,7 +5431,7 @@ namespace avk
 #pragma endregion
 
 #pragma region sampler and image sampler definitions
-	sampler root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
+	sampler root::create_sampler(filter_mode aFilterMode, std::array<border_handling_mode, 3> aBorderHandlingModes, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
 	{
 		vk::Filter magFilter;
 		vk::Filter minFilter;
@@ -5507,26 +5507,28 @@ namespace avk
 		}
 
 		// Determine how to handle the borders:
-		vk::SamplerAddressMode addressMode;
-		switch (aBorderHandlingMode)
-		{
-		case border_handling_mode::clamp_to_edge:
-			addressMode = vk::SamplerAddressMode::eClampToEdge;
-			break;
-		case border_handling_mode::mirror_clamp_to_edge:
-			addressMode = vk::SamplerAddressMode::eMirrorClampToEdge;
-			break;
-		case border_handling_mode::clamp_to_border:
-			addressMode = vk::SamplerAddressMode::eClampToBorder;
-			break;
-		case border_handling_mode::repeat:
-			addressMode = vk::SamplerAddressMode::eRepeat;
-			break;
-		case border_handling_mode::mirrored_repeat:
-			addressMode = vk::SamplerAddressMode::eMirroredRepeat;
-			break;
-		default:
-			throw avk::runtime_error("invalid border_handling_mode");
+		std::array<vk::SamplerAddressMode, 3> addressModes{};
+		for (int i = 0; i < 3; ++i) {
+			switch (aBorderHandlingModes[i])
+			{
+			case border_handling_mode::clamp_to_edge:
+				addressModes[i] = vk::SamplerAddressMode::eClampToEdge;
+				break;
+			case border_handling_mode::mirror_clamp_to_edge:
+				addressModes[i] = vk::SamplerAddressMode::eMirrorClampToEdge;
+				break;
+			case border_handling_mode::clamp_to_border:
+				addressModes[i] = vk::SamplerAddressMode::eClampToBorder;
+				break;
+			case border_handling_mode::repeat:
+				addressModes[i] = vk::SamplerAddressMode::eRepeat;
+				break;
+			case border_handling_mode::mirrored_repeat:
+				addressModes[i] = vk::SamplerAddressMode::eMirroredRepeat;
+				break;
+			default:
+				throw avk::runtime_error("invalid border_handling_mode at index " + std::to_string(i) + (0 == i ? " (address mode u)" : 1 == i ? " (address mode v)" : " (address mode w)"));
+			}
 		}
 
 		// Compile the config for this sampler:
@@ -5534,9 +5536,9 @@ namespace avk
 		result.mInfo = vk::SamplerCreateInfo()
 			.setMagFilter(magFilter)
 			.setMinFilter(minFilter)
-			.setAddressModeU(addressMode)
-			.setAddressModeV(addressMode)
-			.setAddressModeW(addressMode)
+			.setAddressModeU(addressModes[0])
+			.setAddressModeV(addressModes[1])
+			.setAddressModeW(addressModes[2])
 			.setAnisotropyEnable(enableAnisotropy)
 			.setMaxAnisotropy(maxAnisotropy)
 			.setBorderColor(vk::BorderColor::eFloatOpaqueBlack)
