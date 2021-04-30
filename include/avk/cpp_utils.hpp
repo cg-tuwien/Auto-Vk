@@ -184,13 +184,21 @@ namespace avk
 		return firstPathTransformed == secondPathTransformed;
 	}
 
-
+	// Returns true if the given enum value contains the flag in question
 	template <typename V, typename F>
 	bool has_flag(V value, F flag)
 	{
 		return (value & flag) == flag;
 	}
 
+	// Returns true if the value inQuestion is equal to one of the given possibilities
+	template <typename X, typename... Y>
+	bool equals_one_of(const X& inQuestion, const Y&... possibilities)
+	{
+		return (... || (inQuestion == possibilities));
+	}
+	
+	// Returns true if the given 
 	template <typename InQuestion, typename... Existing>
 	constexpr bool has_type(std::tuple<Existing...>)
 	{
