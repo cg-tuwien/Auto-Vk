@@ -17,11 +17,11 @@ namespace avk
 		/** Set the transformation matrix of this geometry instance. */
 		geometry_instance& set_transform_column_major(std::array<float, 16> aTransformationMatrix);
 		/** Set the custom index assigned to this geometry instance. */
-		geometry_instance& set_custom_index(uint32_t _CustomIndex);
+		geometry_instance& set_custom_index(uint32_t aCustomIndex);
 		/** Set the mask for this geometry instance. */
-		geometry_instance& set_mask(uint32_t _Mask);
+		geometry_instance& set_mask(uint32_t aMask);
 		/** Set the instance offset parameter assigned to this geometry instance. */
-		geometry_instance& set_instance_offset(size_t _Offset);
+		geometry_instance& set_instance_offset(size_t aOffset);
 		/** Set the given flag(s) to this instance, overwriting any previous flags. */
 		geometry_instance& set_flags(vk::GeometryInstanceFlagsKHR aFlags);
 		/** Add the given flag(s) to this instance, that is, logically-or them to the existing value. */

@@ -213,7 +213,7 @@ _Auto-Vk_, however, allows to easily swap this straight-froward way of memory ha
 #define AVK_USE_VMA
 #include <avk/avk.hpp>
 ```
-Furthermore, add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) to your source files. 
+Furthermore, add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) to your source files. If you're using `CMake` you can do this by setting the `avk_UseVMA` option to `ON`.
 
 This is all that is required to set-up VMA to handle all internal memory allocations.
 

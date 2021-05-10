@@ -15,6 +15,14 @@ namespace avk
 		bottom_level_acceleration_structure_t& operator=(const bottom_level_acceleration_structure_t&) = delete;
 		~bottom_level_acceleration_structure_t();
 
+#if VK_HEADER_VERSION >= 162
+		auto& config() { return mCreateInfo; }
+		auto acceleration_structure_handle() { return mAccStructure.mHandle; }
+		auto* acceleration_structure_handle_ptr() { return &mAccStructure.mHandle; }
+		const auto& config() const { return mCreateInfo; }
+		auto acceleration_structure_handle() const { return mAccStructure.mHandle; }
+		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.mHandle; }
+#else
 		auto& config() { return mCreateInfo; }
 		auto& acceleration_structure_handle() { return mAccStructure.mHandle; }
 		auto* acceleration_structure_handle_ptr() { return &mAccStructure.mHandle; }
@@ -25,11 +33,18 @@ namespace avk
 		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.mHandle; }
 		const auto& memory_handle() const { return mMemory.get(); }
 		const auto* memory_handle_ptr() const { return &mMemory.get(); }
+#endif
 		auto device_address() const { return mDeviceAddress; }
 
+#if VK_HEADER_VERSION >= 162
+		size_t required_acceleration_structure_size() const { return static_cast<size_t>(mMemoryRequirementsForAccelerationStructure); }
+		size_t required_scratch_buffer_build_size() const { return static_cast<size_t>(mMemoryRequirementsForBuildScratchBuffer); }
+		size_t required_scratch_buffer_update_size() const { return static_cast<size_t>(mMemoryRequirementsForScratchBufferUpdate); }
+#else
 		size_t required_acceleration_structure_size() const { return static_cast<size_t>(mMemoryRequirementsForAccelerationStructure.memoryRequirements.size); }
 		size_t required_scratch_buffer_build_size() const { return static_cast<size_t>(mMemoryRequirementsForBuildScratchBuffer.memoryRequirements.size); }
 		size_t required_scratch_buffer_update_size() const { return static_cast<size_t>(mMemoryRequirementsForScratchBufferUpdate.memoryRequirements.size); }
+#endif
 
 		/** Build this bottom level acceleration structure using one pair or multiple pairs of buffers.
 		 *
@@ -102,20 +117,38 @@ namespace avk
 		std::optional<command_buffer> build_or_update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction);
 		buffer_t& get_and_possibly_create_scratch_buffer();
 		
+#if VK_HEADER_VERSION >= 162
+		vk::DeviceSize mMemoryRequirementsForAccelerationStructure;
+		vk::DeviceSize mMemoryRequirementsForBuildScratchBuffer;
+		vk::DeviceSize mMemoryRequirementsForScratchBufferUpdate;
+		buffer mAccStructureBuffer;
+#else
 		vk::MemoryRequirements2KHR mMemoryRequirementsForAccelerationStructure;
 		vk::MemoryRequirements2KHR mMemoryRequirementsForBuildScratchBuffer;
 		vk::MemoryRequirements2KHR mMemoryRequirementsForScratchBufferUpdate;
 		vk::MemoryAllocateInfo mMemoryAllocateInfo;
 		vk::UniqueDeviceMemory mMemory;
+#endif
 
+#if VK_HEADER_VERSION >= 162
+		std::vector<vk::AccelerationStructureGeometryKHR> mAccStructureGeometries;
+		std::vector<uint32_t> mBuildPrimitiveCounts;
+		vk::AccelerationStructureBuildGeometryInfoKHR mBuildGeometryInfo;
+#else
 		std::vector<vk::AccelerationStructureCreateGeometryTypeInfoKHR> mGeometryInfos;
+#endif
 		//std::vector<vk::GeometryKHR> mGeometries;
+		vk::BuildAccelerationStructureFlagsKHR mFlags;
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
 		vk::PhysicalDevice mPhysicalDevice;
 		vk::Device mDevice;
 		AVK_MEM_ALLOCATOR_TYPE mAllocator;
+#if VK_HEADER_VERSION >= 162
+		avk::handle_wrapper<vk::AccelerationStructureKHR> mAccStructure;
+#else
 		//vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic>>::type mAccStructure;
 		avk::handle_wrapper<vk::AccelerationStructureKHR> mAccStructure;
+#endif
 		vk::DispatchLoaderDynamic mDynamicDispatch;
 		vk::DeviceAddress mDeviceAddress;
 

@@ -30,6 +30,16 @@ namespace avk
 	}
 
 #if VK_HEADER_VERSION >= 135
+#if VK_HEADER_VERSION >= 162
+	vk::PhysicalDeviceRayTracingPipelinePropertiesKHR root::get_ray_tracing_properties()
+	{
+		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtProps;
+		vk::PhysicalDeviceProperties2 props2;
+		props2.pNext = &rtProps;
+		physical_device().getProperties2(&props2);
+		return rtProps;
+	}
+#else
 	vk::PhysicalDeviceRayTracingPropertiesKHR root::get_ray_tracing_properties()
 	{
 		vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
@@ -38,6 +48,7 @@ namespace avk
 		physical_device().getProperties2(&props2);
 		return rtProps;
 	}
+#endif
 
 	vk::DeviceAddress root::get_buffer_address(const vk::Device& aDevice, vk::Buffer aBufferHandle)
 	{
@@ -1406,22 +1417,22 @@ namespace avk
 	{
 		if (aMipMappingAvailable) {
 			if (aVulkanAnisotropy > 1.0f) {
-				if (std::abs(aVulkanAnisotropy - 16.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 16.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_16x;
 				}
-				if (std::abs(aVulkanAnisotropy - 8.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 8.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_8x;
 				}
-				if (std::abs(aVulkanAnisotropy - 4.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 4.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_4x;
 				}
-				if (std::abs(aVulkanAnisotropy - 2.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 2.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_2x;
 				}
-				if (std::abs(aVulkanAnisotropy - 32.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 32.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_32x;
 				}
-				if (std::abs(aVulkanAnisotropy - 64.0f) <= std::numeric_limits<float>::epsilon()) {
+				if (std::abs(aVulkanAnisotropy - 64.0f) <= 1.2e-7 /* ~machine epsilon */) {
 					return avk::filter_mode::anisotropic_64x;
 				}
 				AVK_LOG_WARNING("Encountered a strange anisotropy value of " + std::to_string(aVulkanAnisotropy));
@@ -1525,9 +1536,55 @@ namespace avk
 	bottom_level_acceleration_structure root::create_bottom_level_acceleration_structure(std::vector<avk::acceleration_structure_size_requirements> aGeometryDescriptions, bool aAllowUpdates, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeCreation, std::function<void(bottom_level_acceleration_structure_t&)> aAlterConfigBeforeMemoryAlloc)
 	{
 		bottom_level_acceleration_structure_t result;
-		result.mGeometryInfos.reserve(aGeometryDescriptions.size());
 		
+		result.mFlags = aAllowUpdates
+			? vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate | vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild
+			: vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
+
 		// 1. Gather all geometry descriptions and create vk::AccelerationStructureCreateGeometryTypeInfoKHR entries:
+#if VK_HEADER_VERSION >= 162
+		// This is the same structure that will later be used for the actual build, but the acceleration structure parameters and
+		// geometry data pointers do not need to be fully populated at this point (although they can be), just the:
+		//  - acceleration structure type,
+		//  - and the geometry
+		//     - types,
+		//     - counts, and
+		//     - maximum sizes.
+		result.mAccStructureGeometries.reserve(aGeometryDescriptions.size());
+		result.mBuildPrimitiveCounts.reserve(aGeometryDescriptions.size());
+
+		for (auto& gd : aGeometryDescriptions) {
+			auto& asg = result.mAccStructureGeometries.emplace_back();
+			asg.setGeometryType(gd.mGeometryType)
+			   .setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
+			switch(gd.mGeometryType) {
+			case vk::GeometryTypeKHR::eTriangles:
+				asg.setGeometry(vk::AccelerationStructureGeometryTrianglesDataKHR{}
+					.setIndexType(avk::to_vk_index_type(gd.mIndexTypeSize))
+					.setVertexFormat(gd.mVertexFormat)
+					.setMaxVertex(gd.mNumVertices)
+				);
+				break;
+			case vk::GeometryTypeKHR::eAabbs:
+				asg.setGeometry(vk::AccelerationStructureGeometryAabbsDataKHR{});
+				break;
+			default:
+				throw avk::runtime_error("Invalid vk::GeometryTypeKHR passed to create_bottom_level_acceleration_structure via avk::acceleration_structure_size_requirements");
+			}
+
+			result.mBuildPrimitiveCounts.push_back(gd.mNumPrimitives);
+		}
+
+		const auto* pointerToAnArray = result.mAccStructureGeometries.data();
+
+		assert(result.mAccStructureGeometries.size() == result.mBuildPrimitiveCounts.size());
+		result.mBuildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
+			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
+			.setFlags(result.mFlags)
+			.setGeometryCount(result.mAccStructureGeometries.size())
+			.setPpGeometries(&pointerToAnArray);
+#else
+		result.mGeometryInfos.reserve(aGeometryDescriptions.size());
 		for (auto& gd : aGeometryDescriptions) {
 			auto& back = result.mGeometryInfos.emplace_back()
 				.setGeometryType(gd.mGeometryType)
@@ -1540,25 +1597,26 @@ namespace avk
 				// TODO: Support non-indexed geometry
 			}
 		} // for each geometry description
+#endif
 		
 		// 2. Assemble info about the BOTTOM LEVEL acceleration structure and the set its geometry
 		result.mCreateInfo = vk::AccelerationStructureCreateInfoKHR{}
-			.setCompactedSize(0) // If compactedSize is 0 then maxGeometryCount must not be 0
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
-			.setFlags(aAllowUpdates 
-					  ? vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate | vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild
-					  : vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace) // TODO: Support flags
+#if VK_HEADER_VERSION >= 162
+			// TODO: Something to do about compacted size?
+			.setCreateFlags({}) // TODO: Support CreateFlags!
+#else
+			.setCompactedSize(0) // If compactedSize is 0 then maxGeometryCount must not be 0
+			.setFlags(result.mFlags)
 			.setMaxGeometryCount(static_cast<uint32_t>(result.mGeometryInfos.size()))
 			.setPGeometryInfos(result.mGeometryInfos.data())
+#endif
 			.setDeviceAddress(VK_NULL_HANDLE); // TODO: support this (deviceAddress is the device address requested for the acceleration structure if the rayTracingAccelerationStructureCaptureReplay feature is being used.)
 		
 		// 3. Maybe alter the config?
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
-
-		// 4. Create it
-		result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
 
 		// Steps 5. to 10. in here:
 		finish_acceleration_structure_creation(result, std::move(aAlterConfigBeforeMemoryAlloc));
@@ -1580,7 +1638,12 @@ namespace avk
 			mScratchBuffer = root::create_buffer(
 				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
+#if VK_HEADER_VERSION >= 162
+				// TODO: Looks like no special usage flags are required anymore?
+				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+#else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+#endif
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
 		}
@@ -1601,10 +1664,17 @@ namespace avk
 		std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> buildGeometryInfos;
 		buildGeometryInfos.reserve(aGeometries.size()); 
 		
+#if VK_HEADER_VERSION >= 162
+		std::vector<vk::AccelerationStructureBuildRangeInfoKHR> buildRangeInfos;
+		buildRangeInfos.reserve(aGeometries.size());
+		std::vector<vk::AccelerationStructureBuildRangeInfoKHR*> buildRangeInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
+		buildRangeInfoPtrs.reserve(aGeometries.size());
+#else
 		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
 		buildOffsetInfos.reserve(aGeometries.size());
 		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
 		buildOffsetInfoPtrs.reserve(aGeometries.size());
+#endif
 
 		for (auto& pair : aGeometries) {
 			auto vertexBuffer = pair.vertex_buffer();
@@ -1627,30 +1697,45 @@ namespace avk
 					.setVertexFormat(posMember.mFormat)
 					.setVertexData(vk::DeviceOrHostAddressConstKHR{ vertexBuffer->device_address() }) // TODO: Support host addresses
 					.setVertexStride(static_cast<vk::DeviceSize>(vertexBufferMeta.sizeof_one_element()))
+#if VK_HEADER_VERSION >= 162
+					.setMaxVertex(static_cast<uint32_t>(vertexBufferMeta.num_elements()))
+#endif
 					.setIndexType(avk::to_vk_index_type(indexBufferMeta.sizeof_one_element()))
 					.setIndexData(vk::DeviceOrHostAddressConstKHR{ indexBuffer->device_address() }) // TODO: Support host addresses
 					.setTransformData(nullptr)
 				)
 				.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
+#if VK_HEADER_VERSION >= 162
+			auto& bri = buildRangeInfos.emplace_back()
+				.setPrimitiveCount(static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3u)
+				.setPrimitiveOffset(0u)
+				.setFirstVertex(0u)
+				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
+			buildRangeInfoPtrs.emplace_back(&bri);
+#else
 			auto& boi = buildOffsetInfos.emplace_back()
 				.setPrimitiveCount(static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3u)
 				.setPrimitiveOffset(0u)
 				.setFirstVertex(0u)
 				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-
 			buildOffsetInfoPtrs.emplace_back(&boi);
+#endif
 		}
 		
 		const auto* pointerToAnArray = accStructureGeometries.data();
 		
 		buildGeometryInfos.emplace_back()
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
-			.setFlags(mCreateInfo.flags) // TODO: support individual flags per geometry?
+			.setFlags(mFlags) // TODO: support individual flags per geometry?
+#if VK_HEADER_VERSION >= 162
+			.setMode(aBuildAction == blas_action::build ? vk::BuildAccelerationStructureModeKHR::eBuild : vk::BuildAccelerationStructureModeKHR::eUpdate)
+#else
 			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
+			.setGeometryArrayOfPointers(VK_FALSE)
+#endif
 			.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle()) 
 			.setDstAccelerationStructure(acceleration_structure_handle())
-			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray)
 			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
@@ -1659,13 +1744,21 @@ namespace avk
 		// Sync before:
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::acceleration_structure_build, read_memory_access{memory_access::acceleration_structure_read_access});
 		
-		// Operation:
+#if VK_HEADER_VERSION >= 162
+		commandBuffer.handle().buildAccelerationStructuresKHR(
+			static_cast<uint32_t>(buildGeometryInfos.size()),
+			buildGeometryInfos.data(),
+			buildRangeInfoPtrs.data(),
+			mDynamicDispatch
+		);
+#else
 		commandBuffer.handle().buildAccelerationStructureKHR(
 			static_cast<uint32_t>(buildGeometryInfos.size()), 
 			buildGeometryInfos.data(),
 			buildOffsetInfoPtrs.data(),
 			mDynamicDispatch
 		);
+#endif
 
 		// Sync after:
 		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
@@ -1728,23 +1821,35 @@ namespace avk
 			)
 			.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
+#if VK_HEADER_VERSION >= 162
+		auto buildRangeInfo = vk::AccelerationStructureBuildRangeInfoKHR{}
+			.setPrimitiveCount(static_cast<uint32_t>(aabbMeta.num_elements()))
+			.setPrimitiveOffset(0u)
+			.setFirstVertex(0u)
+			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
+		vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &buildRangeInfo;
+#else
 		auto buildOffsetInfo = vk::AccelerationStructureBuildOffsetInfoKHR{}
 			.setPrimitiveCount(static_cast<uint32_t>(aabbMeta.num_elements()))
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-
 		vk::AccelerationStructureBuildOffsetInfoKHR* buildOffsetInfoPtr = &buildOffsetInfo;
+#endif
 		
 		const auto* pointerToAnArray = &accStructureGeometry;
 		
 		auto buildGeometryInfos = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
-			.setFlags(mCreateInfo.flags) // TODO: support individual flags per geometry?
+			.setFlags(mFlags) // TODO: support individual flags per geometry?
+#if VK_HEADER_VERSION >= 162
+			.setMode(aBuildAction == blas_action::build ? vk::BuildAccelerationStructureModeKHR::eBuild : vk::BuildAccelerationStructureModeKHR::eUpdate)
+#else
 			.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
+			.setGeometryArrayOfPointers(VK_FALSE)
+#endif
 			.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle()) // TODO: support different src acceleration structure?!
 			.setDstAccelerationStructure(acceleration_structure_handle())
-			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(1u)
 			.setPpGeometries(&pointerToAnArray)
 			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
@@ -1753,13 +1858,21 @@ namespace avk
 		// Sync before:
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::acceleration_structure_build, read_memory_access{memory_access::acceleration_structure_read_access});
 		
-		// Operation:
+#if VK_HEADER_VERSION >= 162
+		commandBuffer.handle().buildAccelerationStructuresKHR(
+			1u,
+			&buildGeometryInfos,
+			&buildRangeInfoPtr,
+			mDynamicDispatch
+		);
+#else
 		commandBuffer.handle().buildAccelerationStructureKHR(
 			1u,
 			&buildGeometryInfos,
 			&buildOffsetInfoPtr,
 			mDynamicDispatch
 		);
+#endif
 
 		// Sync after:
 		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
@@ -1793,31 +1906,64 @@ namespace avk
 	{
 		top_level_acceleration_structure_t result;
 
-		// 2. Assemble info about the BOTTOM LEVEL acceleration structure and the set its geometry
+		result.mFlags = aAllowUpdates
+			? vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate | vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild
+			: vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
+
+#if VK_HEADER_VERSION >= 162
+		// This is the same structure that will later be used for the actual build, but the acceleration structure parameters and
+		// geometry data pointers do not need to be fully populated at this point (although they can be), just the:
+		//  - acceleration structure type,
+		//  - and the geometry
+		//     - types,
+		//     - counts, and
+		//     - maximum sizes.
+		result.mAccStructureGeometries.reserve(1); // TODO: Support multiple?
+		result.mBuildPrimitiveCounts.reserve(1);
+
+		{
+			auto& asg = result.mAccStructureGeometries.emplace_back();
+			asg.setGeometryType(vk::GeometryTypeKHR::eInstances)
+				.setFlags(vk::GeometryFlagsKHR{}) // TODO: Support flags
+				.setGeometry(vk::AccelerationStructureGeometryInstancesDataKHR{});
+			result.mBuildPrimitiveCounts.push_back(aInstanceCount);
+		}
+
+		const auto* pointerToAnArray = result.mAccStructureGeometries.data();
+
+		assert(result.mAccStructureGeometries.size() == result.mBuildPrimitiveCounts.size());
+		result.mBuildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
+			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
+			.setFlags(result.mFlags)
+			.setGeometryCount(result.mAccStructureGeometries.size())
+			.setPpGeometries(&pointerToAnArray);
+#else
+		// 2. Assemble info about the TOP LEVEL acceleration structure and the set its geometry
 		auto geometryTypeInfo = vk::AccelerationStructureCreateGeometryTypeInfoKHR{}
 			.setGeometryType(vk::GeometryTypeKHR::eInstances)
 			.setMaxPrimitiveCount(aInstanceCount)
 			.setMaxVertexCount(0u)
 			.setVertexFormat(vk::Format::eUndefined)
 			.setAllowsTransforms(VK_FALSE);
+#endif
 		
 		result.mCreateInfo = vk::AccelerationStructureCreateInfoKHR{}
-			.setCompactedSize(0) // If compactedSize is 0 then maxGeometryCount must not be 0
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
-			.setFlags(aAllowUpdates 
-					  ? vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate | vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild
-					  : vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace) // TODO: Support flags
+#if VK_HEADER_VERSION >= 162
+			// TODO: What about compacted size?
+			// TODO: What about max geometry count?
+#else
+			.setCompactedSize(0) // If compactedSize is 0 then maxGeometryCount must not be 0
+			.setFlags(result.mFlags)
 			.setMaxGeometryCount(1u) // If type is VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR and compactedSize is 0, maxGeometryCount must be 1
 			.setPGeometryInfos(&geometryTypeInfo)
+#endif
 			.setDeviceAddress(VK_NULL_HANDLE);
 		
 		// 3. Maybe alter the config?
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
-
-		// 4. Create it
-		result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
 
 		// Steps 5. to 10. in here:
 		finish_acceleration_structure_creation(result, std::move(aAlterConfigBeforeMemoryAlloc));
@@ -1839,7 +1985,11 @@ namespace avk
 			mScratchBuffer = root::create_buffer(
 				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
+#if VK_HEADER_VERSION >= 162
+				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+#else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+#endif
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
 		}
@@ -1894,6 +2044,17 @@ namespace avk
 			)
 			.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
 
+#if VK_HEADER_VERSION >= 162
+		auto bri = vk::AccelerationStructureBuildRangeInfoKHR{}
+			// For geometries of type VK_GEOMETRY_TYPE_INSTANCES_KHR, primitiveCount is the number of acceleration
+			// structures. primitiveCount VkAccelerationStructureInstanceKHR structures are consumed from
+			// VkAccelerationStructureGeometryInstancesDataKHR::data, starting at an offset of primitiveOffset.
+			.setPrimitiveCount(numInstances)
+			.setPrimitiveOffset(0u)
+			.setFirstVertex(0u)
+			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
+		vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &bri;
+#else
 		auto boi = vk::AccelerationStructureBuildOffsetInfoKHR{}
 			// For geometries of type VK_GEOMETRY_TYPE_INSTANCES_KHR, primitiveCount is the number of acceleration
 			// structures. primitiveCount VkAccelerationStructureInstanceKHR structures are consumed from
@@ -1902,17 +2063,22 @@ namespace avk
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-		
 		vk::AccelerationStructureBuildOffsetInfoKHR* buildOffsetInfoPtr = &boi;
+#endif
+		
 		const auto* pointerToAnArray = &accStructureGeometries;
 
 		auto buildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
-			.setFlags(mCreateInfo.flags)
+			.setFlags(mFlags)
+#if VK_HEADER_VERSION >= 162
+			.setMode(aBuildAction == tlas_action::build ? vk::BuildAccelerationStructureModeKHR::eBuild : vk::BuildAccelerationStructureModeKHR::eUpdate)
+#else
 			.setUpdate(aBuildAction == tlas_action::build ? VK_FALSE : VK_TRUE)
+			.setGeometryArrayOfPointers(VK_FALSE)
+#endif
 			.setSrcAccelerationStructure(aBuildAction == tlas_action::build ? nullptr : acceleration_structure_handle())
 			.setDstAccelerationStructure(acceleration_structure_handle())
-			.setGeometryArrayOfPointers(VK_FALSE)
 			.setGeometryCount(1u) // TODO: Correct?
 			.setPpGeometries(&pointerToAnArray)
 			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
@@ -1921,13 +2087,21 @@ namespace avk
 		// Sync before:
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::acceleration_structure_build, read_memory_access{memory_access::acceleration_structure_read_access});
 
-		// Operation:
+#if VK_HEADER_VERSION >= 162
+		commandBuffer.handle().buildAccelerationStructuresKHR(
+			1u,
+			&buildGeometryInfo,
+			&buildRangeInfoPtr,
+			mDynamicDispatch
+		);
+#else
 		commandBuffer.handle().buildAccelerationStructureKHR(
 			1u, 
 			&buildGeometryInfo,
 			&buildOffsetInfoPtr,
 			mDynamicDispatch
 		);
+#endif
 
 		// Sync after:
 		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
@@ -2319,7 +2493,13 @@ namespace avk
 		result.mDevice = aDevice;
 
 #if VK_HEADER_VERSION >= 135 
-		if (avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress) || avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR) || avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)) {
+		if (   avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress)
+			|| avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressKHR)
+			|| avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddressEXT)
+			//|| avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderBindingTableKHR)
+			//|| avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR)
+			//|| avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR)
+			) {
 			result.mDeviceAddress = get_buffer_address(aDevice, result.handle());
 		}
 #endif
@@ -2846,16 +3026,20 @@ namespace avk
 		vk::Extent3D aRaygenDimensions, 
 		const shader_binding_table_ref& aShaderBindingTableRef, 
 		vk::DispatchLoaderDynamic aDynamicDispatch, 
+#if VK_HEADER_VERSION >= 162
+		const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef,
+		const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef,
+		const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef,
+		const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef
+
+#else
 		const vk::StridedBufferRegionKHR& aRaygenSbtRef,
 		const vk::StridedBufferRegionKHR& aRaymissSbtRef,
 		const vk::StridedBufferRegionKHR& aRayhitSbtRef,
 		const vk::StridedBufferRegionKHR& aCallableSbtRef
+#endif
 	)
 	{
-		assert(!aRaygenSbtRef.buffer   || aRaygenSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
-		assert(!aRaymissSbtRef.buffer  || aRaymissSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
-		assert(!aRayhitSbtRef.buffer   || aRayhitSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
-		assert(!aCallableSbtRef.buffer || aCallableSbtRef.buffer == aShaderBindingTableRef.mSbtBufferHandle);
 		const auto sbtHandle = aShaderBindingTableRef.mSbtBufferHandle;
 		const auto entrySize = aShaderBindingTableRef.mSbtEntrySize;
 		handle().traceRaysKHR(
@@ -3092,7 +3276,7 @@ namespace avk
 		const auto& weNeed = pRequest.accumulated_pool_sizes();
 		const auto& weHave = mRemainingCapacities;
 
-#if _DEBUG
+#ifdef _DEBUG
 		for (size_t i = 0; i < weNeed.size() - 1; ++i) {
 			assert(weNeed[i].type < weNeed[i + 1].type);
 		}
@@ -3707,6 +3891,135 @@ namespace avk
 		}
 		return cachedSets;
 	}
+
+	int descriptor_cache::remove_sets_with_handle(vk::ImageView aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pImageInfo) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pImageInfo[di].imageView == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+			});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+
+	int descriptor_cache::remove_sets_with_handle(vk::Buffer aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pBufferInfo) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pBufferInfo[di].buffer == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+				});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+
+	int descriptor_cache::remove_sets_with_handle(vk::Sampler aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pImageInfo) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pImageInfo[di].sampler == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+				});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+
+	int descriptor_cache::remove_sets_with_handle(vk::BufferView aHandle)
+	{
+		int numDeleted = 0;
+		auto it = std::begin(mSets);
+		do {
+			it = std::find_if(std::begin(mSets), std::end(mSets), [aHandle](const descriptor_set& aSet) {
+				auto n = aSet.number_of_writes();
+				for (decltype(n) i = 0; i < n; ++i) {
+					const auto& w = aSet.write_at(i);
+					auto dn = w.descriptorCount;
+					if (0u == dn || nullptr == w.pTexelBufferView) {
+						continue;
+					}
+					for (decltype(dn) di = 0; di < dn; ++di) {
+						if (w.pTexelBufferView[di] == aHandle) {
+							return true;
+						}
+					}
+				}
+				return false;
+				});
+
+			if (std::end(mSets) != it) {
+				mSets.erase(it);
+				++numDeleted;
+				// Iterator could (will) have been invalidated => reinitialize:
+				it = std::begin(mSets);
+			}
+		} while (std::end(mSets) != it);
+		return numDeleted;
+	}
+
 #pragma endregion
 
 #pragma region fence definitions
@@ -3855,6 +4168,26 @@ namespace avk
 			owned(create_renderpass(std::move(aAttachments))),
 			std::move(aImageViews),
 			std::move(aAlterConfigBeforeCreation)
+		);
+	}
+
+	framebuffer root::create_framebuffer_from_template(resource_reference<const framebuffer_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation,
+		std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation)
+	{
+		const auto& templateImageViews = aTemplate->image_views();
+		std::vector<resource_ownership<avk::image_view_t>> imageViews;
+
+		for (auto& imView : templateImageViews)	{
+			auto imageView = create_image_view_from_template(imView, aAlterImageConfigBeforeCreation, aAlterImageViewConfigBeforeCreation);
+			imageViews.emplace_back(std::move(imageView));
+		}
+
+		return create_framebuffer(
+			owned(create_renderpass_from_template(aTemplate->get_renderpass())),
+			std::move(imageViews),
+			aTemplate.get().mCreateInfo.width,
+			aTemplate.get().mCreateInfo.height,
+			aAlterFramebufferConfigBeforeCreation
 		);
 	}
 
@@ -4611,6 +4944,18 @@ namespace avk
 		rewire_config_and_create_graphics_pipeline(result);
 		return result;
 	}
+
+	renderpass root::replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass)
+	{
+		if (aPipeline->mRenderPass.is_shared_ownership_enabled()) {
+			aNewRenderPass.enable_shared_ownership();
+		}
+
+		auto oldRenderPass = std::move(aPipeline->mRenderPass);
+		aPipeline->mRenderPass = std::move(aNewRenderPass);
+
+		return oldRenderPass;
+	}
 #pragma endregion
 	
 #pragma region image definitions
@@ -5100,7 +5445,7 @@ namespace avk
 #pragma endregion
 	
 #pragma region sampler and image sampler definitions
-	sampler root::create_sampler(filter_mode aFilterMode, border_handling_mode aBorderHandlingMode, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
+	sampler root::create_sampler(filter_mode aFilterMode, std::array<border_handling_mode, 3> aBorderHandlingModes, float aMipMapMaxLod, std::function<void(sampler_t&)> aAlterConfigBeforeCreation)
 	{
 		vk::Filter magFilter;
 		vk::Filter minFilter;
@@ -5176,26 +5521,28 @@ namespace avk
 		}
 
 		// Determine how to handle the borders:
-		vk::SamplerAddressMode addressMode;
-		switch (aBorderHandlingMode)
+		std::array<vk::SamplerAddressMode, 3> addressModes{};
+		for (int i = 0; i < 3; ++i) {
+			switch (aBorderHandlingModes[i])
 		{
 		case border_handling_mode::clamp_to_edge:
-			addressMode = vk::SamplerAddressMode::eClampToEdge;
+				addressModes[i] = vk::SamplerAddressMode::eClampToEdge;
 			break;
 		case border_handling_mode::mirror_clamp_to_edge:
-			addressMode = vk::SamplerAddressMode::eMirrorClampToEdge;
+				addressModes[i] = vk::SamplerAddressMode::eMirrorClampToEdge;
 			break;
 		case border_handling_mode::clamp_to_border:
-			addressMode = vk::SamplerAddressMode::eClampToBorder;
+				addressModes[i] = vk::SamplerAddressMode::eClampToBorder;
 			break;
 		case border_handling_mode::repeat:
-			addressMode = vk::SamplerAddressMode::eRepeat;
+				addressModes[i] = vk::SamplerAddressMode::eRepeat;
 			break;
 		case border_handling_mode::mirrored_repeat:
-			addressMode = vk::SamplerAddressMode::eMirroredRepeat;
+				addressModes[i] = vk::SamplerAddressMode::eMirroredRepeat;
 			break;
 		default:
-			throw avk::runtime_error("invalid border_handling_mode");
+				throw avk::runtime_error("invalid border_handling_mode at index " + std::to_string(i) + (0 == i ? " (address mode u)" : 1 == i ? " (address mode v)" : " (address mode w)"));
+		}
 		}
 
 		// Compile the config for this sampler:
@@ -5203,9 +5550,9 @@ namespace avk
 		result.mInfo = vk::SamplerCreateInfo()
 			.setMagFilter(magFilter)
 			.setMinFilter(minFilter)
-			.setAddressModeU(addressMode)
-			.setAddressModeV(addressMode)
-			.setAddressModeW(addressMode)
+			.setAddressModeU(addressModes[0])
+			.setAddressModeV(addressModes[1])
+			.setAddressModeW(addressModes[2])
 			.setAnisotropyEnable(enableAnisotropy)
 			.setMaxAnisotropy(maxAnisotropy)
 			.setBorderColor(vk::BorderColor::eFloatOpaqueBlack)
@@ -6048,11 +6395,21 @@ namespace avk
 	
 	max_recursion_depth root::get_max_ray_tracing_recursion_depth()
 	{
+#if VK_HEADER_VERSION >= 162
+		vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtProps;
+#else
 		vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
+#endif
 		vk::PhysicalDeviceProperties2 props2;
 		props2.pNext = &rtProps;
 		physical_device().getProperties2(&props2);
-		return max_recursion_depth{ rtProps.maxRecursionDepth };
+		return max_recursion_depth{
+#if VK_HEADER_VERSION >= 162
+			rtProps.maxRayRecursionDepth
+#else
+			rtProps.maxRecursionDepth
+#endif
+		};
 	}
 
 	void root::rewire_config_and_create_ray_tracing_pipeline(ray_tracing_pipeline_t& aPreparedPipeline)
@@ -6088,16 +6445,27 @@ namespace avk
 			.setPStages(aPreparedPipeline.mShaderStageCreateInfos.data())
 			.setGroupCount(static_cast<uint32_t>(aPreparedPipeline.mShaderGroupCreateInfos.size()))
 			.setPGroups(aPreparedPipeline.mShaderGroupCreateInfos.data())
-			.setLibraries(vk::PipelineLibraryCreateInfoKHR{0u, nullptr}) // TODO: Support libraries
 			.setPLibraryInterface(nullptr)
+#if VK_HEADER_VERSION >= 162
+			.setMaxPipelineRayRecursionDepth(aPreparedPipeline.mMaxRecursionDepth)
+#else
 			.setMaxRecursionDepth(aPreparedPipeline.mMaxRecursionDepth)
+#endif
 			.setLayout(aPreparedPipeline.layout_handle());
 		
+#if VK_HEADER_VERSION >= 162
+		auto pipeCreationResult = device().createRayTracingPipelineKHR(
+			{}, {},
+			pipelineCreateInfo,
+			nullptr,
+			dynamic_dispatch());
+#else
 		auto pipeCreationResult = device().createRayTracingPipelineKHR(
 			nullptr,
 			pipelineCreateInfo,
 			nullptr,
 			dynamic_dispatch());
+#endif
 		
 		aPreparedPipeline.mPipeline = pipeCreationResult.value;
 
@@ -6114,7 +6482,12 @@ namespace avk
 		// TODO: All of this SBT-stuff probably needs some refactoring
 		aPipeline.mShaderBindingTable = create_buffer(
 			AVK_STAGING_BUFFER_MEMORY_USAGE, // TODO: This should be a device buffer, right?!
+#if VK_HEADER_VERSION >= 162
+			vk::BufferUsageFlagBits::eShaderBindingTableKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR, // TODO: eShaderDeviceAddressKHR or eShaderDeviceAddress?
+																												// TODO: Make meta data for it!
+#else
 			vk::BufferUsageFlagBits::eRayTracingKHR,				
+#endif
 			generic_buffer_meta::create_from_size(shaderBindingTableSize)
 		);
 
@@ -6191,7 +6564,11 @@ namespace avk
 
 		// Get the offsets. We'll really need them in step 10. but already in step 3., we are gathering the correct byte offsets:
 		{
+#if VK_HEADER_VERSION >= 162
+			vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtProps;
+#else
 			vk::PhysicalDeviceRayTracingPropertiesKHR rtProps;
+#endif
 			vk::PhysicalDeviceProperties2 props2;
 			props2.pNext = &rtProps;
 			physical_device().getProperties2(&props2);
@@ -6996,20 +7373,37 @@ using namespace cpplinq;
 			addDependency(syncBefore);
 		}
 
-		for (auto i = firstSubpassId + 1; i <= lastSubpassId; ++i) {
-			auto prevSubpassId = i - 1;
-			auto nextSubpassId = i;
-			renderpass_sync syncBetween {static_cast<int>(prevSubpassId), static_cast<int>(nextSubpassId),
+		// Iterate over all combinations of [id, id] and [id, id+1]
+		for (auto i = firstSubpassId, j = firstSubpassId; j <= lastSubpassId; i += (j-i), j += static_cast<uint32_t>(i==j)) {
+
+			// Default to ALL_GRAPHICS -> ALL_GRAPHICS sync between different sub passes,
+			// but default to NO SYNC for subpass self-dependencies, and leave them out if not set by the user
+			// (because subpass self-dependency rules have stricter rules to follow: https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies)
+			renderpass_sync syncBetween {static_cast<int>(i), static_cast<int>(j),
 				pipeline_stage::all_graphics,	memory_access::any_graphics_basic_write_access,
 				pipeline_stage::all_graphics,	memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access,
 			};
+			if (i == j) {
+				syncBetween.mSourceStage = pipeline_stage::top_of_pipe;
+				syncBetween.mSourceMemoryDependency = std::nullopt;
+				syncBetween.mDestinationStage = pipeline_stage::bottom_of_pipe;
+				syncBetween.mDestinationMemoryDependency = std::nullopt;
+			}
+
 			// Let the user modify this sync
 			if (aSync) {
 				aSync(syncBetween);
 			}
-			assert(syncBetween.source_vk_subpass_id() == prevSubpassId);
-			assert(syncBetween.destination_vk_subpass_id() == nextSubpassId);
+			assert(syncBetween.source_vk_subpass_id() == i);
+			assert(syncBetween.destination_vk_subpass_id() == j);
+
+			if (i != j // or else -- if it is a self dependency -- if the user has set some values:
+				|| syncBetween.mSourceStage != pipeline_stage::top_of_pipe
+				|| syncBetween.mSourceMemoryDependency.has_value()
+				|| syncBetween.mDestinationStage != pipeline_stage::bottom_of_pipe
+				|| syncBetween.mDestinationMemoryDependency.has_value()) {
 			addDependency(syncBetween);
+		}
 		}
 
 		{

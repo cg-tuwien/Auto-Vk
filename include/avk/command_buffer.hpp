@@ -130,6 +130,27 @@ namespace avk
 		*/
 		void prepare_for_reuse();
 
+		template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr)
+		{
+			// stop this reCURSEion!
+		}
+
+		template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, resource_reference<const buffer_t> aVertexBuffer, Rest... aRest)
+		{
+			*aHandlePtr = aVertexBuffer->handle();
+			*aOffsetPtr = 0;
+			bind_vertex_buffer(aHandlePtr + 1, aOffsetPtr + 1, aRest...);
+		}
+
+		template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, std::tuple<resource_reference<const buffer_t>, size_t> aVertexBufferAndOffset, Rest... aRest)
+		{
+			*aHandlePtr = std::get<resource_reference<const buffer_t>>(aVertexBufferAndOffset)->handle();
+			*aOffsetPtr = static_cast<vk::DeviceSize>(std::get<size_t>(aVertexBufferAndOffset));
+			bind_vertex_buffer(aHandlePtr + 1, aOffsetPtr + 1, aRest...);
+		}
 
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
@@ -146,23 +167,32 @@ namespace avk
 		template <typename... Bfrs>
 		void draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffer->handle(), aFurtherBuffers->handle() ... }, { vk::DeviceSize{0}, ((void)aFurtherBuffers, vk::DeviceSize{0}) ... });
-			//																									Make use of the discarding behavior of the comma operator ^, see: https://stackoverflow.com/a/61098748/387023
+			constexpr size_t N = 1 + sizeof...(aFurtherBuffers);
+			std::array<vk::Buffer, N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffer, aFurtherBuffers...);
+			handle().bindVertexBuffers(
+				0u, // TODO: Should the first binding really always be 0?
+				static_cast<uint32_t>(N), handles.data(), offsets.data()
+			);
+
 			handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);                      
 		}
 
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
-		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
-		*	There can be no gaps between buffer bindings.
-		*   Number of vertices is automatically determined from the vertex buffer
-		*	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
-		*								to get the number of vertices to draw.
-		*	@param	aNumberOfInstances	Number of instances to draw
-		*	@param	aFirstVertex		Offset to the first vertex
-		*	@param	aFirstInstance		The ID of the first instance
-		*	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
-		*/
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *   Number of vertices is automatically determined from the vertex buffer
+		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
+		 *								to get the number of vertices to draw.
+		 *	@param	aNumberOfInstances	Number of instances to draw
+		 *	@param	aFirstVertex		Offset to the first vertex
+		 *	@param	aFirstInstance		The ID of the first instance
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 */
 		template <typename... Bfrs>
 		void draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
@@ -179,8 +209,10 @@ namespace avk
 		 *	The ID of the first instance is set to 0.
 		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
 		 *								to get the number of vertices to draw.
-		 *	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
 		void draw_vertices(avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
@@ -196,14 +228,22 @@ namespace avk
 		 *	@param	aFirstIndex			Offset to the first index
 		 *	@param	aVertexOffset		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
-		 *	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
 		void draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, Bfrs... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers->handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
-			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
+			constexpr size_t N = sizeof...(aVertexBuffers);
+			std::array<vk::Buffer,     N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
+			handle().bindVertexBuffers(
+				0u, // TODO: Should the first binding really always be 0?
+				static_cast<uint32_t>(N), handles.data(), offsets.data()
+			);
 
 			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
@@ -235,23 +275,31 @@ namespace avk
 		}
 		
 		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
-		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
-		*	There can be no gaps between buffer bindings.
-		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
-		*	@param	aIndexBuffer		Reference to an index buffer
-		*	@param	aNumberOfDraws		Number of draws to execute
-		*	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
-		*	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
-		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
-		*
-		*   NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
-		*/
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfDraws		Number of draws to execute
+		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
+		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *
+		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
+		 */
 		template <typename... Bfrs>
 		void draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, Bfrs... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers->handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
-			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
+			constexpr size_t N = sizeof...(aVertexBuffers);
+			std::array<vk::Buffer, N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
+			handle().bindVertexBuffers(
+				0u, // TODO: Should the first binding really always be 0?
+				static_cast<uint32_t>(N), handles.data(), offsets.data()
+			);
 
 			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
@@ -266,16 +314,18 @@ namespace avk
 		}
 
 		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
-		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
-		*	There can be no gaps between buffer bindings.
-		*	The parameter offset is set to 0.
-		*	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
-		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
-		*	@param	aIndexBuffer		Reference to an index buffer
-		*	@param	aNumberOfDraws		Number of draws to execute
-		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
-		*/
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	The parameter offset is set to 0.
+		 *	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfDraws		Number of draws to execute
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 */
 		template <typename... Bfrs>
 		void draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, Bfrs... aVertexBuffers)
 		{
@@ -284,25 +334,33 @@ namespace avk
 
 #if defined(VK_VERSION_1_2)
 		/**	Perform an indexed indirect count draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
-		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
-		*	There can be no gaps between buffer bindings.
-		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
-		*	@param	aIndexBuffer		Reference to an index buffer
-		*	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
-		*	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
-		*	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
-		*   @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
-		*	@param	aDrawCountOffset	Byte offset into the draw count buffer where the actual draw count is located
-		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
-		*								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
-		*
-		*   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
-		*/
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
+		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
+		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
+		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
+		 *	@param	aDrawCountOffset	Byte offset into the draw count buffer where the actual draw count is located
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *
+		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
+		 */
 		template <typename... Bfrs>
 		void draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, avk::resource_reference<const buffer_t> aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, Bfrs... aVertexBuffers)
 		{
-			handle().bindVertexBuffers(0u, { aVertexBuffers->handle() ... }, { ((void)aVertexBuffers, vk::DeviceSize{0}) ... }); // TODO: Support offsets?!
-			//						            Make use of the discarding behavior of the comma operator ^ see: https://stackoverflow.com/a/61098748/387023
+			constexpr size_t N = sizeof...(aVertexBuffers);
+			std::array<vk::Buffer, N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
+			handle().bindVertexBuffers(
+				0u, // TODO: Should the first binding really always be 0?
+				static_cast<uint32_t>(N), handles.data(), offsets.data()
+			);
 
 			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
@@ -317,20 +375,22 @@ namespace avk
 		}
 
 		/**	Perform an indexed indirect count draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
-		*	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
-		*	There can be no gaps between buffer bindings.
-		*	The parameter offset is set to 0.
-		*	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
-		*   The draw count offset is set to 0.
-		*	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
-		*	@param	aIndexBuffer		Reference to an index buffer
-		*	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
-		*   @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
-		*	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
-		*								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
-		*
-		*   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
-		*/
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	The parameter offset is set to 0.
+		 *	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
+		 *   The draw count offset is set to 0.
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
+		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *
+		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
+		 */
 		template <typename... Bfrs>
 		void draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, avk::resource_reference<const buffer_t> aDrawCountBuffer, Bfrs... aVertexBuffers)
 		{
@@ -407,22 +467,41 @@ namespace avk
 		void trace_rays(
 			vk::Extent3D aRaygenDimensions, 
 			const shader_binding_table_ref& aShaderBindingTableRef, 
-			vk::DispatchLoaderDynamic aDynamicDispatch, 
+			vk::DispatchLoaderDynamic aDynamicDispatch,
+#if VK_HEADER_VERSION >= 162
+			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef   = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
+			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef  = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
+			const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef   = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
+			const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef = vk::StridedDeviceAddressRegionKHR{0, 0, 0}
+
+#else
 			const vk::StridedBufferRegionKHR& aRaygenSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aRaymissSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aRayhitSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0},
 			const vk::StridedBufferRegionKHR& aCallableSbtRef = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0}
+#endif
 		);
 
+#if VK_HEADER_VERSION >= 162
+#define STRIDED_REGION_PARAMS vk::StridedDeviceAddressRegionKHR& aRaygen, vk::StridedDeviceAddressRegionKHR& aRaymiss, vk::StridedDeviceAddressRegionKHR& aRayhit, vk::StridedDeviceAddressRegionKHR& aCallable
+#else
+#define STRIDED_REGION_PARAMS vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable
+#endif
+
 		// End of recursive variadic template handling
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable) { /* We're done here. */ }
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS) { /* We're done here. */ }
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_raygen_group_at_index& aRaygenGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_raygen_group_at_index& aRaygenGroupAtIndex, const Ts&... args)
 		{
-			aRaygen.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aRaygen
+#if VK_HEADER_VERSION >= 162
+			       .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -430,10 +509,15 @@ namespace avk
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_miss_group_at_index& aMissGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_miss_group_at_index& aMissGroupAtIndex, const Ts&... args)
 		{
-			aRaymiss.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aRaymiss
+#if VK_HEADER_VERSION >= 162
+				   .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -441,10 +525,15 @@ namespace avk
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_hit_group_at_index& aHitGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_hit_group_at_index& aHitGroupAtIndex, const Ts&... args)
 		{
-			aRayhit.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aRayhit
+#if VK_HEADER_VERSION >= 162
+				   .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -452,10 +541,15 @@ namespace avk
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
-		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable, const using_callable_group_at_index& aCallableGroupAtIndex, const Ts&... args)
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_callable_group_at_index& aCallableGroupAtIndex, const Ts&... args)
 		{
-			aCallable.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+			aCallable
+#if VK_HEADER_VERSION >= 162
+				   .setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				   .setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
 				   .setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
 				   .setStride(aShaderBindingTableRef.mSbtEntrySize)
 				   .setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
 			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
@@ -463,11 +557,11 @@ namespace avk
 
 		/**	Issue a trace rays call.
 		 *
-		 *	First two parameters are mandatory explicitely:
+		 *	First two parameters are mandatory explicitly:
 		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
 		 *	@param	aShaderBindingTableRef		Reference to the shader binding table to be used for this trace rays call.
 		 *
-		 *	Further parameters are mandatory implicitely - i.e. there must be at least some information given about which
+		 *	Further parameters are mandatory implicitly - i.e. there must be at least some information given about which
 		 *	shader binding table entries to be used from the given shader binding table during this trace rays call.
 		 *	@param args							Possible values:
 		 *											- using_raygen_group_at_index
@@ -481,10 +575,17 @@ namespace avk
 		void trace_rays(vk::Extent3D aRaygenDimensions, const shader_binding_table_ref& aShaderBindingTableRef, const Ts&... args)
 		{
 			// 1. GATHER CONFIG
-			auto raygen  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-			auto raymiss = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-			auto rayhit  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
-			auto callable= vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+#if VK_HEADER_VERSION >= 162
+			auto raygen   = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+			auto raymiss  = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+			auto rayhit   = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+			auto callable = vk::StridedDeviceAddressRegionKHR{0, 0, 0};
+#else
+			auto raygen   = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto raymiss  = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto rayhit   = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+			auto callable = vk::StridedBufferRegionKHR{nullptr, 0, 0, 0};
+#endif
 			add_config(aShaderBindingTableRef, raygen, raymiss, rayhit, callable, args...);
 
 			// 2. TRACE. RAYS.

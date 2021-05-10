@@ -145,7 +145,8 @@ namespace avk
 		/** TODO */
 		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphore = {});
 
-		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_reference<semaphore_t>> aWaitSemaphores = {});
+		// TODO: temporarily removed default parameter settings for aWaitSemaphores as it can get mixed with the above call (std::optional)
+		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_reference<semaphore_t>> aWaitSemaphores);
 		
 		/** TODO */
 		void submit(std::vector<resource_reference<command_buffer_t>> aCommandBuffers);

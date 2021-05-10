@@ -184,13 +184,21 @@ namespace avk
 		return firstPathTransformed == secondPathTransformed;
 	}
 
-
+	// Returns true if the given enum value contains the flag in question
 	template <typename V, typename F>
 	bool has_flag(V value, F flag)
 	{
 		return (value & flag) == flag;
 	}
 
+	// Returns true if the value inQuestion is equal to one of the given possibilities
+	template <typename X, typename... Y>
+	bool equals_one_of(const X& inQuestion, const Y&... possibilities)
+	{
+		return (... || (inQuestion == possibilities));
+	}
+	
+	// Returns true if the given 
 	template <typename InQuestion, typename... Existing>
 	constexpr bool has_type(std::tuple<Existing...>)
 	{
@@ -286,7 +294,7 @@ namespace avk
 	// is_same test for a variadic arguments pack
 	template <class T, class... Ts>
 	struct are_same : std::conjunction<std::is_same<T, Ts>...> {};
-	
+
 	// A concept which requires a type to be non-const
 	template <typename T>
 	concept non_const = !std::is_const_v<T>;
@@ -296,7 +304,6 @@ namespace avk
 	{
 		x[size_t{1}];
 	};
-	
 
 
 	// A concept which requires a type to have ::value_type
@@ -334,7 +341,7 @@ namespace avk
 		{
 			return static_cast<const std::variant<std::monostate, T, std::shared_ptr<T>>*>(this);
 		}
-		
+
 		// Cast the this-pointer to what it is: a std::variant-pointer
 		std::variant<std::monostate, T, std::shared_ptr<T>>* this_as_variant() noexcept
 		{
@@ -351,7 +358,7 @@ namespace avk
 		owning_resource(T&& aResource) noexcept
 			: std::variant<std::monostate, T, std::shared_ptr<T>>{ std::move(aResource) }
 		{}
-		
+
 		// Move-assign an owning_resource from an rvalue reference of a resource T.
 		// The original resource that is moved from might not be modified by the move.
 		owning_resource<T>& operator=(T&& aResource) noexcept
@@ -466,7 +473,7 @@ namespace avk
 			}
 			*this_as_variant() = std::make_shared<T>(std::move(std::get<T>(*this)));
 		}
-		
+
 		// Has this owning_resource instance shared ownership enabled.
 		// Or put differently: Is the resource T living on the heap and
 		// and referenced via a shared pointer?
@@ -503,7 +510,7 @@ namespace avk
 			if (holds_item_directly()) { return std::get<T>(*this_as_variant()); }
 			throw avk::logic_error("This owning_resource is uninitialized, i.e. std::monostate.");
 		}
-		
+
 		//// Explicitly cast to the resource type and return a reference to it
 		//explicit operator const T&() const
 		//{
@@ -552,7 +559,7 @@ namespace avk
 		// Implicitly allow the construction of a reference to owning_resource<T>
 		resource_reference(const owning_resource<std::remove_const_t<T>>& aOwningResource)
 			: mResource{ const_cast<T*>(aOwningResource.operator->()) }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ &aOwningResource }
 #endif
 		{ }
@@ -560,7 +567,7 @@ namespace avk
 		// Implicitly allow the construction of a reference to resource T
 		resource_reference(T& aResource)
 			: mResource{ &aResource }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ nullptr }
 #endif
 		{ }
@@ -568,20 +575,20 @@ namespace avk
 		// Move-constructing, resetting aOther
 		resource_reference(resource_reference<T>&& aOther) noexcept
 			: mResource{ aOther.mResource }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ aOther.mOwner }
 #endif
 		{
-#if _DEBUG
+#ifdef _DEBUG
 			aOther.mResource = nullptr;
 			aOther.mOwner = nullptr;
 #endif
 		}
 
-		// Copy the data from aOther 
+		// Copy the data from aOther
 		resource_reference(const resource_reference<T>& aOther)
 			: mResource{ aOther.mResource }
-#if _DEBUG
+#ifdef _DEBUG
 			, mOwner{ aOther.mOwner }
 #endif
 		{ }
@@ -590,7 +597,7 @@ namespace avk
 		resource_reference& operator=(resource_reference<T>&& aOther) noexcept
 		{
 			mResource = aOther.mResource;
-#if _DEBUG
+#ifdef _DEBUG
 			mOwner = aOther.mOwner;
 			aOther.mResource = nullptr;
 			aOther.mOwner = nullptr;
@@ -602,7 +609,7 @@ namespace avk
 		resource_reference& operator=(const resource_reference<T>& aOther)
 		{
 			mResource = aOther.mResource;
-#if _DEBUG
+#ifdef _DEBUG
 			mOwner = aOther.mOwner;
 #endif
 			return *this;
@@ -612,9 +619,9 @@ namespace avk
 		resource_reference& operator=(T& aResource)
 		{
 			mResource = &aResource;
-#if _DEBUG
+#ifdef _DEBUG
 			mOwner = nullptr;
-#endif		
+#endif
 			return *this;
 		}
 
@@ -624,14 +631,14 @@ namespace avk
 			typename = std::enable_if<std::is_same_v<resource_reference<std::remove_const_t<T>>, resource_reference<T>>, resource_reference<const T>>
 		>
 		operator resource_reference<const std::remove_const_t<T>>() {
-#if _DEBUG
+#ifdef _DEBUG
 			if (nullptr != mOwner) {
 				return resource_reference<const T>{ *mOwner };
 			}
 #endif
 			return resource_reference<const T>{ *mResource };
 		}
-		
+
 		// Get reference to the resource
 		const T& get() const
 		{
@@ -644,7 +651,7 @@ namespace avk
 			return *mResource;
 		}
 
-#if _DEBUG
+#ifdef _DEBUG
 		// Get reference to the owner
 		const owning_resource<std::remove_const_t<T>>* get_owner() const
 		{
@@ -678,7 +685,7 @@ namespace avk
 
 	private:
 		T* mResource;
-#if _DEBUG
+#ifdef _DEBUG
 		const owning_resource<std::remove_const_t<T>>* mOwner;
 #endif
 	};
@@ -712,7 +719,7 @@ namespace avk
 		return resource_reference<T>{ aResourceReference };
 	}
 
-	
+
 	// Indicate the intent to use the given resource via non-owning reference
 	template <typename T> requires has_value_type<T>
 	resource_reference<const typename T::value_type> const_referenced(const T& aResource)
@@ -803,7 +810,7 @@ namespace avk
 		{
 			return mOwnership;
 		}
-		
+
 		// Get the ownership with the intent of stealing its guts
 		owning_resource<T>&& own()
 		{
@@ -821,7 +828,7 @@ namespace avk
 		{
 			return mOwnership.get();
 		}
-		
+
 		// Get reference to the resource T
 		const T& operator*() const
 		{
@@ -913,7 +920,7 @@ namespace avk
 		return resource_ownership<T>{ std::move(aResourceOwnership) };
 	}
 
-	
+
 
 	template<typename T>
 	class unique_function : protected std::function<T>
@@ -1157,5 +1164,149 @@ namespace avk
 
 		T mHandle;
 	};
+
+
+#pragma region swap + dispose and handle help functions
+
+	/**  This concept captures those objects which have a size() method, like vectors
+	 */
+	template <typename T>
+	concept has_size = requires (T x)
+	{
+		x.size();
+	};
+
+	/** This concept captures those objects that are explicitely convertible to boolean
+	 *
+	 *	Note: most vulkan resources contain an explicit boolean converter.
+	 */
+	template <class T>
+	concept boolean_convertible = requires(T(&f)()) {
+		static_cast<bool>(f());
+	};
+
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
+	 *
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
+	 *
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
+	 */
+	template<typename T, typename F>
+	void assign_and_lifetime_handle_previous(T& aLhs, T&& aRhs, F&& aLifeTimeHandler)
+	{
+		aLifeTimeHandler(std::move(aLhs));
+		aLhs = std::move(aRhs);
+	}
+
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
+	 *
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
+	 *
+	 *  life-time handle will not be invoked if the size of aLhs is zero.
+	 *
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
+	 */
+	template<typename T, typename F> requires has_size<T>
+	void assign_and_lifetime_handle_previous(T& aLhs, T&& aRhs, F&& aLifeTimeHandler)
+	{
+		if (aLhs.size() > 0) {
+			aLifeTimeHandler(std::move(aLhs));
+		}
+		aLhs = std::move(aRhs);
+	}
+
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
+	 *
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
+	 *
+	 *  life-time handle will not be invoked if aLhs contains no value.
+	 *
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
+	 */
+	template<typename T, typename F>
+	void assign_and_lifetime_handle_previous(owning_resource<T>& aLhs, owning_resource<T>&& aRhs, F&& aLifeTimeHandler)
+	{
+		if (aLhs.has_value()) {
+			aLifeTimeHandler(std::move(aLhs));
+		}
+		aLhs = std::move(aRhs);
+	}
+
+	/** Passes the content of aLhs to the lifetime handler and subsequently moves the content of aRhs into aLhs.
+	 *
+	 *  aLhs's initial content will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
+	 *
+	 *  life-time handle will not be invoked if aLhs explicitely converts to false.
+	 *
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
+	 */
+	template<typename T, typename F> requires boolean_convertible<T>
+	void assign_and_lifetime_handle_previous(T& aLhs, T&& aRhs, F&& aLifeTimeHandler)
+	{
+		if (!!aLhs) {
+			aLifeTimeHandler(std::move(aLhs));
+		}
+		aLhs = std::move(aRhs);
+	}
+
+	/** Passes the content held by optional aLhs to the lifetime handler and subsequently moves the content of aRhs within aLhs.
+	 *
+	 *  aLhs's initial value will be passed to aLifeTimeHandler
+	 *  aLhs will contain the original aRhs's content after execution.
+	 *  aRhs will be in an unspecified state after execution.
+	 *
+	 *  life-time handle will not be invoked if aLhs contains no value.
+	 *
+	 *  @param aLhs                 left hand side of the assignment - reference to be assigned to.
+	 *  @param aRhs                 right hand side of the assignment
+	 *  @param aLifeTimeHandler     life time handler for original aLhs content
+	 */
+	template<typename T, typename F>
+	void assign_and_lifetime_handle_previous(std::optional<T>& aLhs, T&& aRhs, F&& aLifeTimeHandler)
+	{
+		if (!aLhs.has_value()) {
+			aLhs = std::move(aRhs);
+		}
+		else {
+			assign_and_lifetime_handle_previous<T, F>(aLhs.value(), std::forward<T>(aRhs), std::forward<F>(aLifeTimeHandler));
+		}
+	}
+#pragma endregion
+
+#pragma region lambda overload
+	// A "lambda overload" pattern which can be used to create one lambda for different parameters
+	//
+	// Example:
+	//
+	//  std::variant<Fluid, LightItem, HeavyItem, FragileItem> package;
+	//
+	//	std::visit(lambda_overload{
+	//		[](Fluid&) { cout << "fluid\n"; },
+	//		[](LightItem&) { cout << "light item\n"; },
+	//		[](HeavyItem&) { cout << "heavy item\n"; },
+	//		[](FragileItem&) { cout << "fragile\n"; }
+	//	}, package);
+	//
+	//	All credits go to Bartlomiej Filipek: https://www.bfilipek.com/2018/09/visit-variants.html
+	//
+	template<class... Ts> struct lambda_overload : Ts... { using Ts::operator()...; };
+	template<class... Ts> lambda_overload(Ts...) -> lambda_overload<Ts...>;
+#pragma endregion
 
 }
