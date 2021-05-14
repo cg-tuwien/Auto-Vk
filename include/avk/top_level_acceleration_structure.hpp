@@ -57,52 +57,163 @@ namespace avk
 
 		auto descriptor_type() const			{ return vk::DescriptorType::eAccelerationStructureKHR; } 
 
-		/** Build this top level acceleration structure using a vector of geometry instances.
+		/** Build this top level acceleration structure using vectors of geometry instances or buffers containing geometry instances.
+		 *	Supported parameters:
+		 *	 - avk::resource_reference<const buffer_t> ........... A buffer containing geometry instances. Optimally, use avk::const_referenced to pass such buffers
+		 *	 - const std::vector<geometry_instance>& ............. A vector containing one or multiple geometry_instances. They will be stored into a buffer before processing them further. // TODO: Can we support direct TLAS-builds without that geometry_instance->buffer step?
+		 *	 - std::optional<std::reference_wrapper<buffer_t>> ... Provide an external scratch buffer. If none is provided, one will be created internally.                                  // TODO: Make a nicer interface for passing the scratch buffer!
+		 *	 - sync .............................................. Provide a sync handler! The default is sync::wait_idle()
 		 *
-		 *	@param	aGeometryInstances	Vector of geometry instances that will be used for creating the top-level acceleration structure.
-		 *	@param	aScratchBuffer		Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
-		 *								vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
-		 *								If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler		Sync handler which is to be deprecated
+		 *	While it only makes sense to pass one scratch buffer and one sync-handler, an arbitrary number of buffers containing geometry
+		 *	instances, and an arbitrary number of vectors containing geometry_instances is supported.
 		 */
-		void build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		template <typename... Args>
+		void build(Args&&... aArgs)
+		{
+			gather_config_and_build_or_update(tlas_action::build, std::forward<Args>(aArgs)...);
+		}
 
-		/** Update this top level acceleration structure using a vector of geometry instances.
+		/** Update this top level acceleration structure using vectors of geometry instances or buffers containing geometry instances.
+		 *	Supported parameters:
+		 *	 - avk::resource_reference<const buffer_t> ........... A buffer containing geometry instances. Optimally, use avk::const_referenced to pass such buffers
+		 *	 - const std::vector<geometry_instance>& ............. A vector containing one or multiple geometry_instances. They will be stored into a buffer before processing them further. // TODO: Can we support direct TLAS-builds without that geometry_instance->buffer step?
+		 *	 - std::optional<std::reference_wrapper<buffer_t>> ... Provide an external scratch buffer. If none is provided, one will be created internally.                                  // TODO: Make a nicer interface for passing the scratch buffer!
+		 *	 - sync .............................................. Provide a sync handler! The default is sync::wait_idle()
 		 *
-		 *	@param	aGeometryInstances	Vector of geometry instances that will be used for creating the top-level acceleration structure.
-		 *	@param	aScratchBuffer		Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
-		 *								vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
-		 *								If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler		Sync handler which is to be deprecated
+		 *	While it only makes sense to pass one scratch buffer and one sync-handler, an arbitrary number of buffers containing geometry
+		 *	instances, and an arbitrary number of vectors containing geometry_instances is supported.
 		 */
-		void update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
-		
-		/** Build this top level acceleration structure using a vector of geometry instances.
-		 *
-		 *	@param	aGeometryInstancesBuffer	Buffer containing one or multiple geometry instances. The buffer must have the appropriate
-		 *										meta data set, which is geometry_instance_buffer_meta.
-		 *	@param	aScratchBuffer				Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
-		 *										vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
-		 *										If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler				Sync handler which is to be deprecated
-		 */
-		void build(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
-
-		/** Build this top level acceleration structure using a vector of geometry instances.
-		 *
-		 *	@param	aGeometryInstancesBuffer	Buffer containing one or multiple geometry instances. The buffer must have the appropriate
-		 *										meta data set, which is geometry_instance_buffer_meta.
-		 *	@param	aScratchBuffer				Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
-		 *										vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
-		 *										If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler				Sync handler which is to be deprecated
-		 */
-		void update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		template <typename... Args>
+		void update(Args&&... aArgs)
+		{
+			gather_config_and_build_or_update(tlas_action::update, std::forward<Args>(aArgs)...);
+		}
 		
 	private:
 		enum struct tlas_action { build, update };
-		std::optional<command_buffer> build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction);
-		std::optional<command_buffer> build_or_update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction);
+		std::optional<command_buffer> build_or_update(
+			tlas_action aBuildAction,
+			std::variant<avk::resource_reference<const buffer_t>, std::reference_wrapper<const std::vector<vk::AccelerationStructureInstanceKHR>>, std::reference_wrapper<const std::vector<vk::DeviceOrHostAddressConstKHR>>> aArrayOrArrayOfPointers,
+			std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer,
+			sync aSyncHandler);
+
+		static void gather_args(std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler)
+		{
+			// stopper
+		}
+
+		static void transfer_buffer_ref_into_mixed_references(std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences);
+
+		// Warning: only invoke this method once it can be ensured that aHostInstances does not change in size anymore
+		static void tidy_up(std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences);
+
+		template <typename... Rest>
+		void gather_args(
+			std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler,
+			sync& aSyncHandlerIn, Rest&&... aRest)
+		{
+			aSyncHandler = std::move(aSyncHandlerIn);
+			gather_args(aBufferRef, aCreatedBuffers, aMixedReferences, aScratchBuffer, aSyncHandler, std::forward<Rest>(aRest)...);
+		}
+
+		template <typename... Rest>
+		void gather_args(
+			std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler,
+			sync&& aSyncHandlerIn, Rest&&... aRest)
+		{
+			aSyncHandler = std::move(aSyncHandlerIn);
+			gather_args(aBufferRef, aCreatedBuffers, aMixedReferences, aScratchBuffer, aSyncHandler, std::forward<Rest>(aRest)...);
+		}
+
+		template <typename... Rest>
+		void gather_args(
+			std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler,
+			avk::resource_reference<const buffer_t> aDeviceBuffer, Rest&&... aRest)
+		{
+			while (aBufferRef.has_value()) {
+				transfer_buffer_ref_into_mixed_references(aBufferRef, aCreatedBuffers, aMixedReferences);
+			}
+			aBufferRef = aDeviceBuffer;
+			gather_args(aBufferRef, aCreatedBuffers, aMixedReferences, aScratchBuffer, aSyncHandler, std::forward<Rest>(aRest)...);
+		}
+
+		template <typename... Rest>
+		void gather_args(
+			std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler,
+			const buffer& aDeviceBuffer, Rest&&... aRest)
+		{
+			gather_args(aBufferRef, aCreatedBuffers, aMixedReferences, aScratchBuffer, aSyncHandler, avk::const_referenced(aDeviceBuffer), std::forward<Rest>(aRest)...);
+		}
+
+		template <typename... Rest>
+		void gather_args(
+			std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler,
+			const std::vector<geometry_instance>& aGeometryInstances, Rest&&... aRest)
+		{
+			auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
+
+			auto geomInstBuffer = root::create_buffer(
+				mPhysicalDevice, mDevice, mAllocator,
+				AVK_STAGING_BUFFER_MEMORY_USAGE, {},
+				geometry_instance_buffer_meta::create_from_data(geomInstances)
+			);
+			geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
+
+			auto& newBfr = aCreatedBuffers.emplace_back(std::move(geomInstBuffer));
+
+			gather_args(aBufferRef, aCreatedBuffers, aMixedReferences, aScratchBuffer, aSyncHandler, newBfr, std::forward<Rest>(aRest)...);
+		}
+
+		template <typename... Rest>
+		void gather_args(
+			std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler,
+			std::vector<geometry_instance>&& aGeometryInstances, Rest&&... aRest)
+		{
+			gather_args(aBufferRef, aCreatedBuffers, aMixedReferences, aScratchBuffer, aSyncHandler, static_cast<const std::vector<geometry_instance>&>(aGeometryInstances), std::forward<Rest>(aRest)...);
+		}
+
+		template <typename... Rest>
+		void gather_args(
+			std::optional<avk::resource_reference<const buffer_t>>& aBufferRef, std::vector<avk::buffer>& aCreatedBuffers, std::vector<vk::DeviceOrHostAddressConstKHR>& aMixedReferences, std::optional<std::reference_wrapper<buffer_t>>& aScratchBuffer, sync& aSyncHandler,
+			std::optional<std::reference_wrapper<buffer_t>>& aScratchBufferIn, Rest&&... aRest)
+		{
+			aScratchBuffer = aScratchBufferIn;
+			gather_args(aBufferRef, aCreatedBuffers, aMixedReferences, aScratchBuffer, aSyncHandler, std::forward<Rest>(aRest)...);
+		}
+
+		template <typename... Args>
+		std::optional<command_buffer> gather_config_and_build_or_update(tlas_action aBuildAction, Args&&... aArgs)
+		{
+			std::optional<avk::resource_reference<const avk::buffer_t>> bufferRef = {};
+			std::vector<avk::buffer> createdBuffers;
+			std::vector<vk::DeviceOrHostAddressConstKHR> mixedReferences;
+			std::optional<std::reference_wrapper<avk::buffer_t>> scratchBuffer = {};
+			sync syncHandler = sync::wait_idle();
+
+			gather_args(bufferRef, createdBuffers, mixedReferences, scratchBuffer, syncHandler, std::forward<Args>(aArgs)...);
+			tidy_up(bufferRef, createdBuffers, mixedReferences);
+
+			assert((bufferRef.has_value() ? 1 : 0) + (mixedReferences.empty() ? 0 : 1) == 1); // Only one of these data structures must be set, otherwise we made an implementation mistake
+			auto result = build_or_update(
+				aBuildAction, 
+				bufferRef.has_value()
+					? std::variant<avk::resource_reference<const buffer_t>, std::reference_wrapper<const std::vector<vk::AccelerationStructureInstanceKHR>>, std::reference_wrapper<const std::vector<vk::DeviceOrHostAddressConstKHR>>>{ bufferRef.value() }
+					: std::variant<avk::resource_reference<const buffer_t>, std::reference_wrapper<const std::vector<vk::AccelerationStructureInstanceKHR>>, std::reference_wrapper<const std::vector<vk::DeviceOrHostAddressConstKHR>>>{ std::cref(mixedReferences) },
+				scratchBuffer, 
+				std::move(syncHandler)
+			);
+
+			if (result.has_value()) {
+				// Handle lifetime:
+				result.value()->set_custom_deleter([lBufferRef = std::move(bufferRef), lCreatedBuffers = std::move(createdBuffers), lMixedReferences = std::move(mixedReferences)](){});
+			}
+			else {
+				AVK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
+				mDevice.waitIdle();
+			}
+			return result;
+		}
+
 		buffer_t& get_and_possibly_create_scratch_buffer();
 
 #if VK_HEADER_VERSION >= 162
