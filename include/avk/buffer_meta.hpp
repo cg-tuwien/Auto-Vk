@@ -142,12 +142,18 @@ namespace avk
 		buffer_meta& operator=(const buffer_meta&) = default;
 		buffer_meta& operator=(buffer_meta&&) noexcept = default;
 		virtual ~buffer_meta() = default;
-		
+
 		/** The size of one element in the buffer. */
 		size_t sizeof_one_element() const { return mSizeOfOneElement; }
 
 		/** The total number of elements in the buffer. */
 		size_t num_elements() const { return mNumElements; }
+
+		/** Sets the size of one element to a new value. Use at your own risk! */
+		void set_sizeof_one_element(size_t aNewSize) { mSizeOfOneElement = aNewSize; }
+
+		/** Sets a new number of elements. Use at your own risk! */
+		void set_num_elements(size_t aNewNum) { mNumElements = aNewNum; }
 
 		/** Total size of the data represented by the buffer. */
 		size_t total_size() const { return sizeof_one_element() * num_elements(); }
@@ -159,7 +165,7 @@ namespace avk
 		const buffer_element_member_meta* find_member_description(content_description aMemberToBeFound) const
 		{
 			auto it = std::find_if(
-				std::begin(member_descriptions()), std::end(member_descriptions()), 
+				std::begin(member_descriptions()), std::end(member_descriptions()),
 				[aMemberToBeFound](const buffer_element_member_meta& md) {
 					return md.mContent == aMemberToBeFound;
 				});
@@ -677,7 +683,7 @@ namespace avk
 	/**	This struct contains information for a buffer which is intended to be used as 
 	*	instance buffer, i.e. vertex attributes provided to a shader per instance.
 	*/
-	struct instance_buffer_meta : public buffer_meta
+	class instance_buffer_meta : public buffer_meta
 	{
 	public:
 		/** Gets buffer usage flags for this kind of buffer. */

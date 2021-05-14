@@ -179,6 +179,9 @@ namespace avk { class sync; }
 #include <avk/framebuffer.hpp>
 
 #include <avk/geometry_instance.hpp>
+
+#include <avk/vk_utils2.hpp>
+
 #include <avk/acceleration_structure_size_requirements.hpp>
 #include <avk/bottom_level_acceleration_structure.hpp>
 #include <avk/top_level_acceleration_structure.hpp>
@@ -198,7 +201,6 @@ namespace avk { class sync; }
 #include <avk/bindings.hpp>
 
 #include <avk/commands.hpp>
-#include <avk/vk_utils2.hpp>
 
 namespace avk
 {

@@ -151,14 +151,31 @@ namespace avk
 		}
 		
 		/**	Searches for the given Meta type in meta and if contained, returns
-		 *	a reference to it. Throws if not contained.
-		 *	@param aSkip	Number of times, Meta shall be skipped. 
+		 *	a const reference to it. Throws if not contained.
+		 *	@param aSkip	Number of times, Meta shall be skipped.
 		 *	@return			Reference to meta data of type Meta found.
 		 */
 		template <typename Meta>
 		const Meta& meta(size_t aSkip = 0) const
 		{
 			for (const auto& m : mMetaData) {
+				if (std::holds_alternative<Meta>(m)) {
+					if (aSkip-- > 0) { continue; }
+					return std::get<Meta>(m);
+				}
+			}
+			throw avk::runtime_error(std::string("Meta data of type '") + typeid(Meta).name() + "' not found");
+		}
+
+		/**	Searches for the given Meta type in meta and if contained, returns
+		 *	a mutable reference to it. Throws if not contained.
+		 *	@param aSkip	Number of times, Meta shall be skipped.
+		 *	@return			Reference to meta data of type Meta found.
+		 */
+		template <typename Meta>
+		Meta& meta(size_t aSkip = 0)
+		{
+			for (auto& m : mMetaData) {
 				if (std::holds_alternative<Meta>(m)) {
 					if (aSkip-- > 0) { continue; }
 					return std::get<Meta>(m);
@@ -192,6 +209,20 @@ namespace avk
 		 *  @param aSyncHandler		Synchronization handler for the copy operation
 		 */
 		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler);
+
+		// TODO: Maybe the following overload could be re-enabled after command/commands refactoring?!
+		///** Fill buffer with data according to the meta data of the given type Meta.
+		// *  The buffer's size is determined from its metadata
+		// *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
+		// *  @param aMetaDataSkip	How often a meta data of type Meta shall be skipped. I.e. values != 0 only make sense if there ar multiple meta data entries of type Meta.
+		// *  @param aSyncHandler		Synchronization handler for the copy operation
+		// */
+		//template <typename Meta>
+		//std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataSkip, sync aSyncHandler)
+		//{
+		//	assert(has_meta<Meta>(aMetaDataSkip));
+		//	return fill(aDataPtr, index_of_meta<Meta>(aMetaDataSkip), std::move(aSyncHandler));
+		//}
 
 		/** Fill buffer partially with data.
 		*
