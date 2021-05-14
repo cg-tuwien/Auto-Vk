@@ -1594,14 +1594,13 @@ namespace avk
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 #if VK_HEADER_VERSION >= 162
 			// TODO: Something to do about compacted size?
-			.setCreateFlags({}) // TODO: Support CreateFlags!
+			.setCreateFlags({}); // TODO: Support CreateFlags!
 #else
 			.setCompactedSize(0) // If compactedSize is 0 then maxGeometryCount must not be 0
 			.setFlags(result.mFlags)
 			.setMaxGeometryCount(static_cast<uint32_t>(result.mGeometryInfos.size()))
-			.setPGeometryInfos(result.mGeometryInfos.data())
+			.setPGeometryInfos(result.mGeometryInfos.data());
 #endif
-			.setDeviceAddress(VK_NULL_HANDLE); // TODO: support this (deviceAddress is the device address requested for the acceleration structure if the rayTracingAccelerationStructureCaptureReplay feature is being used.)
 
 		// 3. Maybe alter the config?
 		if (aAlterConfigBeforeCreation) {
@@ -1940,15 +1939,15 @@ namespace avk
 		result.mCreateInfo = vk::AccelerationStructureCreateInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
 #if VK_HEADER_VERSION >= 162
-			// TODO: What about compacted size?
-			// TODO: What about max geometry count?
+			;
+		// TODO: What about compacted size?
+		// TODO: What about max geometry count?
 #else
 			.setCompactedSize(0) // If compactedSize is 0 then maxGeometryCount must not be 0
 			.setFlags(result.mFlags)
 			.setMaxGeometryCount(1u) // If type is VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR and compactedSize is 0, maxGeometryCount must be 1
-			.setPGeometryInfos(&geometryTypeInfo)
+			.setPGeometryInfos(&geometryTypeInfo);
 #endif
-			.setDeviceAddress(VK_NULL_HANDLE);
 
 		// 3. Maybe alter the config?
 		if (aAlterConfigBeforeCreation) {
