@@ -16,7 +16,7 @@ namespace avk
    * @returns				A value of type `Ret` which is returned by value.
    */
   template<typename Ret>
-  Ret buffer_t::read(size_t aMetaDataIndex, sync aSyncHandler) {
+  [[nodiscard]] Ret buffer_t::read(size_t aMetaDataIndex, sync aSyncHandler) {
     auto memProps = memory_properties();
     if (!avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
       throw avk::runtime_error(
