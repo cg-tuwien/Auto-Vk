@@ -82,10 +82,10 @@ jobs:
           - {
             name: "windows: msvc",
             cc: "cl",
-            cxx: "cl",
-            # todo: add more vulkan versions that should be tested (e.g. 1.1.x, or < 1.2.135)
-            vulkan-sdk: ["1.2.176.1", "latest"]
+            cxx: "cl"
           }
+        # todo: add more vulkan versions that should be tested (e.g. 1.1.x, or < 1.2.135)
+        vulkan-sdk: ["1.2.176.1", "latest"]
 
     steps:
       # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
