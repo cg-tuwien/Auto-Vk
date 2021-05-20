@@ -85,29 +85,11 @@ jobs:
             cxx: "cl"
           }
         # todo: add more vulkan versions that should be tested (e.g. 1.1.x, or < 1.2.135)
-        vulkan-sdk: ["latest"] #, "1.2.176.1"]
+        vulkan-sdk: ["latest", "1.2.176.1"]
 
     steps:
       # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
       - uses: actions/checkout@v2
-      
-      # the download URL for the latest SDK version changes sometimes (every four months or so?)...
-      - name: Install Vulkan SDK
-        if: matrix.vulkan-sdk == 'latest'
-        # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-        working-directory: ${{ runner.workspace }}/Auto-Vk
-        shell: pwsh
-        run: |
-          curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
-          7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}"
-      
-      # the download URL for the latest SDK version changes sometimes...
-      - name: Install Vulkan SDK
-        if: matrix.vulkan-sdk != 'latest'
-        run: |
-          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/${{ matrix.vulkan-sdk }}/windows/VulkanSDK-${{ matrix.vulkan-sdk }}-Installer.exe" -OutFile VulkanSDK.exe
-          $installer = Start-Process -FilePath VulkanSDK.exe -Wait -PassThru -ArgumentList @("/S");
-          $installer.WaitForExit();
 
       - name: Create Build Environment
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
@@ -116,6 +98,14 @@ jobs:
         # Some projects don't allow in-source building, so create a separate build directory
         # We'll use this as our working directory for all subsequent commands
         run: |
+          If (${{ matrix.vulkan-sdk }} -eq 'latest') {
+            # the download URL for the latest SDK version changes sometimes (every four months or so?)...
+            curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
+          } Else {
+            curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/${{ matrix.vulkan-sdk }}/windows/VulkanSDK-${{ matrix.vulkan-sdk }}-Installer.exe
+          }
+          7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}"
+        
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
           cmake -E make_directory ${{ runner.workspace }}/Auto-Vk/build
 
