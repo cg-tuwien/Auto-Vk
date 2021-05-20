@@ -16,8 +16,8 @@ jobs:
         config:
           - {
             name: "linux: clang",
-            cc: "clang-11",
-            cxx: "clang++-11"
+            cc: "clang",
+            cxx: "clang++"
           }
           - {
             name: "linux: gcc",
