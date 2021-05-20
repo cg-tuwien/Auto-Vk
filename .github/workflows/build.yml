@@ -94,6 +94,8 @@ jobs:
       # the download URL for the latest SDK version changes sometimes (every four months or so?)...
       - name: Install Vulkan SDK
         if: matrix.vulkan-sdk == 'latest'
+        # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
+        working-directory: ${{ runner.workspace }}/Auto-Vk
         run: |
           Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe" -OutFile VulkanSDK.exe
           $installer = Start-Process -FilePath VulkanSDK.exe -Wait -PassThru -ArgumentList @("/S /O `"${{ env.vulkan_sdk }}`"");
