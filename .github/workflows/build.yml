@@ -21,8 +21,8 @@ jobs:
           }
           - {
             name: "linux: gcc",
-            cc: "gcc",
-            cxx: "g++"
+            cc: "gcc-10",
+            cxx: "g++-10"
           }
 
     steps:
