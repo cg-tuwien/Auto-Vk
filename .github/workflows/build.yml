@@ -71,7 +71,7 @@ jobs:
         run: cmake --build . --config $BUILD_TYPE
 
   windows:
-    name: ${{ matrix.config.name }}
+    name: ${{ matrix.config.name }} using VulkanSDK version ${{ matrix.vulkan-sdk }}
     runs-on: windows-latest
     env:
       vulkan_sdk: "$GITHUB_WORKSPACE/vulkan_sdk/"
@@ -85,7 +85,7 @@ jobs:
             cxx: "cl"
           }
         # todo: add more vulkan versions that should be tested (e.g. 1.1.x, or < 1.2.135)
-        vulkan-sdk: ["1.2.176.1", "latest"]
+        vulkan-sdk: ["latest"] #, "1.2.176.1"]
 
     steps:
       # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
@@ -104,7 +104,7 @@ jobs:
         if: matrix.vulkan-sdk != 'latest'
         run: |
           Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/${{ matrix.vulkan-sdk }}/windows/VulkanSDK-${{ matrix.vulkan-sdk }}-Installer.exe" -OutFile VulkanSDK.exe
-          $installer = Start-Process -FilePath VulkanSDK.exe -Wait -PassThru -ArgumentList @("/S");
+          $installer = Start-Process -FilePath VulkanSDK.exe -Wait -PassThru -ArgumentList @("/S" "/O" "${{ env.vulkan_sdk }}");
           $installer.WaitForExit();
 
       - name: Create Build Environment
