@@ -1,6 +1,12 @@
 name: "Cross-platform check"
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'CMakeLists.txt'
+  pull_request:
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
