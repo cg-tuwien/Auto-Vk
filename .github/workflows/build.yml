@@ -8,7 +8,7 @@ env:
 
 jobs:
   linux:
-    name: ${{ matrix.config.name }}
+    name: ${{ matrix.config.name }} using VulkanSDK version ${{ matrix.vulkan-sdk }}
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -24,6 +24,9 @@ jobs:
             cc: "gcc-10",
             cxx: "g++-10"
           }
+        # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
+        # (not that ubuntu-latest (20.04) only supports >= v1.2.148 via apt)
+        vulkan-sdk: ["latest", "1.2.148"]
 
     steps:
       - uses: actions/checkout@v2
@@ -35,7 +38,11 @@ jobs:
         run: |
           # Add lunarg apt sources
           wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+          if [ "${{ matrix.vulkan-sdk }}" = "latest" ]; then          
+            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+          else
+            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list https://packages.lunarg.com/vulkan/${{ matrix.vulkan-sdk }}/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list
+          fi
 
           # Update package lists
           sudo apt-get update -qq
@@ -84,7 +91,7 @@ jobs:
             cc: "cl",
             cxx: "cl"
           }
-        # todo: add more vulkan versions that should be tested (e.g. 1.1.x, or < 1.2.135)
+        # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
         vulkan-sdk: ["latest", "1.2.176.1"]
 
     steps:
@@ -93,7 +100,7 @@ jobs:
 
       - name: Create Build Environment
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-        working-directory: ${{ runner.workspace }}/Auto-Vk
+        working-directory: ${{ runner.workspace }}/${{ github.event.repository.name }}
         shell: pwsh
         # Some projects don't allow in-source building, so create a separate build directory
         # We'll use this as our working directory for all subsequent commands
@@ -107,14 +114,14 @@ jobs:
           7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}"
         
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-          cmake -E make_directory ${{ runner.workspace }}/Auto-Vk/build
+          cmake -E make_directory ${{ runner.workspace }}/${{ github.event.repository.name }}/build
 
       - name: Configure CMake
         # Use a bash shell so we can use the same syntax for environment variable
         # access regardless of the host operating system
         shell: pwsh
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-        working-directory: ${{ runner.workspace }}/Auto-Vk/build
+        working-directory: ${{ runner.workspace }}/${{ github.event.repository.name }}/build
         # Note the current convention is to use the -S and -B options here to specify source
         # and build directories, but this is only available with CMake 3.13 and higher.
         # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
@@ -124,11 +131,11 @@ jobs:
           $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
 
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC ${{ runner.workspace }}/Auto-Vk -G "Visual Studio 16 2019" -A x64
+          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC ${{ runner.workspace }}/${{ github.event.repository.name }} -G "Visual Studio 16 2019" -A x64
 
       - name: Build
         shell: bash
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-        working-directory: ${{ runner.workspace }}/Auto-Vk/build
+        working-directory: ${{ runner.workspace }}/${{ github.event.repository.name }}/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
         run: cmake --build . --config $BUILD_TYPE
