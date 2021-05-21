@@ -58,6 +58,12 @@ jobs:
         run: |
           export CC=${{ matrix.config.cc }}
           export CXX=${{ matrix.config.cxx }}
+          
+          # clang does not yet (<= 12) support "Down with typename" (P0634R3), which is used in libstdc++ >= 11 in the ranges-header
+          if [ "${{ matrix.config.cc }}" = "clang" ] then
+            export CXXFLAGS="-stdlib=libc++"
+          fi
+          
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC $GITHUB_WORKSPACE
 
       - name: Build
