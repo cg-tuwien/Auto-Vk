@@ -14,6 +14,8 @@ _Auto-Vk_ consists of multiple C++ include files, two mandatory C++ source files
 * Add [`src/avk.cpp`](src/avk.cpp) (and currently also [`src/sync.cpp`](src/sync.cpp)) as a compiled C++ source code file
 * *Optional:* Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see section [Memory Allocation](https://github.com/cg-tuwien/Auto-Vk/blob/master/README.md#memory-allocation).
 
+#### Caveats
+* On `clang` (at least version <= 12) _Auto-Vk_ does not compile when using `libstdc++` version 11 or higher, because `clang` doesn't yet support "Down with `typename`!" ([P0634R3](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0634r3.html)), which is used in the `libstdc++` `ranges`-header.
 # Motivating Example
 
 _Auto-Vk_ aims to hit the sweet spot between full controllability and convenience without having a noticeable impact on performance.
