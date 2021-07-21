@@ -1984,6 +1984,9 @@ namespace avk
 				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
 #if VK_HEADER_VERSION >= 162
+#if VK_HEADER_VERSION >= 182
+				vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
+#endif
 				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 #else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
@@ -2001,7 +2004,7 @@ namespace avk
 
 		auto geomInstBuffer = root::create_buffer(
 			mPhysicalDevice, mDevice, mAllocator,
-			AVK_STAGING_BUFFER_MEMORY_USAGE, {},
+			AVK_STAGING_BUFFER_MEMORY_USAGE, vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR,
 			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
 		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());

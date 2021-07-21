@@ -834,7 +834,11 @@ namespace avk
 		vk::BufferUsageFlags buffer_usage_flags() const override
 		{
 #if VK_HEADER_VERSION >= 162
-			return vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
+			return vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+#if VK_HEADER_VERSION >= 182
+				| vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR
+#endif
+				;
 #else
 			return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
 #endif
@@ -920,7 +924,11 @@ namespace avk
 		vk::BufferUsageFlags buffer_usage_flags() const override
 		{
 #if VK_HEADER_VERSION >= 162
-			return vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
+			return vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+#if VK_HEADER_VERSION >= 182
+				| vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR
+#endif
+				;
 #else
 			return vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
 #endif
@@ -982,7 +990,7 @@ namespace avk
 			assert (content_description::geometry_instance == aContent);
 			assert (vk::Format::eUndefined == frmt);
 			assert (sizeof(VkAccelerationStructureInstanceKHR) == mSizeOfOneElement);
-			return describe_member(0, frmt, aContent);
+			return describe_member(0, aContent);
 		}
 
 #if defined(_MSC_VER) && defined(__cplusplus)
@@ -1075,6 +1083,44 @@ namespace avk
 				aContent);
 		}
 #endif
+	};
+
+	/**	This struct contains information for a buffer which is intended to be used to serve as input
+	 *	buffer to acceleration structure builds, while the buffer is a readonly buffer.
+	 */
+	class read_only_input_to_acceleration_structure_builds_buffer_meta : public buffer_meta
+	{
+	public:
+		/** Gets buffer usage flags for this kind of buffer. */
+		vk::BufferUsageFlags buffer_usage_flags() const override
+		{
+			return
+#if VK_HEADER_VERSION >= 182
+				vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+#endif
+				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR;
+		}
+		
+		/** Create meta info from the total size of the represented data. */
+		static read_only_input_to_acceleration_structure_builds_buffer_meta create_from_size(size_t aSize)
+		{ 
+			read_only_input_to_acceleration_structure_builds_buffer_meta result;
+			result.mSizeOfOneElement = aSize;
+			result.mNumElements = 1; 
+			return result; 
+		}
+
+		/** Create meta info from a STL-container like data structure or a single struct.
+		*	Container types must provide a `size()` method and the index operator.
+		*/
+		template <typename T>
+		static std::enable_if_t<!std::is_pointer_v<T>, read_only_input_to_acceleration_structure_builds_buffer_meta> create_from_data(const T& aData)
+		{
+			read_only_input_to_acceleration_structure_builds_buffer_meta result;
+			result.mSizeOfOneElement = sizeof(first_or_only_element(aData));
+			result.mNumElements = how_many_elements(aData);
+			return result; 
+		}
 	};
 
 }
