@@ -2004,7 +2004,12 @@ namespace avk
 
 		auto geomInstBuffer = root::create_buffer(
 			mPhysicalDevice, mDevice, mAllocator,
-			AVK_STAGING_BUFFER_MEMORY_USAGE, vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR,
+			AVK_STAGING_BUFFER_MEMORY_USAGE,
+#if VK_HEADER_VERSION >= 182
+			vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR,
+#else 
+			{},
+#endif
 			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
 		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
