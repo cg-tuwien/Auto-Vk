@@ -7865,10 +7865,9 @@ using namespace cpplinq;
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
 
 		auto extent = aDstImage->config().extent;
-		auto levelDivisor = std::pow(2u, aDstLevel);
-		extent.width  = extent.width  > 1u ? extent.width  / levelDivisor : 1u;
-		extent.height = extent.height > 1u ? extent.height / levelDivisor : 1u;
-		extent.depth  = extent.depth  > 1u ? extent.depth  / levelDivisor : 1u;
+		extent.width  = extent.width  > 1u ? extent.width  >> aDstLevel : 1u;
+		extent.height = extent.height > 1u ? extent.height >> aDstLevel : 1u;
+		extent.depth  = extent.depth  > 1u ? extent.depth  >> aDstLevel : 1u;
 
 		// Operation:
 		auto copyRegion = vk::BufferImageCopy()
@@ -7966,10 +7965,9 @@ using namespace cpplinq;
 		}
 
 		auto extent = aSrcImage->config().extent;
-		auto levelDivisor = std::pow(2u, aSrcLevel);
-		extent.width  = extent.width  > 1u ? extent.width  / levelDivisor : 1u;
-		extent.height = extent.height > 1u ? extent.height / levelDivisor : 1u;
-		extent.depth  = extent.depth  > 1u ? extent.depth  / levelDivisor : 1u;
+		extent.width  = extent.width  > 1u ? extent.width  >> aSrcLevel : 1u;
+		extent.height = extent.height > 1u ? extent.height >> aSrcLevel : 1u;
+		extent.depth  = extent.depth  > 1u ? extent.depth  >> aSrcLevel : 1u;
 
 		// Operation:
 		auto copyRegion = vk::BufferImageCopy()
