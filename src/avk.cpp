@@ -3057,7 +3057,7 @@ namespace avk
 #endif
 #pragma endregion
 
-#pragma compute pipeline definitions
+#pragma region compute pipeline definitions
 	void root::rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline)
 	{
 		aPreparedPipeline.mShaderStageCreateInfo
@@ -3187,7 +3187,7 @@ namespace avk
 	}
 #pragma endregion
 
-#pragma descriptor alloc request
+#pragma region descriptor alloc request
 	descriptor_alloc_request::descriptor_alloc_request()
 		: mNumSets{ 0u }
 	{}
@@ -4089,7 +4089,7 @@ namespace avk
 	}
 #pragma endregion
 
-#pragma framebuffer definitions
+#pragma region framebuffer definitions
 	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<resource_ownership<image_view_t>>& aImageViews)
 	{
 		if (aAttachments.size() != aImageViews.size()) {
@@ -5653,7 +5653,7 @@ namespace avk
 	}
 #pragma endregion
 
-#pragma memory access definitions
+#pragma region memory access definitions
 	read_memory_access::operator memory_access() const
 	{
 		validate_or_throw();
