@@ -926,7 +926,10 @@ namespace avk
 	class unique_function : protected std::function<T>
 	{
 		template<typename Fn, typename En = void>
-		struct wrapper;
+		struct wrapper 
+		{
+			// this struct is not used, only its specializations, but defining it stops the MSVC++ compiler from issuing warning C4348.
+		};
 
 		// specialization for CopyConstructible Fn
 		template<typename Fn>
