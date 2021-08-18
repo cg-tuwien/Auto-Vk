@@ -4201,7 +4201,7 @@ namespace avk
 	{
 		aSync.establish_barrier_before_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
 
-		const int n = mImageViews.size();
+		const size_t n = mImageViews.size();
 		assert (n == mRenderpass->attachment_descriptions().size());
 		for (size_t i = 0; i < n; ++i) {
 			mImageViews[i]->get_image().transition_to_layout(mRenderpass->attachment_descriptions()[i].finalLayout, sync::auxiliary_with_barriers(aSync, {}, {}));
@@ -6482,7 +6482,7 @@ namespace avk
 	void root::build_shader_binding_table(ray_tracing_pipeline_t& aPipeline)
 	{
 		// According to https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable this is the way:
-		const size_t groupCount = aPipeline.mShaderGroupCreateInfos.size();
+		const uint32_t groupCount = static_cast<uint32_t>(aPipeline.mShaderGroupCreateInfos.size());
 		const size_t shaderBindingTableSize = aPipeline.mShaderBindingTableGroupsInfo.mTotalSize;
 
 		// TODO: All of this SBT-stuff probably needs some refactoring
@@ -7350,7 +7350,7 @@ using namespace cpplinq;
 		//  => Let's establish very (overly) cautious dependencies to ensure correctness, but user can set more tight sync via the callback
 
 		const uint32_t firstSubpassId = 0u;
-		const uint32_t lastSubpassId = numSubpassesFirst - 1;
+		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
 		const auto addDependency = [&result](renderpass_sync& rps){
 			result.mSubpassDependencies.push_back(vk::SubpassDependency()
 				// Between which two subpasses is this dependency:
