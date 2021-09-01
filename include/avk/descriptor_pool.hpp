@@ -27,7 +27,13 @@ namespace avk
 		void set_remaining_sets(int aRemainingSetsOverride) { mNumRemainingSets = aRemainingSetsOverride; }
 		
 		std::vector<vk::DescriptorSet> allocate(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts);
-		
+
+		/**	Resets this descriptor pool, freeing all descriptor sets that have been allocated from it.
+		 *	Also sets remaining capacities to initial capacities.
+		 *	Use at your own risk!
+		 */
+		void reset();
+
 	private:
 		vk::UniqueDescriptorPool mDescriptorPool;
 		std::vector<vk::DescriptorPoolSize> mInitialCapacities;

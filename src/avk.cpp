@@ -3368,6 +3368,13 @@ namespace avk
 		return result;
 	}
 
+	void descriptor_pool::reset()
+	{
+		mDescriptorPool.getOwner().resetDescriptorPool(mDescriptorPool.get());
+		mRemainingCapacities = mInitialCapacities;
+		mNumRemainingSets = mNumInitialSets;
+	}
+
 	descriptor_cache root::create_descriptor_cache(std::string aName)
 	{
 		if (aName.empty()) {
