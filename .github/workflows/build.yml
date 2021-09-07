@@ -81,7 +81,7 @@ jobs:
         shell: bash
         working-directory: ${{ runner.workspace }}/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cmake --build . --config $BUILD_TYPE
+        run: cmake --build .
 
   windows:
     name: ${{ matrix.config.name }} using VulkanSDK version ${{ matrix.vulkan-sdk }}
@@ -144,4 +144,4 @@ jobs:
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
         working-directory: ${{ runner.workspace }}/${{ github.event.repository.name }}/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cmake --build . --config $BUILD_TYPE
+        run: cmake --build .
