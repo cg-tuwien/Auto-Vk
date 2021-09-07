@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.13)
 project(avk)
 
-set(CMAKE_CXX_STANDARD 20)
+if (MSVC)
+    # <ranges> support requires /std:c++latest on MSVC
+    set(CMAKE_CXX_STANDARD 23)
+else (MSVC)
+    set(CMAKE_CXX_STANDARD 20)
+endif (MSVC)
 
 set(avk_AllowedLibraryTypes INTERFACE SHARED STATIC)
 set(avk_LibraryType INTERFACE CACHE STRING
@@ -27,22 +32,12 @@ endif()
 add_library(${PROJECT_NAME} ${avk_LibraryType})
 
 if(NOT avk_LibraryType STREQUAL "INTERFACE")
-    if (MSVC)
-        target_compile_options(${PROJECT_NAME}
-            PUBLIC "/std:c++latest")
-    endif (MSVC)
-
     target_include_directories(${PROJECT_NAME} PUBLIC ${avk_IncludeDirs})
     target_sources(${PROJECT_NAME} PUBLIC ${avk_Sources})
     find_package(Vulkan)
     target_include_directories(${PROJECT_NAME} PUBLIC
         ${Vulkan_INCLUDE_DIR})
 else()
-    if (MSVC)
-        target_compile_options(${PROJECT_NAME}
-            INTERFACE "/std:c++latest")
-    endif (MSVC)
-
     target_include_directories(${PROJECT_NAME} INTERFACE ${avk_IncludeDirs})
     target_sources(${PROJECT_NAME} INTERFACE ${avk_Sources})
 endif()
