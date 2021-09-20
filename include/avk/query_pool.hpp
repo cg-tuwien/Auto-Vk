@@ -19,7 +19,8 @@ namespace avk
 		query_pool_t& operator=(query_pool_t&&) noexcept = default;
 		~query_pool_t() = default;
 
-		const auto& create_info() const { return mCreateInfo; }
+		const auto& create_info() const	{ return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		const auto& handle() const { return mQueryPool.get(); }
 		const auto* handle_ptr() const { return &mQueryPool.get(); }
 

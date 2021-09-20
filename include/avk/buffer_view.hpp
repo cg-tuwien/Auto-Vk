@@ -39,14 +39,14 @@ namespace avk
 		~buffer_view_t() = default;
 
 		/** Get the config which is used to created this image view with the API. */
-		const auto& config() const { return mInfo; }
+		const auto& create_info() const { return mCreateInfo; }
 		/** Get the config which is used to created this image view with the API. */
-		auto& config() { return mInfo; }
+		auto& create_info() { return mCreateInfo; }
 
 		/** Gets the buffer handle which this view has been created for. */
 		vk::Buffer buffer_handle() const;
 		/** Gets the buffer's config */
-		const vk::BufferCreateInfo& buffer_config() const;
+		const vk::BufferCreateInfo& buffer_create_info() const;
 		
 		/** Gets the buffer view's vulkan handle */
 		const auto& view_handle() const { return mBufferView.get(); }
@@ -98,7 +98,7 @@ namespace avk
 		// Owning XOR non-owning handle to a buffer.
 		std::variant<buffer, std::tuple<vk::Buffer, vk::BufferCreateInfo>> mBuffer;
 		// Config which is passed to the create call and contains all the parameters for buffer view creation.
-		vk::BufferViewCreateInfo mInfo;
+		vk::BufferViewCreateInfo mCreateInfo;
 		// The image view's handle. This member will contain a valid handle only after successful image view creation.
 		vk::UniqueBufferView mBufferView;
 	};

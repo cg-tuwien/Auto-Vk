@@ -67,7 +67,7 @@ namespace avk
 		}
 		
 		/** Get the config a.k.a. create-info that was used to allocate this resource. */
-		auto config() const
+		auto create_info() const
 		{
 			return mCreateInfo;
 		}

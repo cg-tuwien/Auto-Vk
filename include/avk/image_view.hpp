@@ -49,9 +49,9 @@ namespace avk
 		~image_view_t() = default;
 
 		/** Get the config which is used to created this image view with the API. */
-		const auto& config() const { return mInfo; }
+		const auto& create_info() const { return mCreateInfo; }
 		/** Get the config which is used to created this image view with the API. */
-		auto& config() { return mInfo; }
+		auto& create_info() { return mCreateInfo; }
 
 		/** Gets the associated image or throws if no `ak::image` is associated. */
 		const image_t& get_image() const
@@ -94,7 +94,7 @@ namespace avk
 		// The "wrapped" image:
 		std::variant<std::monostate, helper_t, image> mImage;
 		// Config which is passed to the create call and contains all the parameters for image view creation.
-		vk::ImageViewCreateInfo mInfo;
+		vk::ImageViewCreateInfo mCreateInfo;
 		vk::ImageViewUsageCreateInfo mUsageInfo;
 		// The image view's handle. This member will contain a valid handle only after successful image view creation.
 		vk::UniqueImageView mImageView;

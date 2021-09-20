@@ -81,8 +81,9 @@ namespace avk
 			return *reinterpret_cast<const Meta*>(metaPtr);
 		}
 		
-		auto& config() const	{ return mCreateInfo; }
-		auto handle() const		{ return mBuffer.resource(); }
+		const auto& create_info() const	{ return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
+		auto handle() const			{ return mBuffer.resource(); }
 
 		/** Returns a reference to this buffer's memory handle.
 		 *	Attention: It returns a reference! => Use with caution,
@@ -112,7 +113,7 @@ namespace avk
 				mDescriptorInfo = vk::DescriptorBufferInfo()
 					.setBuffer(handle())
 					.setOffset(0)
-					.setRange(config().size); // TODO: Support different offsets and ranges
+					.setRange(create_info().size); // TODO: Support different offsets and ranges
 			}
 			return mDescriptorInfo.value();
 		}

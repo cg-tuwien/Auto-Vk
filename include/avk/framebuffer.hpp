@@ -26,7 +26,8 @@ namespace avk
 		auto& image_views() { return mImageViews; } // TODO: Probably remove this?!
 		avk::resource_reference<image_t> image_at(size_t i) { return avk::referenced(mImageViews[i]->get_image()); }
 		avk::resource_reference<image_view_t> image_view_at(size_t i) { return avk::referenced(mImageViews[i]); }
-		auto create_info() const { return mCreateInfo; }
+		const auto& create_info() const	{ return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		auto handle() const { return mFramebuffer.get(); }
 
 		/**	Initializes the attachments by transferring their image layouts away from uninitialized into something useful.

@@ -46,7 +46,8 @@ namespace avk
 			return *this;
 		}
 
-		const auto& create_info() const { return mCreateInfo; }
+		const auto& create_info() const	{ return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		const auto& handle() const { return mSemaphore.get(); }
 		const auto* handle_addr() const { return &mSemaphore.get(); }
 		
