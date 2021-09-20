@@ -549,6 +549,178 @@ namespace avk
 	};
 
 
+	// A resource_owner owns a resource.
+	//  - Can be initialized with owning_resource<T>
+	//  x but not with resource T
+	template <typename T>
+	class resource_ownership
+	{
+	public:
+		// Explicitly construct an element that takes ownership of a reference to owning_resource<T>
+		explicit resource_ownership(owning_resource<T>& aOwningResource)
+			: mOwnership{ std::move(aOwningResource) }
+		{
+			assert(!aOwningResource.has_value());
+		}
+
+		// Implicitly allow construction of an rvalue-reference to owning_resource<T>
+		resource_ownership(owning_resource<T>&& aOwningResource)
+			: mOwnership{ std::move(aOwningResource) }
+		{
+			assert(!aOwningResource.has_value());
+		}
+
+		// Move-constructing from the other
+		resource_ownership(resource_ownership<T>&& aOther) noexcept
+			: mOwnership{ std::move(aOther.mOwnership) }
+		{
+			assert(!aOther.mOwnership.has_value());
+		}
+
+		// Move-assigning from the other
+		resource_ownership& operator=(resource_ownership<T>&& aOther) noexcept
+		{
+			mOwnership = std::move(aOther);
+			assert(!aOther.mOwnership.has_value());
+			return *this;
+		}
+
+		// Copy-constructing from the other.
+		// Can fail if aOther does not have shared ownership enabled.
+		resource_ownership(const resource_ownership<T>& aOther)
+			: mOwnership{ aOther.mOwnership }
+		{ }
+
+		// Copy-assigning from the other.
+		// Can fail if aOther does not have shared ownership enabled.
+		resource_ownership& operator=(const resource_ownership<T>& aOther)
+		{
+			mOwnership = aOther.mOwnership;
+			return *this;
+		}
+
+		// Get the owning_resource<T> of resource T
+		const owning_resource<T>& get_owner() const
+		{
+			return mOwnership;
+		}
+
+		// Get the owning_resource<T> of resource T
+		owning_resource<T>& get_owner()
+		{
+			return mOwnership;
+		}
+
+		// Get the ownership with the intent of stealing its guts
+		owning_resource<T>&& own()
+		{
+			return std::move(mOwnership);
+		}
+
+		// Get reference to the resource T
+		const T& get() const
+		{
+			return mOwnership.get();
+		}
+
+		// Get reference to the resource T
+		T& get()
+		{
+			return mOwnership.get();
+		}
+
+		// Get reference to the resource T
+		const T& operator*() const
+		{
+			return get();
+		}
+
+		// Get reference to the resource T
+		T& operator*()
+		{
+			return get();
+		}
+
+		// Get pointer to the resource T
+		const T* operator->() const
+		{
+			return &get();
+		}
+
+		// Get pointer to the resource T
+		T* operator->()
+		{
+			return &get();
+		}
+
+	private:
+		owning_resource<T> mOwnership;
+	};
+
+	// Indicate the intent to own the given resource
+	template <typename T>
+	resource_ownership<T> owned(owning_resource<T>&& aResource)
+	{
+		return resource_ownership<T>{ std::move(aResource) };
+	}
+
+	// Indicate the intent to own the given resource, transferring the ownership.
+	// Attention: The original owner no longer owns it afterwards!
+	template <typename T>
+	resource_ownership<T> owned(owning_resource<T>& aResource)
+	{
+		return resource_ownership<T>{ std::move(aResource) };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> owned(resource_ownership<T>&& aResourceOwnership)
+	{
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> owned(resource_ownership<T>& aResourceOwnership)
+	{
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+	// Indicate the intent to co-own the given resource
+	template <typename T>
+	resource_ownership<T> shared(owning_resource<T>&& aResource)
+	{
+		// No need to enable shared ownership just for the move constructor
+		return resource_ownership<T>{ std::move(aResource) };
+	}
+
+	// Indicate the intent to co-own the given resource
+	template <typename T>
+	resource_ownership<T> shared(owning_resource<T>& aResource)
+	{
+		aResource.enable_shared_ownership();
+		// We must not destroy the original, but create a copy:
+		owning_resource<T> copy{ aResource };
+		return resource_ownership<T>{ std::move(copy) };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> shared(resource_ownership<T>&& aResourceOwnership)
+	{
+		// No need to enable shared ownership just for the move constructor
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+	// Pass-through method for resources that are already wrapped in resource_ownership
+	template <typename T>
+	resource_ownership<T> shared(resource_ownership<T>& aResourceOwnership)
+	{
+		aResourceOwnership.get_owner().enable_shared_ownership();
+		return resource_ownership<T>{ std::move(aResourceOwnership) };
+	}
+
+
 	// A reference to an (owning/non-owning) resource
 	//  - Can be initialized with owning_resource<T>
 	//  - or with resource T
@@ -561,6 +733,14 @@ namespace avk
 			: mResource{ const_cast<T*>(aOwningResource.operator->()) }
 #ifdef _DEBUG
 			, mOwner{ &aOwningResource }
+#endif
+		{ }
+
+		// Implicitly allow the construction of a reference to resource_ownership<T>
+		resource_reference(const resource_ownership<std::remove_const_t<T>>& aResourceOwnership)
+			: mResource{ const_cast<T*>(aResourceOwnership.get_owner().operator->()) }
+#ifdef _DEBUG
+			, mOwner{ &aResourceOwnership.get_owner() }
 #endif
 		{ }
 
@@ -747,180 +927,6 @@ namespace avk
 	{
 		return resource_reference<const T>{ aResourceReference.get() };
 	}
-
-
-	// A resource_owner owns a resource.
-	//  - Can be initialized with owning_resource<T>
-	//  x but not with resource T
-	template <typename T>
-	class resource_ownership
-	{
-	public:
-		// Explicitly construct an element that takes ownership of a reference to owning_resource<T>
-		explicit resource_ownership(owning_resource<T>& aOwningResource)
-			: mOwnership{ std::move(aOwningResource) }
-		{
-			assert(!aOwningResource.has_value());
-		}
-
-		// Implicitly allow construction of an rvalue-reference to owning_resource<T>
-		resource_ownership(owning_resource<T>&& aOwningResource)
-			: mOwnership{ std::move(aOwningResource) }
-		{
-			assert(!aOwningResource.has_value());
-		}
-
-		// Move-constructing from the other
-		resource_ownership(resource_ownership<T>&& aOther) noexcept
-			: mOwnership{ std::move(aOther.mOwnership) }
-		{
-			assert(!aOther.mOwnership.has_value());
-		}
-
-		// Move-assigning from the other
-		resource_ownership& operator=(resource_ownership<T>&& aOther) noexcept
-		{
-			mOwnership = std::move(aOther);
-			assert(!aOther.mOwnership.has_value());
-			return *this;
-		}
-
-		// Copy-constructing from the other.
-		// Can fail if aOther does not have shared ownership enabled.
-		resource_ownership(const resource_ownership<T>& aOther)
-			: mOwnership{ aOther.mOwnership }
-		{ }
-
-		// Copy-assigning from the other.
-		// Can fail if aOther does not have shared ownership enabled.
-		resource_ownership& operator=(const resource_ownership<T>& aOther)
-		{
-			mOwnership = aOther.mOwnership;
-			return *this;
-		}
-
-		// Get the owning_resource<T> of resource T
-		const owning_resource<T>& get_owner() const
-		{
-			return mOwnership;
-		}
-
-		// Get the owning_resource<T> of resource T
-		owning_resource<T>& get_owner()
-		{
-			return mOwnership;
-		}
-
-		// Get the ownership with the intent of stealing its guts
-		owning_resource<T>&& own()
-		{
-			return std::move(mOwnership);
-		}
-
-		// Get reference to the resource T
-		const T& get() const
-		{
-			return mOwnership.get();
-		}
-
-		// Get reference to the resource T
-		T& get()
-		{
-			return mOwnership.get();
-		}
-
-		// Get reference to the resource T
-		const T& operator*() const
-		{
-			return get();
-		}
-
-		// Get reference to the resource T
-		T& operator*()
-		{
-			return get();
-		}
-
-		// Get pointer to the resource T
-		const T* operator->() const
-		{
-			return &get();
-		}
-
-		// Get pointer to the resource T
-		T* operator->()
-		{
-			return &get();
-		}
-
-	private:
-		owning_resource<T> mOwnership;
-	};
-
-	// Indicate the intent to own the given resource
-	template <typename T>
-	resource_ownership<T> owned(owning_resource<T>&& aResource)
-	{
-		return resource_ownership<T>{ std::move(aResource) };
-	}
-
-	// Indicate the intent to own the given resource, transferring the ownership.
-	// Attention: The original owner no longer owns it afterwards!
-	template <typename T>
-	resource_ownership<T> owned(owning_resource<T>& aResource)
-	{
-		return resource_ownership<T>{ std::move(aResource) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> owned(resource_ownership<T>&& aResourceOwnership)
-	{
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> owned(resource_ownership<T>& aResourceOwnership)
-	{
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-	// Indicate the intent to co-own the given resource
-	template <typename T>
-	resource_ownership<T> shared(owning_resource<T>&& aResource)
-	{
-		// No need to enable shared ownership just for the move constructor
-		return resource_ownership<T>{ std::move(aResource) };
-	}
-
-	// Indicate the intent to co-own the given resource
-	template <typename T>
-	resource_ownership<T> shared(owning_resource<T>& aResource)
-	{
-		aResource.enable_shared_ownership();
-		// We must not destroy the original, but create a copy:
-		owning_resource<T> copy{ aResource };
-		return resource_ownership<T>{ std::move(copy) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> shared(resource_ownership<T>&& aResourceOwnership)
-	{
-		// No need to enable shared ownership just for the move constructor
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> shared(resource_ownership<T>& aResourceOwnership)
-	{
-		aResourceOwnership.get_owner().enable_shared_ownership();
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-
 
 	template<typename T>
 	class unique_function : protected std::function<T>
