@@ -7042,7 +7042,7 @@ using namespace cpplinq;
 		}
 	}
 
-	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation, std::function<void(vk::RenderPassCreateInfo &)> aAlterCreateInfoBeforeCreation)
 	{
 		renderpass_t result;
 
@@ -7448,6 +7448,12 @@ using namespace cpplinq;
 			.setPSubpasses(result.mSubpasses.data())
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
+
+		// Maybe alter the createInfo itself?!
+		if (aAlterCreateInfoBeforeCreation) {
+			aAlterCreateInfoBeforeCreation(createInfo);
+		}
+
 		result.mRenderPass = device().createRenderPassUnique(createInfo);
 		return result;
 
