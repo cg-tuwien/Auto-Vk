@@ -7042,7 +7042,7 @@ using namespace cpplinq;
 		}
 	}
 
-	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation, std::function<void(vk::RenderPassCreateInfo &)> aAlterCreateInfoBeforeCreation)
+	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
 
@@ -7435,13 +7435,8 @@ using namespace cpplinq;
 
 		assert(result.mSubpassDependencies.size() == numSubpassesFirst + 1);
 
-		// Maybe alter the config?!
-		if (aAlterConfigBeforeCreation) {
-			aAlterConfigBeforeCreation(result);
-		}
-
 		// Finally, create the render pass
-		auto createInfo = vk::RenderPassCreateInfo()
+		result.mCreateInfo = vk::RenderPassCreateInfo()
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
@@ -7449,12 +7444,12 @@ using namespace cpplinq;
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
 
-		// Maybe alter the createInfo itself?!
-		if (aAlterCreateInfoBeforeCreation) {
-			aAlterCreateInfoBeforeCreation(createInfo);
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mRenderPass = device().createRenderPassUnique(createInfo);
+		result.mRenderPass = device().createRenderPassUnique(result.mCreateInfo);
 		return result;
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
