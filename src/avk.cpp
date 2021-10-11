@@ -81,7 +81,7 @@ namespace avk
 			aAlterConfigBeforeCreation(aBufferViewToBeFinished);
 		}
 
-		aBufferViewToBeFinished.mBufferView = device().createBufferViewUnique(aBufferViewToBeFinished.mCreateInfo);
+		aBufferViewToBeFinished.mBufferView = device().createBufferViewUnique(aBufferViewToBeFinished.mCreateInfo, nullptr, dispatch_loader_core());
 
 		// TODO: Descriptors?!
 	}
@@ -1636,6 +1636,9 @@ namespace avk
 			mScratchBuffer = root::create_buffer(
 				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
+#if VK_HEADER_VERSION >= 189
+				vk::BufferUsageFlagBits::eStorageBuffer |
+#endif
 #if VK_HEADER_VERSION >= 162
 				// TODO: Looks like no special usage flags are required anymore?
 				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
@@ -1983,6 +1986,9 @@ namespace avk
 			mScratchBuffer = root::create_buffer(
 				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
+#if VK_HEADER_VERSION >= 189
+				vk::BufferUsageFlagBits::eStorageBuffer |
+#endif
 #if VK_HEADER_VERSION >= 162
 #if VK_HEADER_VERSION >= 182
 				vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
@@ -2741,8 +2747,9 @@ namespace avk
 			.setFlags(aCreateFlags);
 		command_pool_t result;
 		result.mQueueFamilyIndex = aQueueFamilyIndex;
+		result.mDispatchLoader = &dispatch_loader_core();
 		result.mCreateInfo = createInfo;
-		result.mCommandPool = std::make_shared<vk::UniqueCommandPool>(device().createCommandPoolUnique(createInfo));
+		result.mCommandPool = std::make_shared<vk::UniqueCommandPool>(device().createCommandPoolUnique(createInfo, nullptr, dispatch_loader_core()));
 		return result;
 	}
 
@@ -2753,7 +2760,7 @@ namespace avk
 			.setLevel(aLevel)
 			.setCommandBufferCount(aCount);
 
-		auto tmp = mCommandPool->getOwner().allocateCommandBuffersUnique(bufferAllocInfo);
+		auto tmp = mCommandPool->getOwner().allocateCommandBuffersUnique(bufferAllocInfo, *mDispatchLoader);
 
 		// Iterate over all the "raw"-Vk objects in `tmp` and...
 		std::vector<command_buffer> buffers;
@@ -3074,7 +3081,7 @@ namespace avk
 		// Layout must already be configured and created properly!
 
 		// Create the PIPELINE LAYOUT
-		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo, nullptr, dispatch_loader_core());
 		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
 
 		// Create the PIPELINE, a.k.a. putting it all together:
@@ -3085,7 +3092,7 @@ namespace avk
 			.setBasePipelineHandle(nullptr) // Optional
 			.setBasePipelineIndex(-1); // Optional
 #if VK_HEADER_VERSION >= 141
-		auto result = device().createComputePipelineUnique(nullptr, pipelineInfo);
+		auto result = device().createComputePipelineUnique(nullptr, pipelineInfo, nullptr, dispatch_loader_core());
 		aPreparedPipeline.mPipeline = std::move(result.value);
 #else
 		aPreparedPipeline.mPipeline = device().createComputePipelineUnique(nullptr, pipelineInfo);
@@ -3242,7 +3249,7 @@ namespace avk
 #pragma endregion
 
 #pragma region descriptor pool definitions
-	descriptor_pool root::create_descriptor_pool(vk::Device aDevice, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
+	descriptor_pool root::create_descriptor_pool(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
 	{
 		descriptor_pool result;
 		result.mInitialCapacities = aSizeRequirements;
@@ -3256,7 +3263,7 @@ namespace avk
 			.setPPoolSizes(result.mInitialCapacities.data())
 			.setMaxSets(aNumSets)
 			.setFlags(vk::DescriptorPoolCreateFlags()); // The structure has an optional flag similar to command pools that determines if individual descriptor sets can be freed or not: VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT. We're not going to touch the descriptor set after creating it, so we don't need this flag. [10]
-		result.mDescriptorPool = aDevice.createDescriptorPoolUnique(createInfo);
+		result.mDescriptorPool = aDevice.createDescriptorPoolUnique(createInfo, nullptr, aDispatchLoader);
 
 		AVK_LOG_DEBUG("Allocated pool with flags[" + vk::to_string(createInfo.flags) + "], maxSets[" + std::to_string(createInfo.maxSets) + "], remaining-sets[" + std::to_string(result.mNumRemainingSets) + "], size-entries[" + std::to_string(createInfo.poolSizeCount) + "]");
 #if defined(_DEBUG)
@@ -3270,7 +3277,7 @@ namespace avk
 
 	descriptor_pool root::create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
 	{
-		return create_descriptor_pool(device(), aSizeRequirements, aNumSets);
+		return create_descriptor_pool(device(), dispatch_loader_core(), aSizeRequirements, aNumSets);
 	}
 
 	bool descriptor_pool::has_capacity_for(const descriptor_alloc_request& pRequest) const
@@ -3386,6 +3393,7 @@ namespace avk
 		result.mName = std::move(aName);
 		result.mPhysicalDevice = physical_device();
 		result.mDevice = device();
+		result.mDispatchLoader = &dispatch_loader_core();
 		return result;
 	}
 #pragma endregion
@@ -3409,14 +3417,14 @@ namespace avk
 		return !(left == right);
 	}
 
-	void root::allocate_descriptor_set_layout(vk::Device aDevice, descriptor_set_layout& aLayoutToBeAllocated)
+	void root::allocate_descriptor_set_layout(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, descriptor_set_layout& aLayoutToBeAllocated)
 	{
 		if (!aLayoutToBeAllocated.mLayout) {
 			// Allocate the layout and return the result:
 			auto createInfo = vk::DescriptorSetLayoutCreateInfo()
 				.setBindingCount(static_cast<uint32_t>(aLayoutToBeAllocated.mOrderedBindings.size()))
 				.setPBindings(aLayoutToBeAllocated.mOrderedBindings.data());
-			aLayoutToBeAllocated.mLayout = aDevice.createDescriptorSetLayoutUnique(createInfo);
+			aLayoutToBeAllocated.mLayout = aDevice.createDescriptorSetLayoutUnique(createInfo, nullptr, aDispatchLoader);
 		}
 		else {
 			AVK_LOG_ERROR("descriptor_set_layout's handle already has a value => it most likely has already been allocated. Won't do it again.");
@@ -3425,7 +3433,7 @@ namespace avk
 
 	void root::allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated)
 	{
-		return allocate_descriptor_set_layout(device(), aLayoutToBeAllocated);
+		return allocate_descriptor_set_layout(device(), dispatch_loader_core(), aLayoutToBeAllocated);
 	}
 
 	descriptor_set_layout root::create_descriptor_set_layout_from_template(const descriptor_set_layout& aTemplate)
@@ -3531,7 +3539,7 @@ namespace avk
 			return *it;
 		}
 
-		root::allocate_descriptor_set_layout(mDevice, aPreparedLayout);
+		root::allocate_descriptor_set_layout(mDevice, *mDispatchLoader, aPreparedLayout);
 
 		const auto result = mLayouts.insert(std::move(aPreparedLayout));
 		assert(result.second);
@@ -3693,7 +3701,7 @@ namespace avk
 		//if (!isNvidia) { // Let's 'if' on the vendor and see what happens...
 		//}
 
-		auto newPool = root::create_descriptor_pool(mDevice,
+		auto newPool = root::create_descriptor_pool(mDevice, *mDispatchLoader,
 			isNvidia
 			  ? aAllocRequest.accumulated_pool_sizes()
 			  : amplifiedAllocRequest.accumulated_pool_sizes(),
@@ -4072,7 +4080,7 @@ namespace avk
 		}
 	}
 
-	fence root::create_fence(vk::Device aDevice, bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
+	fence root::create_fence(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
 	{
 		fence_t result;
 		result.mCreateInfo = vk::FenceCreateInfo()
@@ -4086,13 +4094,13 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mFence = aDevice.createFenceUnique(result.mCreateInfo);
+		result.mFence = aDevice.createFenceUnique(result.mCreateInfo, nullptr, aDispatchLoader);
 		return result;
 	}
 
 	fence root::create_fence(bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
 	{
-		return create_fence(device(), aCreateInSignalledState, std::move(aAlterConfigBeforeCreation));
+		return create_fence(device(), dispatch_loader_core(), aCreateInSignalledState, std::move(aAlterConfigBeforeCreation));
 	}
 #pragma endregion
 
@@ -4144,7 +4152,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mFramebuffer = device().createFramebufferUnique(result.mCreateInfo);
+		result.mFramebuffer = device().createFramebufferUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
 
 		// Set the right layouts for the images:
 		const auto n = result.mImageViews.size();
@@ -4477,7 +4485,7 @@ namespace avk
 		// Pipeline Layout must be rewired already before calling this function
 
 		// Create the PIPELINE LAYOUT
-		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo, nullptr, dispatch_loader_core());
 		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
 
 		// Create the PIPELINE, a.k.a. putting it all together:
@@ -4520,7 +4528,7 @@ namespace avk
 		// TODO: Shouldn't the config be altered HERE, after the pipelineInfo has been compiled?!
 
 #if VK_HEADER_VERSION >= 141
-		auto result = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
+		auto result = device().createGraphicsPipelineUnique(nullptr, pipelineInfo, nullptr, dispatch_loader_core());
 		aPreparedPipeline.mPipeline = std::move(result.value);
 #else
 		aPreparedPipeline.mPipeline = device().createGraphicsPipelineUnique(nullptr, pipelineInfo);
@@ -5325,7 +5333,7 @@ namespace avk
 			aAlterImageViewConfigBeforeCreation(result);
 		}
 
-		result.mImageView = device().createImageViewUnique(result.mCreateInfo);
+		result.mImageView = device().createImageViewUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
 		result.mDescriptorInfo = vk::DescriptorImageInfo{}
 			.setImageView(result.handle())
 			.setImageLayout(result.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
@@ -5450,7 +5458,7 @@ namespace avk
 			aAlterConfigBeforeCreation(aImageView);
 		}
 
-		aImageView.mImageView = device().createImageViewUnique(aImageView.mCreateInfo);
+		aImageView.mImageView = device().createImageViewUnique(aImageView.mCreateInfo, nullptr, dispatch_loader_core());
 		aImageView.mDescriptorInfo = vk::DescriptorImageInfo{}
 			.setImageView(aImageView.handle())
 			.setImageLayout(aImageView.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
@@ -5589,7 +5597,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mSampler = device().createSamplerUnique(result.create_info());
+		result.mSampler = device().createSamplerUnique(result.create_info(), nullptr, dispatch_loader_core());
 		result.mDescriptorInfo = vk::DescriptorImageInfo{}
 			.setSampler(result.handle());
 		result.mDescriptorType = vk::DescriptorType::eSampler;
@@ -5814,6 +5822,7 @@ namespace avk
 
 	queue queue::prepare(
 		vk::PhysicalDevice aPhysicalDevice,
+		const vk::DispatchLoaderStatic& aDispatchLoader,
 		uint32_t aQueueFamilyIndex,
 		uint32_t aQueueIndex,
 		float aQueuePriority
@@ -5834,6 +5843,7 @@ namespace avk
 		result.mPhysicalDevice = aPhysicalDevice;
 		result.mDevice = nullptr;
 		result.mQueue = nullptr;
+		result.mDispatchLoader = &aDispatchLoader;
 		return result;
 	}
 
@@ -5872,7 +5882,7 @@ namespace avk
 	{
 		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
 
-		auto sem = root::create_semaphore(mDevice);
+		auto sem = root::create_semaphore(mDevice, *mDispatchLoader);
 
 		auto submitInfo = vk::SubmitInfo{}
 			.setCommandBufferCount(1u)
@@ -5969,7 +5979,7 @@ namespace avk
 	{
 		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
 
-		auto fen = root::create_fence(mDevice);
+		auto fen = root::create_fence(mDevice, *mDispatchLoader);
 
 		if (0 == aWaitSemaphores.size()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6036,7 +6046,7 @@ namespace avk
 			handles.push_back(cb->handle());
 		}
 
-		auto fen = root::create_fence(mDevice);
+		auto fen = root::create_fence(mDevice, *mDispatchLoader);
 
 		if (aWaitSemaphores.empty()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6103,7 +6113,7 @@ namespace avk
 		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
 
 		// Create a semaphore which can, or rather, MUST be used to wait for the results
-		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice);
+		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice, *mDispatchLoader);
 
 		if (aWaitSemaphores.empty()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6186,7 +6196,7 @@ namespace avk
 		}
 
 		// Create a semaphore which can, or rather, MUST be used to wait for the results
-		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice);
+		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice, *mDispatchLoader);
 
 		if (aWaitSemaphores.empty()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6444,12 +6454,12 @@ namespace avk
 
 		// Pipeline Layout must be rewired already before calling this function
 
-		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo, nullptr, dispatch_loader_core());
 		assert(aPreparedPipeline.layout_handle());
 
 
 		// Create the PIPELINE LAYOUT
-		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo);
+		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo, nullptr, dispatch_loader_core());
 		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
 
 		auto pipelineCreateInfo = vk::RayTracingPipelineCreateInfoKHR{}
@@ -6471,13 +6481,13 @@ namespace avk
 			{}, {},
 			pipelineCreateInfo,
 			nullptr,
-			dynamic_dispatch());
+			dispatch_loader_ext());
 #else
 		auto pipeCreationResult = device().createRayTracingPipelineKHR(
 			nullptr,
 			pipelineCreateInfo,
 			nullptr,
-			dynamic_dispatch());
+			dispatch_loader_ext());
 #endif
 
 		aPreparedPipeline.mPipeline = pipeCreationResult.value;
@@ -6508,7 +6518,7 @@ namespace avk
 
 		// Copy to temporary buffer:
 		std::vector<uint8_t> shaderHandleStorage(shaderBindingTableSize); // The order MUST be the same as during step 3, we just need to ensure to align the TARGET offsets properly (see below)
-		auto result = device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dynamic_dispatch());
+		auto result = device().getRayTracingShaderGroupHandlesKHR(aPipeline.handle(), 0, groupCount, shaderBindingTableSize, shaderHandleStorage.data(), dispatch_loader_ext());
 		assert(static_cast<VkResult>(result) >= 0);
 
 		auto mapped = scoped_mapping{aPipeline.mShaderBindingTable->mBuffer, mapping_access::write};
@@ -6566,7 +6576,7 @@ namespace avk
 
 		ray_tracing_pipeline_t result;
 		result.mDevice = device();
-		result.mDynamicDispatch = dynamic_dispatch();
+		result.mDynamicDispatch = dispatch_loader_ext();
 
 		// 1. Set pipeline flags
 		result.mPipelineCreateFlags = {};
@@ -7448,7 +7458,7 @@ using namespace cpplinq;
 			.setPSubpasses(result.mSubpasses.data())
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
-		result.mRenderPass = device().createRenderPassUnique(createInfo);
+		result.mRenderPass = device().createRenderPassUnique(createInfo, nullptr, dispatch_loader_core());
 		return result;
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
@@ -7481,7 +7491,7 @@ using namespace cpplinq;
 			.setPSubpasses(result.mSubpasses.data())
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
-		result.mRenderPass = device().createRenderPassUnique(createInfo);
+		result.mRenderPass = device().createRenderPassUnique(createInfo, nullptr, dispatch_loader_core());
 		return result;
 	}
 
@@ -7593,7 +7603,7 @@ using namespace cpplinq;
 		return *this;
 	}
 
-	semaphore root::create_semaphore(vk::Device aDevice, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
+	semaphore root::create_semaphore(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
 	{
 		semaphore_t result;
 		result.mCreateInfo = vk::SemaphoreCreateInfo{};
@@ -7603,13 +7613,13 @@ using namespace cpplinq;
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mSemaphore = aDevice.createSemaphoreUnique(result.mCreateInfo);
+		result.mSemaphore = aDevice.createSemaphoreUnique(result.mCreateInfo, nullptr, aDispatchLoader);
 		return result;
 	}
 
 	semaphore root::create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
 	{
-		return create_semaphore(device(), std::move(aAlterConfigBeforeCreation));
+		return create_semaphore(device(), dispatch_loader_core(), std::move(aAlterConfigBeforeCreation));
 	}
 #pragma endregion
 
@@ -7627,7 +7637,7 @@ using namespace cpplinq;
 			.setCodeSize(aCode.size())
 			.setPCode(reinterpret_cast<const uint32_t*>(aCode.data()));
 
-		return device().createShaderModuleUnique(createInfo);
+		return device().createShaderModuleUnique(createInfo, nullptr, dispatch_loader_core());
 	}
 
 	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& aPath)
@@ -8046,7 +8056,7 @@ using namespace cpplinq;
 			.setQueryType( aQueryType )
 			.setQueryCount( aQueryCount )
 			.setPipelineStatistics( aPipelineStatistics );
-		result.mQueryPool = device().createQueryPoolUnique(result.mCreateInfo);
+		result.mQueryPool = device().createQueryPoolUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
 
 		return result;
 	}

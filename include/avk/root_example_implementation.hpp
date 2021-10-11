@@ -7,7 +7,7 @@ public:
 	vk::Instance vulkan_instance()
 	{
 		if (!mInstance) {
-			mInstance = vk::createInstanceUnique(vk::InstanceCreateInfo{});
+			mInstance = vk::createInstanceUnique(vk::InstanceCreateInfo{}, nullptr, dispatch_loader_core());
 		}
 		return mInstance.get();
 	}
@@ -35,6 +35,7 @@ public:
 			mDevice = physical_device().createDeviceUnique(vk::DeviceCreateInfo{}
 				.setQueueCreateInfoCount(1u)
 				.setPQueueCreateInfos(std::get<0>(config).data())
+				, nullptr, dispatch_loader_core()
 			);
 
 			// AFTER device creation, the queue handle(s) can be assigned to the queues:

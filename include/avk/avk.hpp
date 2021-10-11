@@ -207,16 +207,17 @@ namespace avk
 	// T must provide:
 	//    .physical_device()			returning a vk::PhysicalDevice
 	//    .device()						returning a vk::Device
-	//    .dynamic_dispatch()			returning a vk::DispatchLoaderDynamic
+	//    .dispatch_loader_ext()		returning a vk::DispatchLoaderDynamic
 	//    .memory_allocator()           returning a VmaAllocator
 	class root
 	{
 	public:
-		root() {}
-		virtual vk::PhysicalDevice& physical_device()				= 0;
-		virtual vk::Device& device()								= 0;
-		virtual vk::DispatchLoaderDynamic& dynamic_dispatch()		= 0;
-		virtual AVK_MEM_ALLOCATOR_TYPE& memory_allocator()					= 0;
+		root()                                                     = default;
+		virtual vk::PhysicalDevice& physical_device()              = 0;
+		virtual vk::Device& device()                               = 0;
+		virtual vk::DispatchLoaderStatic& dispatch_loader_core()   = 0;
+		virtual vk::DispatchLoaderDynamic& dispatch_loader_ext()   = 0;
+		virtual AVK_MEM_ALLOCATOR_TYPE& memory_allocator()         = 0;
 
 #pragma region root helper functions
 		/** Prints all the different memory types that are available on the device along with its memory property flags. */
@@ -249,7 +250,7 @@ namespace avk
 				&result.mBuildGeometryInfo,
 				result.mBuildPrimitiveCounts.data(),
 				&buildSizesInfo,
-				dynamic_dispatch()
+				dispatch_loader_ext()
 			);
 			result.mMemoryRequirementsForAccelerationStructure = buildSizesInfo.accelerationStructureSize;
 			result.mMemoryRequirementsForBuildScratchBuffer    = buildSizesInfo.buildScratchSize;
@@ -266,31 +267,31 @@ namespace avk
 				.setOffset(0) // TODO: Support one buffer for multiple acceleration structures and => offset
 				.setSize(result.mMemoryRequirementsForAccelerationStructure);
 
-			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
+			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dispatch_loader_ext());
 #else
 			// 4. Create it
-			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dynamic_dispatch());
+			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dispatch_loader_ext());
 
 			{
 				auto memReqInfo = vk::AccelerationStructureMemoryRequirementsInfoKHR{}
 					.setType(vk::AccelerationStructureMemoryRequirementsTypeKHR::eObject)
 					.setBuildType(vk::AccelerationStructureBuildTypeKHR::eDevice) // TODO: support Host builds
 					.setAccelerationStructure(result.acceleration_structure_handle());
-				result.mMemoryRequirementsForAccelerationStructure = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dynamic_dispatch());
+				result.mMemoryRequirementsForAccelerationStructure = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dispatch_loader_ext());
 			}
 			{
 				auto memReqInfo = vk::AccelerationStructureMemoryRequirementsInfoKHR{}
 					.setType(vk::AccelerationStructureMemoryRequirementsTypeKHR::eBuildScratch)
 					.setBuildType(vk::AccelerationStructureBuildTypeKHR::eDevice) // TODO: support Host builds
 					.setAccelerationStructure(result.acceleration_structure_handle());
-				result.mMemoryRequirementsForBuildScratchBuffer = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dynamic_dispatch());
+				result.mMemoryRequirementsForBuildScratchBuffer = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dispatch_loader_ext());
 			}
 			{
 				auto memReqInfo = vk::AccelerationStructureMemoryRequirementsInfoKHR{}
 					.setType(vk::AccelerationStructureMemoryRequirementsTypeKHR::eUpdateScratch)
 					.setBuildType(vk::AccelerationStructureBuildTypeKHR::eDevice) // TODO: support Host builds
 					.setAccelerationStructure(result.acceleration_structure_handle());
-				result.mMemoryRequirementsForScratchBufferUpdate = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dynamic_dispatch());
+				result.mMemoryRequirementsForScratchBufferUpdate = device().getAccelerationStructureMemoryRequirementsKHR(memReqInfo, dispatch_loader_ext());
 			}
 
 			// Find suitable memory for this acceleration structure
@@ -319,7 +320,7 @@ namespace avk
 				.setMemoryOffset(0) // TODO: support memory offsets
 				.setDeviceIndexCount(0) // TODO: What is this?
 				.setPDeviceIndices(nullptr);
-			device().bindAccelerationStructureMemoryKHR({ memBindInfo }, dynamic_dispatch());
+			device().bindAccelerationStructureMemoryKHR({ memBindInfo }, dispatch_loader_ext());
 
 #endif
 			// 10. Get an "opaque" handle which can be used on the device
@@ -329,8 +330,8 @@ namespace avk
 			result.mPhysicalDevice = physical_device();
 			result.mDevice = device();
 			result.mAllocator = memory_allocator();
-			result.mDynamicDispatch = dynamic_dispatch();
-			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dynamic_dispatch());
+			result.mDynamicDispatch = dispatch_loader_ext();
+			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dispatch_loader_ext());
 		}
 
 #if VK_HEADER_VERSION >= 162
@@ -557,13 +558,13 @@ namespace avk
 #pragma endregion
 
 #pragma region descriptor pool
-		static descriptor_pool create_descriptor_pool(vk::Device aDevice, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
+		static descriptor_pool create_descriptor_pool(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
 		descriptor_pool create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
 		descriptor_cache create_descriptor_cache(std::string aName = "");
 #pragma endregion
 
 #pragma region descriptor set layout and set of descriptor set layouts
-		static void allocate_descriptor_set_layout(vk::Device aDevice, descriptor_set_layout& aLayoutToBeAllocated);
+		static void allocate_descriptor_set_layout(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, descriptor_set_layout& aLayoutToBeAllocated);
 		void allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated);
 		descriptor_set_layout create_descriptor_set_layout_from_template(const descriptor_set_layout& aTemplate);
 		void allocate_set_of_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated);
@@ -571,7 +572,7 @@ namespace avk
 #pragma endregion
 
 #pragma region fence
-		static fence create_fence(vk::Device aDevice, bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
+		static fence create_fence(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
 		fence create_fence(bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
@@ -864,7 +865,7 @@ namespace avk
 #pragma endregion
 
 #pragma region semaphore
-		static semaphore create_semaphore(vk::Device aDevice, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+		static semaphore create_semaphore(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 		semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 

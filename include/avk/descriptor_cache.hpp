@@ -53,6 +53,7 @@ namespace avk
 		int mPreallocFactor = 5;
 		vk::PhysicalDevice mPhysicalDevice;
 		vk::Device mDevice;
+		const vk::DispatchLoaderStatic* mDispatchLoader;
 		
 		std::unordered_set<descriptor_set_layout> mLayouts;
 		std::unordered_set<descriptor_set> mSets;

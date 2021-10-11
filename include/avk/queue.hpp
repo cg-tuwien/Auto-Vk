@@ -59,6 +59,7 @@ namespace avk
 		/** Prepare another queue and for the given queue family index. */
 		static queue prepare(
 			vk::PhysicalDevice aPhysicalDevice,
+			const vk::DispatchLoaderStatic& aDispatchLoader,
 			uint32_t aQueueFamilyIndex,
 			uint32_t aQueueIndex,
 			float aQueuePriority = 0.5f
@@ -173,6 +174,7 @@ namespace avk
 		vk::PhysicalDevice mPhysicalDevice;
 		vk::Device mDevice;
 		vk::Queue mQueue;
+		const vk::DispatchLoaderStatic* mDispatchLoader;
 	};
 
 	static bool operator==(const queue& left, const queue& right)
