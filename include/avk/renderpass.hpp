@@ -66,6 +66,8 @@ namespace avk
 		const std::vector<vk::AttachmentReference>& resolve_attachments_for_subpass(uint32_t aSubpassId);
 		const std::vector<uint32_t>& preserve_attachments_for_subpass(uint32_t aSubpassId);
 
+		const auto& create_info() const	{ return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		auto handle() const { return mRenderPass.get(); }
 
 	private:
@@ -86,6 +88,9 @@ namespace avk
 
 		// The native handle
 		vk::UniqueRenderPass mRenderPass;
+
+		// CreateInfo structure
+		vk::RenderPassCreateInfo mCreateInfo;
 	};
 
 	using renderpass = avk::owning_resource<renderpass_t>;
