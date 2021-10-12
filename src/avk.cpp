@@ -70,7 +70,7 @@ namespace avk
 
 	void root::finish_configuration(buffer_view_t& aBufferViewToBeFinished, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
-		aBufferViewToBeFinished.mInfo = vk::BufferViewCreateInfo{}
+		aBufferViewToBeFinished.mCreateInfo = vk::BufferViewCreateInfo{}
 			.setBuffer(aBufferViewToBeFinished.buffer_handle())
 			.setFormat(aViewFormat)
 			.setOffset(0) // TODO: Support offsets
@@ -81,7 +81,7 @@ namespace avk
 			aAlterConfigBeforeCreation(aBufferViewToBeFinished);
 		}
 
-		aBufferViewToBeFinished.mBufferView = device().createBufferViewUnique(aBufferViewToBeFinished.mInfo);
+		aBufferViewToBeFinished.mBufferView = device().createBufferViewUnique(aBufferViewToBeFinished.mCreateInfo);
 
 		// TODO: Descriptors?!
 	}
@@ -1497,7 +1497,7 @@ namespace avk
 
 	attachment attachment::declare_for(resource_reference<const image_view_t> aImageView, avk::on_load aLoadOp, avk::usage_desc aUsageInSubpasses, avk::on_store aStoreOp)
 	{
-		const auto& imageConfig = aImageView->get_image().config();
+		const auto& imageConfig = aImageView->get_image().create_info();
 		const auto format = imageConfig.format;
 		const std::optional<image_usage> imageUsage = aImageView->get_image().usage_config();
 		auto result = declare({format, imageConfig.samples}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
@@ -2699,10 +2699,10 @@ namespace avk
 		return std::get<vk::Buffer>(std::get<std::tuple<vk::Buffer, vk::BufferCreateInfo>>(mBuffer));
 	}
 
-	const vk::BufferCreateInfo& buffer_view_t::buffer_config() const
+	const vk::BufferCreateInfo& buffer_view_t::buffer_create_info() const
 	{
 		if (std::holds_alternative<buffer>(mBuffer)) {
-			return std::get<buffer>(mBuffer)->config();
+			return std::get<buffer>(mBuffer)->create_info();
 		}
 		return std::get<vk::BufferCreateInfo>(std::get<std::tuple<vk::Buffer, vk::BufferCreateInfo>>(mBuffer));
 	}
@@ -2826,7 +2826,7 @@ namespace avk
 
 	void command_buffer_t::begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
 	{
-		const auto firstAttachmentsSize = aFramebuffer->image_view_at(0)->get_image().config().extent;
+		const auto firstAttachmentsSize = aFramebuffer->image_view_at(0)->get_image().create_info().extent;
 		const auto& clearValues = aRenderpass->clear_values();
 		auto renderPassBeginInfo = vk::RenderPassBeginInfo()
 			.setRenderPass(aRenderpass->handle())
@@ -2968,9 +2968,9 @@ namespace avk
 	void command_buffer_t::copy_image(const image_t& aSource, const vk::Image& aDestination)
 	{ // TODO: fix this hack after the RTX-VO!
 		auto fullImageOffset = vk::Offset3D(0, 0, 0);
-		auto fullImageExtent = aSource.config().extent;
+		auto fullImageExtent = aSource.create_info().extent;
 		auto halfImageOffset = vk::Offset3D(0, 0, 0); //vk::Offset3D(pSource.mInfo.extent.width / 2, 0, 0);
-		auto halfImageExtent = vk::Extent3D(aSource.config().extent.width, aSource.config().extent.height, aSource.config().extent.depth);
+		auto halfImageExtent = vk::Extent3D(aSource.create_info().extent.width, aSource.create_info().extent.height, aSource.create_info().extent.depth);
 		auto offset = halfImageOffset;
 		auto extent = halfImageExtent;
 
@@ -3366,6 +3366,13 @@ namespace avk
 		mNumRemainingSets -= static_cast<int>(aLayouts.size());
 
 		return result;
+	}
+
+	void descriptor_pool::reset()
+	{
+		mDescriptorPool.getOwner().resetDescriptorPool(mDescriptorPool.get());
+		mRemainingCapacities = mInitialCapacities;
+		mNumRemainingSets = mNumInitialSets;
 	}
 
 	descriptor_cache root::create_descriptor_cache(std::string aName)
@@ -4163,7 +4170,7 @@ namespace avk
 	framebuffer root::create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		assert(!aImageViews.empty());
-		auto extent = aImageViews.front()->get_image().config().extent;
+		auto extent = aImageViews.front()->get_image().create_info().extent;
 		return create_framebuffer(std::move(aRenderpass), std::move(aImageViews), extent.width, extent.height, std::move(aAlterConfigBeforeCreation));
 	}
 
@@ -5204,7 +5211,7 @@ namespace avk
 
 	std::optional<command_buffer> image_t::generate_mip_maps(sync aSyncHandler)
 	{
-		if (config().mipLevels <= 1u) {
+		if (create_info().mipLevels <= 1u) {
 			return {};
 		}
 
@@ -5214,7 +5221,7 @@ namespace avk
 		const auto originalLayout = current_layout();
 		const auto targetLayout = target_layout();
 
-		for (uint32_t l = 0u; l < config().arrayLayers; ++l) {
+		for (uint32_t l = 0u; l < create_info().arrayLayers; ++l) {
 
 			auto w = static_cast<int32_t>(width());
 			auto h = static_cast<int32_t>(height());
@@ -5238,7 +5245,7 @@ namespace avk
 				2u /* initially, only 2 required */, layoutTransitions.data()
 			);
 
-			for (uint32_t i = 1u; i < config().mipLevels; ++i) {
+			for (uint32_t i = 1u; i < create_info().mipLevels; ++i) {
 
 				commandBuffer.handle().blitImage(
 					handle(), vk::ImageLayout::eTransferSrcOptimal,
@@ -5264,8 +5271,8 @@ namespace avk
 					{}, vk::AccessFlagBits::eTransferWrite, // make visible to Blit Write
 					originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i + 1, 1u, l, 1u } };
 
-				uint32_t numBarriersRequired = std::min(3u, config().mipLevels - i + 1);
-				if (config().mipLevels - 1 == i) {
+				uint32_t numBarriersRequired = std::min(3u, create_info().mipLevels - i + 1);
+				if (create_info().mipLevels - 1 == i) {
 					layoutTransitions[1].newLayout = targetLayout; // Last one => done
 				}
 
@@ -5305,11 +5312,11 @@ namespace avk
 			AVK_LOG_ERROR("Can not create an image_view from a template which wraps an image_t.");
 		}
 
-		result.mInfo = aTemplate->mInfo;
-		result.mInfo.setImage(result.get_image().handle());
-		result.mInfo.subresourceRange
-			.setLevelCount(result.get_image().config().mipLevels)
-			.setLayerCount(result.get_image().config().arrayLayers);
+		result.mCreateInfo = aTemplate->mCreateInfo;
+		result.mCreateInfo.setImage(result.get_image().handle());
+		result.mCreateInfo.subresourceRange
+			.setLevelCount(result.get_image().create_info().mipLevels)
+			.setLayerCount(result.get_image().create_info().arrayLayers);
 
 		result.mUsageInfo = aTemplate->mUsageInfo;
 
@@ -5318,7 +5325,7 @@ namespace avk
 			aAlterImageViewConfigBeforeCreation(result);
 		}
 
-		result.mImageView = device().createImageViewUnique(result.mInfo);
+		result.mImageView = device().createImageViewUnique(result.mCreateInfo);
 		result.mDescriptorInfo = vk::DescriptorImageInfo{}
 			.setImageView(result.handle())
 			.setImageLayout(result.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
@@ -5398,7 +5405,7 @@ namespace avk
 	void root::finish_configuration(image_view_t& aImageView, vk::Format aViewFormat, std::optional<vk::ImageAspectFlags> aImageAspectFlags, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		if (!aImageAspectFlags.has_value()) {
-			const auto imageFormat = aImageView.get_image().config().format;
+			const auto imageFormat = aImageView.get_image().create_info().format;
 			aImageAspectFlags = aImageView.get_image().aspect_flags();
 
 			if (is_depth_format(imageFormat)) {
@@ -5415,9 +5422,9 @@ namespace avk
 		}
 
 		// Proceed with config creation (and use the imageAspectFlags there):
-		aImageView.mInfo = vk::ImageViewCreateInfo{}
+		aImageView.mCreateInfo = vk::ImageViewCreateInfo{}
 			.setImage(aImageView.get_image().handle())
-			.setViewType(to_image_view_type(aImageView.get_image().config()))
+			.setViewType(to_image_view_type(aImageView.get_image().create_info()))
 			.setFormat(aViewFormat)
 			.setComponents(vk::ComponentMapping() // The components field allows you to swizzle the color channels around. In our case we'll stick to the default mapping. [3]
 							  .setR(vk::ComponentSwizzle::eIdentity)
@@ -5427,15 +5434,15 @@ namespace avk
 			.setSubresourceRange(vk::ImageSubresourceRange() // The subresourceRange field describes what the image's purpose is and which part of the image should be accessed. Our images will be used as color targets without any mipmapping levels or multiple layers. [3]
 				.setAspectMask(aImageAspectFlags.value())
 				.setBaseMipLevel(0u)
-				.setLevelCount(aImageView.get_image().config().mipLevels)
+				.setLevelCount(aImageView.get_image().create_info().mipLevels)
 				.setBaseArrayLayer(0u)
-				.setLayerCount(aImageView.get_image().config().arrayLayers));
+				.setLayerCount(aImageView.get_image().create_info().arrayLayers));
 
 		if (aImageViewUsage.has_value()) {
 			auto [imageUsage, imageLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageViewUsage.value());
 			aImageView.mUsageInfo = vk::ImageViewUsageCreateInfo()
 				.setUsage(imageUsage);
-			aImageView.mInfo.setPNext(&aImageView.mUsageInfo);
+			aImageView.mCreateInfo.setPNext(&aImageView.mUsageInfo);
 		}
 
 		// Maybe alter the config?!
@@ -5443,7 +5450,7 @@ namespace avk
 			aAlterConfigBeforeCreation(aImageView);
 		}
 
-		aImageView.mImageView = device().createImageViewUnique(aImageView.mInfo);
+		aImageView.mImageView = device().createImageViewUnique(aImageView.mCreateInfo);
 		aImageView.mDescriptorInfo = vk::DescriptorImageInfo{}
 			.setImageView(aImageView.handle())
 			.setImageLayout(aImageView.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
@@ -5553,7 +5560,7 @@ namespace avk
 
 		// Compile the config for this sampler:
 		sampler_t result;
-		result.mInfo = vk::SamplerCreateInfo()
+		result.mCreateInfo = vk::SamplerCreateInfo()
 			.setMagFilter(magFilter)
 			.setMinFilter(minFilter)
 			.setAddressModeU(addressModes[0])
@@ -5582,7 +5589,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mSampler = device().createSamplerUnique(result.config());
+		result.mSampler = device().createSamplerUnique(result.create_info());
 		result.mDescriptorInfo = vk::DescriptorImageInfo{}
 			.setSampler(result.handle());
 		result.mDescriptorType = vk::DescriptorType::eSampler;
@@ -7428,20 +7435,21 @@ using namespace cpplinq;
 
 		assert(result.mSubpassDependencies.size() == numSubpassesFirst + 1);
 
-		// Maybe alter the config?!
-		if (aAlterConfigBeforeCreation) {
-			aAlterConfigBeforeCreation(result);
-		}
-
 		// Finally, create the render pass
-		auto createInfo = vk::RenderPassCreateInfo()
+		result.mCreateInfo = vk::RenderPassCreateInfo()
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
 			.setPSubpasses(result.mSubpasses.data())
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
-		result.mRenderPass = device().createRenderPassUnique(createInfo);
+
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
+		result.mRenderPass = device().createRenderPassUnique(result.mCreateInfo);
 		return result;
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
@@ -7739,7 +7747,7 @@ using namespace cpplinq;
 
 		// Operation:
 		auto copyRegion = vk::ImageCopy{}
-			.setExtent(aSrcImage->config().extent) // TODO: Support different ranges/extents
+			.setExtent(aSrcImage->create_info().extent) // TODO: Support different ranges/extents
 			.setSrcOffset({0, 0})
 			.setSrcSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
 				.setAspectMask(aSrcImage->aspect_flags())
@@ -7864,7 +7872,7 @@ using namespace cpplinq;
 		// Sync before:
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
 
-		auto extent = aDstImage->config().extent;
+		auto extent = aDstImage->create_info().extent;
 		extent.width  = extent.width  > 1u ? extent.width  >> aDstLevel : 1u;
 		extent.height = extent.height > 1u ? extent.height >> aDstLevel : 1u;
 		extent.depth  = extent.depth  > 1u ? extent.depth  >> aDstLevel : 1u;
@@ -7964,7 +7972,7 @@ using namespace cpplinq;
 			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
 		}
 
-		auto extent = aSrcImage->config().extent;
+		auto extent = aSrcImage->create_info().extent;
 		extent.width  = extent.width  > 1u ? extent.width  >> aSrcLevel : 1u;
 		extent.height = extent.height > 1u ? extent.height >> aSrcLevel : 1u;
 		extent.depth  = extent.depth  > 1u ? extent.depth  >> aSrcLevel : 1u;

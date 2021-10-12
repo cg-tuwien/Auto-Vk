@@ -26,7 +26,8 @@ namespace avk
 		~command_pool_t() = default;
 
 		auto queue_family_index() const { return mQueueFamilyIndex; }
-		const auto& create_info() const { return mCreateInfo; }
+		const auto& create_info() const	{ return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		const auto& handle() const { return mCommandPool->get(); }
 		const auto* handle_ptr() const { return &mCommandPool->get(); }
 

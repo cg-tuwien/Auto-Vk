@@ -39,6 +39,7 @@ namespace avk
 		}
 
 		const auto& create_info() const { return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		const auto& handle() const { return mFence.get(); }
 		const auto* handle_ptr() const { return &mFence.get(); }
 		auto has_designated_queue() const { return nullptr != mQueue; }

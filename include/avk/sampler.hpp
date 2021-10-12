@@ -15,15 +15,15 @@ namespace avk
 		sampler_t& operator=(const sampler_t&) = delete;
 		~sampler_t() = default;
 
-		const auto& config() const { return mInfo; }
-		auto& config() { return mInfo; }
+		const auto& create_info() const { return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		const auto& handle() const { return mSampler.get(); }
 		const auto& descriptor_info() const		{ return mDescriptorInfo; }
 		const auto& descriptor_type() const		{ return mDescriptorType; }
 
 	private:
 		// Sampler creation configuration
-		vk::SamplerCreateInfo mInfo;
+		vk::SamplerCreateInfo mCreateInfo;
 		// Sampler handle. It will contain a valid handle only after successful sampler creation.
 		vk::UniqueSampler mSampler;
 		vk::DescriptorImageInfo mDescriptorInfo;

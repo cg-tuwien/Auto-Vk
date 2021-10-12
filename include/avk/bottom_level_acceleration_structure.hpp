@@ -16,19 +16,19 @@ namespace avk
 		~bottom_level_acceleration_structure_t();
 
 #if VK_HEADER_VERSION >= 162
-		auto& config() { return mCreateInfo; }
+		const auto& create_info() const	{ return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		auto acceleration_structure_handle() { return mAccStructure.mHandle; }
 		auto* acceleration_structure_handle_ptr() { return &mAccStructure.mHandle; }
-		const auto& config() const { return mCreateInfo; }
 		auto acceleration_structure_handle() const { return mAccStructure.mHandle; }
 		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.mHandle; }
 #else
-		auto& config() { return mCreateInfo; }
+		const auto& create_info() const { return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		auto& acceleration_structure_handle() { return mAccStructure.mHandle; }
 		auto* acceleration_structure_handle_ptr() { return &mAccStructure.mHandle; }
 		auto& memory_handle() { return mMemory.get(); }
 		auto* memory_handle_ptr() { return &mMemory.get(); }
-		const auto& config() const { return mCreateInfo; }
 		const auto& acceleration_structure_handle() const { return mAccStructure.mHandle; }
 		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.mHandle; }
 		const auto& memory_handle() const { return mMemory.get(); }

@@ -18,9 +18,9 @@ namespace avk
 		~image_t() = default;
 
 		/** Get the config which is used to created this image with the API. */
-		const auto& config() const { return mCreateInfo; }
+		const auto& create_info() const	{ return mCreateInfo; }
 		/** Get the config which is used to created this image with the API. */
-		auto& config() { return mCreateInfo; }
+		auto& create_info()				{ return mCreateInfo; }
 		/** Gets the image handle. */
 		vk::Image handle() const
 		{
@@ -40,13 +40,13 @@ namespace avk
 		}
 
 		/** Gets the width of the image */
-		uint32_t width() const { return config().extent.width; }
+		uint32_t width() const { return create_info().extent.width; }
 		/** Gets the height of the image */
-		uint32_t height() const { return config().extent.height; }
+		uint32_t height() const { return create_info().extent.height; }
 		/** Gets the depth of the image */
-		uint32_t depth() const { return config().extent.depth; }
+		uint32_t depth() const { return create_info().extent.depth; }
 		/** Gets the format of the image */
-		vk::Format format() const { return config().format; }
+		vk::Format format() const { return create_info().format; }
 
 		/**	Sets a new target layout for this image, simply overwriting any previous value.
 		 *	Attention: Only use if you know what you are doing!

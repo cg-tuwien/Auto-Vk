@@ -702,7 +702,7 @@ namespace avk
 		 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
 		 *	@param	aImageUsage					How this image is intended to being used.
 		 *	@param	aNumLayers					How many layers the image to be created shall contain.
-		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.create_info()` to access the configuration structure!
 		 *	@return	Returns a newly created image.
 		 */
 		image create_image(uint32_t aWidth, uint32_t aHeight, std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
@@ -714,7 +714,7 @@ namespace avk
 		 *	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
 		 *	@param	aImageUsage					How this image is intended to being used.
 		 *	@param	aNumLayers					How many layers the image to be created shall contain.
-		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		 *	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.create_info()` to access the configuration structure!
 		 *	@return	Returns a newly created image.
 		 */
 		image create_image(uint32_t aWidth, uint32_t aHeight, vk::Format aFormat, int aNumLayers = 1, memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_image, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
@@ -725,7 +725,7 @@ namespace avk
 		*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
 		*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
 		*	@param	aNumLayers					How many layers the image to be created shall contain.
-		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.create_info()` to access the configuration structure!
 		*	@return	Returns a newly created depth buffer.
 		*/
 		image create_depth_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
@@ -736,7 +736,7 @@ namespace avk
 		*	@param	aFormat						The image format of the image to be created, or a default depth format if not specified.
 		*	@param	aMemoryUsage				Where the memory of the image shall be allocated (GPU or CPU) and how it is going to be used.
 		*	@param	aNumLayers					How many layers the image to be created shall contain.
-		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.config()` to access the configuration structure!
+		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageCreateInfo` just before the image will be created. Use `.create_info()` to access the configuration structure!
 		*	@return	Returns a newly created depth+stencil buffer.
 		*/
 		image create_depth_stencil_image(uint32_t aWidth, uint32_t aHeight, std::optional<vk::Format> aFormat = std::nullopt, int aNumLayers = 1,  memory_usage aMemoryUsage = memory_usage::device, avk::image_usage aImageUsage = avk::image_usage::general_depth_stencil_attachment, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
@@ -750,7 +750,7 @@ namespace avk
 		/** Creates a new image view upon a given image
 		*	@param	aImageToOwn					The image which to create an image view for
 		*	@param	aViewFormat					The format of the image view. If none is specified, it will be set to the same format as the image.
-		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.config()` to access the configuration structure!
+		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.create_info()` to access the configuration structure!
 		*	@return	Returns a newly created image.
 		*/
 		image_view create_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
