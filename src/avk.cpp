@@ -3064,7 +3064,7 @@ namespace avk
 #endif
 #pragma endregion
 
-#pragma compute pipeline definitions
+#pragma region compute pipeline definitions
 	void root::rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline)
 	{
 		aPreparedPipeline.mShaderStageCreateInfo
@@ -3194,7 +3194,7 @@ namespace avk
 	}
 #pragma endregion
 
-#pragma descriptor alloc request
+#pragma region descriptor alloc request
 	descriptor_alloc_request::descriptor_alloc_request()
 		: mNumSets{ 0u }
 	{}
@@ -4104,7 +4104,7 @@ namespace avk
 	}
 #pragma endregion
 
-#pragma framebuffer definitions
+#pragma region framebuffer definitions
 	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<resource_ownership<image_view_t>>& aImageViews)
 	{
 		if (aAttachments.size() != aImageViews.size()) {
@@ -4216,7 +4216,7 @@ namespace avk
 	{
 		aSync.establish_barrier_before_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
 
-		const int n = mImageViews.size();
+		const size_t n = mImageViews.size();
 		assert (n == mRenderpass->attachment_descriptions().size());
 		for (size_t i = 0; i < n; ++i) {
 			mImageViews[i]->get_image().transition_to_layout(mRenderpass->attachment_descriptions()[i].finalLayout, sync::auxiliary_with_barriers(aSync, {}, {}));
@@ -5668,7 +5668,7 @@ namespace avk
 	}
 #pragma endregion
 
-#pragma memory access definitions
+#pragma region memory access definitions
 	read_memory_access::operator memory_access() const
 	{
 		validate_or_throw();
@@ -6499,7 +6499,7 @@ namespace avk
 	void root::build_shader_binding_table(ray_tracing_pipeline_t& aPipeline)
 	{
 		// According to https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable this is the way:
-		const size_t groupCount = aPipeline.mShaderGroupCreateInfos.size();
+		const uint32_t groupCount = static_cast<uint32_t>(aPipeline.mShaderGroupCreateInfos.size());
 		const size_t shaderBindingTableSize = aPipeline.mShaderBindingTableGroupsInfo.mTotalSize;
 
 		// TODO: All of this SBT-stuff probably needs some refactoring
@@ -7062,6 +7062,9 @@ using namespace cpplinq;
 			throw avk::runtime_error("No attachments have been passed to the creation of a renderpass.");
 		}
 		const auto numSubpassesFirst = aAttachments.front().mSubpassUsages.num_subpasses();
+		if (0 == numSubpassesFirst) {
+			throw avk::runtime_error("The first subpass has no usages specified. Subpass usages are not optional.");
+		}
 		// All further attachments must have the same number of subpasses! It will be checked.
 		subpasses.reserve(numSubpassesFirst);
 		for (size_t i = 0; i < numSubpassesFirst; ++i) {
@@ -7367,7 +7370,7 @@ using namespace cpplinq;
 		//  => Let's establish very (overly) cautious dependencies to ensure correctness, but user can set more tight sync via the callback
 
 		const uint32_t firstSubpassId = 0u;
-		const uint32_t lastSubpassId = numSubpassesFirst - 1;
+		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
 		const auto addDependency = [&result](renderpass_sync& rps){
 			result.mSubpassDependencies.push_back(vk::SubpassDependency()
 				// Between which two subpasses is this dependency:
@@ -7445,19 +7448,20 @@ using namespace cpplinq;
 
 		assert(result.mSubpassDependencies.size() == numSubpassesFirst + 1);
 
-		// Maybe alter the config?!
-		if (aAlterConfigBeforeCreation) {
-			aAlterConfigBeforeCreation(result);
-		}
-
 		// Finally, create the render pass
-		auto createInfo = vk::RenderPassCreateInfo()
+		result.mCreateInfo = vk::RenderPassCreateInfo()
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
 			.setPSubpasses(result.mSubpasses.data())
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
+
+		// Maybe alter the config?!
+		if (aAlterConfigBeforeCreation) {
+			aAlterConfigBeforeCreation(result);
+		}
+
 		result.mRenderPass = device().createRenderPassUnique(createInfo, nullptr, dispatch_loader_core());
 		return result;
 
@@ -7882,10 +7886,9 @@ using namespace cpplinq;
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
 
 		auto extent = aDstImage->create_info().extent;
-		auto levelDivisor = std::pow(2u, aDstLevel);
-		extent.width  = extent.width  > 1u ? extent.width  / levelDivisor : 1u;
-		extent.height = extent.height > 1u ? extent.height / levelDivisor : 1u;
-		extent.depth  = extent.depth  > 1u ? extent.depth  / levelDivisor : 1u;
+		extent.width  = extent.width  > 1u ? extent.width  >> aDstLevel : 1u;
+		extent.height = extent.height > 1u ? extent.height >> aDstLevel : 1u;
+		extent.depth  = extent.depth  > 1u ? extent.depth  >> aDstLevel : 1u;
 
 		// Operation:
 		auto copyRegion = vk::BufferImageCopy()
@@ -7983,10 +7986,9 @@ using namespace cpplinq;
 		}
 
 		auto extent = aSrcImage->create_info().extent;
-		auto levelDivisor = std::pow(2u, aSrcLevel);
-		extent.width  = extent.width  > 1u ? extent.width  / levelDivisor : 1u;
-		extent.height = extent.height > 1u ? extent.height / levelDivisor : 1u;
-		extent.depth  = extent.depth  > 1u ? extent.depth  / levelDivisor : 1u;
+		extent.width  = extent.width  > 1u ? extent.width  >> aSrcLevel : 1u;
+		extent.height = extent.height > 1u ? extent.height >> aSrcLevel : 1u;
+		extent.depth  = extent.depth  > 1u ? extent.depth  >> aSrcLevel : 1u;
 
 		// Operation:
 		auto copyRegion = vk::BufferImageCopy()
