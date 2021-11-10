@@ -1637,8 +1637,8 @@ namespace avk
 				mPhysicalDevice, mDevice, mAllocator,
 				avk::memory_usage::device,
 #if VK_HEADER_VERSION >= 162
-				// TODO: Looks like no special usage flags are required anymore?
-				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+				| vk::BufferUsageFlagBits::eStorageBuffer,
 #else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 #endif

@@ -1110,6 +1110,15 @@ namespace avk
 			return result; 
 		}
 
+		/** Create meta info from the total size of all elements. */
+		static read_only_input_to_acceleration_structure_builds_buffer_meta create_from_total_size(size_t aTotalSize, size_t aNumElements)
+		{
+			read_only_input_to_acceleration_structure_builds_buffer_meta result;
+			result.mSizeOfOneElement = aTotalSize / aNumElements;
+			result.mNumElements = aNumElements;
+			return result;
+		}
+
 		/** Create meta info from a STL-container like data structure or a single struct.
 		*	Container types must provide a `size()` method and the index operator.
 		*/
