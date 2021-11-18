@@ -4532,8 +4532,7 @@ namespace avk
 		auto operator|(R&& r, to_vector_helper)
 		{
 			std::vector<std::ranges::range_value_t<decltype(r)>> v;
-			if constexpr (std::ranges::sized_range<decltype(r)>)
-			{
+			if constexpr (std::ranges::sized_range<decltype(r)>) {
 				v.reserve(std::ranges::size(r));
 			}
 			std::ranges::copy(r, std::back_inserter(v));
@@ -4568,10 +4567,10 @@ namespace avk
 				| to_vector();
 
 			// Sort bindings:
-			std::ranges::sort(bindings, std::ranges::less(), &avk::vertex_input_buffer_binding::mBinding);
+			std::ranges::sort(bindings);
 			// Remove duplicates of both vertex and instance inputs (this will invoke operator ==(const vertex_input_buffer_binding& left, const vertex_input_buffer_binding& right):
-			auto [first, last] = std::ranges::unique(bindings.begin(), bindings.end());
-			bindings.erase(first, last);
+			auto [ret, last] = std::ranges::unique(bindings);
+			bindings.erase(ret, last);
 			result.mOrderedVertexInputBindingDescriptions.reserve(bindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 
 			for (auto& bindingData : bindings) {

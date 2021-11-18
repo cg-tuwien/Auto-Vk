@@ -1,4 +1,5 @@
 #pragma once
+#include<compare>
 #include <avk/avk.hpp>
 
 namespace avk
@@ -28,6 +29,12 @@ namespace avk
 				));
 	}
 
+	inline auto operator <=>(const vertex_input_buffer_binding& left, const vertex_input_buffer_binding& right)
+	{
+		if (left == right) return std::strong_ordering::equal;
+		if (left < right) return std::strong_ordering::less;
+		return std::strong_ordering::greater;
+	}
 
 	/** Data about one specific input location description to a graphics pipeline.
 	 *	Or put differently: Which buffer is used to stream vertex/instance input to which shader location.
