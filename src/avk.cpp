@@ -4778,8 +4778,7 @@ namespace avk
 			// See what is configured in the render pass
 			auto colorAttConfigs = (*result.mRenderPass).color_attachments_for_subpass(result.subpass_id())
 				| std::views::filter([](const vk::AttachmentReference& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-				| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; })
-				| to_vector();
+				| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; });
 
 			for (const vk::AttachmentDescription& config: colorAttConfigs) {
 				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
@@ -4797,8 +4796,7 @@ namespace avk
 			if (vk::SampleCountFlagBits::e1 == numSamples) {
 				auto depthAttConfigs = (*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id())
 					| std::views::filter([](const vk::AttachmentReference& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-					| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; })
-					| to_vector();
+					| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; });
 
 				for (const vk::AttachmentDescription& config: depthAttConfigs) {
 					typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
