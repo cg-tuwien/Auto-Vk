@@ -4517,6 +4517,7 @@ namespace avk
 	// Unfortunately C++20 does not have support to easily convert a range into a vector through chaining, so we have to
 	// either pass the ranges begin and end members to the vector constructor every time or implement a helper ourself
 	// until something similar is standardized (There is a to<Container> proposal for C++23).
+	// Using a helper struct to invoke operator| for ranges was inspired by https://stackoverflow.com/a/65635762
 	// This helper implementation converts a range into a vector by piping the range into to_vector():
 	//
 	// auto nums = std::vector{1, 2, 3, 4};
