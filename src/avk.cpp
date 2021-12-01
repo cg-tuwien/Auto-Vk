@@ -5169,8 +5169,8 @@ namespace avk
 	{
 		return vk::ImageSubresourceRange{
 			mAspectFlags,
-			0u, mCreateInfo.mipLevels,	// MIP info
-			0u, mCreateInfo.arrayLayers	// Layers info
+			0u, VK_REMAINING_MIP_LEVELS,	// MIP info
+			0u, VK_REMAINING_ARRAY_LAYERS	// Layers info
 		};
 	}
 
