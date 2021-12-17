@@ -87,7 +87,7 @@ namespace avk
 		std::vector<vk::SubpassDependency> mSubpassDependencies;
 
 		// The native handle
-		vk::UniqueRenderPass mRenderPass;
+		vk::UniqueHandle<vk::RenderPass, DISPATCH_LOADER_CORE_TYPE> mRenderPass;
 
 		// CreateInfo structure
 		vk::RenderPassCreateInfo mCreateInfo;

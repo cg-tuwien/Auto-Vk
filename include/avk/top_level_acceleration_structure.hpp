@@ -14,15 +14,15 @@ namespace avk
 		top_level_acceleration_structure_t(const top_level_acceleration_structure_t&) = delete;
 		top_level_acceleration_structure_t& operator=(top_level_acceleration_structure_t&&) noexcept = default;
 		top_level_acceleration_structure_t& operator=(const top_level_acceleration_structure_t&) = delete;
-		~top_level_acceleration_structure_t();
+		~top_level_acceleration_structure_t() = default;
 
 #if VK_HEADER_VERSION >= 162
 		const auto& create_info() const	{ return mCreateInfo; }
 		auto& create_info()				{ return mCreateInfo; }
-		auto acceleration_structure_handle() { return mAccStructure.mHandle; }
-		auto* acceleration_structure_handle_ptr() { return &mAccStructure.mHandle; }
-		auto acceleration_structure_handle() const { return mAccStructure.mHandle; }
-		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.mHandle; }
+		auto acceleration_structure_handle() { return mAccStructure.get(); }
+		auto* acceleration_structure_handle_ptr() { return &mAccStructure.get(); }
+		auto acceleration_structure_handle() const { return mAccStructure.get(); }
+		const auto* acceleration_structure_handle_ptr() const { return &mAccStructure.get(); }
 #else
 		const auto& create_info() const { return mCreateInfo; }
 		auto& create_info() { return mCreateInfo; }
@@ -115,7 +115,7 @@ namespace avk
 		vk::MemoryRequirements2KHR mMemoryRequirementsForBuildScratchBuffer;
 		vk::MemoryRequirements2KHR mMemoryRequirementsForScratchBufferUpdate;
 		vk::MemoryAllocateInfo mMemoryAllocateInfo;
-		vk::UniqueDeviceMemory mMemory;
+		vk::UniqueHandle<vk::DeviceMemory, DISPATCH_LOADER_CORE_TYPE> mMemory;
 #endif
 
 #if VK_HEADER_VERSION >= 162
@@ -128,17 +128,15 @@ namespace avk
 		
 		vk::AccelerationStructureCreateInfoKHR mCreateInfo;
 		vk::BuildAccelerationStructureFlagsKHR mFlags;
-		vk::PhysicalDevice mPhysicalDevice;
-		vk::Device mDevice;
-		AVK_MEM_ALLOCATOR_TYPE mAllocator;
+		const root* mRoot;
 #if VK_HEADER_VERSION >= 162
-		avk::handle_wrapper<vk::AccelerationStructureKHR> mAccStructure;
+		//avk::handle_wrapper<vk::AccelerationStructureKHR> mAccStructure;
+		vk::UniqueHandle<vk::AccelerationStructureKHR, DISPATCH_LOADER_EXT_TYPE> mAccStructure;
 #else
-		//vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, vk::DispatchLoaderDynamic>>::type mAccStructure;
+		//vk::ResultValueType<vk::UniqueHandle<vk::AccelerationStructureKHR, DISPATCH_LOADER_EXT_TYPE>>::type mAccStructure;
 		avk::handle_wrapper<vk::AccelerationStructureKHR> mAccStructure;
 #endif
-		vk::DispatchLoaderDynamic mDynamicDispatch;
-		vk::DeviceAddress mDeviceAddress;
+		vk::DeviceAddress mDeviceAddress = 0;
 
 		std::optional<buffer> mScratchBuffer;
 		

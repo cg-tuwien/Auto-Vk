@@ -150,7 +150,7 @@ namespace avk
 		
 	private:
 		vk::QueryPoolCreateInfo mCreateInfo;
-		vk::UniqueQueryPool mQueryPool;
+		vk::UniqueHandle<vk::QueryPool, DISPATCH_LOADER_CORE_TYPE> mQueryPool;
 	};
 
 	using query_pool = owning_resource<query_pool_t>;

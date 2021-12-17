@@ -97,7 +97,7 @@ namespace avk
 		vk::ImageViewCreateInfo mCreateInfo;
 		vk::ImageViewUsageCreateInfo mUsageInfo;
 		// The image view's handle. This member will contain a valid handle only after successful image view creation.
-		vk::UniqueImageView mImageView;
+		vk::UniqueHandle<vk::ImageView, DISPATCH_LOADER_CORE_TYPE> mImageView;
 		vk::DescriptorImageInfo mDescriptorInfo;
 	};
 

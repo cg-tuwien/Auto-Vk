@@ -58,7 +58,11 @@
 #define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_visible
 #endif
 
-namespace avk { class sync; }
+namespace avk
+{
+	class root;
+	class sync;
+}
 
 #include <avk/image_color_channel_order.hpp>
 #include <avk/image_color_channel_format.hpp>
@@ -68,6 +72,26 @@ namespace avk { class sync; }
 
 #include <avk/vk_utils.hpp>
 #include <avk/mapping_access.hpp>
+
+/** CONFIG SETTING: DISPATCH_LOADER_CORE_TYPE
+ *
+ *	Define the macro DISPATCH_LOADER_CORE_TYPE to to the type of dispatch loader you would
+ *	like to use for core functionality!
+ *	Please note that you are expected to provide this type without reference.
+ */
+#if !defined(DISPATCH_LOADER_CORE_TYPE)
+#define DISPATCH_LOADER_CORE_TYPE vk::DispatchLoaderStatic
+#endif
+
+/** CONFIG SETTING: DISPATCH_LOADER_EXT_TYPE
+ *
+ *	Define the macro DISPATCH_LOADER_CORE_TYPE to to the type of dispatch loader you would
+ *	like to use for extension functionality (i.e., probably doesn't work with vk::DispatchLoaderStatic)!
+ *	Please note that you are expected to provide this type without reference.
+ */
+#if !defined(DISPATCH_LOADER_EXT_TYPE)
+#define DISPATCH_LOADER_EXT_TYPE vk::DispatchLoaderDynamic
+#endif
 
 /** CONFIG SETTING: AVK_USE_VMA
  *
@@ -205,19 +229,25 @@ namespace avk { class sync; }
 namespace avk
 {
 	// T must provide:
-	//    .physical_device()			returning a vk::PhysicalDevice
-	//    .device()						returning a vk::Device
-	//    .dispatch_loader_ext()		returning a vk::DispatchLoaderDynamic
-	//    .memory_allocator()           returning a VmaAllocator
+	//    .physical_device()			returning a vk::PhysicalDevice&
+	//    .device()						returning a vk::Device&
+	//	  .dispatch_loader_core()		returning a DISPATCH_LOADER_CORE_TYPE&
+	//    .dispatch_loader_ext()		returning a DISPATCH_LOADER_EXT_TYPE&
+	//    .memory_allocator()           returning a VmaAllocator&
 	class root
 	{
 	public:
-		root()                                                     = default;
-		virtual vk::PhysicalDevice& physical_device()              = 0;
-		virtual vk::Device& device()                               = 0;
-		virtual vk::DispatchLoaderStatic& dispatch_loader_core()   = 0;
-		virtual vk::DispatchLoaderDynamic& dispatch_loader_ext()   = 0;
-		virtual AVK_MEM_ALLOCATOR_TYPE& memory_allocator()         = 0;
+		root()																	= default;
+		virtual vk::PhysicalDevice& physical_device()							= 0;
+		virtual vk::Device& device()											= 0;
+		virtual DISPATCH_LOADER_CORE_TYPE& dispatch_loader_core()				= 0;
+		virtual DISPATCH_LOADER_EXT_TYPE& dispatch_loader_ext()					= 0;
+		virtual AVK_MEM_ALLOCATOR_TYPE& memory_allocator()						= 0;
+		virtual const vk::PhysicalDevice& physical_device() const				= 0;
+		virtual const vk::Device& device() const								= 0;
+		virtual const DISPATCH_LOADER_CORE_TYPE& dispatch_loader_core() const	= 0;
+		virtual const DISPATCH_LOADER_EXT_TYPE& dispatch_loader_ext() const		= 0;
+		virtual const AVK_MEM_ALLOCATOR_TYPE& memory_allocator() const			= 0;
 
 #pragma region root helper functions
 		/** Prints all the different memory types that are available on the device along with its memory property flags. */
@@ -267,7 +297,7 @@ namespace avk
 				.setOffset(0) // TODO: Support one buffer for multiple acceleration structures and => offset
 				.setSize(result.mMemoryRequirementsForAccelerationStructure);
 
-			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dispatch_loader_ext());
+			result.mAccStructure = device().createAccelerationStructureKHRUnique(result.mCreateInfo, nullptr, dispatch_loader_ext());
 #else
 			// 4. Create it
 			result.mAccStructure = device().createAccelerationStructureKHR(result.mCreateInfo, nullptr, dispatch_loader_ext());
@@ -327,10 +357,7 @@ namespace avk
 			auto addressInfo = vk::AccelerationStructureDeviceAddressInfoKHR{}
 				.setAccelerationStructure(result.acceleration_structure_handle());
 
-			result.mPhysicalDevice = physical_device();
-			result.mDevice = device();
-			result.mAllocator = memory_allocator();
-			result.mDynamicDispatch = dispatch_loader_ext();
+			result.mRoot = this;
 			result.mDeviceAddress = device().getAccelerationStructureAddressKHR(&addressInfo, dispatch_loader_ext());
 		}
 
@@ -357,9 +384,7 @@ namespace avk
 
 #pragma region buffer
 		static buffer create_buffer(
-			const vk::PhysicalDevice& aPhysicalDevice,
-			const vk::Device& aDevice,
-			const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
+			const root& aRoot,
 #if VK_HEADER_VERSION >= 135
 			std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta, indirect_buffer_meta>> aMetaData,
 #else
@@ -379,12 +404,12 @@ namespace avk
 			vk::BufferUsageFlags aBufferUsage,
 			vk::MemoryPropertyFlags aMemoryProperties)
 		{
-			return create_buffer(physical_device(), device(), memory_allocator(), std::move(aMetaData), aBufferUsage, aMemoryProperties);
+			return create_buffer(*this, std::move(aMetaData), aBufferUsage, aMemoryProperties);
 		}
 
 		template <typename Meta, typename... Metas>
 		static buffer create_buffer(
-			const vk::PhysicalDevice& aPhysicalDevice, const vk::Device& aDevice, const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
+			const root& aRoot, 
 			avk::memory_usage aMemoryUsage,
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
@@ -437,7 +462,7 @@ namespace avk
 
 			// Create buffer here to make use of named return value optimization.
 			// How it will be filled depends on where the memory is located at.
-			return create_buffer(aPhysicalDevice, aDevice, aAllocator, metas, aUsage, memoryFlags);
+			return create_buffer(aRoot, metas, aUsage, memoryFlags);
 		}
 
 		template <typename Meta, typename... Metas>
@@ -446,7 +471,7 @@ namespace avk
 			vk::BufferUsageFlags aAdditionalUsageFlags,
 			Meta aConfig, Metas... aConfigs)
 		{
-			return create_buffer(physical_device(), device(), memory_allocator(), avk::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
+			return create_buffer(*this, avk::memory_usage{ aMemoryUsage }, vk::BufferUsageFlags{ aAdditionalUsageFlags }, std::move(aConfig), std::move(aConfigs)...);
 		}
 
 		//template <typename Meta, typename... Metas>
@@ -558,13 +583,13 @@ namespace avk
 #pragma endregion
 
 #pragma region descriptor pool
-		static descriptor_pool create_descriptor_pool(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
+		static descriptor_pool create_descriptor_pool(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
 		descriptor_pool create_descriptor_pool(const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets);
 		descriptor_cache create_descriptor_cache(std::string aName = "");
 #pragma endregion
 
 #pragma region descriptor set layout and set of descriptor set layouts
-		static void allocate_descriptor_set_layout(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, descriptor_set_layout& aLayoutToBeAllocated);
+		static void allocate_descriptor_set_layout(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, descriptor_set_layout& aLayoutToBeAllocated);
 		void allocate_descriptor_set_layout(descriptor_set_layout& aLayoutToBeAllocated);
 		descriptor_set_layout create_descriptor_set_layout_from_template(const descriptor_set_layout& aTemplate);
 		void allocate_set_of_descriptor_set_layouts(set_of_descriptor_set_layouts& aLayoutsToBeAllocated);
@@ -572,7 +597,7 @@ namespace avk
 #pragma endregion
 
 #pragma region fence
-		static fence create_fence(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
+		static fence create_fence(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
 		fence create_fence(bool aCreateInSignalledState = false, std::function<void(fence_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
@@ -865,13 +890,13 @@ namespace avk
 #pragma endregion
 
 #pragma region semaphore
-		static semaphore create_semaphore(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+		static semaphore create_semaphore(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 		semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region shader
-		vk::UniqueShaderModule build_shader_module_from_binary_code(const std::vector<char>& aCode);
-		vk::UniqueShaderModule build_shader_module_from_file(const std::string& aPath);
+		vk::UniqueHandle<vk::ShaderModule, DISPATCH_LOADER_CORE_TYPE> build_shader_module_from_binary_code(const std::vector<char>& aCode);
+		vk::UniqueHandle<vk::ShaderModule, DISPATCH_LOADER_CORE_TYPE> build_shader_module_from_file(const std::string& aPath);
 		shader create_shader(shader_info aInfo);
 		shader create_shader_from_template(const shader& aTemplate);
 #pragma endregion

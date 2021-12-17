@@ -25,7 +25,7 @@ public:
 		if (!mDevice) {
 			// Select one queue that can handle everything:
 			auto queueFamilyIndex = avk::queue::find_best_queue_family_for(physical_device(), {}, avk::queue_selection_preference::versatile_queue, {});
-			auto queues = avk::make_vector(avk::queue::prepare(physical_device(), 0, 0));
+			auto queues = avk::make_vector(avk::queue::prepare(physical_device(), vk::DispatchLoaderStatic(), 0, 0));
 			auto config = avk::queue::get_queue_config_for_DeviceCreateInfo(std::begin(queues), std::end(queues));
 			for (auto i = 0; i < std::get<0>(config).size(); ++i) {
 				std::get<0>(config)[i].setPQueuePriorities(std::get<1>(config)[i].data());
@@ -35,7 +35,6 @@ public:
 			mDevice = physical_device().createDeviceUnique(vk::DeviceCreateInfo{}
 				.setQueueCreateInfoCount(1u)
 				.setPQueueCreateInfos(std::get<0>(config).data())
-				, nullptr, dispatch_loader_core()
 			);
 
 			// AFTER device creation, the queue handle(s) can be assigned to the queues:
@@ -50,6 +49,17 @@ public:
 				vkGetInstanceProcAddr,
 				device()
 			);
+
+#if defined(AVK_USE_VMA)
+			// With everything in place, create the memory allocator:
+			VmaAllocatorCreateInfo allocatorInfo = {};
+			allocatorInfo.physicalDevice = physical_device();
+			allocatorInfo.device = device();
+			allocatorInfo.instance = vulkan_instance();
+			vmaCreateAllocator(&allocatorInfo, &mMemoryAllocator);
+#else
+			mMemoryAllocator = std::make_tuple(physical_device(), device());
+#endif
 		}
 		return mDevice.get();
 	}
@@ -62,7 +72,7 @@ public:
 		return mQueue.handle();
 	}
 
-	vk::DispatchLoaderDynamic dynamic_dispatch() override
+	DISPATCH_LOADER_EXT_TYPE& dispatch_loader_core() override
 	{
 		if (!mDevice) {
 			device();
@@ -70,10 +80,31 @@ public:
 		return mDynamicDispatch;
 	}
 
+	DISPATCH_LOADER_EXT_TYPE& dispatch_loader_ext() override
+	{
+		if (!mDevice) {
+			device();
+		}
+		return mDynamicDispatch;
+	}
+
+	AVK_MEM_ALLOCATOR_TYPE& memory_allocator() override
+	{
+		if (!mDevice) {
+			device();
+		}
+		return mMemoryAllocator;
+	}
+	
 private:
 	vk::UniqueInstance mInstance;
 	vk::PhysicalDevice mPhysicalDevice;
-	vk::UniqueDevice mDevice;
+	vk::UniqueHandle<vk::Device, vk::DispatchLoaderDynamic> mDevice;
 	avk::queue mQueue;
 	vk::DispatchLoaderDynamic mDynamicDispatch;
+#if defined(AVK_USE_VMA)
+	VmaAllocator mMemoryAllocator;
+#else
+	std::tuple<vk::PhysicalDevice, vk::Device> mMemoryAllocator;
+#endif
 };

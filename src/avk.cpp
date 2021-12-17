@@ -1622,19 +1622,11 @@ namespace avk
 		return result;
 	}
 
-	bottom_level_acceleration_structure_t::~bottom_level_acceleration_structure_t()
-	{
-		if (acceleration_structure_handle()) {
-			mDevice.destroyAccelerationStructureKHR(acceleration_structure_handle(), nullptr, mDynamicDispatch);
-			mAccStructure.reset();
-		}
-	}
-
 	buffer_t& bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice, mAllocator,
+				*mRoot,
 				avk::memory_usage::device,
 #if VK_HEADER_VERSION >= 189
 				vk::BufferUsageFlagBits::eStorageBuffer |
@@ -1750,7 +1742,7 @@ namespace avk
 			static_cast<uint32_t>(buildGeometryInfos.size()),
 			buildGeometryInfos.data(),
 			buildRangeInfoPtrs.data(),
-			mDynamicDispatch
+			mRoot->dispatch_loader_ext()
 		);
 #else
 		commandBuffer.handle().buildAccelerationStructureKHR(
@@ -1782,7 +1774,7 @@ namespace avk
 	{
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
-			mPhysicalDevice, mDevice, mAllocator,
+			*mRoot,
 			memory_usage::device, {},
 			aabb_buffer_meta::create_from_data(aGeometries)
 		);
@@ -1796,7 +1788,7 @@ namespace avk
 		}
 		else {
 			AVK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
-			mDevice.waitIdle();
+			mRoot->device().waitIdle();
 		}
 		return result;
 	}
@@ -1864,7 +1856,7 @@ namespace avk
 			1u,
 			&buildGeometryInfos,
 			&buildRangeInfoPtr,
-			mDynamicDispatch
+			mRoot->dispatch_loader_ext()
 		);
 #else
 		commandBuffer.handle().buildAccelerationStructureKHR(
@@ -1971,20 +1963,12 @@ namespace avk
 
 		return result;
 	}
-
-	top_level_acceleration_structure_t::~top_level_acceleration_structure_t()
-	{
-		if (acceleration_structure_handle()) {
-			mDevice.destroyAccelerationStructureKHR(acceleration_structure_handle(), nullptr, mDynamicDispatch);
-			mAccStructure.reset();
-		}
-	}
-
+	
 	buffer_t& top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice, mAllocator,
+				*mRoot,
 				avk::memory_usage::device,
 #if VK_HEADER_VERSION >= 189
 				vk::BufferUsageFlagBits::eStorageBuffer |
@@ -2009,7 +1993,7 @@ namespace avk
 		auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
 
 		auto geomInstBuffer = root::create_buffer(
-			mPhysicalDevice, mDevice, mAllocator,
+			*mRoot,
 			AVK_STAGING_BUFFER_MEMORY_USAGE,
 #if VK_HEADER_VERSION >= 182
 			vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR,
@@ -2028,7 +2012,7 @@ namespace avk
 		}
 		else {
 			AVK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
-			mDevice.waitIdle();
+			mRoot->device().waitIdle();
 		}
 		return result;
 	}
@@ -2104,7 +2088,7 @@ namespace avk
 			1u,
 			&buildGeometryInfo,
 			&buildRangeInfoPtr,
-			mDynamicDispatch
+			mRoot->dispatch_loader_ext()
 		);
 #else
 		commandBuffer.handle().buildAccelerationStructureKHR(
@@ -2454,9 +2438,7 @@ namespace avk
 	}
 
 	buffer root::create_buffer(
-		const vk::PhysicalDevice& aPhysicalDevice,
-		const vk::Device& aDevice,
-		const AVK_MEM_ALLOCATOR_TYPE& aAllocator,
+		const root& aRoot,
 #if VK_HEADER_VERSION >= 135
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta, indirect_buffer_meta>> aMetaData,
 #else
@@ -2500,9 +2482,8 @@ namespace avk
 
 		result.mCreateInfo = bufferCreateInfo;
 		result.mBufferUsageFlags = aBufferUsage;
-		result.mBuffer = AVK_MEM_BUFFER_HANDLE{ aAllocator, aMemoryProperties, result.mCreateInfo };
-		result.mPhysicalDevice = aPhysicalDevice;
-		result.mDevice = aDevice;
+		result.mBuffer = AVK_MEM_BUFFER_HANDLE{ aRoot.memory_allocator(), aMemoryProperties, result.mCreateInfo };
+		result.mRoot = &aRoot;
 
 #if VK_HEADER_VERSION >= 135
 		if (   avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eShaderDeviceAddress)
@@ -2512,7 +2493,7 @@ namespace avk
 			//|| avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR)
 			//|| avk::has_flag(result.usage_flags(), vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR)
 			) {
-			result.mDeviceAddress = get_buffer_address(aDevice, result.handle());
+			result.mDeviceAddress = get_buffer_address(aRoot.device(), result.handle());
 		}
 #endif
 
@@ -2561,7 +2542,7 @@ namespace avk
 
 			if (dataSize != 0) {
 				auto stagingBuffer = root::create_buffer(
-					mPhysicalDevice, mDevice, mBuffer.allocator(),
+					*mRoot,
 					AVK_STAGING_BUFFER_MEMORY_USAGE,
 					vk::BufferUsageFlagBits::eTransferSrc,
 					generic_buffer_meta::create_from_size(dataSize)
@@ -2660,7 +2641,7 @@ namespace avk
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via avk::sync!
 			auto stagingBuffer = root::create_buffer(
-				mPhysicalDevice, mDevice, mBuffer.allocator(),
+				*mRoot,
 				AVK_STAGING_BUFFER_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferDst,
 				generic_buffer_meta::create_from_size(bufferSize));
@@ -2747,9 +2728,9 @@ namespace avk
 			.setFlags(aCreateFlags);
 		command_pool_t result;
 		result.mQueueFamilyIndex = aQueueFamilyIndex;
-		result.mDispatchLoader = &dispatch_loader_core();
+		result.mRoot = this;
 		result.mCreateInfo = createInfo;
-		result.mCommandPool = std::make_shared<vk::UniqueCommandPool>(device().createCommandPoolUnique(createInfo, nullptr, dispatch_loader_core()));
+		result.mCommandPool = std::make_shared<vk::UniqueHandle<vk::CommandPool, DISPATCH_LOADER_CORE_TYPE>>(device().createCommandPoolUnique(createInfo, nullptr, dispatch_loader_core()));
 		return result;
 	}
 
@@ -2760,7 +2741,7 @@ namespace avk
 			.setLevel(aLevel)
 			.setCommandBufferCount(aCount);
 
-		auto tmp = mCommandPool->getOwner().allocateCommandBuffersUnique(bufferAllocInfo, *mDispatchLoader);
+		auto tmp = mCommandPool->getOwner().allocateCommandBuffersUnique(bufferAllocInfo, mRoot->dispatch_loader_core());
 
 		// Iterate over all the "raw"-Vk objects in `tmp` and...
 		std::vector<command_buffer> buffers;
@@ -3038,7 +3019,7 @@ namespace avk
 	void command_buffer_t::trace_rays(
 		vk::Extent3D aRaygenDimensions,
 		const shader_binding_table_ref& aShaderBindingTableRef,
-		vk::DispatchLoaderDynamic aDynamicDispatch,
+		const root& aRoot,
 #if VK_HEADER_VERSION >= 162
 		const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef,
 		const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef,
@@ -3058,7 +3039,7 @@ namespace avk
 		handle().traceRaysKHR(
 			&aRaygenSbtRef, &aRaymissSbtRef, &aRayhitSbtRef, &aCallableSbtRef,
 			aRaygenDimensions.width, aRaygenDimensions.height, aRaygenDimensions.depth,
-			aDynamicDispatch
+			aRoot.dispatch_loader_ext()
 		);
 	}
 #endif
@@ -3249,7 +3230,7 @@ namespace avk
 #pragma endregion
 
 #pragma region descriptor pool definitions
-	descriptor_pool root::create_descriptor_pool(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
+	descriptor_pool root::create_descriptor_pool(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, const std::vector<vk::DescriptorPoolSize>& aSizeRequirements, int aNumSets)
 	{
 		descriptor_pool result;
 		result.mInitialCapacities = aSizeRequirements;
@@ -3391,9 +3372,7 @@ namespace avk
 
 		descriptor_cache result;
 		result.mName = std::move(aName);
-		result.mPhysicalDevice = physical_device();
-		result.mDevice = device();
-		result.mDispatchLoader = &dispatch_loader_core();
+		result.mRoot = this;
 		return result;
 	}
 #pragma endregion
@@ -3417,7 +3396,7 @@ namespace avk
 		return !(left == right);
 	}
 
-	void root::allocate_descriptor_set_layout(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, descriptor_set_layout& aLayoutToBeAllocated)
+	void root::allocate_descriptor_set_layout(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, descriptor_set_layout& aLayoutToBeAllocated)
 	{
 		if (!aLayoutToBeAllocated.mLayout) {
 			// Allocate the layout and return the result:
@@ -3539,7 +3518,7 @@ namespace avk
 			return *it;
 		}
 
-		root::allocate_descriptor_set_layout(mDevice, *mDispatchLoader, aPreparedLayout);
+		root::allocate_descriptor_set_layout(mRoot->device(), mRoot->dispatch_loader_core(), aPreparedLayout);
 
 		const auto result = mLayouts.insert(std::move(aPreparedLayout));
 		assert(result.second);
@@ -3696,12 +3675,12 @@ namespace avk
 		// TODO: On AMD, it seems that all the entries have to be multiplied as well, while on NVIDIA, only multiplying the number of sets seems to be sufficient
 		//       => How to handle this? Overallocation is as bad as underallocation. Shall we make use of exceptions? Shall we 'if' on the vendor?
 
-		const bool isNvidia = 0x12d2 == mPhysicalDevice.getProperties().vendorID;
+		const bool isNvidia = 0x12d2 == mRoot->physical_device().getProperties().vendorID;
 		auto amplifiedAllocRequest = aAllocRequest.multiply_size_requirements(prealloc_factor());
 		//if (!isNvidia) { // Let's 'if' on the vendor and see what happens...
 		//}
 
-		auto newPool = root::create_descriptor_pool(mDevice, *mDispatchLoader,
+		auto newPool = root::create_descriptor_pool(mRoot->device(), mRoot->dispatch_loader_core(),
 			isNvidia
 			  ? aAllocRequest.accumulated_pool_sizes()
 			  : amplifiedAllocRequest.accumulated_pool_sizes(),
@@ -4080,7 +4059,7 @@ namespace avk
 		}
 	}
 
-	fence root::create_fence(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
+	fence root::create_fence(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, bool aCreateInSignalledState, std::function<void(fence_t&)> aAlterConfigBeforeCreation)
 	{
 		fence_t result;
 		result.mCreateInfo = vk::FenceCreateInfo()
@@ -5822,7 +5801,7 @@ namespace avk
 
 	queue queue::prepare(
 		vk::PhysicalDevice aPhysicalDevice,
-		const vk::DispatchLoaderStatic& aDispatchLoader,
+		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader,
 		uint32_t aQueueFamilyIndex,
 		uint32_t aQueueIndex,
 		float aQueuePriority
@@ -6266,7 +6245,6 @@ namespace avk
 
 		return signalWhenCompleteSemaphore;
 	}
-
 #pragma endregion
 
 #pragma region ray tracing pipeline definitions
@@ -6475,9 +6453,9 @@ namespace avk
 			.setMaxRecursionDepth(aPreparedPipeline.mMaxRecursionDepth)
 #endif
 			.setLayout(aPreparedPipeline.layout_handle());
-
+		
 #if VK_HEADER_VERSION >= 162
-		auto pipeCreationResult = device().createRayTracingPipelineKHR(
+		auto pipeCreationResult = device().createRayTracingPipelineKHRUnique(
 			{}, {},
 			pipelineCreateInfo,
 			nullptr,
@@ -6490,10 +6468,7 @@ namespace avk
 			dispatch_loader_ext());
 #endif
 
-		aPreparedPipeline.mPipeline = pipeCreationResult.value;
-
-		//result.mPipeline = std::move(pipeCreationResult.value);
-		// TODO: This ^ will be fixed with vulkan headers v 136 ... or maybe not?!
+		aPreparedPipeline.mPipeline = std::move(pipeCreationResult.value);
 	}
 
 	void root::build_shader_binding_table(ray_tracing_pipeline_t& aPipeline)
@@ -6575,8 +6550,7 @@ namespace avk
 		using namespace cfg;
 
 		ray_tracing_pipeline_t result;
-		result.mDevice = device();
-		result.mDynamicDispatch = dispatch_loader_ext();
+		result.mRoot = this;
 
 		// 1. Set pipeline flags
 		result.mPipelineCreateFlags = {};
@@ -6850,8 +6824,7 @@ namespace avk
 		result.mShaderGroupBaseAlignment				= aTemplate->mShaderGroupBaseAlignment;
 		result.mShaderGroupHandleSize					= aTemplate->mShaderGroupHandleSize;
 
-		result.mDevice									= aTemplate->mDevice;
-		result.mDynamicDispatch							= aTemplate->mDynamicDispatch;
+		result.mRoot = this;
 
 		// 15. Maybe alter the config?!
 		if (aAlterConfigBeforeCreation) {
@@ -6861,14 +6834,6 @@ namespace avk
 		rewire_config_and_create_ray_tracing_pipeline(result);
 		build_shader_binding_table(result);
 		return result;
-	}
-
-	ray_tracing_pipeline_t::~ray_tracing_pipeline_t()
-	{
-		if (handle()) {
-			mDevice.destroy(handle());
-			mPipeline.reset();
-		}
 	}
 
 	size_t ray_tracing_pipeline_t::num_raygen_groups_in_shader_binding_table() const
@@ -7607,7 +7572,7 @@ using namespace cpplinq;
 		return *this;
 	}
 
-	semaphore root::create_semaphore(vk::Device aDevice, const vk::DispatchLoaderStatic& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
+	semaphore root::create_semaphore(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
 	{
 		semaphore_t result;
 		result.mCreateInfo = vk::SemaphoreCreateInfo{};
@@ -7635,7 +7600,7 @@ using namespace cpplinq;
 		return result;
 	}
 
-	vk::UniqueShaderModule root::build_shader_module_from_binary_code(const std::vector<char>& aCode)
+	vk::UniqueHandle<vk::ShaderModule, DISPATCH_LOADER_CORE_TYPE> root::build_shader_module_from_binary_code(const std::vector<char>& aCode)
 	{
 		auto createInfo = vk::ShaderModuleCreateInfo()
 			.setCodeSize(aCode.size())
@@ -7644,7 +7609,7 @@ using namespace cpplinq;
 		return device().createShaderModuleUnique(createInfo, nullptr, dispatch_loader_core());
 	}
 
-	vk::UniqueShaderModule root::build_shader_module_from_file(const std::string& aPath)
+	vk::UniqueHandle<vk::ShaderModule, DISPATCH_LOADER_CORE_TYPE> root::build_shader_module_from_file(const std::string& aPath)
 	{
 		auto binFileContents = avk::load_binary_file(aPath);
 		return build_shader_module_from_binary_code(binFileContents);

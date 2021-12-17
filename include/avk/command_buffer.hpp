@@ -1,6 +1,8 @@
 #pragma once
 #include <avk/avk.hpp>
 
+#include "avk.hpp"
+
 namespace avk 
 {
 	class renderpass_t;
@@ -452,7 +454,6 @@ namespace avk
 		/**	Issue a trace rays call.
 		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
 		 *	@param	aShaderBindingTableRef		Reference to the shader binding table (SBT) to be used for this trace rays call.
-		 *	@param	aDynamicDispatch			vk::DispatchLoaderDynamic to be used for the trace rays call.
 		 *	@param	aRaygenSbtRef				Offset, stride, and size about which SBT entries to use for the ray generation shaders.
 		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
 		 *	@param	aRaymissSbtRef				Offset, stride, and size about which SBT entries to use for the miss shaders.
@@ -467,7 +468,7 @@ namespace avk
 		void trace_rays(
 			vk::Extent3D aRaygenDimensions, 
 			const shader_binding_table_ref& aShaderBindingTableRef, 
-			vk::DispatchLoaderDynamic aDynamicDispatch,
+			const root& aRoot,
 #if VK_HEADER_VERSION >= 162
 			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef   = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
 			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef  = vk::StridedDeviceAddressRegionKHR{0, 0, 0},
@@ -589,14 +590,14 @@ namespace avk
 			add_config(aShaderBindingTableRef, raygen, raymiss, rayhit, callable, args...);
 
 			// 2. TRACE. RAYS.
-			return trace_rays(aRaygenDimensions, aShaderBindingTableRef, aShaderBindingTableRef.mDynamicDispatch, raygen, raymiss, rayhit, callable);
+			return trace_rays(aRaygenDimensions, aShaderBindingTableRef, *aShaderBindingTableRef.mRoot, raygen, raymiss, rayhit, callable);
 		}
 #endif
 		
 	private:
 		command_buffer_state mState;
 		vk::CommandBufferBeginInfo mBeginInfo;
-		vk::UniqueCommandBuffer mCommandBuffer;
+		vk::UniqueHandle<vk::CommandBuffer, DISPATCH_LOADER_CORE_TYPE> mCommandBuffer;
 		vk::SubpassContents mSubpassContentsState;
 		
 		/** A custom deleter function called upon destruction of this command buffer */
@@ -604,7 +605,7 @@ namespace avk
 
 		std::optional<avk::unique_function<void()>> mPostExecutionHandler;
 
-		std::shared_ptr<vk::UniqueCommandPool> mCommandPool;
+		std::shared_ptr<vk::UniqueHandle<vk::CommandPool, DISPATCH_LOADER_CORE_TYPE>> mCommandPool;
 	};
 
 	// Typedef for a variable representing an owner of a command_buffer

@@ -35,7 +35,7 @@ namespace avk
 		void reset();
 
 	private:
-		vk::UniqueDescriptorPool mDescriptorPool;
+		vk::UniqueHandle<vk::DescriptorPool, DISPATCH_LOADER_CORE_TYPE> mDescriptorPool;
 		std::vector<vk::DescriptorPoolSize> mInitialCapacities;
 		std::vector<vk::DescriptorPoolSize> mRemainingCapacities;
 		int mNumInitialSets;

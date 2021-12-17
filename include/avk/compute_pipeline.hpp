@@ -53,8 +53,8 @@ namespace avk
 		vk::PipelineLayoutCreateInfo mPipelineLayoutCreateInfo;
 
 		// Handles:
-		vk::UniquePipelineLayout mPipelineLayout;
-		vk::UniquePipeline mPipeline;
+		vk::UniqueHandle<vk::PipelineLayout, DISPATCH_LOADER_CORE_TYPE> mPipelineLayout;
+		vk::UniqueHandle<vk::Pipeline,       DISPATCH_LOADER_CORE_TYPE> mPipeline;
 	};
 	
 	using compute_pipeline = avk::owning_resource<compute_pipeline_t>;

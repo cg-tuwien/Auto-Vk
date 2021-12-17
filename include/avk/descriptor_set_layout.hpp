@@ -87,7 +87,7 @@ namespace avk
 	private:
 		std::vector<vk::DescriptorPoolSize> mBindingRequirements;
 		std::vector<vk::DescriptorSetLayoutBinding> mOrderedBindings;
-		vk::UniqueDescriptorSetLayout mLayout;
+		vk::UniqueHandle<vk::DescriptorSetLayout, DISPATCH_LOADER_CORE_TYPE> mLayout;
 	};
 
 	extern bool operator ==(const descriptor_set_layout& left, const descriptor_set_layout& right);

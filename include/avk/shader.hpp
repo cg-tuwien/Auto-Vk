@@ -27,7 +27,7 @@ namespace avk
 
 	private:
 		shader_info mInfo;
-		vk::UniqueShaderModule mShaderModule;
+		vk::UniqueHandle<vk::ShaderModule, DISPATCH_LOADER_CORE_TYPE> mShaderModule;
 		std::string mActualShaderLoadPath;
 	};
 

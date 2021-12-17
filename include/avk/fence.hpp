@@ -50,7 +50,7 @@ namespace avk
 
 	private:
 		vk::FenceCreateInfo mCreateInfo;
-		vk::UniqueFence mFence;
+		vk::UniqueHandle<vk::Fence, DISPATCH_LOADER_CORE_TYPE> mFence;
 		queue* mQueue;
 
 		// --- Some advanced features of a fence object ---

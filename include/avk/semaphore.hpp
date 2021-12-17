@@ -62,7 +62,7 @@ namespace avk
 		// The semaphore config struct:
 		vk::SemaphoreCreateInfo mCreateInfo;
 		// The semaphore handle:
-		vk::UniqueSemaphore mSemaphore;
+		vk::UniqueHandle<vk::Semaphore, DISPATCH_LOADER_CORE_TYPE> mSemaphore;
 		// Info for the next command, at which stage the semaphore wait should occur.
 		vk::PipelineStageFlags mSemaphoreWaitStageForNextCommand;
 
