@@ -1749,7 +1749,7 @@ namespace avk
 			static_cast<uint32_t>(buildGeometryInfos.size()),
 			buildGeometryInfos.data(),
 			buildOffsetInfoPtrs.data(),
-			mDynamicDispatch
+			mRoot->dispatch_loader_ext()
 		);
 #endif
 
@@ -1863,7 +1863,7 @@ namespace avk
 			1u,
 			&buildGeometryInfos,
 			&buildOffsetInfoPtr,
-			mDynamicDispatch
+			mRoot->dispatch_loader_ext()
 		);
 #endif
 
@@ -2095,7 +2095,7 @@ namespace avk
 			1u,
 			&buildGeometryInfo,
 			&buildOffsetInfoPtr,
-			mDynamicDispatch
+			mRoot->dispatch_loader_ext()
 		);
 #endif
 
@@ -6461,7 +6461,7 @@ namespace avk
 			nullptr,
 			dispatch_loader_ext());
 #else
-		auto pipeCreationResult = device().createRayTracingPipelineKHR(
+		auto pipeCreationResult = device().createRayTracingPipelineKHRUnique(
 			nullptr,
 			pipelineCreateInfo,
 			nullptr,
