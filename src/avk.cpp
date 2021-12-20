@@ -1632,8 +1632,8 @@ namespace avk
 				vk::BufferUsageFlagBits::eStorageBuffer |
 #endif
 #if VK_HEADER_VERSION >= 162
-				// TODO: Looks like no special usage flags are required anymore?
-				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
+				| vk::BufferUsageFlagBits::eStorageBuffer,
 #else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 #endif
@@ -5156,8 +5156,8 @@ namespace avk
 	{
 		return vk::ImageSubresourceRange{
 			mAspectFlags,
-			0u, mCreateInfo.mipLevels,	// MIP info
-			0u, mCreateInfo.arrayLayers	// Layers info
+			0u, VK_REMAINING_MIP_LEVELS,	// MIP info
+			0u, VK_REMAINING_ARRAY_LAYERS	// Layers info
 		};
 	}
 
