@@ -100,7 +100,7 @@ namespace avk
 		// Config which is passed to the create call and contains all the parameters for buffer view creation.
 		vk::BufferViewCreateInfo mCreateInfo;
 		// The image view's handle. This member will contain a valid handle only after successful image view creation.
-		vk::UniqueBufferView mBufferView;
+		vk::UniqueHandle<vk::BufferView, DISPATCH_LOADER_CORE_TYPE> mBufferView;
 	};
 
 	/** Typedef representing any kind of OWNING image view representations. */

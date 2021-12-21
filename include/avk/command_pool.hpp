@@ -37,8 +37,9 @@ namespace avk
 		
 	private:
 		uint32_t mQueueFamilyIndex;
+		const root* mRoot;
 		vk::CommandPoolCreateInfo mCreateInfo;
-		std::shared_ptr<vk::UniqueCommandPool> mCommandPool;
+		std::shared_ptr<vk::UniqueHandle<vk::CommandPool, DISPATCH_LOADER_CORE_TYPE>> mCommandPool;
 	};
 
 	using command_pool = owning_resource<command_pool_t>;

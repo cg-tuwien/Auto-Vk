@@ -40,7 +40,7 @@ namespace avk
 		renderpass mRenderpass;
 		std::vector<image_view> mImageViews;
 		vk::FramebufferCreateInfo mCreateInfo;
-		vk::UniqueFramebuffer mFramebuffer;
+		vk::UniqueHandle<vk::Framebuffer, DISPATCH_LOADER_CORE_TYPE> mFramebuffer;
 	};
 
 	using framebuffer = avk::owning_resource<framebuffer_t>;

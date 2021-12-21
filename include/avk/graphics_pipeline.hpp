@@ -106,8 +106,8 @@ namespace avk
 		vk::PipelineCreateFlags mPipelineCreateFlags;
 
 		// Handles:
-		vk::UniquePipelineLayout mPipelineLayout;
-		vk::UniquePipeline mPipeline;
+		vk::UniqueHandle<vk::PipelineLayout, DISPATCH_LOADER_CORE_TYPE> mPipelineLayout;
+		vk::UniqueHandle<vk::Pipeline, DISPATCH_LOADER_CORE_TYPE> mPipeline;
 	};
 	
 	using graphics_pipeline = avk::owning_resource<graphics_pipeline_t>;

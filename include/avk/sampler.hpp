@@ -25,7 +25,7 @@ namespace avk
 		// Sampler creation configuration
 		vk::SamplerCreateInfo mCreateInfo;
 		// Sampler handle. It will contain a valid handle only after successful sampler creation.
-		vk::UniqueSampler mSampler;
+		vk::UniqueHandle<vk::Sampler, DISPATCH_LOADER_CORE_TYPE> mSampler;
 		vk::DescriptorImageInfo mDescriptorInfo;
 		vk::DescriptorType mDescriptorType;
 	};

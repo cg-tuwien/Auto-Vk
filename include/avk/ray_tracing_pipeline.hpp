@@ -15,7 +15,7 @@ namespace avk
 		ray_tracing_pipeline_t(const ray_tracing_pipeline_t&) = delete;
 		ray_tracing_pipeline_t& operator=(ray_tracing_pipeline_t&&) noexcept = default;
 		ray_tracing_pipeline_t& operator=(const ray_tracing_pipeline_t&) = delete;
-		~ray_tracing_pipeline_t();
+		~ray_tracing_pipeline_t() = default;
 
 		auto& create_flags() { return mPipelineCreateFlags; }
 		auto& shaders() { return mShaders; }
@@ -42,7 +42,7 @@ namespace avk
 		const auto& pipeline_layout_create_info() const { return mPipelineLayoutCreateInfo; }
 		const auto& layout_handle() const { return mPipelineLayout.get(); }
 		std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> layout() const { return std::make_tuple(this, layout_handle(), &mPushConstantRanges); }
-		const auto& handle() const { return mPipeline.mHandle; }
+		const auto& handle() const { return mPipeline.get(); }
 		vk::DeviceSize table_offset_size() const { return static_cast<vk::DeviceSize>(mShaderGroupBaseAlignment); }
 		vk::DeviceSize table_entry_size() const { return static_cast<vk::DeviceSize>(mShaderGroupHandleSize); }
 		vk::DeviceSize table_size() const { return static_cast<vk::DeviceSize>(mShaderBindingTable->meta_at_index<buffer_meta>(0).total_size()); }
@@ -51,7 +51,8 @@ namespace avk
 		const auto& shader_binding_table_groups() const { return mShaderBindingTableGroupsInfo; }
 		shader_binding_table_ref shader_binding_table() const
 		{
-			return shader_binding_table_ref{ 
+			return shader_binding_table_ref{
+				mRoot,
 				shader_binding_table_handle(), 
 #if VK_HEADER_VERSION >= 162
 				shader_binding_table_device_address(), 
@@ -59,8 +60,7 @@ namespace avk
 				0,
 #endif
 				table_entry_size(), 
-				std::cref(shader_binding_table_groups()), 
-				mDynamicDispatch 
+				std::cref(shader_binding_table_groups())
 			};
 		}
 		size_t num_raygen_groups_in_shader_binding_table() const;
@@ -96,16 +96,16 @@ namespace avk
 		vk::PipelineLayoutCreateInfo mPipelineLayoutCreateInfo;
 
 		// Handles:
-		vk::UniquePipelineLayout mPipelineLayout;
-		//vk::ResultValueType<vk::UniqueHandle<vk::Pipeline, vk::DispatchLoaderDynamic>>::type mPipeline;
-		avk::handle_wrapper<vk::Pipeline> mPipeline;
+		vk::UniqueHandle<vk::PipelineLayout, DISPATCH_LOADER_CORE_TYPE> mPipelineLayout;
+		//vk::ResultValueType<vk::UniqueHandle<vk::Pipeline, DISPATCH_LOADER_EXT_TYPE>>::type mPipeline;
+		//avk::handle_wrapper<vk::Pipeline> mPipeline;
+		vk::UniqueHandle<vk::Pipeline, DISPATCH_LOADER_EXT_TYPE> mPipeline;
 
 		uint32_t mShaderGroupBaseAlignment;
 		uint32_t mShaderGroupHandleSize;
 		buffer mShaderBindingTable; // TODO: support more than one shader binding table?
 
-		vk::Device mDevice;
-		vk::DispatchLoaderDynamic mDynamicDispatch;
+		const root* mRoot;
 	};
 
 	using ray_tracing_pipeline = avk::owning_resource<ray_tracing_pipeline_t>;

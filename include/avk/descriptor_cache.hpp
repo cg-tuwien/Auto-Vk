@@ -51,8 +51,7 @@ namespace avk
 	private:
 		std::string mName = "descriptor cache";
 		int mPreallocFactor = 5;
-		vk::PhysicalDevice mPhysicalDevice;
-		vk::Device mDevice;
+		const root* mRoot;
 		
 		std::unordered_set<descriptor_set_layout> mLayouts;
 		std::unordered_set<descriptor_set> mSets;
