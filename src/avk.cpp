@@ -7427,7 +7427,7 @@ using namespace cpplinq;
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mRenderPass = device().createRenderPass2KHRUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
+		result.mRenderPass = device().createRenderPass2KHRUnique(result.mCreateInfo, nullptr, dispatch_loader_ext());
 		return result;
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
