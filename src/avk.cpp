@@ -4742,18 +4742,18 @@ namespace avk
 
 			// See what is configured in the render pass
 			auto colorAttConfigs = from ((*result.mRenderPass).color_attachments_for_subpass(result.subpass_id()))
-				>> where ([](const vk::AttachmentReference& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+				>> where ([](const vk::AttachmentReference2KHR& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
 				// The color_attachments() contain indices of the actual attachment_descriptions() => select the latter!
-				>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; })
+				>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference2KHR& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; })
 				>> to_vector();
 
-			for (const vk::AttachmentDescription& config: colorAttConfigs) {
+			for (const vk::AttachmentDescription2KHR& config: colorAttConfigs) {
 				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
 				numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
 			}
 
 #if defined(_DEBUG)
-			for (const vk::AttachmentDescription& config: colorAttConfigs) {
+			for (const vk::AttachmentDescription2KHR& config: colorAttConfigs) {
 				if (config.samples != numSamples) {
 					AVK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
 				}
@@ -4762,17 +4762,17 @@ namespace avk
 
 			if (vk::SampleCountFlagBits::e1 == numSamples) {
 				auto depthAttConfigs = from ((*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id()))
-					>> where ([](const vk::AttachmentReference& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-					>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; })
+					>> where ([](const vk::AttachmentReference2KHR& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+					>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference2KHR& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; })
 					>> to_vector();
 
-				for (const vk::AttachmentDescription& config: depthAttConfigs) {
+				for (const vk::AttachmentDescription2KHR& config: depthAttConfigs) {
 					typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
 					numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
 				}
 
 #if defined(_DEBUG)
-					for (const vk::AttachmentDescription& config: depthAttConfigs) {
+					for (const vk::AttachmentDescription2KHR& config: depthAttConfigs) {
 						if (config.samples != numSamples) {
 							AVK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
 						}
@@ -4780,7 +4780,7 @@ namespace avk
 #endif
 
 #if defined(_DEBUG)
-					for (const vk::AttachmentDescription& config: colorAttConfigs) {
+					for (const vk::AttachmentDescription2KHR& config: colorAttConfigs) {
 						if (config.samples != numSamples) {
 							AVK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
 						}
@@ -6973,17 +6973,17 @@ using namespace cpplinq;
 	struct subpass_desc_helper
 	{
 		size_t mSubpassId;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificInputLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedInputLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificInputLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedInputLocations;
 		int mInputMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificColorLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedColorLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificColorLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedColorLocations;
 		int mColorMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificDepthStencilLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedDepthStencilLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificDepthStencilLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedDepthStencilLocations;
 		int mDepthStencilMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificResolveLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedResolveLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificResolveLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedResolveLocations;
 		std::vector<uint32_t> mPreserveAttachments;
 	};
 
@@ -6997,7 +6997,7 @@ using namespace cpplinq;
 		for (size_t i = 0; i < nSubpasses; ++i) {
 			auto& b = aRenderpass.mSubpassData[i];
 
-			aRenderpass.mSubpasses.push_back(vk::SubpassDescription()
+			aRenderpass.mSubpasses.push_back(vk::SubpassDescription2KHR{}
 				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 				.setColorAttachmentCount(static_cast<uint32_t>(b.mOrderedColorAttachmentRefs.size()))
@@ -7161,7 +7161,7 @@ using namespace cpplinq;
 			// ^^^ I have no idea what I'm assuming ^^^
 
 			// 1. Create the attachment descriptions
-			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription{}
+			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription2KHR{}
 				.setFormat(a.format())
 				.setSamples(a.sample_count())
 				.setLoadOp(to_vk_load_op(a.mLoadOperation))
@@ -7208,12 +7208,12 @@ using namespace cpplinq;
 						if (sp.mSpecificInputLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for an input attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificInputLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal};
+						sp.mSpecificInputLocations[loc] = vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 						sp.mInputMaxLoc = std::max(sp.mInputMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for an input attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal});
+						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(vk::ImageLayout::eShaderReadOnlyOptimal));
 					}
 				}
 				if (subpassUsage.as_color()) {
@@ -7223,14 +7223,14 @@ using namespace cpplinq;
 						if (sp.mSpecificColorLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for a color attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificColorLocations[loc] =	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal};
-						sp.mSpecificResolveLocations[loc] =	 vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal};
+						sp.mSpecificColorLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+						sp.mSpecificResolveLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 						sp.mColorMaxLoc = std::max(sp.mColorMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for a color attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal});
-						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal});
+						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(vk::ImageLayout::eColorAttachmentOptimal));
+						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(vk::ImageLayout::eColorAttachmentOptimal));
 					}
 				}
 				if (subpassUsage.as_depth_stencil()) {
@@ -7242,7 +7242,7 @@ using namespace cpplinq;
 					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
 					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
 					//}
-					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal));
 				}
 				if (subpassUsage.as_preserve()) {
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment
@@ -7253,7 +7253,7 @@ using namespace cpplinq;
 		}
 
 		// 3. Fill all the vectors in the right order:
-		const auto unusedAttachmentRef = vk::AttachmentReference().setAttachment(VK_ATTACHMENT_UNUSED);
+		const auto unusedAttachmentRef = vk::AttachmentReference2KHR{}.setAttachment(VK_ATTACHMENT_UNUSED);
 		result.mSubpassData.reserve(numSubpassesFirst);
 		for (size_t i = 0; i < numSubpassesFirst; ++i) {
 			auto& a = subpasses[i];
@@ -7337,7 +7337,7 @@ using namespace cpplinq;
 		const uint32_t firstSubpassId = 0u;
 		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
 		const auto addDependency = [&result](renderpass_sync& rps){
-			result.mSubpassDependencies.push_back(vk::SubpassDependency()
+			result.mSubpassDependencies.push_back(vk::SubpassDependency2KHR{}
 				// Between which two subpasses is this dependency:
 				.setSrcSubpass(rps.source_vk_subpass_id())
 				.setDstSubpass(rps.destination_vk_subpass_id())
@@ -7414,7 +7414,7 @@ using namespace cpplinq;
 		assert(result.mSubpassDependencies.size() == numSubpassesFirst + 1);
 
 		// Finally, create the render pass
-		result.mCreateInfo = vk::RenderPassCreateInfo()
+		result.mCreateInfo = vk::RenderPassCreateInfo2KHR()
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
@@ -7427,7 +7427,7 @@ using namespace cpplinq;
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mRenderPass = device().createRenderPassUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
+		result.mRenderPass = device().createRenderPass2KHRUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
 		return result;
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
@@ -7453,14 +7453,14 @@ using namespace cpplinq;
 		}
 
 		// Finally, create the render pass
-		auto createInfo = vk::RenderPassCreateInfo()
+		auto createInfo = vk::RenderPassCreateInfo2KHR{}
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
 			.setPSubpasses(result.mSubpasses.data())
 			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
 			.setPDependencies(result.mSubpassDependencies.data());
-		result.mRenderPass = device().createRenderPassUnique(createInfo, nullptr, dispatch_loader_core());
+		result.mRenderPass = device().createRenderPass2KHRUnique(createInfo, nullptr, dispatch_loader_ext());
 		return result;
 	}
 
@@ -7470,7 +7470,7 @@ using namespace cpplinq;
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
 		return b.mOrderedInputAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedInputAttachmentRefs), std::end(b.mOrderedInputAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_color_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7479,7 +7479,7 @@ using namespace cpplinq;
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
 		return b.mOrderedColorAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedColorAttachmentRefs), std::end(b.mOrderedColorAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_depth_stencil_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7488,7 +7488,7 @@ using namespace cpplinq;
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
 		return b.mOrderedDepthStencilAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedDepthStencilAttachmentRefs), std::end(b.mOrderedDepthStencilAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_resolve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7497,7 +7497,7 @@ using namespace cpplinq;
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
 		return b.mOrderedResolveAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedResolveAttachmentRefs), std::end(b.mOrderedResolveAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_preserve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7509,28 +7509,28 @@ using namespace cpplinq;
 			[aAttachmentIndex](uint32_t idx) { return idx == aAttachmentIndex; });
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::input_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::input_attachments_for_subpass(uint32_t aSubpassId)
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedInputAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::color_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::color_attachments_for_subpass(uint32_t aSubpassId)
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedColorAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::depth_stencil_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::depth_stencil_attachments_for_subpass(uint32_t aSubpassId)
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedDepthStencilAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::resolve_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::resolve_attachments_for_subpass(uint32_t aSubpassId)
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];

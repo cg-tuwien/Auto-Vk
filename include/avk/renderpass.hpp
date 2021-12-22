@@ -20,17 +20,17 @@ namespace avk
 			~subpass_data() = default;
 			
 			// Ordered list of input attachments
-			std::vector<vk::AttachmentReference> mOrderedInputAttachmentRefs;
+			std::vector<vk::AttachmentReference2KHR> mOrderedInputAttachmentRefs;
 
 			// The ordered list of color attachments (ordered by shader-location).
-			std::vector<vk::AttachmentReference> mOrderedColorAttachmentRefs;
+			std::vector<vk::AttachmentReference2KHR> mOrderedColorAttachmentRefs;
 
 			// The ordered list of depth attachments. Actually, only one or zero are supported.
-			std::vector<vk::AttachmentReference> mOrderedDepthStencilAttachmentRefs;
+			std::vector<vk::AttachmentReference2KHR> mOrderedDepthStencilAttachmentRefs;
 
 			// The ordered list of attachments that shall be resolved.
 			// The length of this list must be zero or the same length as the color attachments.
-			std::vector<vk::AttachmentReference> mOrderedResolveAttachmentRefs;
+			std::vector<vk::AttachmentReference2KHR> mOrderedResolveAttachmentRefs;
 
 			// The list of attachments that are to be preserved
 			std::vector<uint32_t> mPreserveAttachments;
@@ -60,10 +60,10 @@ namespace avk
 		bool is_resolve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const;
 		bool is_preserve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const;
 
-		const std::vector<vk::AttachmentReference>& input_attachments_for_subpass(uint32_t aSubpassId);
-		const std::vector<vk::AttachmentReference>& color_attachments_for_subpass(uint32_t aSubpassId);
-		const std::vector<vk::AttachmentReference>& depth_stencil_attachments_for_subpass(uint32_t aSubpassId);
-		const std::vector<vk::AttachmentReference>& resolve_attachments_for_subpass(uint32_t aSubpassId);
+		const std::vector<vk::AttachmentReference2KHR>& input_attachments_for_subpass(uint32_t aSubpassId);
+		const std::vector<vk::AttachmentReference2KHR>& color_attachments_for_subpass(uint32_t aSubpassId);
+		const std::vector<vk::AttachmentReference2KHR>& depth_stencil_attachments_for_subpass(uint32_t aSubpassId);
+		const std::vector<vk::AttachmentReference2KHR>& resolve_attachments_for_subpass(uint32_t aSubpassId);
 		const std::vector<uint32_t>& preserve_attachments_for_subpass(uint32_t aSubpassId);
 
 		const auto& create_info() const	{ return mCreateInfo; }
@@ -72,7 +72,7 @@ namespace avk
 
 	private:
 		// All the attachments to this renderpass
-		std::vector<vk::AttachmentDescription> mAttachmentDescriptions;
+		std::vector<vk::AttachmentDescription2KHR> mAttachmentDescriptions;
 
 		// All the clear values
 		std::vector<vk::ClearValue> mClearValues;
@@ -81,16 +81,16 @@ namespace avk
 		std::vector<subpass_data> mSubpassData;
 
 		// Subpass descriptions
-		std::vector<vk::SubpassDescription> mSubpasses;
+		std::vector<vk::SubpassDescription2KHR> mSubpasses;
 
 		// Dependencies between internal and external subpasses
-		std::vector<vk::SubpassDependency> mSubpassDependencies;
+		std::vector<vk::SubpassDependency2KHR> mSubpassDependencies;
 
 		// The native handle
 		vk::UniqueHandle<vk::RenderPass, DISPATCH_LOADER_CORE_TYPE> mRenderPass;
 
 		// CreateInfo structure
-		vk::RenderPassCreateInfo mCreateInfo;
+		vk::RenderPassCreateInfo2KHR mCreateInfo;
 	};
 
 	using renderpass = avk::owning_resource<renderpass_t>;
