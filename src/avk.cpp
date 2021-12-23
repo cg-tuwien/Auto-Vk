@@ -2947,12 +2947,7 @@ namespace avk
 	{
 		establish_buffer_memory_barrier(aBuffer, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
 	}
-
-	void command_buffer_t::establish(const pipeline_barrier_data& aBarrierData)
-	{
-		aBarrierData.make_barrier(*this);
-	}
-
+	
 	void command_buffer_t::copy_image(const image_t& aSource, const vk::Image& aDestination)
 	{ // TODO: fix this hack after the RTX-VO!
 		auto fullImageOffset = vk::Offset3D(0, 0, 0);
@@ -7017,7 +7012,59 @@ using namespace cpplinq;
 		}
 	}
 
-	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	std::tuple<std::vector<vk::SubpassDependency2KHR>, std::vector<vk::MemoryBarrier2KHR>> root::compile_subpass_dependencies(const renderpass_t& aRenderpass)
+	{
+		const auto numSubpassesFirst = aRenderpass.mAttachmentDescriptions.size();
+
+		// And construct the actual dependency-info from it:
+		std::vector<vk::SubpassDependency2KHR> subpassDependencies;
+		std::vector<vk::MemoryBarrier2KHR> memoryBarriers;
+
+		const uint32_t firstSubpassId = 0u;
+		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
+
+		{
+			auto [sd, mb] = get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, VK_SUBPASS_EXTERNAL, firstSubpassId);
+			subpassDependencies.push_back(std::move(sd));
+			memoryBarriers.push_back(std::move(mb));
+			assert(subpassDependencies.back().srcSubpass == VK_SUBPASS_EXTERNAL);
+			assert(subpassDependencies.back().dstSubpass == 0u);
+		}
+
+		// Iterate over all combinations of [id, id] and [id, id+1]
+		for (auto i = firstSubpassId, j = firstSubpassId; j <= lastSubpassId; i += (j - i), j += static_cast<uint32_t>(i == j)) {
+			auto hasDependency = try_get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, i, j);
+			if (hasDependency.has_value()) {
+				auto [sd, mb] = hasDependency.value();
+				subpassDependencies.push_back(std::move(sd));
+				memoryBarriers.push_back(std::move(mb));
+				assert(subpassDependencies.back().srcSubpass == i);
+				assert(subpassDependencies.back().dstSubpass == j);
+			}
+		}
+
+		{
+			auto [sd, mb] = get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, lastSubpassId, VK_SUBPASS_EXTERNAL);
+			subpassDependencies.push_back(std::move(sd));
+			memoryBarriers.push_back(std::move(mb));
+			assert(subpassDependencies.back().srcSubpass == lastSubpassId);
+			assert(subpassDependencies.back().dstSubpass == VK_SUBPASS_EXTERNAL);
+		}
+
+		assert(subpassDependencies.size() == memoryBarriers.size());
+
+		return std::make_tuple(std::move(subpassDependencies), std::move(memoryBarriers));
+	}
+
+	void root::rewire_subpass_dependencies(std::vector<vk::SubpassDependency2KHR>& aAlignedSubpassDependencies, std::vector<vk::MemoryBarrier2KHR>& aAlignedMemoryBarriers)
+	{
+		// Set pNext pointers in every vk::SubpassDependency2KHR
+		for (size_t i = 0; i < aAlignedSubpassDependencies.size(); ++i) {
+			aAlignedSubpassDependencies[i].setPNext(&aAlignedMemoryBarriers[i]);
+		}
+	}
+
+	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, subpass_dependencies aSubpassDependencies, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
 
@@ -7328,90 +7375,11 @@ using namespace cpplinq;
 		// 4. Now we can fill the subpass description
 		rewire_subpass_descriptions(result);
 
-		// ======== Regarding Subpass Dependencies ==========
-		// At this point, we can not know how a subpass shall
-		// be synchronized exactly with whatever comes before
-		// and whatever comes after.
-		//  => Let's establish very (overly) cautious dependencies to ensure correctness, but user can set more tight sync via the callback
-
-		const uint32_t firstSubpassId = 0u;
-		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
-		const auto addDependency = [&result](renderpass_sync& rps){
-			result.mSubpassDependencies.push_back(vk::SubpassDependency2KHR{}
-				// Between which two subpasses is this dependency:
-				.setSrcSubpass(rps.source_vk_subpass_id())
-				.setDstSubpass(rps.destination_vk_subpass_id())
-				// Which stage from whatever comes before are we waiting on, and which operations from whatever comes before are we waiting on:
-				.setSrcStageMask(to_vk_pipeline_stage_flags(rps.mSourceStage))
-				.setSrcAccessMask(to_vk_access_flags(to_memory_access(rps.mSourceMemoryDependency)))
-				// Which stage and which operations of our subpass ZERO shall wait:
-				.setDstStageMask(to_vk_pipeline_stage_flags(rps.mDestinationStage))
-				.setDstAccessMask(to_vk_access_flags(rps.mDestinationMemoryDependency))
-			);
-		};
-
-		{
-			renderpass_sync syncBefore {renderpass_sync::sExternal, static_cast<int>(firstSubpassId),
-				pipeline_stage::all_commands,			memory_access::any_write_access,
-				pipeline_stage::all_graphics,	        memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access
-			};
-			// Let the user modify this sync
-			if (aSync) {
-				aSync(syncBefore);
-			}
-			assert(syncBefore.source_vk_subpass_id() == VK_SUBPASS_EXTERNAL);
-			assert(syncBefore.destination_vk_subpass_id() == 0u);
-			addDependency(syncBefore);
-		}
-
-		// Iterate over all combinations of [id, id] and [id, id+1]
-		for (auto i = firstSubpassId, j = firstSubpassId; j <= lastSubpassId; i += (j-i), j += static_cast<uint32_t>(i==j)) {
-
-			// Default to ALL_GRAPHICS -> ALL_GRAPHICS sync between different sub passes,
-			// but default to NO SYNC for subpass self-dependencies, and leave them out if not set by the user
-			// (because subpass self-dependency rules have stricter rules to follow: https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies)
-			renderpass_sync syncBetween {static_cast<int>(i), static_cast<int>(j),
-				pipeline_stage::all_graphics,	memory_access::any_graphics_basic_write_access,
-				pipeline_stage::all_graphics,	memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access,
-			};
-			if (i == j) {
-				syncBetween.mSourceStage = pipeline_stage::top_of_pipe;
-				syncBetween.mSourceMemoryDependency = std::nullopt;
-				syncBetween.mDestinationStage = pipeline_stage::bottom_of_pipe;
-				syncBetween.mDestinationMemoryDependency = std::nullopt;
-			}
-
-			// Let the user modify this sync
-			if (aSync) {
-				aSync(syncBetween);
-			}
-			assert(syncBetween.source_vk_subpass_id() == i);
-			assert(syncBetween.destination_vk_subpass_id() == j);
-
-			if (i != j // or else -- if it is a self dependency -- if the user has set some values:
-				|| syncBetween.mSourceStage != pipeline_stage::top_of_pipe
-				|| syncBetween.mSourceMemoryDependency.has_value()
-				|| syncBetween.mDestinationStage != pipeline_stage::bottom_of_pipe
-				|| syncBetween.mDestinationMemoryDependency.has_value()) {
-				addDependency(syncBetween);
-			}
-		}
-
-		{
-			renderpass_sync syncAfter {static_cast<int>(lastSubpassId), renderpass_sync::sExternal,
-				pipeline_stage::all_graphics,	        memory_access::any_graphics_basic_write_access,
-				pipeline_stage::all_commands,			memory_access::any_read_access
-			};
-			// Let the user modify this sync
-			if (aSync) {
-				aSync(syncAfter);
-			}
-			assert(syncAfter.source_vk_subpass_id() == lastSubpassId);
-			assert(syncAfter.destination_vk_subpass_id() == VK_SUBPASS_EXTERNAL);
-			addDependency(syncAfter);
-		}
-
-		assert(result.mSubpassDependencies.size() == numSubpassesFirst + 1);
+		// ======== Subpass Dependencies ==========
+		// Store whatever the user has passed to not lose any data:
+		result.mSubpassDependencies = std::move(aSubpassDependencies);
+		auto [subpassDependencies, memoryBarriers] = compile_subpass_dependencies(result);
+		rewire_subpass_dependencies(subpassDependencies, memoryBarriers);
 
 		// Finally, create the render pass
 		result.mCreateInfo = vk::RenderPassCreateInfo2KHR()
@@ -7419,8 +7387,8 @@ using namespace cpplinq;
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
 			.setPSubpasses(result.mSubpasses.data())
-			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
-			.setPDependencies(result.mSubpassDependencies.data());
+			.setDependencyCount(static_cast<uint32_t>(subpassDependencies.size()))
+			.setPDependencies(subpassDependencies.data());
 
 		// Maybe alter the config?!
 		if (aAlterConfigBeforeCreation) {
@@ -7452,14 +7420,18 @@ using namespace cpplinq;
 			aAlterConfigBeforeCreation(result);
 		}
 
+		auto [subpassDependencies, memoryBarriers] = compile_subpass_dependencies(result);
+		rewire_subpass_dependencies(subpassDependencies, memoryBarriers);
+
 		// Finally, create the render pass
 		auto createInfo = vk::RenderPassCreateInfo2KHR{}
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
 			.setPSubpasses(result.mSubpasses.data())
-			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
-			.setPDependencies(result.mSubpassDependencies.data());
+			.setDependencyCount(static_cast<uint32_t>(subpassDependencies.size()))
+			.setPDependencies(subpassDependencies.data());
+		
 		result.mRenderPass = device().createRenderPass2KHRUnique(createInfo, nullptr, dispatch_loader_ext());
 		return result;
 	}
@@ -7987,30 +7959,6 @@ using namespace cpplinq;
 	std::optional<command_buffer> copy_image_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler, bool aRestoreSrcLayout)
 	{
 		return copy_image_mip_level_to_buffer(std::move(aSrcImage), 0u, std::move(aDstBuffer), aAspectFlagsOverride, std::move(aSyncHandler), aRestoreSrcLayout);
-	}
-#pragma endregion
-
-#pragma region pipeline_barrier_data definitions
-	void pipeline_barrier_data::make_barrier(command_buffer_t& aIntoCommandBuffer) const
-	{
-		std::vector<vk::BufferMemoryBarrier> bmbs;
-		for (auto& data : mBufferMemoryBarriers) {
-			bmbs.emplace_back()
-				.setBuffer(data.mBufferRef->handle())
-				.setSrcQueueFamilyIndex(data.mSrcQueue.value()->family_index())
-				.setDstQueueFamilyIndex(data.mDstQueue.value()->family_index())
-				.setOffset(0)
-				.setSize(data.mBufferRef->meta_at_index<buffer_meta>().total_size());
-		}
-
-		aIntoCommandBuffer.handle().pipelineBarrier(
-			to_vk_pipeline_stage_flags(mSrcStage.value()),
-			to_vk_pipeline_stage_flags(mDstStage.value()),
-			vk::DependencyFlags{},										// TODO: support dependency flags
-			0u, nullptr,
-			static_cast<uint32_t>(bmbs.size()), bmbs.data(),
-			0u, nullptr
-		);
 	}
 #pragma endregion
 

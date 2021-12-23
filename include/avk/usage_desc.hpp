@@ -12,8 +12,8 @@ namespace avk
 		usage_desc& operator=(usage_desc&&) noexcept = default;
 		usage_desc& operator=(const usage_desc&) = default;
 		//usage_desc& operator=(const usage_desc* ud) noexcept { mDescriptions = ud->mDescriptions; return *this; };
-		virtual ~usage_desc() {}
-		
+		virtual ~usage_desc() = default;
+
 		usage_desc& unused()							{ mDescriptions.emplace_back(usage_type::create_unused()); return *this; }
 		usage_desc& resolve_receiver()					{ return unused(); }
 		usage_desc& input(int location)					{ mDescriptions.emplace_back(usage_type::create_input(location)); return *this; }
@@ -25,8 +25,8 @@ namespace avk
 		
 		usage_desc& operator+(usage_desc additionalUsages)
 		{
-			assert(additionalUsages.mDescriptions.size() >= 1);
-			auto& additional = additionalUsages.mDescriptions.front();
+			assert(!additionalUsages.mDescriptions.empty());
+			const auto& additional = additionalUsages.mDescriptions.front();
 			auto& existing = mDescriptions.back();
 
 			existing.mInput	= existing.mInput || additional.mInput;
@@ -46,14 +46,14 @@ namespace avk
 			return *this;
 		}
 
-		bool contains_unused() const		{ return std::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_unused(); }) != mDescriptions.end(); }
-		bool contains_input() const			{ return std::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_input(); }) != mDescriptions.end(); }
-		bool contains_color() const			{ return std::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_color(); }) != mDescriptions.end(); }
-		bool contains_resolve() const		{ return std::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.has_resolve(); }) != mDescriptions.end(); }
-		bool contains_depth_stencil() const	{ return std::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_depth_stencil(); }) != mDescriptions.end(); }
-		bool contains_preserve() const		{ return std::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_preserve(); }) != mDescriptions.end(); }
+		[[nodiscard]] bool contains_unused() const			{ return std::ranges::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_unused(); }) != mDescriptions.end(); }
+		[[nodiscard]] bool contains_input() const			{ return std::ranges::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_input(); }) != mDescriptions.end(); }
+		[[nodiscard]] bool contains_color() const			{ return std::ranges::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_color(); }) != mDescriptions.end(); }
+		[[nodiscard]] bool contains_resolve() const			{ return std::ranges::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.has_resolve(); }) != mDescriptions.end(); }
+		[[nodiscard]] bool contains_depth_stencil() const	{ return std::ranges::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_depth_stencil(); }) != mDescriptions.end(); }
+		[[nodiscard]] bool contains_preserve() const		{ return std::ranges::find_if(mDescriptions.begin(), mDescriptions.end(), [](const usage_type& u) { return u.as_preserve(); }) != mDescriptions.end(); }
 
-		usage_type first_color_depth_input_usage() const
+		[[nodiscard]] usage_type first_color_depth_input_usage() const
 		{
 			auto n = mDescriptions.size();
 			for (size_t i = 0; i < n; ++i) {
@@ -64,7 +64,7 @@ namespace avk
 			return mDescriptions[0];
 		}
 
-		usage_type last_color_depth_input_usage() const
+		[[nodiscard]] usage_type last_color_depth_input_usage() const
 		{
 			auto n = mDescriptions.size();
 			for (size_t i = n; i > 0; --i) {
@@ -75,8 +75,8 @@ namespace avk
 			return mDescriptions[n-1];
 		}
 
-		auto num_subpasses() const { return mDescriptions.size(); }
-		auto get_subpass_usage(size_t subpassId) const { return mDescriptions[subpassId]; }
+		[[nodiscard]] auto num_subpasses() const { return mDescriptions.size(); }
+		[[nodiscard]] auto get_subpass_usage(size_t subpassId) const { return mDescriptions[subpassId]; }
 		//auto is_to_be_resolved_after_subpass(size_t subpassId) const { return mDescriptions[subpassId].has_resolve(); }
 		//auto get_resolve_target_index(size_t subpassId) const { return mDescriptions[subpassId].mResolveAttachmentIndex; }
 		//auto has_input_location_at_subpass(size_t subpassId) const { return mDescriptions[subpassId].as_input() && mDescriptions[subpassId].mInputLocation != -1; }
@@ -89,7 +89,7 @@ namespace avk
 		std::vector<usage_type> mDescriptions;
 	};
 
-	class unused : public usage_desc
+	class unused final : public usage_desc
 	{
 	public:
 		explicit unused()											{ mDescriptions.emplace_back(usage_type::create_unused()); }
@@ -97,11 +97,12 @@ namespace avk
 		unused(const unused&) = default;
 		unused& operator=(unused&&) noexcept = default;
 		unused& operator=(const unused&) = default;
+		~unused() override = default;
 	};
 
 	using resolve_receiver = unused;
 	
-	class input : public usage_desc
+	class input final : public usage_desc
 	{
 	public:
 		explicit input(int location)								{ mDescriptions.emplace_back(usage_type::create_input(location)); }
@@ -109,9 +110,10 @@ namespace avk
 		input(const input&) = default;
 		input& operator=(input&&) noexcept = default;
 		input& operator=(const input&) = default;
+		~input() override = default;
 	};
 	
-	class color : public usage_desc
+	class color final : public usage_desc
 	{
 	public:
 		explicit color(int location)								{ mDescriptions.emplace_back(usage_type::create_color(location)); }
@@ -119,10 +121,11 @@ namespace avk
 		color(const color&) = default;
 		color& operator=(color&&) noexcept = default;
 		color& operator=(const color&) = default;
+		~color() override = default;
 	};
 
 	/** Resolve this attachment and store the resolved results to another attachment at the specified index. */
-	class resolve_to : public usage_desc
+	class resolve_to final : public usage_desc
 	{
 	public:
 		/**	Indicate that this attachment shall be resolved.
@@ -133,9 +136,10 @@ namespace avk
 		resolve_to(const resolve_to&) = default;
 		resolve_to& operator=(resolve_to&&) noexcept = default;
 		resolve_to& operator=(const resolve_to&) = default;
+		~resolve_to() override = default;
 	};
 	
-	class depth_stencil : public usage_desc
+	class depth_stencil final : public usage_desc
 	{
 	public:
 		explicit depth_stencil(int location = 0)					{ mDescriptions.emplace_back(usage_type::create_depth_stencil()); }
@@ -143,9 +147,10 @@ namespace avk
 		depth_stencil(const depth_stencil&) = default;
 		depth_stencil& operator=(depth_stencil&&) noexcept = default;
 		depth_stencil& operator=(const depth_stencil&) = default;
+		~depth_stencil() override = default;
 	};
 	
-	class preserve : public usage_desc
+	class preserve final : public usage_desc
 	{
 	public:
 		explicit preserve()											{ mDescriptions.emplace_back(usage_type::create_preserve()); }
@@ -153,5 +158,6 @@ namespace avk
 		preserve(const preserve&) = default;
 		preserve& operator=(preserve&&) noexcept = default;
 		preserve& operator=(const preserve&) = default;
+		~preserve() override = default;
 	};
 }

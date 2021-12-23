@@ -107,73 +107,129 @@ namespace avk
 
 	class command_buffer_t;
 
-	class pipeline_barrier_data
+	namespace stage
 	{
-	public:
-		pipeline_barrier_data& top_of_pipe() { mDstStage = pipeline_stage::top_of_pipe; return *this; }
-		pipeline_barrier_data& draw_indirect() { mDstStage = pipeline_stage::draw_indirect; return *this; }
-		pipeline_barrier_data& vertex_input() { mDstStage = pipeline_stage::vertex_input; return *this; }
-		pipeline_barrier_data& vertex_shader() { mDstStage = pipeline_stage::vertex_shader; return *this; }
-		pipeline_barrier_data& tessellation_control_shader() { mDstStage = pipeline_stage::tessellation_control_shader; return *this; }
-		pipeline_barrier_data& tessellation_evaluation_shader() { mDstStage = pipeline_stage::tessellation_evaluation_shader; return *this; }
-		pipeline_barrier_data& geometry_shader() { mDstStage = pipeline_stage::geometry_shader; return *this; }
-		pipeline_barrier_data& fragment_shader() { mDstStage = pipeline_stage::fragment_shader; return *this; }
-		pipeline_barrier_data& early_fragment_tests() { mDstStage = pipeline_stage::early_fragment_tests; return *this; }
-		pipeline_barrier_data& late_fragment_tests() { mDstStage = pipeline_stage::late_fragment_tests; return *this; }
-		pipeline_barrier_data& color_attachment_output() { mDstStage = pipeline_stage::color_attachment_output; return *this; }
-		pipeline_barrier_data& compute_shader() { mDstStage = pipeline_stage::compute_shader; return *this; }
-		pipeline_barrier_data& transfer() { mDstStage = pipeline_stage::transfer; return *this; }
-		pipeline_barrier_data& bottom_of_pipe() { mDstStage = pipeline_stage::bottom_of_pipe; return *this; }
-		pipeline_barrier_data& host() { mDstStage = pipeline_stage::host; return *this; }
-		pipeline_barrier_data& all_graphics() { mDstStage = pipeline_stage::all_graphics; return *this; }
-		pipeline_barrier_data& all_commands() { mDstStage = pipeline_stage::all_commands; return *this; }
-		pipeline_barrier_data& transform_feedback() { mDstStage = pipeline_stage::transform_feedback; return *this; }
-		pipeline_barrier_data& conditional_rendering() { mDstStage = pipeline_stage::conditional_rendering; return *this; }
-		pipeline_barrier_data& command_preprocess() { mDstStage = pipeline_stage::command_preprocess; return *this; }
-		pipeline_barrier_data& shading_rate_image() { mDstStage = pipeline_stage::shading_rate_image; return *this; }
-		pipeline_barrier_data& ray_tracing_shaders() { mDstStage = pipeline_stage::ray_tracing_shaders; return *this; }
-		pipeline_barrier_data& acceleration_structure_build() { mDstStage = pipeline_stage::acceleration_structure_build; return *this; }
-		pipeline_barrier_data& task_shader() { mDstStage = pipeline_stage::task_shader; return *this; }
-		pipeline_barrier_data& mesh_shader() { mDstStage = pipeline_stage::mesh_shader; return *this; }
-		pipeline_barrier_data& fragment_density_process() { mDstStage = pipeline_stage::fragment_density_process; return *this; }
+		struct pipeline_stage2
+		{
+			vk::PipelineStageFlags2KHR mSrc;
+			vk::PipelineStageFlags2KHR mDst;
+		};
 
-		pipeline_barrier_data* operator-> () { return this; }
-		
-		pipeline_barrier_data& operator> (pipeline_barrier_buffer_data aBufferBarrierData) { mBufferMemoryBarriers.emplace_back(std::move(aBufferBarrierData)); return *this; }
+		struct pipeline_stage_flags
+		{
+			vk::PipelineStageFlags2KHR mFlags;
+		};
 
-		void make_barrier(command_buffer_t& aIntoCommandBuffer) const;
+		inline pipeline_stage2 operator>> (pipeline_stage_flags a, pipeline_stage_flags b)
+		{
+			return pipeline_stage2{ a.mFlags, b.mFlags };
+		}
 
-	protected:
-		std::optional<pipeline_stage> mSrcStage;
-		std::optional<pipeline_stage> mDstStage;
-		std::vector<pipeline_barrier_buffer_data> mBufferMemoryBarriers;
-	};
+#pragma region pipeline_stage_flags operators
+		inline pipeline_stage_flags operator| (pipeline_stage_flags a, pipeline_stage_flags b)
+		{
+			return pipeline_stage_flags{ a.mFlags | b.mFlags };
+		}
 
-	class top_of_pipe : public pipeline_barrier_data { public: top_of_pipe() { mSrcStage = pipeline_stage::top_of_pipe; } };
-	class draw_indirect : public pipeline_barrier_data { public: draw_indirect() { mSrcStage = pipeline_stage::draw_indirect; } };
-	class vertex_input : public pipeline_barrier_data { public: vertex_input() { mSrcStage = pipeline_stage::vertex_input; } };
-	class vertex_shader : public pipeline_barrier_data { public: vertex_shader() { mSrcStage = pipeline_stage::vertex_shader; } };
-	class tessellation_control_shader : public pipeline_barrier_data { public: tessellation_control_shader() { mSrcStage = pipeline_stage::tessellation_control_shader; } };
-	class tessellation_evaluation_shader : public pipeline_barrier_data { public: tessellation_evaluation_shader() { mSrcStage = pipeline_stage::tessellation_evaluation_shader; } };
-	class geometry_shader : public pipeline_barrier_data { public: geometry_shader() { mSrcStage = pipeline_stage::geometry_shader; } };
-	class fragment_shader : public pipeline_barrier_data { public: fragment_shader() { mSrcStage = pipeline_stage::fragment_shader; } };
-	class early_fragment_tests : public pipeline_barrier_data { public: early_fragment_tests() { mSrcStage = pipeline_stage::early_fragment_tests; } };
-	class late_fragment_tests : public pipeline_barrier_data { public: late_fragment_tests() { mSrcStage = pipeline_stage::late_fragment_tests; } };
-	class color_attachment_output : public pipeline_barrier_data { public: color_attachment_output() { mSrcStage = pipeline_stage::color_attachment_output; } };
-	class compute_shader : public pipeline_barrier_data { public: compute_shader() { mSrcStage = pipeline_stage::compute_shader; } };
-	class transfer : public pipeline_barrier_data { public: transfer() { mSrcStage = pipeline_stage::transfer; } };
-	class bottom_of_pipe : public pipeline_barrier_data { public: bottom_of_pipe() { mSrcStage = pipeline_stage::bottom_of_pipe; } };
-	class host : public pipeline_barrier_data { public: host() { mSrcStage = pipeline_stage::host; } };
-	class all_graphics : public pipeline_barrier_data { public: all_graphics() { mSrcStage = pipeline_stage::all_graphics; } };
-	class all_commands : public pipeline_barrier_data { public: all_commands() { mSrcStage = pipeline_stage::all_commands; } };
-	class transform_feedback : public pipeline_barrier_data { public: transform_feedback() { mSrcStage = pipeline_stage::transform_feedback; } };
-	class conditional_rendering : public pipeline_barrier_data { public: conditional_rendering() { mSrcStage = pipeline_stage::conditional_rendering; } };
-	class command_preprocess : public pipeline_barrier_data { public: command_preprocess() { mSrcStage = pipeline_stage::command_preprocess; } };
-	class shading_rate_image : public pipeline_barrier_data { public: shading_rate_image() { mSrcStage = pipeline_stage::shading_rate_image; } };
-	class ray_tracing_shaders : public pipeline_barrier_data { public: ray_tracing_shaders() { mSrcStage = pipeline_stage::ray_tracing_shaders; } };
-	class acceleration_structure_build : public pipeline_barrier_data { public: acceleration_structure_build() { mSrcStage = pipeline_stage::acceleration_structure_build; } };
-	class task_shader : public pipeline_barrier_data { public: task_shader() { mSrcStage = pipeline_stage::task_shader; } };
-	class mesh_shader : public pipeline_barrier_data { public: mesh_shader() { mSrcStage = pipeline_stage::mesh_shader; } };
-	class fragment_density_process : public pipeline_barrier_data { public: fragment_density_process() { mSrcStage = pipeline_stage::fragment_density_process; } };
+		inline pipeline_stage_flags operator& (pipeline_stage_flags a, pipeline_stage_flags b)
+		{
+			return pipeline_stage_flags{ a.mFlags & b.mFlags };
+		}
 
+		inline pipeline_stage_flags& operator |= (pipeline_stage_flags& a, pipeline_stage_flags b)
+		{
+			return a = a | b;
+		}
+
+		inline pipeline_stage_flags& operator &= (pipeline_stage_flags& a, pipeline_stage_flags b)
+		{
+			return a = a & b;
+		}
+
+		inline pipeline_stage_flags exclude(pipeline_stage_flags original, pipeline_stage_flags toExclude)
+		{
+			return pipeline_stage_flags{ original.mFlags & ~toExclude.mFlags };
+		}
+
+		inline bool is_included(const pipeline_stage_flags toTest, const pipeline_stage_flags includee)
+		{
+			return (toTest.mFlags & includee.mFlags) == includee.mFlags;
+		}
+#pragma endregion
+
+#pragma region pipeline_stage2 | pipeline_stage_flags operators
+		inline pipeline_stage2 operator| (pipeline_stage2 a, pipeline_stage_flags b)
+		{
+			return pipeline_stage2{ a.mSrc, a.mDst | b.mFlags };
+		}
+
+		inline pipeline_stage2 operator& (pipeline_stage2 a, pipeline_stage_flags b)
+		{
+			return pipeline_stage2{ a.mSrc, a.mDst & b.mFlags };
+		}
+
+		inline pipeline_stage2& operator |= (pipeline_stage2& a, pipeline_stage_flags b)
+		{
+			return a = a | b;
+		}
+
+		inline pipeline_stage2& operator &= (pipeline_stage2& a, pipeline_stage_flags b)
+		{
+			return a = a & b;
+		}
+#pragma endregion
+
+#pragma region pipeline_stage_flags | pipeline_stage2 operators
+		inline pipeline_stage2 operator| (pipeline_stage_flags a, pipeline_stage2 b)
+		{
+			return pipeline_stage2{ a.mFlags | b.mSrc, b.mDst };
+		}
+
+		inline pipeline_stage2 operator& (pipeline_stage_flags a, pipeline_stage2 b)
+		{
+			return pipeline_stage2{ a.mFlags & b.mSrc, b.mDst };
+		}
+#pragma endregion
+
+		static const auto none                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eNone };
+		static const auto top_of_pipe                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTopOfPipe };
+		static const auto draw_indirect                    = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eDrawIndirect };
+		static const auto vertex_input                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexInput };
+		static const auto vertex_shader                    = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexShader };
+		static const auto tessellation_control_shader      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTessellationControlShader };
+		static const auto tessellation_evaluation_shader   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTessellationEvaluationShader };
+		static const auto geometry_shader                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eGeometryShader };
+		static const auto fragment_shader                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShader };
+		static const auto early_fragment_tests             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests };
+		static const auto late_fragment_tests              = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eLateFragmentTests };
+		static const auto color_attachment_output          = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput };
+		static const auto compute_shader                   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eComputeShader };
+		static const auto all_transfer                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllTransfer };
+		static const auto transfer                         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransfer };
+		static const auto bottom_of_pipe                   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eBottomOfPipe };
+		static const auto host                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eHost };
+		static const auto all_graphics                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllGraphics };
+		static const auto all_commands                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllCommands };
+		static const auto copy                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCopy };
+		static const auto resolve                          = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eResolve };
+		static const auto blit                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eBlit };
+		static const auto clear                            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eClear };
+		static const auto index_input                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eIndexInput };
+		static const auto vertex_attribute_input           = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexAttributeInput };
+		static const auto pre_rasterization_shaders        = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::ePreRasterizationShaders };
+		static const auto video_decode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoDecode };
+		static const auto video_encode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoEncode };
+		static const auto transform_feedback               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransformFeedbackEXT };
+		static const auto conditional_rendering            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eConditionalRenderingEXT };
+		static const auto command_preprocess               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCommandPreprocessNV };
+		static const auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachment };
+		static const auto shading_rate_image               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eShadingRateImageNV };
+		static const auto acceleration_structure_build     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild };
+		static const auto ray_tracing_shader               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eRayTracingShader };
+		static const auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessEXT };
+		static const auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNV };
+		static const auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNV };
+		static const auto subpass_shading                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eSubpassShadingHUAWEI };
+		static const auto invocation_mask                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eInvocationMaskHUAWEI };
+	}
 }

@@ -84,7 +84,7 @@ namespace avk
 		std::vector<vk::SubpassDescription2KHR> mSubpasses;
 
 		// Dependencies between internal and external subpasses
-		std::vector<vk::SubpassDependency2KHR> mSubpassDependencies;
+		avk::subpass_dependencies mSubpassDependencies;
 
 		// The native handle
 		vk::UniqueHandle<vk::RenderPass, DISPATCH_LOADER_EXT_TYPE> mRenderPass;

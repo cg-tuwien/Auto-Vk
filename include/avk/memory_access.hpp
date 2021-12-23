@@ -151,4 +151,125 @@ namespace avk
 		memory_access mMemoryAccess;
 	};
 
+	namespace access
+	{
+		struct memory_access2
+		{
+			vk::AccessFlags2KHR mSrc;
+			vk::AccessFlags2KHR mDst;
+		};
+
+		struct memory_access_flags
+		{
+			vk::AccessFlags2KHR mFlags;
+		};
+
+		inline memory_access2 operator>> (memory_access_flags a, memory_access_flags b)
+		{
+			return memory_access2{ a.mFlags, b.mFlags };
+		}
+
+#pragma region memory_access_flags operators
+		inline memory_access_flags operator| (memory_access_flags a, memory_access_flags b)
+		{
+			return memory_access_flags{ a.mFlags | b.mFlags };
+		}
+
+		inline memory_access_flags operator& (memory_access_flags a, memory_access_flags b)
+		{
+			return memory_access_flags{ a.mFlags & b.mFlags };
+		}
+
+		inline memory_access_flags& operator |= (memory_access_flags& a, memory_access_flags b)
+		{
+			return a = a | b;
+		}
+
+		inline memory_access_flags& operator &= (memory_access_flags& a, memory_access_flags b)
+		{
+			return a = a & b;
+		}
+
+		inline memory_access_flags exclude(memory_access_flags original, memory_access_flags toExclude)
+		{
+			return memory_access_flags{ original.mFlags & ~toExclude.mFlags };
+		}
+
+		inline bool is_included(const memory_access_flags toTest, const memory_access_flags includee)
+		{
+			return (toTest.mFlags & includee.mFlags) == includee.mFlags;
+		}
+#pragma endregion
+
+#pragma region memory_access2 | memory_access_flags operators
+		inline memory_access2 operator| (memory_access2 a, memory_access_flags b)
+		{
+			return memory_access2{ a.mSrc, a.mDst | b.mFlags };
+		}
+
+		inline memory_access2 operator& (memory_access2 a, memory_access_flags b)
+		{
+			return memory_access2{ a.mSrc, a.mDst & b.mFlags };
+		}
+
+		inline memory_access2& operator |= (memory_access2& a, memory_access_flags b)
+		{
+			return a = a | b;
+		}
+
+		inline memory_access2& operator &= (memory_access2& a, memory_access_flags b)
+		{
+			return a = a & b;
+		}
+#pragma endregion
+
+#pragma region memory_access_flags | memory_access2 operators
+		inline memory_access2 operator| (memory_access_flags a, memory_access2 b)
+		{
+			return memory_access2{ a.mFlags | b.mSrc, b.mDst };
+		}
+
+		inline memory_access2 operator& (memory_access_flags a, memory_access2 b)
+		{
+			return memory_access2{ a.mFlags & b.mSrc, b.mDst };
+		}
+#pragma endregion
+
+		static const auto none                                  = memory_access_flags{ vk::AccessFlagBits2KHR::eNone };
+		static const auto indirect_command_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eIndirectCommandRead };
+		static const auto index_read                            = memory_access_flags{ vk::AccessFlagBits2KHR::eIndexRead };
+		static const auto vertex_attribute_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eVertexAttributeRead };
+		static const auto uniform_read                          = memory_access_flags{ vk::AccessFlagBits2KHR::eUniformRead };
+		static const auto input_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eInputAttachmentRead };
+		static const auto shader_read                           = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderRead };
+		static const auto shader_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderWrite };
+		static const auto color_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentRead };
+		static const auto color_attachment_write                = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentWrite };
+		static const auto transform_read                        = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferRead };
+		static const auto transform_write                       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferWrite };
+		static const auto host_read                             = memory_access_flags{ vk::AccessFlagBits2KHR::eHostRead };
+		static const auto host_write                            = memory_access_flags{ vk::AccessFlagBits2KHR::eHostWrite };
+		static const auto memory_read                           = memory_access_flags{ vk::AccessFlagBits2KHR::eMemoryRead };
+		static const auto memory_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eMemoryWrite };
+		static const auto shader_sampled_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderSampledRead };
+		static const auto shader_storage_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageRead };
+		static const auto shader_storage_write                  = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageWrite };
+		static const auto video_decode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeRead };
+		static const auto video_decode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeWrite };
+		static const auto video_encode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeRead };
+		static const auto video_encode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeWrite };
+		static const auto transform_feedback_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackWriteEXT };
+		static const auto transform_feedback_counter_read       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterReadEXT };
+		static const auto transform_feedback_counter_write      = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterWriteEXT };
+		static const auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadEXT };
+		static const auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNV };
+		static const auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNV };
+		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentRead };
+		static const auto shading_rate_image_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV };
+		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureRead };
+		static const auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWrite };
+		static const auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadEXT };
+		static const auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentEXT };
+		static const auto invocation_mask_read                  = memory_access_flags{ vk::AccessFlagBits2KHR::eInvocationMaskReadHUAWEI };
+	}
 }

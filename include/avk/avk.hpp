@@ -157,6 +157,8 @@ namespace avk
 #include <avk/descriptor_alloc_request.hpp>
 #include <avk/descriptor_pool.hpp>
 
+#include <avk/image_layout.hpp>
+
 #include <avk/format_for.hpp>
 #include <avk/buffer_meta.hpp>
 
@@ -198,6 +200,7 @@ namespace avk
 #include <avk/buffer_view.hpp>
 #include <avk/vertex_index_buffer_pair.hpp>
 #include <avk/queue.hpp>
+#include <avk/subpass_dependency.hpp>
 #include <avk/renderpass_sync.hpp>
 #include <avk/renderpass.hpp>
 #include <avk/framebuffer.hpp>
@@ -875,16 +878,19 @@ namespace avk
 		 */
 		void rewire_subpass_descriptions(renderpass_t& aRenderpass);
 
+		std::tuple<std::vector<vk::SubpassDependency2KHR>, std::vector<vk::MemoryBarrier2KHR>> compile_subpass_dependencies(const renderpass_t& aRenderpass);
+
+		void rewire_subpass_dependencies(std::vector<vk::SubpassDependency2KHR>& aAlignedSubpassDependencies, std::vector<vk::MemoryBarrier2KHR>& aAlignedMemoryBarriers);
+
 		/** Create a renderpass from a given set of attachments.
 		 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
 		 *	To specify custom subpass dependencies, pass a callback to the second parameter!
 		 *	@param	aAttachments				Attachments of the renderpass to be created
-		 *	@param	aSync						Callback of type void(renderpass_sync&) that is invoked for external subpass dependencies (before and after),
-		 *										and also between each of the subpasses. Modify the passed `renderpass_sync&` in order to set custom
+		 *	@param	aSubpassDependencies		TODO: Describe!
 		 *										synchronization parameters.
 		 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
 		 */
-		renderpass create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+		renderpass create_renderpass(std::vector<avk::attachment> aAttachments, subpass_dependencies aSubpassDependencies = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 
 		renderpass create_renderpass_from_template(resource_reference<const renderpass_t> aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
