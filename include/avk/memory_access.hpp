@@ -153,15 +153,17 @@ namespace avk
 
 	namespace access
 	{
+		using auto_access_t = uint8_t;
+
 		struct memory_access2
 		{
-			vk::AccessFlags2KHR mSrc;
-			vk::AccessFlags2KHR mDst;
+			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mSrc;
+			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mDst;
 		};
 
 		struct memory_access_flags
 		{
-			vk::AccessFlags2KHR mFlags;
+			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mFlags;
 		};
 
 		inline memory_access2 operator>> (memory_access_flags a, memory_access_flags b)
@@ -172,12 +174,18 @@ namespace avk
 #pragma region memory_access_flags operators
 		inline memory_access_flags operator| (memory_access_flags a, memory_access_flags b)
 		{
-			return memory_access_flags{ a.mFlags | b.mFlags };
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator| may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return memory_access_flags{ std::get<vk::AccessFlags2KHR>(a.mFlags) | std::get<vk::AccessFlags2KHR>(b.mFlags) };
 		}
 
 		inline memory_access_flags operator& (memory_access_flags a, memory_access_flags b)
 		{
-			return memory_access_flags{ a.mFlags & b.mFlags };
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator& may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return memory_access_flags{ std::get<vk::AccessFlags2KHR>(a.mFlags) & std::get<vk::AccessFlags2KHR>(b.mFlags) };
 		}
 
 		inline memory_access_flags& operator |= (memory_access_flags& a, memory_access_flags b)
@@ -192,24 +200,36 @@ namespace avk
 
 		inline memory_access_flags exclude(memory_access_flags original, memory_access_flags toExclude)
 		{
-			return memory_access_flags{ original.mFlags & ~toExclude.mFlags };
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(original.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(toExclude.mFlags)) {
+				throw avk::runtime_error("exclude may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return memory_access_flags{ std::get<vk::AccessFlags2KHR>(original.mFlags) & ~std::get<vk::AccessFlags2KHR>(toExclude.mFlags) };
 		}
 
 		inline bool is_included(const memory_access_flags toTest, const memory_access_flags includee)
 		{
-			return (toTest.mFlags & includee.mFlags) == includee.mFlags;
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(toTest.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(includee.mFlags)) {
+				throw avk::runtime_error("is_included may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return (std::get<vk::AccessFlags2KHR>(toTest.mFlags) & std::get<vk::AccessFlags2KHR>(includee.mFlags)) == std::get<vk::AccessFlags2KHR>(includee.mFlags);
 		}
 #pragma endregion
 
 #pragma region memory_access2 | memory_access_flags operators
 		inline memory_access2 operator| (memory_access2 a, memory_access_flags b)
 		{
-			return memory_access2{ a.mSrc, a.mDst | b.mFlags };
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mDst) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator| may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return memory_access2{ a.mSrc, std::get<vk::AccessFlags2KHR>(a.mDst) | std::get<vk::AccessFlags2KHR>(b.mFlags) };
 		}
 
 		inline memory_access2 operator& (memory_access2 a, memory_access_flags b)
 		{
-			return memory_access2{ a.mSrc, a.mDst & b.mFlags };
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mDst) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator| may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return memory_access2{ a.mSrc, std::get<vk::AccessFlags2KHR>(a.mDst) & std::get<vk::AccessFlags2KHR>(b.mFlags) };
 		}
 
 		inline memory_access2& operator |= (memory_access2& a, memory_access_flags b)
@@ -226,12 +246,18 @@ namespace avk
 #pragma region memory_access_flags | memory_access2 operators
 		inline memory_access2 operator| (memory_access_flags a, memory_access2 b)
 		{
-			return memory_access2{ a.mFlags | b.mSrc, b.mDst };
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mSrc)) {
+				throw avk::runtime_error("operator| may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return memory_access2{ std::get<vk::AccessFlags2KHR>(a.mFlags) | std::get<vk::AccessFlags2KHR>(b.mSrc), b.mDst };
 		}
 
 		inline memory_access2 operator& (memory_access_flags a, memory_access2 b)
 		{
-			return memory_access2{ a.mFlags & b.mSrc, b.mDst };
+			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mSrc)) {
+				throw avk::runtime_error("operator& may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
+			}
+			return memory_access2{ std::get<vk::AccessFlags2KHR>(a.mFlags) & std::get<vk::AccessFlags2KHR>(b.mSrc), b.mDst };
 		}
 #pragma endregion
 
@@ -271,5 +297,18 @@ namespace avk
 		static const auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadEXT };
 		static const auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentEXT };
 		static const auto invocation_mask_read                  = memory_access_flags{ vk::AccessFlagBits2KHR::eInvocationMaskReadHUAWEI };
+
+		/** Automatically try to determine the preceding/succeeding access and establish a memory dependency to it.
+		 *	If a specific access cannot be determined, a rather hefty memory dependency will be installed, so that
+		 *	correctness is prioritized over performance.
+		 */
+		static const auto auto_access = memory_access_flags{ auto_access_t{ 0 } };
+
+		/** Automatically try to establish a memory dependency to the given number of preceding/succeeding stages.
+		 *	If specific access cannot be determined, a rather hefty memory dependency will be installed, so that
+		 *	correctness is prioritized over performance.
+		 */
+		inline static auto auto_accesses(uint8_t aNumMaxCommands = 100) { return memory_access_flags{ auto_access_t{ aNumMaxCommands } }; }
+
 	}
 }

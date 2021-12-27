@@ -52,7 +52,10 @@ namespace avk
 
 	using subpass_dependencies = std::vector<subpass_dependency>;
 	
-	inline std::optional<std::tuple<vk::SubpassDependency2KHR, vk::MemoryBarrier2KHR>> try_get_subpass_dependency_for_indices(const subpass_dependencies& aDependencies, uint32_t aSrcSubpass, uint32_t aDstSubpass)
+	inline std::optional<std::tuple<
+		vk::SubpassDependency2KHR,
+		vk::MemoryBarrier2KHR
+	>> try_get_subpass_dependency_for_indices(const subpass_dependencies& aDependencies, uint32_t aSrcSubpass, uint32_t aDstSubpass)
 	{
 		auto result = std::optional<std::tuple<vk::SubpassDependency2KHR, vk::MemoryBarrier2KHR>>{};
 
@@ -61,40 +64,43 @@ namespace avk
 		});
 
 		if (std::end(aDependencies) != it) {
+			// See if this is supposed to be an auto-dependency:
+			const bool srcStageIsAuto = std::holds_alternative<avk::stage::auto_stage_t>(it->mStages.mSrc);
+			const bool dstStageIsAuto = std::holds_alternative<avk::stage::auto_stage_t>(it->mStages.mDst);
+			const bool srcAccessIsAuto = std::holds_alternative<avk::access::auto_access_t>(it->mAccesses.mSrc);
+			const bool dstAccessIsAuto = std::holds_alternative<avk::access::auto_access_t>(it->mAccesses.mDst);
+
 			result.emplace(std::make_tuple(
 				vk::SubpassDependency2KHR{}
 					.setSrcSubpass(aSrcSubpass).setDstSubpass(aDstSubpass)
 					.setPNext(nullptr) // !!! ATTENTION: This will have to be set by the user of this function to point to the appropriate vk::MemoryBarrier2KHR{} !!!
 				, 
 				vk::MemoryBarrier2KHR{}
-					.setSrcStageMask(it->mStages.mSrc).setDstStageMask(it->mStages.mDst) // No sync specified => no sync established.
-					.setSrcAccessMask(it->mAccesses.mSrc).setDstAccessMask(it->mAccesses.mSrc) // No access specified => no access established.
+					.setSrcStageMask(srcStageIsAuto 
+						? vk::PipelineStageFlags2KHR{
+							VK_SUBPASS_EXTERNAL == aSrcSubpass
+							? vk::PipelineStageFlagBits2KHR::eAllCommands
+							: vk::PipelineStageFlagBits2KHR::eAllGraphics
+						}
+						: std::get<vk::PipelineStageFlags2KHR>(it->mStages.mSrc)
+					)
+					.setDstStageMask(dstStageIsAuto 
+						? vk::PipelineStageFlags2KHR{
+							VK_SUBPASS_EXTERNAL == aDstSubpass
+							? vk::PipelineStageFlagBits2KHR::eAllCommands
+							: vk::PipelineStageFlagBits2KHR::eAllGraphics
+						}
+						: std::get<vk::PipelineStageFlags2KHR>(it->mStages.mDst)
+					)
+					.setSrcAccessMask(srcAccessIsAuto
+						? vk::AccessFlags2KHR{ vk::AccessFlagBits2KHR::eMemoryWrite }
+						: std::get<vk::AccessFlags2KHR>(it->mAccesses.mSrc)
+					)
+					.setDstAccessMask(dstAccessIsAuto
+						? vk::AccessFlags2KHR{ vk::AccessFlagBits2KHR::eMemoryWrite }
+						: std::get<vk::AccessFlags2KHR>(it->mAccesses.mDst)
+					)
 			));
-		}
-
-		return result;
-	}
-
-	inline std::tuple<vk::SubpassDependency2KHR, vk::MemoryBarrier2KHR> get_subpass_dependency_for_indices(const subpass_dependencies& aDependencies, uint32_t aSrcSubpass, uint32_t aDstSubpass)
-	{
-		auto result = std::make_tuple(vk::SubpassDependency2KHR{}, vk::MemoryBarrier2KHR{});
-		auto& [dependency, barrier] = result;
-		dependency.setSrcSubpass(aSrcSubpass).setDstSubpass(aDstSubpass)
-			.setPNext(&barrier); // !!! ATTENTION: This will have to be redirected by the user of this function to point to the appropriate vk::MemoryBarrier2KHR{} !!!
-
-		const auto it = std::find_if(std::begin(aDependencies), std::end(aDependencies), [aSrcSubpass, aDstSubpass](const subpass_dependency& lSubDep) {
-			return lSubDep.mIndices.mSrc == aSrcSubpass && lSubDep.mIndices.mDst == aDstSubpass;
-		});
-
-		if (std::end(aDependencies) == it) {
-			barrier
-				.setSrcStageMask(vk::PipelineStageFlagBits2KHR::eNone).setDstStageMask(vk::PipelineStageFlagBits2KHR::eNone) // No sync specified => no sync established.
-				.setSrcAccessMask(vk::AccessFlagBits2KHR::eNone).setDstAccessMask(vk::AccessFlagBits2KHR::eNone); // No access specified => no access established.
-		}
-		else { // Found!
-			barrier
-				.setSrcStageMask(it->mStages.mSrc).setDstStageMask(it->mStages.mDst) // No sync specified => no sync established.
-				.setSrcAccessMask(it->mAccesses.mSrc).setDstAccessMask(it->mAccesses.mSrc); // No access specified => no access established.
 		}
 
 		return result;

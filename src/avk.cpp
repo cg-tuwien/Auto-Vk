@@ -7023,14 +7023,19 @@ using namespace cpplinq;
 		const uint32_t firstSubpassId = 0u;
 		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
 
+		// Sync with whatever comes before
 		{
-			auto [sd, mb] = get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, VK_SUBPASS_EXTERNAL, firstSubpassId);
-			subpassDependencies.push_back(std::move(sd));
-			memoryBarriers.push_back(std::move(mb));
-			assert(subpassDependencies.back().srcSubpass == VK_SUBPASS_EXTERNAL);
-			assert(subpassDependencies.back().dstSubpass == 0u);
+			auto hasDependency = try_get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, VK_SUBPASS_EXTERNAL, firstSubpassId);
+			if (hasDependency.has_value()) {
+				auto [sd, mb] = hasDependency.value();
+				subpassDependencies.push_back(std::move(sd));
+				memoryBarriers.push_back(std::move(mb));
+				assert(subpassDependencies.back().srcSubpass == VK_SUBPASS_EXTERNAL);
+				assert(subpassDependencies.back().dstSubpass == 0u);
+			}
 		}
 
+		// Sync with subpasses
 		// Iterate over all combinations of [id, id] and [id, id+1]
 		for (auto i = firstSubpassId, j = firstSubpassId; j <= lastSubpassId; i += (j - i), j += static_cast<uint32_t>(i == j)) {
 			auto hasDependency = try_get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, i, j);
@@ -7043,12 +7048,16 @@ using namespace cpplinq;
 			}
 		}
 
+		// Sync with whatever comes after
 		{
-			auto [sd, mb] = get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, lastSubpassId, VK_SUBPASS_EXTERNAL);
-			subpassDependencies.push_back(std::move(sd));
-			memoryBarriers.push_back(std::move(mb));
-			assert(subpassDependencies.back().srcSubpass == lastSubpassId);
-			assert(subpassDependencies.back().dstSubpass == VK_SUBPASS_EXTERNAL);
+			auto hasDependency = try_get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, lastSubpassId, VK_SUBPASS_EXTERNAL);
+			if (hasDependency.has_value()) {
+				auto [sd, mb] = hasDependency.value();
+				subpassDependencies.push_back(std::move(sd));
+				memoryBarriers.push_back(std::move(mb));
+				assert(subpassDependencies.back().srcSubpass == lastSubpassId);
+				assert(subpassDependencies.back().dstSubpass == VK_SUBPASS_EXTERNAL);
+			}
 		}
 
 		assert(subpassDependencies.size() == memoryBarriers.size());

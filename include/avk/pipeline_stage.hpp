@@ -109,15 +109,17 @@ namespace avk
 
 	namespace stage
 	{
+		using auto_stage_t = uint8_t;
+
 		struct pipeline_stage2
 		{
-			vk::PipelineStageFlags2KHR mSrc;
-			vk::PipelineStageFlags2KHR mDst;
+			std::variant<std::monostate, vk::PipelineStageFlags2KHR, auto_stage_t> mSrc;
+			std::variant<std::monostate, vk::PipelineStageFlags2KHR, auto_stage_t> mDst;
 		};
 
 		struct pipeline_stage_flags
 		{
-			vk::PipelineStageFlags2KHR mFlags;
+			std::variant<std::monostate, vk::PipelineStageFlags2KHR, auto_stage_t> mFlags;
 		};
 
 		inline pipeline_stage2 operator>> (pipeline_stage_flags a, pipeline_stage_flags b)
@@ -128,12 +130,18 @@ namespace avk
 #pragma region pipeline_stage_flags operators
 		inline pipeline_stage_flags operator| (pipeline_stage_flags a, pipeline_stage_flags b)
 		{
-			return pipeline_stage_flags{ a.mFlags | b.mFlags };
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator| may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return pipeline_stage_flags{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) | std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
 		}
 
 		inline pipeline_stage_flags operator& (pipeline_stage_flags a, pipeline_stage_flags b)
 		{
-			return pipeline_stage_flags{ a.mFlags & b.mFlags };
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator& may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return pipeline_stage_flags{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) & std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
 		}
 
 		inline pipeline_stage_flags& operator |= (pipeline_stage_flags& a, pipeline_stage_flags b)
@@ -148,24 +156,36 @@ namespace avk
 
 		inline pipeline_stage_flags exclude(pipeline_stage_flags original, pipeline_stage_flags toExclude)
 		{
-			return pipeline_stage_flags{ original.mFlags & ~toExclude.mFlags };
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(original.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(toExclude.mFlags)) {
+				throw avk::runtime_error("exclude may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return pipeline_stage_flags{ std::get<vk::PipelineStageFlags2KHR>(original.mFlags) & ~std::get<vk::PipelineStageFlags2KHR>(toExclude.mFlags) };
 		}
 
 		inline bool is_included(const pipeline_stage_flags toTest, const pipeline_stage_flags includee)
 		{
-			return (toTest.mFlags & includee.mFlags) == includee.mFlags;
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(toTest.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(includee.mFlags)) {
+				throw avk::runtime_error("is_included may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return (std::get<vk::PipelineStageFlags2KHR>(toTest.mFlags) & std::get<vk::PipelineStageFlags2KHR>(includee.mFlags)) == std::get<vk::PipelineStageFlags2KHR>(includee.mFlags);
 		}
 #pragma endregion
 
 #pragma region pipeline_stage2 | pipeline_stage_flags operators
 		inline pipeline_stage2 operator| (pipeline_stage2 a, pipeline_stage_flags b)
 		{
-			return pipeline_stage2{ a.mSrc, a.mDst | b.mFlags };
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mDst) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator| may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return pipeline_stage2{ a.mSrc, std::get<vk::PipelineStageFlags2KHR>(a.mDst) | std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
 		}
 
 		inline pipeline_stage2 operator& (pipeline_stage2 a, pipeline_stage_flags b)
 		{
-			return pipeline_stage2{ a.mSrc, a.mDst & b.mFlags };
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mDst) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mFlags)) {
+				throw avk::runtime_error("operator& may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return pipeline_stage2{ a.mSrc, std::get<vk::PipelineStageFlags2KHR>(a.mDst) & std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
 		}
 
 		inline pipeline_stage2& operator |= (pipeline_stage2& a, pipeline_stage_flags b)
@@ -182,12 +202,18 @@ namespace avk
 #pragma region pipeline_stage_flags | pipeline_stage2 operators
 		inline pipeline_stage2 operator| (pipeline_stage_flags a, pipeline_stage2 b)
 		{
-			return pipeline_stage2{ a.mFlags | b.mSrc, b.mDst };
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mSrc)) {
+				throw avk::runtime_error("operator| may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return pipeline_stage2{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) | std::get<vk::PipelineStageFlags2KHR>(b.mSrc), b.mDst };
 		}
 
 		inline pipeline_stage2 operator& (pipeline_stage_flags a, pipeline_stage2 b)
 		{
-			return pipeline_stage2{ a.mFlags & b.mSrc, b.mDst };
+			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mSrc)) {
+				throw avk::runtime_error("operator& may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
+			}
+			return pipeline_stage2{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) & std::get<vk::PipelineStageFlags2KHR>(b.mSrc), b.mDst };
 		}
 #pragma endregion
 
@@ -231,5 +257,17 @@ namespace avk
 		static const auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNV };
 		static const auto subpass_shading                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eSubpassShadingHUAWEI };
 		static const auto invocation_mask                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eInvocationMaskHUAWEI };
+
+		/** Automatically try to determine the preceding/succeeding stage and establish a synchronization dependency to it.
+		 *	If a specific stage cannot be determined, a rather hefty synchronization dependency will be installed, so that
+		 *	correctness is prioritized over performance.
+		 */
+		static const auto auto_stage                       = pipeline_stage_flags{ auto_stage_t{ 0 } };
+
+		/** Automatically try to establish a synchronization dependency to the given number of preceding/succeeding stages.
+		 *	If specific stages cannot be determined, a rather hefty synchronization dependency will be installed, so that
+		 *	correctness is prioritized over performance.
+		 */
+		inline static auto auto_stages(uint8_t aNumMaxCommands = 100) { return pipeline_stage_flags{ auto_stage_t{ aNumMaxCommands } }; }
 	}
 }
