@@ -115,10 +115,10 @@ namespace avk
 		auto memProperties = aPhysicalDevice.getMemoryProperties();
 
 		const auto deviceName = std::string(static_cast<const char*>(aPhysicalDevice.getProperties().deviceName));
-		AVK_LOG_INFO("========== MEMORY PROPERTIES OF DEVICE '" + deviceName + "'");
+		AVK_LOG_INFO("========== MEMORY PROPERTIES OF DEVICE '" + deviceName + "'  ");
 		AVK_LOG_INFO("-------------------------------------------------------------");
-		AVK_LOG_INFO(" HEAP TYPES:");
-		AVK_LOG_INFO(" heap-idx |               bytes | heap flags");
+		AVK_LOG_INFO(" HEAP TYPES:                                                 ");
+		AVK_LOG_INFO(" heap-idx |               bytes | heap flags                 ");
 		AVK_LOG_INFO("-------------------------------------------------------------");
 		for (auto i = 0u; i < memProperties.memoryHeapCount; ++i) {
 			std::string heapIndex =  "        " + std::to_string(i);
@@ -133,11 +133,14 @@ namespace avk
 				heapSize =  heapSize.substr(heapSize.length() - 19);
 			}
 			std::string heapFlags = vk::to_string(memProperties.memoryHeaps[i].flags);
-			AVK_LOG_INFO(heapIndex + " | " + heapSize + " | " + heapFlags);
+			auto combined = heapIndex + " | " + heapSize + " | " + heapFlags;
+			auto spacesToAdd = static_cast<int>(std::string("                                                             ").size()) - static_cast<int>(combined.size());
+			combined += std::string("                                                             ").substr(0, std::max(0, spacesToAdd));
+			AVK_LOG_INFO(combined);
 		}
 		AVK_LOG_INFO("=============================================================");
-		AVK_LOG_INFO(" MEMORY TYPES:");
-		AVK_LOG_INFO(" mem-idx | heap-idx | memory propety flags");
+		AVK_LOG_INFO(" MEMORY TYPES:                                               ");
+		AVK_LOG_INFO(" mem-idx | heap-idx | memory propety flags                   ");
 		AVK_LOG_INFO("-------------------------------------------------------------");
 		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
 			std::string memIndex =  "       " + std::to_string(i);
@@ -145,7 +148,10 @@ namespace avk
 			std::string heapIndex = "        " + std::to_string(memProperties.memoryTypes[i].heapIndex);
 			heapIndex = heapIndex.substr(heapIndex.length() - 9);
 			std::string propFlags = vk::to_string(memProperties.memoryTypes[i].propertyFlags);
-			AVK_LOG_INFO(memIndex + " | " + heapIndex + " | " + propFlags);
+			auto combined = memIndex + " | " + heapIndex + " | " + propFlags;
+			auto spacesToAdd = static_cast<int>(std::string("                                                             ").size()) - static_cast<int>(combined.size());
+			combined += std::string("                                                             ").substr(0, std::max(0, spacesToAdd));
+			AVK_LOG_INFO(combined);
 		}
 		AVK_LOG_INFO("=============================================================");
 
