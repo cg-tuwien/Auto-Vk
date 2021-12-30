@@ -169,8 +169,6 @@ namespace avk
 #include <avk/set_of_descriptor_set_layouts.hpp>
 #include <avk/descriptor_cache.hpp>
 
-#include <avk/commands.hpp>
-
 #include <avk/buffer.hpp>
 #include <avk/shader_info.hpp>
 
@@ -913,5 +911,7 @@ namespace avk
 		query_pool create_query_pool_for_timestamp_queries(uint32_t aQueryCount = 2u);
 		query_pool create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
 #pragma endregion
+
+		avk::recorded_commands record(std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions) const;
 	};
 }

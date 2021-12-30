@@ -7,8 +7,8 @@ namespace avk
 	{
 		struct image_layout2
 		{
-			vk::ImageLayout mSrc;
-			vk::ImageLayout mDst;
+			vk::ImageLayout mOld;
+			vk::ImageLayout mNew;
 		};
 
 		struct image_layout

@@ -2785,6 +2785,7 @@ namespace avk
 			(*mCustomDeleter)();
 			mCustomDeleter.reset();
 		}
+		mLifetimeHandledResources.clear();
 	}
 
 	command_buffer_t::~command_buffer_t()
@@ -2797,6 +2798,12 @@ namespace avk
 		// Destroy the dependant instance before destroying myself
 		// ^ This is ensured by the order of the members
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
+	}
+
+	command_buffer_t& command_buffer_t::handle_lifetime_of(any_owning_resource_t aResource)
+	{
+		mLifetimeHandledResources.push_back(std::move(aResource));
+		return *this;
 	}
 
 	void command_buffer_t::invoke_post_execution_handler() const
@@ -2835,6 +2842,8 @@ namespace avk
 			.setClearValueCount(static_cast<uint32_t>(clearValues.size()))
 			.setPClearValues(clearValues.data());
 
+		// TODO: Use beginRenderPass2KHR!
+		
 		mSubpassContentsState = aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers;
 		mCommandBuffer->beginRenderPass(renderPassBeginInfo, mSubpassContentsState);
 		// 2nd parameter: how the drawing commands within the render pass will be provided. It can have one of two values [7]:
@@ -2972,7 +2981,7 @@ namespace avk
 		mCommandBuffer->copyImage(aSource.handle(), vk::ImageLayout::eTransferSrcOptimal, aDestination, vk::ImageLayout::eTransferDstOptimal, { copyInfo });
 	}
 
-	void command_buffer_t::end_render_pass()
+	void command_buffer_t::end_render_pass() const
 	{
 		mCommandBuffer->endRenderPass();
 	}
@@ -8058,4 +8067,382 @@ using namespace cpplinq;
 	}
 #pragma endregion
 
+#pragma region commands and sync
+
+	submission_data::~submission_data() noexcept(false)
+	{
+		if (0 == mSubmissionCount) {
+			submit();
+		}
+	}
+
+	submission_data& submission_data::submit_to(const queue * aQueue)
+	{
+		mQueueToSubmitTo = aQueue;
+		return *this;
+	}
+
+	submission_data& submission_data::waiting_for(avk::semaphore_wait_info aWaitInfo)
+	{
+		mSemaphoreWaits.push_back(std::move(aWaitInfo));
+		return *this;
+	}
+
+	submission_data& submission_data::signaling_upon_completion(semaphore_signal_info aSignalInfo)
+	{
+		mSemaphoreSignals.push_back(std::move(aSignalInfo));
+		return *this;
+	}
+
+	submission_data& submission_data::signaling_upon_completion(avk::resource_reference<avk::fence_t> aFence)
+	{
+		mFence = std::move(aFence);
+		return *this;
+	}
+	
+	void submission_data::submit()
+	{
+		// Gather config for wait semaphores:
+		std::vector<vk::SemaphoreSubmitInfoKHR> waitSem;
+		for (const auto& semWait : mSemaphoreWaits) {
+			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			std::visit(lambda_overload{
+				[&subInfo](const std::monostate&) {
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+				},
+				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
+					subInfo.setStageMask(lFixedStage);
+				},
+				[&subInfo](const avk::stage::auto_stage_t& lAutoStage) {
+					// TODO: Try to find a tighter auto-stage:
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+				}
+			}, semWait.mDstStage.mFlags);
+		}
+
+		// Gather config for signal semaphores:
+		std::vector<vk::SemaphoreSubmitInfoKHR> signalSem;
+		for (const auto& semSig : mSemaphoreSignals) {
+			auto& subInfo = waitSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			std::visit(lambda_overload{
+				[&subInfo](const std::monostate&) {
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+				},
+				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
+					subInfo.setStageMask(lFixedStage);
+				},
+				[&subInfo](const avk::stage::auto_stage_t& lAutoStage) {
+					// TODO: Try to find a tighter auto-stage:
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+				}
+			}, semSig.mSrcStage.mFlags);
+		}
+
+		auto cmdBfrSubmitInfo = vk::CommandBufferSubmitInfoKHR{}
+			.setCommandBuffer(mCommandBufferToSubmit->handle());
+
+		auto submitInfo = vk::SubmitInfo2KHR{}
+			.setWaitSemaphoreInfoCount(static_cast<uint32_t>(waitSem.size()))
+			.setPWaitSemaphoreInfos(waitSem.data())
+			.setCommandBufferInfoCount(1u)
+			.setPCommandBufferInfos(&cmdBfrSubmitInfo)
+			.setSignalSemaphoreInfoCount(static_cast<uint32_t>(signalSem.size()))
+			.setPSignalSemaphoreInfos(signalSem.data());
+
+		auto fenceHandle = mFence.has_value() ? mFence.value()->handle() : vk::Fence{};
+		auto result = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+	}
+
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions);
+
+	template <typename T>
+	inline static T accumulate_sync_details(
+		const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions,
+		const int aStartIndex,
+		const int aNumSteps,
+		const int aStepDirection,
+		T aDefaultValue
+	) {
+		assert(aStartIndex >= 0);
+		assert(aStartIndex < static_cast<int>(aRecordedCommandsAndSyncInstructions.size()));
+		assert(!std::holds_alternative<command::action_type_command>(aRecordedCommandsAndSyncInstructions[aStartIndex]));
+		assert(aNumSteps >= 0);
+		assert(aStepDirection == -1 || aStepDirection == 1);
+		
+		T result{};
+
+		const int ub = static_cast<int>(aRecordedCommandsAndSyncInstructions.size());
+		int accSoFar = -1; // This must become equal to aNumSteps, then we're done
+		for (int i = aStartIndex; i >= 0 && i < ub && accSoFar < aNumSteps; i += aStepDirection) {
+			if (std::holds_alternative<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i])) { // Only regard action_type_commands here!
+																											     // TODO: Do we also have to regard image layout transitions here????!?!?!?!
+				// Evaluate:
+				const auto& syncHint = std::get<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i]).mSyncHint;
+				switch (aStepDirection) {
+				case -1:
+					// Moving backwards, i.e. the previous command(s) "AFTER" values are relevant:
+					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
+						result |= syncHint.mStageHintAfter.value_or(aDefaultValue);
+					}
+					else if constexpr (std::is_same_v<T, vk::AccessFlagBits2KHR>) {
+						result |= syncHint.mAccessHintAfter.value_or(aDefaultValue);
+					}
+					else {
+						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
+					}
+				case  1:
+					// Moving forwards, i.e. the subsequent command(s) "BEFORE" values are relevant:
+					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
+						result |= syncHint.mStageHintBefore.value_or(aDefaultValue);
+					}
+					else if constexpr (std::is_same_v<T, vk::AccessFlagBits2KHR>) {
+						result |= syncHint.mAccessHintBefore.value_or(aDefaultValue);
+					}
+					else {
+						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
+					}
+				default:
+					throw avk::logic_error("Invalid value for aStepDirection.");
+				}
+			}
+		}
+
+		return result;
+	}
+
+	template <typename T>
+	inline static T assemble_barrier_data(
+		const syncxxx::barrier_data& aBarrierData, 
+		const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions,
+		int aRecordedStuffIndex
+	) {
+		assert(std::holds_alternative<syncxxx::barrier_data>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex]));
+		if (!std::holds_alternative<syncxxx::barrier_data>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex])) {
+			throw avk::logic_error("The element at aRecordedStuffIndex[" + std::to_string(aRecordedStuffIndex) + "] is not of type barrier_data.");
+		}
+
+		// We're definitely going to establish a barrier:
+		auto barrier = T{};
+		
+		// Handle source stage:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setSrcStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& lFixedStage){
+				barrier.setSrcStageMask(lFixedStage);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::stage::auto_stage_t& lAutoStage){
+				// Gotta determine which stage:
+				barrier.setSrcStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+					static_cast<int>(lAutoStage),
+					/* before-wards: */ -1,
+					/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
+				);
+			},
+		}, aBarrierData.src_stage());
+
+		// Handle destination stage:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setDstStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& lFixedStage){
+				barrier.setDstStageMask(lFixedStage);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::stage::auto_stage_t& lAutoStage){
+				// Gotta determine which stage:
+				barrier.setDstStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+					static_cast<int>(lAutoStage),
+					/* after-wards: */  1,
+					/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
+				);
+			},
+		}, aBarrierData.dst_stage());
+
+		// Handle source access:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::AccessFlags2KHR& lFixedAccess){
+				barrier.setSrcAccessMask(lFixedAccess);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::access::auto_access_t& lAutoAccess){
+				// Gotta determine which access:
+				barrier.setSrcAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
+					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+					static_cast<int>(lAutoAccess),
+					/* before-wards: */ -1,
+					/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite)
+				);
+			},
+		}, aBarrierData.src_access());
+
+		// Handle destination access:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setDstAccessMask(vk::AccessFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::AccessFlags2KHR& lFixedAccess){
+				barrier.setDstAccessMask(lFixedAccess);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::access::auto_access_t& lAutoAccess){
+				// Gotta determine which access:
+				barrier.setDstAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
+					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+					static_cast<int>(lAutoAccess),
+					/* after-wards: */  1,
+					/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead)
+				);
+			},
+		}, aBarrierData.dst_access());
+
+		// For T = vk::MemoryBarrier2KHR, we are done.
+		// But for image memory barriers or buffer memory barriers, there could be more sync data to be filled-in:
+
+		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>) {
+			auto imageSyncData = aBarrierData.image_memory_barrier_data();
+
+			barrier.setImage(imageSyncData.mImage->handle());
+			barrier.setSubresourceRange(imageSyncData.mSubresourceRange);
+
+			// Specification goes like this:
+			// > When the old and new layout are equal, the layout values are ignored - data is preserved
+			// > no matter what values are specified, or what layout the image is currently in.
+			if (imageSyncData.mLayoutTransition.has_value()) {
+				barrier.setOldLayout(imageSyncData.mLayoutTransition.value().mOld);
+				barrier.setNewLayout(imageSyncData.mLayoutTransition.value().mNew);
+			}
+			// else leave both set to 0 which corresponds to eUndefined -> eUndefined, a.k.a. no layout transition
+		}
+
+		if constexpr (std::is_same_v<T, vk::BufferMemoryBarrier2KHR>) {
+			auto bufferSyncData = aBarrierData.buffer_memory_barrier_data();
+			barrier.setBuffer(bufferSyncData.mBuffer->handle());
+			barrier.setOffset(bufferSyncData.mOffset);
+			barrier.setSize(bufferSyncData.mSize);
+		}
+
+		// For both, buffer memory barriers and image memory barriers, queue family o	wnership transfers are relevant:
+		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR> || std::is_same_v<T, vk::BufferMemoryBarrier2KHR>) {
+			auto qfot = aBarrierData.queue_family_ownership_transfer();
+			barrier.setSrcQueueFamilyIndex(qfot.has_value() ? qfot.value().mSrcQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED);
+			barrier.setDstQueueFamilyIndex(qfot.has_value() ? qfot.value().mDstQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED);
+		}
+
+		return barrier;
+	}
+
+	struct recordee_visitors
+	{
+		void operator()(const command::state_type_command& vStateCmd) const {
+			if (vStateCmd.mFun) {
+				vStateCmd.mFun(mCommandBuffer);
+			}
+		}
+		void operator()(const command::action_type_command& vActionCmd) const {
+			if (vActionCmd.mBeginFun) {
+				vActionCmd.mBeginFun(mCommandBuffer);
+			}
+			if (!vActionCmd.mNestedCommandsAndSyncInstructions.empty()) {
+				record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vActionCmd.mNestedCommandsAndSyncInstructions);
+			}
+			if (vActionCmd.mEndFun) {
+				vActionCmd.mEndFun(mCommandBuffer);
+			}
+		}
+		void operator()(const syncxxx::barrier_data& vBarrDat) const {
+			if (vBarrDat.is_global_execution_barrier() || vBarrDat.is_global_memory_barrier()) {
+				auto barrier = assemble_barrier_data<vk::MemoryBarrier2KHR>(vBarrDat, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
+				auto dependencyInfo = vk::DependencyInfoKHR{}
+					.setMemoryBarrierCount(1u)
+					.setPMemoryBarriers(&barrier);
+				mCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, mDispatchLoaderExt);
+			}
+			else if (vBarrDat.is_image_memory_barrier()) {
+				auto barrier = assemble_barrier_data<vk::ImageMemoryBarrier2KHR>(vBarrDat, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
+				auto dependencyInfo = vk::DependencyInfoKHR{}
+					.setImageMemoryBarrierCount(1u)
+					.setPImageMemoryBarriers(&barrier);
+				mCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, mDispatchLoaderExt);
+			}
+			else if (vBarrDat.is_buffer_memory_barrier()) {
+				auto barrier = assemble_barrier_data<vk::BufferMemoryBarrier2KHR>(vBarrDat, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
+				auto dependencyInfo = vk::DependencyInfoKHR{}
+					.setBufferMemoryBarrierCount(1u)
+					.setPBufferMemoryBarriers(&barrier);
+				mCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, mDispatchLoaderExt);
+			}
+		}
+
+		command_buffer_t& mCommandBuffer;
+		const DISPATCH_LOADER_EXT_TYPE& mDispatchLoaderExt;
+		const std::vector<recorded_commands_and_sync_instructions_t>& mRecordedStuff;
+		int mCurrentIndexIntoRecordedStuff;
+	};
+
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions)
+	{
+		recordee_visitors visitState{ aCommandBuffer, aDispatchLoader, aRecordedCommandsAndSyncInstructions, /* Current index: */ 0 };
+		
+		const int n = static_cast<int>(aRecordedCommandsAndSyncInstructions.size());
+		for (int i = 0; i < n; ++i) {
+			// Get current element:
+			auto& recordee = aRecordedCommandsAndSyncInstructions[i];
+			// Update current index:
+			visitState.mCurrentIndexIntoRecordedStuff = i;
+			// Handle current element:
+			std::visit(visitState, recordee);
+		}
+	}
+	
+	submission_data recorded_command_buffer::then_waiting_for(avk::semaphore_wait_info aWaitInfo)
+	{
+		return submission_data{ mRoot, mCommandBufferToRecordInto, std::move(aWaitInfo) };
+	}
+
+	submission_data recorded_command_buffer::then_submit_to(const queue* aQueue)
+	{
+		return submission_data{ mRoot, mCommandBufferToRecordInto, aQueue };
+	}
+
+	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<command_buffer_t> aCommandBuffer)
+		: mRoot{ aRoot }
+		, mCommandBufferToRecordInto{ aCommandBuffer }
+	{
+		mCommandBufferToRecordInto->begin_recording();
+		record_into_command_buffer(mCommandBufferToRecordInto.get(), mRoot->dispatch_loader_ext(), aRecordedCommandsAndSyncInstructions);
+		mCommandBufferToRecordInto->end_recording();
+	}
+	
+	recorded_commands& recorded_commands::move_into(std::vector<recorded_commands_and_sync_instructions_t>& aTarget)
+	{
+		aTarget = std::move(mRecordedCommandsAndSyncInstructions);
+		return *this;
+	}
+
+	recorded_commands& recorded_commands::append_to(std::vector<recorded_commands_and_sync_instructions_t>& aTarget)
+	{
+		aTarget.insert(std::end(aTarget), std::begin(mRecordedCommandsAndSyncInstructions), std::end(mRecordedCommandsAndSyncInstructions));
+		return *this;
+	}
+
+	std::vector<recorded_commands_and_sync_instructions_t> recorded_commands::and_store()
+	{
+		return std::move(mRecordedCommandsAndSyncInstructions);
+	}
+
+	recorded_command_buffer recorded_commands::into_command_buffer(avk::resource_reference<command_buffer_t> aCommandBuffer)
+	{
+		return recorded_command_buffer(mRoot, mRecordedCommandsAndSyncInstructions, std::move(aCommandBuffer));
+	}
+#pragma
+
+	avk::recorded_commands root::record(std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions) const
+	{
+		return avk::recorded_commands{ this, std::move(aRecordedCommandsAndSyncInstructions) };
+	}
 }

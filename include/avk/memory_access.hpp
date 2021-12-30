@@ -155,7 +155,7 @@ namespace avk
 	{
 		using auto_access_t = uint8_t;
 
-		struct memory_access2
+		struct memory_access2 
 		{
 			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mSrc;
 			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mDst;

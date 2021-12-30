@@ -5,16 +5,76 @@
 
 namespace avk 
 {
-	class renderpass_t;
+	class bottom_level_acceleration_structure_t;
+	//class buffer_t;
+	class buffer_view_t;
+	//class command_buffer_t;
 	class command_pool_t;
-	class image_t;
-	class graphics_pipeline_t;
 	class compute_pipeline_t;
-	class ray_tracing_pipeline_t;
-	class set_of_descriptor_set_layouts;
+	class fence_t;
 	class framebuffer_t;
+	class graphics_pipeline_t;
+	class image_t;
+	class image_sampler_t;
+	class image_view_t;
+	class query_pool_t;
+	class ray_tracing_pipeline_t;
+	class renderpass_t;
+	class sampler_t;
+	class semaphore_t;
+	class top_level_acceleration_structure_t;
+
+	using bottom_level_acceleration_structure = avk::owning_resource<bottom_level_acceleration_structure_t>;
+	//using buffer = avk::owning_resource<buffer_t>;
+	using buffer_view = avk::owning_resource<buffer_view_t>;
+	//using command_buffer = avk::owning_resource<command_buffer_t>;
+	using command_pool = avk::owning_resource<command_pool_t>;
+	using compute_pipeline = avk::owning_resource<compute_pipeline_t>;
+	using fence = avk::owning_resource<fence_t>;
+	using framebuffer = avk::owning_resource<framebuffer_t>;
+	using graphics_pipeline = avk::owning_resource<graphics_pipeline_t>;
+	using image = avk::owning_resource<image_t>;
+	using image_sampler = avk::owning_resource<image_sampler_t>;
+	using image_view = avk::owning_resource<image_view_t>;
+	using query_pool = avk::owning_resource<query_pool_t>;
+	using ray_tracing_pipeline = avk::owning_resource<ray_tracing_pipeline_t>;
+	using renderpass = avk::owning_resource<renderpass_t>;
+	using sampler = avk::owning_resource<sampler_t>;
+	using semaphore = avk::owning_resource<semaphore_t>;
+	using top_level_acceleration_structure = avk::owning_resource<top_level_acceleration_structure_t>;
+
+	//class renderpass_t;
+	//class command_pool_t;
+	//class image_t;
+	//class graphics_pipeline_t;
+	//class compute_pipeline_t;
+	//class ray_tracing_pipeline_t;
+	//class set_of_descriptor_set_layouts;
+	//class framebuffer_t;
+
 	struct binding_data;
 
+	using any_owning_resource_t = std::variant<
+		bottom_level_acceleration_structure,
+		buffer,
+		buffer_view,
+		command_buffer,
+		command_pool,
+		compute_pipeline,
+		fence,
+		framebuffer,
+		graphics_pipeline,
+		image,
+		image_sampler,
+		image_view,
+		query_pool,
+		ray_tracing_pipeline,
+		renderpass,
+		sampler,
+		semaphore,
+		top_level_acceleration_structure
+	>;
+	
 	enum struct command_buffer_state
 	{
 		none,
@@ -85,6 +145,9 @@ namespace avk
 			return *this;
 		}
 
+		// TODO: comment
+		command_buffer_t& handle_lifetime_of(any_owning_resource_t aResource);
+
 		/** Set a post execution handler function.
 		 *	This is (among possible other use cases) used for keeping the C++-side of things in sync with the GPU-side,
 		 *	e.g., to update image layout transitions after command buffers with renderpasses have been submitted.
@@ -123,7 +186,7 @@ namespace avk
 		void establish_buffer_memory_barrier(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible);
 		void establish_buffer_memory_barrier_rw(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible);
 		void copy_image(const image_t& aSource, const vk::Image& aDestination);
-		void end_render_pass();
+		void end_render_pass() const;
 
 		/** Prepare a command buffer for re-recording.
 		*   This essentially calls (and removes) any custom deleters, and removes any post-execution-handlers.
@@ -594,17 +657,19 @@ namespace avk
 #endif
 		
 	private:
+		std::shared_ptr<vk::UniqueHandle<vk::CommandPool, DISPATCH_LOADER_CORE_TYPE>> mCommandPool;
+
 		command_buffer_state mState;
 		vk::CommandBufferBeginInfo mBeginInfo;
 		vk::UniqueHandle<vk::CommandBuffer, DISPATCH_LOADER_CORE_TYPE> mCommandBuffer;
 		vk::SubpassContents mSubpassContentsState;
 		
-		/** A custom deleter function called upon destruction of this command buffer */
-		std::optional<avk::unique_function<void()>> mCustomDeleter;
-
 		std::optional<avk::unique_function<void()>> mPostExecutionHandler;
 
-		std::shared_ptr<vk::UniqueHandle<vk::CommandPool, DISPATCH_LOADER_CORE_TYPE>> mCommandPool;
+		/** A custom deleter function called upon destruction of this command buffer */
+		std::optional<avk::unique_function<void()>> mCustomDeleter;
+		
+		std::vector<any_owning_resource_t> mLifetimeHandledResources;
 	};
 
 	// Typedef for a variable representing an owner of a command_buffer
