@@ -29,8 +29,6 @@
 #include <concepts>
 #include <ranges>
 
-#include <cpplinq.hpp>
-
 #include <avk/avk_log.hpp>
 #include <avk/avk_error.hpp>
 #include <avk/cpp_utils.hpp>

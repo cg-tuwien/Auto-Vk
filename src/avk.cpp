@@ -4514,9 +4514,40 @@ namespace avk
 #endif
 	}
 
+	// Unfortunately C++20 does not have support to easily convert a range into a vector through chaining, so we have to
+	// either pass the ranges begin and end members to the vector constructor every time or implement a helper ourself
+	// until something similar is standardized (There is a to<Container> proposal for C++23).
+	// Using a helper struct to invoke operator| for ranges was inspired by https://stackoverflow.com/a/65635762
+	// This helper implementation converts a range into a vector by piping the range into to_vector():
+	//
+	// auto nums = std::vector{1, 2, 3, 4};
+	// auto num_strings = nums | std::ranges::transform([](auto num) { return std::to_string(num); }) | to_vector();
+	// 
+	namespace to_vector_impl
+	{
+		// Helper type to find the operator| overload below
+		struct to_vector_helper {};
+
+		// Operator| overload to convert a range into a vector
+		template <std::ranges::range R>
+		auto operator|(R&& r, to_vector_helper)
+		{
+			std::vector<std::ranges::range_value_t<decltype(r)>> v;
+			if constexpr (std::ranges::sized_range<decltype(r)>) {
+				v.reserve(std::ranges::size(r));
+			}
+			std::ranges::copy(r, std::back_inserter(v));
+			return v;
+		}
+	}
+
+	auto to_vector()
+	{
+		return to_vector_impl::to_vector_helper{};
+	}
+
 	graphics_pipeline root::create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
-		using namespace cpplinq;
 		using namespace cfg;
 
 		graphics_pipeline_t result;
@@ -4531,12 +4562,16 @@ namespace avk
 
 		// 1. Compile the array of vertex input binding descriptions
 		{
-			// Select DISTINCT bindings (both vertex and instance inputs):
-			auto bindings = from(aConfig.mInputBindingLocations)
-				>> select([](const input_binding_to_location_mapping& bindingData) { return bindingData.mGeneralData; })
-				>> distinct() // this will invoke operator ==(const vertex_input_buffer_binding& left, const vertex_input_buffer_binding& right), we have selected vertex_input_buffer_binding in the line above
-				>> orderby([](const vertex_input_buffer_binding& generalData) { return generalData.mBinding; })
-				>> to_vector();
+			// Select bindings as vector:
+			auto bindings = aConfig.mInputBindingLocations
+				| std::views::transform([](const auto& bindingData) { return bindingData.mGeneralData; })
+				| to_vector();
+
+			// Sort bindings:
+			std::ranges::sort(bindings);
+			// Remove duplicates of both vertex and instance inputs (this will invoke operator ==(const vertex_input_buffer_binding& left, const vertex_input_buffer_binding& right):
+			auto [ret, last] = std::ranges::unique(bindings);
+			bindings.erase(ret, last);
 			result.mOrderedVertexInputBindingDescriptions.reserve(bindings.size()); // Important! Otherwise the vector might realloc and .data() will become invalid!
 
 			for (auto& bindingData : bindings) {
@@ -4680,9 +4715,9 @@ namespace avk
 		// 9. Color Blending
 		{
 			// Do we have an "universal" color blending config? That means, one that is not assigned to a specific color target attachment id.
-			auto universalConfig = from(aConfig.mColorBlendingPerAttachment)
-				>> where([](const color_blending_config& config) { return !config.mTargetAttachment.has_value(); })
-				>> to_vector();
+			auto universalConfig = aConfig.mColorBlendingPerAttachment
+				| std::views::filter([](const color_blending_config& config) { return !config.mTargetAttachment.has_value(); })
+				| to_vector();
 
 			if (universalConfig.size() > 1) {
 				throw avk::runtime_error("Ambiguous 'universal' color blending configurations. Either provide only one 'universal' "
@@ -4702,9 +4737,9 @@ namespace avk
 			result.mBlendingConfigsForColorAttachments.reserve(n); // Important! Otherwise the vector might realloc and .data() will become invalid!
 			for (size_t i = 0; i < n; ++i) {
 				// Do we have a specific blending config for color attachment i?
-				auto configForI = from(aConfig.mColorBlendingPerAttachment)
-					>> where([i](const color_blending_config& config) { return config.mTargetAttachment.has_value() && config.mTargetAttachment.value() == i; })
-					>> to_vector();
+				auto configForI = aConfig.mColorBlendingPerAttachment
+					| std::views::filter([i](const color_blending_config& config) { return config.mTargetAttachment.has_value() && config.mTargetAttachment.value() == i; })
+					| to_vector();
 				if (configForI.size() > 1) {
 					throw avk::runtime_error("Ambiguous color blending configuration for color attachment at index #" + std::to_string(i) + ". Provide only one config per color attachment!");
 				}
@@ -4741,11 +4776,9 @@ namespace avk
 			vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
 
 			// See what is configured in the render pass
-			auto colorAttConfigs = from ((*result.mRenderPass).color_attachments_for_subpass(result.subpass_id()))
-				>> where ([](const vk::AttachmentReference& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-				// The color_attachments() contain indices of the actual attachment_descriptions() => select the latter!
-				>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; })
-				>> to_vector();
+			auto colorAttConfigs = (*result.mRenderPass).color_attachments_for_subpass(result.subpass_id())
+				| std::views::filter([](const vk::AttachmentReference& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+				| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; });
 
 			for (const vk::AttachmentDescription& config: colorAttConfigs) {
 				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
@@ -4761,10 +4794,9 @@ namespace avk
 #endif
 
 			if (vk::SampleCountFlagBits::e1 == numSamples) {
-				auto depthAttConfigs = from ((*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id()))
-					>> where ([](const vk::AttachmentReference& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-					>> select ([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; })
-					>> to_vector();
+				auto depthAttConfigs = (*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id())
+					| std::views::filter([](const vk::AttachmentReference& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+					| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; });
 
 				for (const vk::AttachmentDescription& config: depthAttConfigs) {
 					typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
@@ -6968,7 +7000,6 @@ namespace avk
 #pragma endregion
 
 #pragma region renderpass definitions
-using namespace cpplinq;
 
 	struct subpass_desc_helper
 	{
