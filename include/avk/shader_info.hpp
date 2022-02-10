@@ -55,8 +55,8 @@ namespace avk
 			const auto align = sizeof(uint64_t); 
 			const auto currentSize = data.size();
 			const auto insertSize = sizeof(T);
-			const auto numAlloc = std::max(align, insertSize / sizeof(decltype(mSpecializationConstants->mData)::value_type));
-			assert (insertSize % sizeof(decltype(mSpecializationConstants->mData)::value_type) == 0);
+			const auto numAlloc = std::max(align, insertSize / sizeof(typename decltype(mSpecializationConstants->mData)::value_type));
+			assert (insertSize % sizeof(typename decltype(mSpecializationConstants->mData)::value_type) == 0);
 			data.resize(currentSize + numAlloc);
 			// copy data:
 			memcpy(data.data() + currentSize, &aValue, insertSize);
