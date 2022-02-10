@@ -4787,8 +4787,8 @@ namespace avk
 
 			// See what is configured in the render pass
 			auto colorAttConfigs = (*result.mRenderPass).color_attachments_for_subpass(result.subpass_id())
-				| std::views::filter([](const vk::AttachmentReference& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-				| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; });
+				| std::views::filter([](const vk::AttachmentReference2KHR& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+				| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference2KHR& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; });
 
 			for (const vk::AttachmentDescription2KHR& config: colorAttConfigs) {
 				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
@@ -4805,8 +4805,8 @@ namespace avk
 
 			if (vk::SampleCountFlagBits::e1 == numSamples) {
 				auto depthAttConfigs = (*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id())
-					| std::views::filter([](const vk::AttachmentReference& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-					| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; });
+					| std::views::filter([](const vk::AttachmentReference2KHR& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+					| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference2KHR& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; });
 
 				for (const vk::AttachmentDescription2KHR& config: depthAttConfigs) {
 					typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
@@ -7341,7 +7341,7 @@ namespace avk
 					//	if (sp.mSpecificDepthStencilLocations.count(loc) != 0) {
 					//		throw avk::runtime_error(fmt::format("Layout location {} is used multiple times for a depth/stencil attachments in subpass {}. This is not allowed.", loc, i));
 					//	}
-					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
+					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference2KHR{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
 					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
 					//}
 					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal));
