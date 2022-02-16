@@ -10,10 +10,26 @@ namespace avk
 	{
 		struct sync_hint final
 		{
+			/**	Which stages of the affected command must wait on whatever comes before?
+			 *	I.e., this member would mean the DESTINATION stage of a barrier that comes before the affected command.
+			 */
 			std::optional<vk::PipelineStageFlags2KHR> mStageHintBefore;
+
+			/**	Which access of the affected command must wait on whatever comes before?
+			 *	I.e., this member would mean the DESTINATION access of a barrier that comes before the affected command.
+			 */
 			std::optional<vk::AccessFlags2KHR> mAccessHintBefore;
+
+			/**	Which stages of the affected command must be waited-on from whatever comes after?
+			 *	I.e., this member would mean the SOURCE stage of a barrier that comes after the affected command.
+			 */
 			std::optional<vk::PipelineStageFlags2KHR> mStageHintAfter;
+
+			/**	Which access of the affected command must be waited-on from whatever comes after?
+			 *	I.e., this member would mean the SOURCE access of a barrier that comes after the affected command.
+			 */
 			std::optional<vk::AccessFlags2KHR> mAccessHintAfter;
+
 			// TODO: I think it would be pretty hard to incorporate the following two in a meaningful manner:
 			//       (If possible, we'd need to track their respective vk::Image and vk::Buffer handles.)
 			//std::optional<vk::ImageSubresourceRange> mImageSubresourceRangeAffected;
@@ -194,19 +210,20 @@ namespace avk
 		struct state_type_command final
 		{
 			using rec_fun = std::function<void(avk::command_buffer_t&)>;
+
 			rec_fun mFun;
 		};
 
 		struct action_type_command final
 		{
 			using rec_fun = std::function<void(avk::command_buffer_t&)>;
+
 			avk::syncxxx::sync_hint mSyncHint;
 			rec_fun mBeginFun;
 			std::vector<recorded_commands_and_sync_instructions_t> mNestedCommandsAndSyncInstructions;
 			rec_fun mEndFun;
 
 		};
-
 		
 		inline static action_type_command render_pass(
 			avk::resource_reference<const avk::renderpass_t> aRenderpass, 
