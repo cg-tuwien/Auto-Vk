@@ -296,7 +296,9 @@ namespace avk
 		static const auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWrite };
 		static const auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadEXT };
 		static const auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentEXT };
+#if VK_HEADER_VERSION > 182
 		static const auto invocation_mask_read                  = memory_access_flags{ vk::AccessFlagBits2KHR::eInvocationMaskReadHUAWEI };
+#endif
 
 		/** Automatically try to determine the preceding/succeeding access and establish a memory dependency to it.
 		 *	If a specific access cannot be determined, a rather hefty memory dependency will be installed, so that

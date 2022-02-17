@@ -209,14 +209,14 @@ namespace avk
 	{
 		struct state_type_command final
 		{
-			using rec_fun = std::function<void(avk::command_buffer_t&)>;
+			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
 
 			rec_fun mFun;
 		};
 
 		struct action_type_command final
 		{
-			using rec_fun = std::function<void(avk::command_buffer_t&)>;
+			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
 
 			avk::syncxxx::sync_hint mSyncHint;
 			rec_fun mBeginFun;
@@ -238,12 +238,12 @@ namespace avk
 					vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
 					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
 				},
-				[aRenderpass, aFramebuffer](avk::command_buffer_t& cb){
-					cb.begin_render_pass_for_framebuffer(aRenderpass, aFramebuffer);
+				[aRenderpass, aFramebuffer](avk::resource_reference<avk::command_buffer_t> cb){
+					cb->begin_render_pass_for_framebuffer(aRenderpass, aFramebuffer);
 				},
 				std::move(aNestedCommandsAndSyncInstructions),
-				[](avk::command_buffer_t& cb) {
-					cb.end_render_pass();
+				[](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->end_render_pass();
 				}
 			};
 		}
@@ -251,8 +251,8 @@ namespace avk
 		inline static state_type_command bind(avk::resource_reference<const graphics_pipeline_t> aPipeline)
 		{
 			return state_type_command {
-				[aPipeline](avk::command_buffer_t& cb) {
-					cb.handle().bindPipeline(vk::PipelineBindPoint::eGraphics, aPipeline->handle());
+				[aPipeline](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().bindPipeline(vk::PipelineBindPoint::eGraphics, aPipeline->handle());
 				}
 			};
 		}
@@ -266,8 +266,8 @@ namespace avk
 					vk::PipelineStageFlagBits2KHR::eAllGraphics,
 					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
 				},
-				[aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance](avk::command_buffer_t& cb) {
-					cb.handle().draw(aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance);
+				[aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().draw(aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance);
 				}
 			};
 		}
@@ -304,13 +304,13 @@ namespace avk
 	class submission_data final
 	{
 	public:
-		submission_data(const root* aRoot, avk::resource_reference<command_buffer_t> aCommandBuffer, const queue* aQueue)
+		submission_data(const root* aRoot, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const queue* aQueue)
 			: mRoot{ aRoot }
 			, mCommandBufferToSubmit{ std::move(aCommandBuffer) }
 			, mQueueToSubmitTo{ aQueue }
 			, mSubmissionCount{ 0u }
 		{}
-		submission_data(const root* aRoot, avk::resource_reference<command_buffer_t> aCommandBuffer, semaphore_wait_info aSemaphoreWaitInfo)
+		submission_data(const root* aRoot, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, semaphore_wait_info aSemaphoreWaitInfo)
 			: mRoot{ aRoot }
 			, mCommandBufferToSubmit{ std::move(aCommandBuffer) }
 			, mQueueToSubmitTo{ nullptr }
@@ -334,7 +334,7 @@ namespace avk
 
 	private:
 		const root* mRoot;
-		avk::resource_reference<command_buffer_t> mCommandBufferToSubmit;
+		avk::resource_reference<avk::command_buffer_t> mCommandBufferToSubmit;
 		const queue* mQueueToSubmitTo;
 		std::vector<semaphore_wait_info> mSemaphoreWaits;
 		std::vector<semaphore_signal_info> mSemaphoreSignals;
@@ -347,7 +347,7 @@ namespace avk
 	{
 	public:
 		// The constructor performs all the parsing, therefore, there's no std::vector<recorded_commands_and_sync_instructions_t> member.
-		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<command_buffer_t> aCommandBuffer);
+		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<avk::command_buffer_t> aCommandBuffer);
 		
 		recorded_command_buffer(const recorded_command_buffer&) = default;
 		recorded_command_buffer(recorded_command_buffer&&) noexcept = default;
@@ -367,7 +367,7 @@ namespace avk
 
 	private:
 		const root* mRoot;
-		avk::resource_reference<command_buffer_t> mCommandBufferToRecordInto;
+		avk::resource_reference<avk::command_buffer_t> mCommandBufferToRecordInto;
 	};
 
 	// This class gathers recorded commands which can then be recorded into a command buffer via into_command_buffer()
@@ -390,7 +390,7 @@ namespace avk
 		recorded_commands& append_to(std::vector<recorded_commands_and_sync_instructions_t>& aTarget);
 
 		std::vector<recorded_commands_and_sync_instructions_t> and_store();
-		recorded_command_buffer into_command_buffer(avk::resource_reference<command_buffer_t> aCommandBuffer);
+		recorded_command_buffer into_command_buffer(avk::resource_reference<avk::command_buffer_t> aCommandBuffer);
 		
 	private:
 		const root* mRoot;

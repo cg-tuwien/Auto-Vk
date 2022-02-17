@@ -256,7 +256,9 @@ namespace avk
 		static const auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNV };
 		static const auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNV };
 		static const auto subpass_shading                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eSubpassShadingHUAWEI };
+#if VK_HEADER_VERSION > 182
 		static const auto invocation_mask                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eInvocationMaskHUAWEI };
+#endif
 
 		/** Automatically try to determine the preceding/succeeding stage and establish a synchronization dependency to it.
 		 *	If a specific stage cannot be determined, a rather hefty synchronization dependency will be installed, so that
