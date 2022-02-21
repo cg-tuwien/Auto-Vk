@@ -189,10 +189,14 @@ namespace avk
 		void end_render_pass() const;
 
 		/** Prepare a command buffer for re-recording.
-		*   This essentially calls (and removes) any custom deleters, and removes any post-execution-handlers.
-		*   Call this method before re-recording an existing command buffer.
-		*/
+		 *   This essentially calls (and removes) any custom deleters, and removes any post-execution-handlers.
+		 *   Call this method before re-recording an existing command buffer.
+		 */
 		void prepare_for_reuse();
+
+		/** Calls prepare_for_reuse() and then vkResetCommandBuffer
+		 */
+		void reset();
 
 		template <typename... Rest>
 		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr)

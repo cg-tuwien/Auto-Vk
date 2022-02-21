@@ -2788,6 +2788,12 @@ namespace avk
 		mLifetimeHandledResources.clear();
 	}
 
+	void command_buffer_t::reset()
+	{
+		prepare_for_reuse();
+		handle().reset();
+	}
+
 	command_buffer_t::~command_buffer_t()
 	{
 		// prepare_for_reuse() invokes and cleans up the custom deleter. This is
@@ -5880,11 +5886,12 @@ namespace avk
 			.setPCommandBuffers(aCommandBuffer->handle_ptr())
 			.setSignalSemaphoreCount(1u)
 			.setPSignalSemaphores(aSemaphoreToSignal->handle_addr());
+		vk::PipelineStageFlags semWaitStage = vk::PipelineStageFlagBits::eAllCommands;
 		if (aWaitSemaphores.has_value()) {
 			submitInfo
 				.setWaitSemaphoreCount(1u)
 				.setPWaitSemaphores(aWaitSemaphores->get().handle_addr())
-				.setPWaitDstStageMask(aWaitSemaphores->get().semaphore_wait_stage_addr());
+				.setPWaitDstStageMask(&semWaitStage);
 		}
 
 		handle().submit({ submitInfo },  nullptr);
@@ -5904,11 +5911,12 @@ namespace avk
 			.setPCommandBuffers(aCommandBuffer->handle_ptr())
 			.setSignalSemaphoreCount(1u)
 			.setPSignalSemaphores(sem->handle_addr());
+		vk::PipelineStageFlags semWaitStage = vk::PipelineStageFlagBits::eAllCommands;
 		if (aWaitSemaphores.has_value()) {
 			submitInfo
 				.setWaitSemaphoreCount(1u)
 				.setPWaitSemaphores(aWaitSemaphores->get().handle_addr())
-				.setPWaitDstStageMask(aWaitSemaphores->get().semaphore_wait_stage_addr());
+				.setPWaitDstStageMask(&semWaitStage);
 		}
 
 		handle().submit({ submitInfo },  nullptr);
@@ -5926,11 +5934,12 @@ namespace avk
 		auto submitInfo = vk::SubmitInfo{}
 			.setCommandBufferCount(1u)
 			.setPCommandBuffers(aCommandBuffer->handle_ptr());
+		vk::PipelineStageFlags semWaitStage = vk::PipelineStageFlagBits::eAllCommands;
 		if (aWaitSemaphore.has_value()) {
 			submitInfo
 				.setWaitSemaphoreCount(1u)
 				.setPWaitSemaphores(aWaitSemaphore->get().handle_addr())
-				.setPWaitDstStageMask(aWaitSemaphore->get().semaphore_wait_stage_addr());
+				.setPWaitDstStageMask(&semWaitStage);
 		}
 
 		handle().submit({ submitInfo },  nullptr);
@@ -5952,7 +5961,7 @@ namespace avk
 		if (!aWaitSemaphores.empty()) {
 			for (auto& ws : aWaitSemaphores) {
 				waitSemHandles.push_back(ws.get().handle());
-				waitSemStages.push_back(ws.get().semaphore_wait_stage());
+				waitSemStages.push_back(vk::PipelineStageFlagBits::eAllCommands);
 			}
 			assert (waitSemHandles.size() == waitSemStages.size());
 			submitInfo
@@ -6021,7 +6030,7 @@ namespace avk
 
 			for (const auto& semaphoreDependency : aWaitSemaphores) {
 				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+				waitDstStageMasks.push_back(vk::PipelineStageFlagBits::eAllCommands);
 			}
 
 			const auto submitInfo = vk::SubmitInfo{}
@@ -6090,7 +6099,7 @@ namespace avk
 
 			for (const auto& semaphoreDependency : aWaitSemaphores) {
 				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+				waitDstStageMasks.push_back(vk::PipelineStageFlagBits::eAllCommands);
 			}
 
 			const auto submitInfo = vk::SubmitInfo{}
@@ -6159,7 +6168,7 @@ namespace avk
 
 			for (const auto& semaphoreDependency : aWaitSemaphores) {
 				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+				waitDstStageMasks.push_back(vk::PipelineStageFlagBits::eAllCommands);
 			}
 
 			const auto submitInfo = vk::SubmitInfo{}
@@ -6244,7 +6253,7 @@ namespace avk
 
 			for (const auto& semaphoreDependency : aWaitSemaphores) {
 				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
+				waitDstStageMasks.push_back(vk::PipelineStageFlagBits::eAllCommands);
 			}
 
 			const auto submitInfo = vk::SubmitInfo{}
@@ -7580,7 +7589,6 @@ namespace avk
 	semaphore_t::semaphore_t()
 		: mCreateInfo{}
 		, mSemaphore{}
-		, mSemaphoreWaitStageForNextCommand{ vk::PipelineStageFlagBits::eAllCommands }
 		, mCustomDeleter{}
 	{
 	}
@@ -7595,12 +7603,6 @@ namespace avk
 		// Destroy the dependant instance before destroying myself
 		// ^ This is ensured by the order of the members
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
-	}
-
-	semaphore_t& semaphore_t::set_semaphore_wait_stage(vk::PipelineStageFlags _Stage)
-	{
-		mSemaphoreWaitStageForNextCommand = _Stage;
-		return *this;
 	}
 
 	semaphore root::create_semaphore(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)

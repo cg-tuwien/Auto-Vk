@@ -301,6 +301,16 @@ namespace avk
 		return semaphore_wait_info{ a, b };
 	}
 
+	struct semaphore_wait_info_owning
+	{
+		avk::resource_ownership<avk::semaphore_t> mWaitSemaphore;
+		avk::stage::pipeline_stage_flags mDstStage;
+	};
+
+	inline semaphore_wait_info_owning operator>> (avk::resource_ownership<avk::semaphore_t> a, avk::stage::pipeline_stage_flags b)
+	{
+		return semaphore_wait_info_owning{ std::move(a), b };
+	}
 
 
 	struct semaphore_signal_info
@@ -313,6 +323,18 @@ namespace avk
 	{
 		return semaphore_signal_info{ a, b };
 	}
+
+	struct semaphore_signal_info_owning
+	{
+		avk::stage::pipeline_stage_flags mSrcStage;
+		avk::resource_ownership<avk::semaphore_t> mSignalSemaphore;
+	};
+
+	inline semaphore_signal_info_owning operator>> (avk::stage::pipeline_stage_flags a, avk::resource_ownership<avk::semaphore_t> b)
+	{
+		return semaphore_signal_info_owning{ a, std::move(b) };
+	}
+
 
 	// Something that submits stuff to a queue.
 	// The submission itself either happens in submit() or in this class' destructor, if submit()/go()/do_it() has never been invoked before.
