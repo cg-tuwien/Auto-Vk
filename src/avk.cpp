@@ -5842,14 +5842,13 @@ namespace avk
 	}
 
 	queue queue::prepare(
-		vk::PhysicalDevice aPhysicalDevice,
-		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader,
+		avk::root* aRoot,
 		uint32_t aQueueFamilyIndex,
 		uint32_t aQueueIndex,
 		float aQueuePriority
 	)
 	{
-		auto queueFamilies = aPhysicalDevice.getQueueFamilyProperties();
+		auto queueFamilies = aRoot->physical_device().getQueueFamilyProperties();
 		if (queueFamilies.size() <= aQueueFamilyIndex) {
 			throw avk::runtime_error("Invalid queue family index in queue::prepare");
 		}
@@ -5858,24 +5857,19 @@ namespace avk
 		}
 
 		queue result;
+		result.mRoot = aRoot;
 		result.mQueueFamilyIndex = aQueueFamilyIndex;
 		result.mQueueIndex = aQueueIndex;
 		result.mPriority = aQueuePriority;
-		result.mPhysicalDevice = aPhysicalDevice;
-		result.mDevice = nullptr;
 		result.mQueue = nullptr;
-		result.mDispatchLoader = &aDispatchLoader;
 		return result;
 	}
 
-	void queue::assign_handle(vk::Device aDevice)
+	void queue::assign_handle()
 	{
-		mDevice = aDevice;
-		mQueue = aDevice.getQueue(mQueueFamilyIndex, mQueueIndex);
+		mQueue = mRoot->device().getQueue(mQueueFamilyIndex, mQueueIndex);
 	}
-
-
-
+	
 
 	void queue::submit_with_semaphore(resource_reference<semaphore_t> aSemaphoreToSignal, resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores)
 	{
@@ -5903,7 +5897,7 @@ namespace avk
 	{
 		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
 
-		auto sem = root::create_semaphore(mDevice, *mDispatchLoader);
+		auto sem = root::create_semaphore(mRoot->device(), mRoot->dispatch_loader_core());
 
 		auto submitInfo = vk::SubmitInfo{}
 			.setCommandBufferCount(1u)
@@ -6000,7 +5994,7 @@ namespace avk
 	{
 		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
 
-		auto fen = root::create_fence(mDevice, *mDispatchLoader);
+		auto fen = root::create_fence(mRoot->device(), mRoot->dispatch_loader_core());
 
 		if (0 == aWaitSemaphores.size()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6067,7 +6061,7 @@ namespace avk
 			handles.push_back(cb->handle());
 		}
 
-		auto fen = root::create_fence(mDevice, *mDispatchLoader);
+		auto fen = root::create_fence(mRoot->device(), mRoot->dispatch_loader_core());
 
 		if (aWaitSemaphores.empty()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6134,7 +6128,7 @@ namespace avk
 		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
 
 		// Create a semaphore which can, or rather, MUST be used to wait for the results
-		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice, *mDispatchLoader);
+		auto signalWhenCompleteSemaphore = root::create_semaphore(mRoot->device(), mRoot->dispatch_loader_core());
 
 		if (aWaitSemaphores.empty()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6217,7 +6211,7 @@ namespace avk
 		}
 
 		// Create a semaphore which can, or rather, MUST be used to wait for the results
-		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice, *mDispatchLoader);
+		auto signalWhenCompleteSemaphore = root::create_semaphore(mRoot->device(), mRoot->dispatch_loader_core());
 
 		if (aWaitSemaphores.empty()) {
 			// Optimized route for 0 _WaitSemaphores
@@ -6286,6 +6280,16 @@ namespace avk
 		}
 
 		return signalWhenCompleteSemaphore;
+	}
+
+	avk::submission_data queue::submit(avk::resource_reference<avk::command_buffer_t> aCommandBuffer) const
+	{
+		return avk::submission_data(mRoot, aCommandBuffer, this);
+	}
+
+	bool queue::is_prepared() const
+	{
+		return nullptr != mRoot && static_cast<bool>(mRoot->physical_device());
 	}
 #pragma endregion
 
@@ -7617,6 +7621,12 @@ namespace avk
 	{
 		return create_semaphore(device(), dispatch_loader_core(), std::move(aAlterConfigBeforeCreation));
 	}
+
+	semaphore_t& semaphore_t::handle_lifetime_of(any_owning_resource_t aResource)
+	{
+		mLifetimeHandledResources.push_back(std::move(aResource));
+		return *this;
+	}
 #pragma endregion
 
 #pragma region shader definitions
@@ -8099,10 +8109,46 @@ namespace avk
 #pragma endregion
 
 #pragma region commands and sync
+	submission_data::submission_data(submission_data&& aOther) noexcept
+		: mRoot{ std::move(aOther.mRoot) }
+		, mCommandBufferToSubmit{ std::move(aOther.mCommandBufferToSubmit) }
+		, mQueueToSubmitTo{ std::move(aOther.mQueueToSubmitTo) }
+		, mSemaphoreWaits{ std::move(aOther.mSemaphoreWaits) }
+		, mSemaphoreSignals{ std::move(aOther.mSemaphoreSignals) }
+		, mFence{ std::move(aOther.mFence) }
+		, mSubmissionCount{ std::move(aOther.mSubmissionCount) }
+	{
+		aOther.mRoot = nullptr;
+		aOther.mQueueToSubmitTo = nullptr;
+		aOther.mSemaphoreWaits.clear();
+		aOther.mSemaphoreSignals.clear();
+		aOther.mFence.reset();
+		aOther.mSubmissionCount = 0u;
+	}
+
+	submission_data& submission_data::operator=(submission_data&& aOther) noexcept
+	{
+		mRoot = std::move(aOther.mRoot);
+		mCommandBufferToSubmit = std::move(aOther.mCommandBufferToSubmit);
+		mQueueToSubmitTo = std::move(aOther.mQueueToSubmitTo);
+		mSemaphoreWaits = std::move(aOther.mSemaphoreWaits);
+		mSemaphoreSignals = std::move(aOther.mSemaphoreSignals);
+		mFence = std::move(aOther.mFence);
+		mSubmissionCount = std::move(aOther.mSubmissionCount);
+
+		aOther.mRoot = nullptr;
+		aOther.mQueueToSubmitTo = nullptr;
+		aOther.mSemaphoreWaits.clear();
+		aOther.mSemaphoreSignals.clear();
+		aOther.mFence.reset();
+		aOther.mSubmissionCount = 0u;
+
+		return *this;
+	}
 
 	submission_data::~submission_data() noexcept(false)
 	{
-		if (0 == mSubmissionCount) {
+		if (is_sane() && 0 == mSubmissionCount) { // TODO: PROBLEM HERE due to auto submission = .... in imgui_manager.cpp#L337
 			submit();
 		}
 	}
@@ -8130,6 +8176,11 @@ namespace avk
 		mFence = std::move(aFence);
 		return *this;
 	}
+
+	submission_data&& submission_data::store_for_now() noexcept
+	{
+		return std::move(*this);
+	}
 	
 	void submission_data::submit()
 	{
@@ -8154,7 +8205,7 @@ namespace avk
 		// Gather config for signal semaphores:
 		std::vector<vk::SemaphoreSubmitInfoKHR> signalSem;
 		for (const auto& semSig : mSemaphoreSignals) {
-			auto& subInfo = waitSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
 			std::visit(lambda_overload{
 				[&subInfo](const std::monostate&) {
 					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
@@ -8182,6 +8233,8 @@ namespace avk
 
 		auto fenceHandle = mFence.has_value() ? mFence.value()->handle() : vk::Fence{};
 		auto result = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+
+		++mSubmissionCount;
 	}
 
 	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions);
@@ -8455,9 +8508,15 @@ namespace avk
 		return *this;
 	}
 
-	recorded_commands& recorded_commands::append_to(std::vector<recorded_commands_and_sync_instructions_t>& aTarget)
+	recorded_commands& recorded_commands::prepend_by(std::vector<recorded_commands_and_sync_instructions_t>& aCommands)
 	{
-		aTarget.insert(std::end(aTarget), std::begin(mRecordedCommandsAndSyncInstructions), std::end(mRecordedCommandsAndSyncInstructions));
+		mRecordedCommandsAndSyncInstructions.insert(std::begin(mRecordedCommandsAndSyncInstructions), std::begin(aCommands), std::end(aCommands));
+		return *this;
+	}
+
+	recorded_commands& recorded_commands::append_by(std::vector<recorded_commands_and_sync_instructions_t>& aTarget)
+	{
+		mRecordedCommandsAndSyncInstructions.insert(std::end(mRecordedCommandsAndSyncInstructions), std::begin(aTarget), std::end(aTarget));
 		return *this;
 	}
 

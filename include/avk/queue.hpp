@@ -1,11 +1,10 @@
 #pragma once
 #include <avk/avk.hpp>
 
+#include "avk.hpp"
+
 namespace avk
 {
-	// Forward declare:
-	struct queue_submit_proxy;
-
 	enum struct queue_selection_preference
 	{
 		/** Express preference for a specialized queue that has as few other
@@ -58,8 +57,7 @@ namespace avk
 		
 		/** Prepare another queue and for the given queue family index. */
 		static queue prepare(
-			vk::PhysicalDevice aPhysicalDevice,
-			const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader,
+			avk::root* aRoot,
 			uint32_t aQueueFamilyIndex,
 			uint32_t aQueueIndex,
 			float aQueuePriority = 0.5f
@@ -127,7 +125,7 @@ namespace avk
 		 *	This assumes that the logical device has been created with the proper queue create configuration,
 		 *	so that the properties this queue has been configured with (family-index and queue-index) are available.
 		 */
-		void assign_handle(vk::Device aDevice);
+		void assign_handle();
 
 		/** Gets the queue family index of this queue */
 		auto family_index() const { return mQueueFamilyIndex; }
@@ -144,7 +142,7 @@ namespace avk
 		semaphore submit_with_semaphore(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores = {});
 		
 		/** TODO */
-		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphore = {});
+		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphore);
 
 		// TODO: temporarily removed default parameter settings for aWaitSemaphores as it can get mixed with the above call (std::optional)
 		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_reference<semaphore_t>> aWaitSemaphores);
@@ -165,16 +163,16 @@ namespace avk
 		/** TODO */
 		semaphore submit_and_handle_with_semaphore(std::vector<resource_ownership<command_buffer_t>> aCommandBuffers, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
 
-		bool is_prepared() const { return static_cast<bool>(mPhysicalDevice); }
+		avk::submission_data submit(avk::resource_reference<avk::command_buffer_t> aCommandBuffer) const;
+
+		bool is_prepared() const;
 		
 	private:
+		const root* mRoot = nullptr;
 		uint32_t mQueueFamilyIndex;
 		uint32_t mQueueIndex;
 		float mPriority;
-		vk::PhysicalDevice mPhysicalDevice;
-		vk::Device mDevice;
 		vk::Queue mQueue;
-		const DISPATCH_LOADER_CORE_TYPE* mDispatchLoader;
 	};
 
 	static bool operator==(const queue& left, const queue& right)

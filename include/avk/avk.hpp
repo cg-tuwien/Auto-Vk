@@ -195,7 +195,6 @@ namespace avk
 
 #include <avk/buffer_view.hpp>
 #include <avk/vertex_index_buffer_pair.hpp>
-#include <avk/queue.hpp>
 #include <avk/subpass_dependency.hpp>
 #include <avk/renderpass_sync.hpp>
 #include <avk/renderpass.hpp>
@@ -224,6 +223,7 @@ namespace avk
 #include <avk/bindings.hpp>
 
 #include <avk/commands.hpp>
+#include <avk/queue.hpp>
 
 namespace avk
 {

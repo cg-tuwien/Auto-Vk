@@ -46,6 +46,8 @@ namespace avk
 			return *this;
 		}
 
+		semaphore_t& handle_lifetime_of(any_owning_resource_t aResource);
+
 		const auto& create_info() const	{ return mCreateInfo; }
 		auto& create_info()				{ return mCreateInfo; }
 		const auto& handle() const { return mSemaphore.get(); }
@@ -68,6 +70,8 @@ namespace avk
 
 		/** A custom deleter function called upon destruction of this semaphore */
 		std::optional<avk::unique_function<void()>> mCustomDeleter;
+
+		std::vector<any_owning_resource_t> mLifetimeHandledResources;
 	};
 
 	// Typedef for a variable representing an owner of a semaphore

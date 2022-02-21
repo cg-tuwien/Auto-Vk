@@ -214,6 +214,20 @@ namespace avk
 			rec_fun mFun;
 		};
 
+		template <typename P, typename T>
+		inline static state_type_command push_constants(const P& aPipeline, const T& aPushConstants, vk::ShaderStageFlags aStageFlags = vk::ShaderStageFlagBits::eAll)
+		{
+			return state_type_command{
+				[
+					bLayoutHandle = aPipeline->layout_handle(),
+					bPushConstants = aPushConstants,
+					bStageFlags = aStageFlags
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().pushConstants(bLayoutHandle, bStageFlags, 0, sizeof(bPushConstants), &bPushConstants);
+				}
+			};
+		};
+
 		struct action_type_command final
 		{
 			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
@@ -271,6 +285,7 @@ namespace avk
 				}
 			};
 		}
+
 	}
 
 
@@ -317,23 +332,27 @@ namespace avk
 			, mSemaphoreWaits{ std::move(aSemaphoreWaitInfo) }
 			, mSubmissionCount{ 0u }
 		{}
-		submission_data(const submission_data&) = default;
-		submission_data(submission_data&&) noexcept = default;
-		submission_data& operator=(const submission_data&) = default;
-		submission_data& operator=(submission_data&&) noexcept = default;
+		submission_data(const submission_data&) = delete;
+		submission_data(submission_data&&) noexcept;
+		submission_data& operator=(const submission_data&) = delete;
+		submission_data& operator=(submission_data&&) noexcept;
 		~submission_data() noexcept(false);
+
+		submission_data&& store_for_now() noexcept;
 
 		submission_data& submit_to(const queue* aQueue);
 		submission_data& waiting_for(avk::semaphore_wait_info aWaitInfo);
 		submission_data& signaling_upon_completion(semaphore_signal_info aSignalInfo);
 		submission_data& signaling_upon_completion(avk::resource_reference<avk::fence_t> aFence);
 
+		bool is_sane() const { return nullptr != mRoot; }
+
 		void submit();
 		void go() { submit(); }
 		void do_it() { submit(); }
 
 	private:
-		const root* mRoot;
+		const root* mRoot = nullptr;
 		avk::resource_reference<avk::command_buffer_t> mCommandBufferToSubmit;
 		const queue* mQueueToSubmitTo;
 		std::vector<semaphore_wait_info> mSemaphoreWaits;
@@ -387,7 +406,8 @@ namespace avk
 		~recorded_commands() = default;
 		
 		recorded_commands& move_into(std::vector<recorded_commands_and_sync_instructions_t>& aTarget);
-		recorded_commands& append_to(std::vector<recorded_commands_and_sync_instructions_t>& aTarget);
+		recorded_commands& prepend_by(std::vector<recorded_commands_and_sync_instructions_t>& aCommands);
+		recorded_commands& append_by(std::vector<recorded_commands_and_sync_instructions_t>& aCommands);
 
 		std::vector<recorded_commands_and_sync_instructions_t> and_store();
 		recorded_command_buffer into_command_buffer(avk::resource_reference<avk::command_buffer_t> aCommandBuffer);
