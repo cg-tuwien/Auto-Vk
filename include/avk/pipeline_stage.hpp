@@ -243,15 +243,28 @@ namespace avk
 		static const auto index_input                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eIndexInput };
 		static const auto vertex_attribute_input           = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexAttributeInput };
 		static const auto pre_rasterization_shaders        = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::ePreRasterizationShaders };
+#if defined( VK_ENABLE_BETA_EXTENSIONS )
+#if VK_HEADER_VERSION >= 204
+		static const auto video_decode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoDecodeKHR };
+		static const auto video_encode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoEncodeKHR };
+#else
 		static const auto video_decode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoDecode };
 		static const auto video_encode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoEncode };
+#endif
+#endif
 		static const auto transform_feedback               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransformFeedbackEXT };
 		static const auto conditional_rendering            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eConditionalRenderingEXT };
 		static const auto command_preprocess               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCommandPreprocessNV };
-		static const auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachment };
 		static const auto shading_rate_image               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eShadingRateImageNV };
+#if VK_HEADER_VERSION >= 204
+		static const auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachmentKHR };
+		static const auto acceleration_structure_build     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR };
+		static const auto ray_tracing_shader               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eRayTracingShaderKHR };
+#else
+		static const auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachment };
 		static const auto acceleration_structure_build     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild };
 		static const auto ray_tracing_shader               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eRayTracingShader };
+#endif
 		static const auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessEXT };
 		static const auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNV };
 		static const auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNV };

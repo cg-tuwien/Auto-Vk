@@ -280,20 +280,35 @@ namespace avk
 		static const auto shader_sampled_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderSampledRead };
 		static const auto shader_storage_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageRead };
 		static const auto shader_storage_write                  = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageWrite };
+#if defined( VK_ENABLE_BETA_EXTENSIONS )
+#if VK_HEADER_VERSION >= 204
+		static const auto video_decode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeReadKHR };
+		static const auto video_decode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeWriteKHR };
+		static const auto video_encode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeReadKHR };
+		static const auto video_encode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeWriteKHR };
+#else
 		static const auto video_decode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeRead };
 		static const auto video_decode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeWrite };
 		static const auto video_encode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeRead };
 		static const auto video_encode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeWrite };
+#endif
+#endif
 		static const auto transform_feedback_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackWriteEXT };
 		static const auto transform_feedback_counter_read       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterReadEXT };
 		static const auto transform_feedback_counter_write      = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterWriteEXT };
 		static const auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadEXT };
 		static const auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNV };
 		static const auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNV };
+		static const auto shading_rate_image_read = memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV };
+#if VK_HEADER_VERSION >= 204
+		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentReadKHR };
+		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureReadKHR };
+		static const auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR };
+#else
 		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentRead };
-		static const auto shading_rate_image_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV };
 		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureRead };
 		static const auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWrite };
+#endif
 		static const auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadEXT };
 		static const auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentEXT };
 #if VK_HEADER_VERSION > 182
