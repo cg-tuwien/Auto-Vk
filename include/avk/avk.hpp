@@ -155,7 +155,6 @@ namespace avk
 #include <avk/descriptor_alloc_request.hpp>
 #include <avk/descriptor_pool.hpp>
 
-#include <avk/image_layout.hpp>
 
 #include <avk/format_for.hpp>
 #include <avk/buffer_meta.hpp>
@@ -166,6 +165,16 @@ namespace avk
 #include <avk/descriptor_set_layout.hpp>
 #include <avk/set_of_descriptor_set_layouts.hpp>
 #include <avk/descriptor_cache.hpp>
+
+// Predefine command types:
+namespace avk
+{
+	namespace command
+	{
+		struct state_type_command;
+		struct action_type_command;
+	}
+}
 
 #include <avk/buffer.hpp>
 #include <avk/shader_info.hpp>
@@ -202,6 +211,7 @@ namespace avk
 
 #include <avk/geometry_instance.hpp>
 
+#include <avk/image_layout.hpp>
 #include <avk/vk_utils2.hpp>
 
 #include <avk/acceleration_structure_size_requirements.hpp>

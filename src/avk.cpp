@@ -1784,7 +1784,9 @@ namespace avk
 			memory_usage::device, {},
 			aabb_buffer_meta::create_from_data(aGeometries)
 		);
-		aabbDataBuffer->fill(aGeometries.data(), 0, sync::wait_idle()); // TODO: Do not use wait_idle!
+
+		// TODO: THIS IS BROKEN FOR NOW:
+		//aabbDataBuffer->fill(aGeometries.data(), 0, sync::wait_idle()); // TODO: Do not use wait_idle!
 		// TODO: Probably better to NOT create an entirely new buffer at every invocation ^^
 
 		auto result = build_or_update(aabbDataBuffer, aScratchBuffer, std::move(aSyncHandler), aBuildAction);
@@ -2008,7 +2010,9 @@ namespace avk
 #endif
 			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
-		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
+
+		// TODO: THIS IS BROKEN FOR NOW:
+		//geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
 
 		auto result = build_or_update(geomInstBuffer, aScratchBuffer, std::move(aSyncHandler), aBuildAction);
 
@@ -2506,28 +2510,40 @@ namespace avk
 		return result;
 	}
 
-	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler)
+	avk::command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex)
 	{
-		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
-		return fill(aDataPtr, aMetaDataIndex, 0u, bufferSize, std::move(aSyncHandler));
+		const auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
+		const auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
+		return fill(aDataPtr, aMetaDataIndex, 0u, bufferSize);
 	}
 
-	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes, sync aSyncHandler)
+	command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes)
 	{
+		auto dstOffset = static_cast<vk::DeviceSize>(aOffsetInBytes);
 		auto dataSize = static_cast<vk::DeviceSize>(aDataSizeInBytes);
-		auto memProps = memory_properties();
+		const auto memProps = memory_properties();
 
 #ifdef _DEBUG
 		const auto& metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-		assert(aOffsetInBytes + aDataSizeInBytes <= metaData.total_size()); // The fill operation would write beyond the buffer's size.
+		assert(dstOffset + dataSize <= metaData.total_size()); // The fill operation would write beyond the buffer's size.
 #endif
+
+		// Prepare a result which defines no sync hints and no instructions to be executed for some cases:
+		auto result = command::action_type_command{};
+
+		// #0: Sanity check
+		if (dataSize == 0) {
+			// Nothing to do here
+			return result;
+		}
 
 		// #1: Is our memory accessible from the CPU-SIDE?
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
 			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
-			memcpy(static_cast<uint8_t *>(mapped.get()) + aOffsetInBytes, aDataPtr, dataSize);
-			return {};
+			// Memcpy doesn't have to wait on anything, no sync required.
+			memcpy(static_cast<uint8_t *>(mapped.get()) + dstOffset, aDataPtr, dataSize);
+			// Since this is a host-write, no need for any barrier, because of implicit host write guarantee.
+			return result;
 		}
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
@@ -2541,34 +2557,40 @@ namespace avk
 			// If dataSize is zero, skip staging buffer creation and the copy command, but still
 			// process the synchronization calls, as user code may rely on those.
 
-			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+			auto stagingBuffer = root::create_buffer(
+				*mRoot,
+				AVK_STAGING_BUFFER_MEMORY_USAGE,
+				vk::BufferUsageFlagBits::eTransferSrc,
+				generic_buffer_meta::create_from_size(dataSize)
+			);
+			stagingBuffer.enable_shared_ownership(); // TODO: Why does it not work WITHOUT shared_ownership? (Fails when assigning it to mBeginFun)
+			stagingBuffer->fill(aDataPtr, 0); // Recurse into the other if-branch
 
-			// Sync before:
-			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+			result.mSyncHint = {
+				// We really don't need any prior sync, because we're only transferring from stagingBuffer, and that one has implicit host write guarantee:
+				{}, {},
+				// Whatever comes after must synchronize with the device-local copy:
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+			};
+			result.mBeginFun = [
+				lRoot = mRoot,
+				lOwnedStagingBuffer = std::move(stagingBuffer),
+				lDstBufferHandle = handle(),
+				dstOffset, dataSize
+			](avk::resource_reference<avk::command_buffer_t> cb) mutable {
+				//const auto copyRegion = vk::BufferCopy2KHR{ 0u, 0u, dataSize };
+				//const auto copyBufferInfo = vk::CopyBufferInfo2KHR{ lOwnedStagingBuffer->handle(), lDstBufferHandle, 1u, &copyRegion };
+				//cb->handle().copyBuffer2KHR(&copyBufferInfo);
+				// TODO: No idea why copyBuffer2KHR fails with an access violation
 
-			if (dataSize != 0) {
-				auto stagingBuffer = root::create_buffer(
-					*mRoot,
-					AVK_STAGING_BUFFER_MEMORY_USAGE,
-					vk::BufferUsageFlagBits::eTransferSrc,
-					generic_buffer_meta::create_from_size(dataSize)
-				);
-				stagingBuffer->fill(aDataPtr, 0, sync::wait_idle()); // Recurse into the other if-branch
-
-				// Operation:
-				copy_buffer_to_another(avk::referenced(stagingBuffer), avk::referenced(*this), 0, static_cast<vk::DeviceSize>(aOffsetInBytes), dataSize, sync::with_barriers_into_existing_command_buffer(commandBuffer, {}, {}));
+				const auto copyRegion = vk::BufferCopy{ 0u, 0u, dataSize };
+				cb->handle().copyBuffer(lOwnedStagingBuffer->handle(), lDstBufferHandle, 1u, &copyRegion, lRoot->dispatch_loader_core());
 
 				// Take care of the lifetime handling of the stagingBuffer, it might still be in use when this method returns:
-				commandBuffer.set_custom_deleter([
-					lOwnedStagingBuffer{ std::move(stagingBuffer) }
-				]() { /* Nothing to do here, the buffers' destructors will do the cleanup, the lambda is just storing it. */ });
-			}
+				cb->handle_lifetime_of(std::move(lOwnedStagingBuffer));
+			};
 
-			// Sync after:
-			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-			// Finish him:
-			return aSyncHandler.submit_and_sync();
+			return result;
 		}
 	}
 
@@ -4051,9 +4073,9 @@ namespace avk
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
 	}
 
-	fence_t& fence_t::set_designated_queue(queue& _Queue)
+	fence_t& fence_t::handle_lifetime_of(any_owning_resource_t aResource)
 	{
-		mQueue = &_Queue;
+		mLifetimeHandledResources.push_back(std::move(aResource));
 		return *this;
 	}
 
@@ -5025,6 +5047,7 @@ namespace avk
 	image root::create_image_from_template(resource_reference<const image_t> aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		image_t result;
+		result.mRoot = aTemplate->mRoot;
 		result.mCreateInfo = aTemplate->mCreateInfo;
 		result.mTargetLayout = aTemplate->mTargetLayout;
 		result.mCurrentLayout = vk::ImageLayout::eUndefined;
@@ -5107,6 +5130,7 @@ namespace avk
 		}
 
 		image_t result;
+		result.mRoot = this;
 		result.mCreateInfo = vk::ImageCreateInfo()
 			.setImageType(vk::ImageType::e2D) // TODO: Support 3D textures
 			.setExtent(vk::Extent3D(static_cast<uint32_t>(aWidth), static_cast<uint32_t>(aHeight), 1u))
@@ -5191,6 +5215,7 @@ namespace avk
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 
 		image_t result;
+		result.mRoot = this;
 		result.mCreateInfo = aImageCreateInfo;
 		result.mImage = aImageToWrap;
 		result.mTargetLayout = targetLayout;
@@ -7135,6 +7160,7 @@ namespace avk
 	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, subpass_dependencies aSubpassDependencies, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
+		result.mRoot = this;
 
 		std::vector<subpass_desc_helper> subpasses;
 
@@ -7477,6 +7503,7 @@ namespace avk
 	renderpass root::create_renderpass_from_template(resource_reference<const renderpass_t> aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
+		result.mRoot                   = aTemplate->mRoot;
 		result.mAttachmentDescriptions = aTemplate->mAttachmentDescriptions;
 		result.mClearValues			   = aTemplate->mClearValues			  ;
 		result.mSubpassData			   = aTemplate->mSubpassData			  ;
@@ -7725,219 +7752,115 @@ namespace avk
 #pragma endregion
 
 #pragma region vk_utils2 definitions
-	std::optional<command_buffer> copy_image_to_another(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<image_t> aDstImage, sync aSyncHandler, bool aRestoreSrcLayout, bool aRestoreDstLayout)
+	avk::command::action_type_command copy_image_to_another(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		const auto originalSrcLayout = aSrcImage->target_layout();
-		const auto originalDstLayout = aDstImage->target_layout();
+		return avk::command::action_type_command {
+			avk::syncxxx::sync_hint {
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+			},
+			[
+				lRoot = aSrcImage->root_ptr(),
+				lSrcHandle = aSrcImage->handle(),
+				lDstHandle = aDstImage->handle(),
+				aSrcImageLayout, aDstImageLayout, aImageAspectFlags,
+				lExtent = vk::Extent3D{ aSrcImage->width(), aSrcImage->height(), 1u }
+			](avk::resource_reference<avk::command_buffer_t> cb) {
+				const vk::ImageCopy region {
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u}, vk::Offset3D{ 0, 0, 0 },
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, vk::Offset3D{ 0, 0, 0 }, lExtent
+				};
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto srcLayoutAfterBarrier = aSrcImage->current_layout();
-		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
-									//|| initialSrcLayout == vk::ImageLayout::eGeneral
-									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableSrcLayout) {
-			// Just make sure that is really is in target layout:
-			aSrcImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable src layout => must transform
-			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Citing the specs: "dstImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto dstLayoutAfterBarrier = aDstImage->current_layout();
-		const bool suitableDstLayout = dstLayoutAfterBarrier == vk::ImageLayout::eTransferDstOptimal;
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eGeneral
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableDstLayout) {
-			// Just make sure that is really is in target layout:
-			aDstImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable dst layout => must transform
-			aDstImage->transition_to_layout(vk::ImageLayout::eTransferDstOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Operation:
-		auto copyRegion = vk::ImageCopy{}
-			.setExtent(aSrcImage->create_info().extent) // TODO: Support different ranges/extents
-			.setSrcOffset({0, 0})
-			.setSrcSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aSrcImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u)
-			)
-			.setDstOffset({0, 0})
-			.setDstSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aDstImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u));
-
-		commandBuffer.handle().copyImage(
-			aSrcImage->handle(),
-			aSrcImage->current_layout(),
-			aDstImage->handle(),
-			aDstImage->current_layout(),
-			1u, &copyRegion);
-
-		if (aRestoreSrcLayout) { // => restore original layout of the src image
-			aSrcImage->transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		if (aRestoreDstLayout) { // => restore original layout of the dst image
-			aDstImage->transition_to_layout(originalDstLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+				cb->handle().copyImage(
+					lSrcHandle, aSrcImageLayout.mLayout,
+					lDstHandle, aDstImageLayout.mLayout,
+					1u, &region,
+					lRoot->dispatch_loader_core()
+				);
+			}
+		};
 	}
 
-	std::optional<command_buffer> blit_image(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<image_t> aDstImage, sync aSyncHandler, bool aRestoreSrcLayout, bool aRestoreDstLayout)
+	avk::command::action_type_command blit_image(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags, vk::Filter aFilter)
 	{
-		const auto originalSrcLayout = aSrcImage->target_layout();
-		const auto originalDstLayout = aDstImage->target_layout();
+		return avk::command::action_type_command{
+			avk::syncxxx::sync_hint {
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+			},
+			[
+				lRoot = aSrcImage->root_ptr(),
+				lSrcHandle = aSrcImage->handle(),
+				lDstHandle = aDstImage->handle(),
+				aSrcImageLayout, aDstImageLayout, aImageAspectFlags, aFilter,
+				lExtent = vk::Extent3D{ aSrcImage->width(), aSrcImage->height(), 1u }
+			](avk::resource_reference<avk::command_buffer_t> cb) {
+				const std::array srcOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lExtent.width), static_cast<int32_t>(lExtent.height), 1 }};
+				const std::array dstOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lExtent.width), static_cast<int32_t>(lExtent.height), 1 }};
+				const vk::ImageBlit region {
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, srcOffsets,
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, dstOffsets
+				};
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto srcLayoutAfterBarrier = aSrcImage->current_layout();
-		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
-									//|| initialSrcLayout == vk::ImageLayout::eGeneral
-									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableSrcLayout) {
-			// Just make sure that is really is in target layout:
-			aSrcImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable src layout => must transform
-			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Citing the specs: "dstImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto dstLayoutAfterBarrier = aDstImage->current_layout();
-		const bool suitableDstLayout = dstLayoutAfterBarrier == vk::ImageLayout::eTransferDstOptimal;
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eGeneral
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableDstLayout) {
-			// Just make sure that is really is in target layout:
-			aDstImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable dst layout => must transform
-			aDstImage->transition_to_layout(vk::ImageLayout::eTransferDstOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-
-		std::array<vk::Offset3D, 2> srcOffsets = { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(aSrcImage->width()), static_cast<int32_t>(aSrcImage->height()), 1 } };
-		std::array<vk::Offset3D, 2> dstOffsets = { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(aDstImage->width()), static_cast<int32_t>(aDstImage->height()), 1 } };
-
-		// Operation:
-		auto blitRegion = vk::ImageBlit{}
-			.setSrcSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aSrcImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u)
-			)
-			.setSrcOffsets(srcOffsets)
-			.setDstSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aDstImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u)
-			)
-			.setDstOffsets(dstOffsets);
-
-		commandBuffer.handle().blitImage(
-			aSrcImage->handle(),
-			aSrcImage->current_layout(),
-			aDstImage->handle(),
-			aDstImage->current_layout(),
-			1u, &blitRegion,
-			vk::Filter::eNearest); // TODO: Support other filters and everything
-
-		if (aRestoreSrcLayout) { // => restore original layout of the src image
-			aSrcImage->transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		if (aRestoreDstLayout) { // => restore original layout of the dst image
-			aDstImage->transition_to_layout(originalDstLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+				cb->handle().blitImage(
+					lSrcHandle, aSrcImageLayout.mLayout,
+					lDstHandle, aDstImageLayout.mLayout,
+					1u, &region,
+					aFilter,
+					lRoot->dispatch_loader_core()
+				);
+			}
+		};
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image_layer_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_image_layer_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
 		auto extent = aDstImage->create_info().extent;
 		extent.width  = extent.width  > 1u ? extent.width  >> aDstLevel : 1u;
 		extent.height = extent.height > 1u ? extent.height >> aDstLevel : 1u;
 		extent.depth  = extent.depth  > 1u ? extent.depth  >> aDstLevel : 1u;
 
-		// Operation:
-		auto copyRegion = vk::BufferImageCopy()
-			.setBufferOffset(0)
-			// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
-			// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
-			.setBufferRowLength(0)
-			.setBufferImageHeight(0)
-			.setImageSubresource(vk::ImageSubresourceLayers()
-				.setAspectMask(aAspectFlagsOverride.value_or(aDstImage->aspect_flags())) // Used to be vk::ImageAspectFlagBits::eColor
-				.setMipLevel(aDstLevel)
-				.setBaseArrayLayer(aDstLayer)
-				.setLayerCount(1u))
-			.setImageOffset({ 0u, 0u, 0u })
-			.setImageExtent(extent);
-		commandBuffer.handle().copyBufferToImage(
-			aSrcBuffer->handle(),
-			aDstImage->handle(),
-			vk::ImageLayout::eTransferDstOptimal, // TODO: Should image layout transitions be handled somehow automatically or so? If not => Document that this function expects the image to be in eTransferDstOptimal Layout.
-			{ copyRegion });
-
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		return avk::command::action_type_command{
+			avk::syncxxx::sync_hint {
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+			},
+			[
+				lRoot = aSrcBuffer->root_ptr(),
+				lSrcHandle = aSrcBuffer->handle(),
+				lDstHandle = aDstImage->handle(),
+				aDstLayer, aDstLevel, aDstImageLayout, aImageAspectFlags,
+				extent
+			](avk::resource_reference<avk::command_buffer_t> cb) {
+				// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
+				// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
+				const vk::BufferImageCopy2KHR region {
+					0, 0u, 0u,
+					vk::ImageSubresourceLayers{ aImageAspectFlags, aDstLevel, aDstLayer, 1u },
+					vk::Offset3D{ 0, 0, 0 }, extent
+				};
+				cb->handle().copyBufferToImage2KHR(vk::CopyBufferToImageInfo2KHR{
+					lSrcHandle, 
+					lDstHandle, aDstImageLayout.mLayout,
+					1u, &region
+				}, lRoot->dispatch_loader_ext());
+			}
+		};
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_image_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLevel, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		return copy_buffer_to_image_layer_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstLevel, aAspectFlagsOverride, std::move(aSyncHandler));
+		return copy_buffer_to_image_layer_mip_level(aSrcBuffer, aDstImage, 0u, aDstLevel, aDstImageLayout, aImageAspectFlags);
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_image(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aAspectFlagsOverride, std::move(aSyncHandler));
+		return copy_buffer_to_image_mip_level(aSrcBuffer, aDstImage, 0u, aDstImageLayout, aImageAspectFlags);
 	}
 
-	std::optional<command_buffer> copy_buffer_to_another(avk::resource_reference<buffer_t> aSrcBuffer, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_another(avk::resource_reference<buffer_t> aSrcBuffer, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize)
 	{
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-		vk::DeviceSize dataSize{0};
+		vk::DeviceSize dataSize{ 0 };
 		if (aDataSize.has_value()) {
 			dataSize = aDataSize.value();
 		}
@@ -7949,83 +7872,81 @@ namespace avk
 		{
 			const auto& metaDataSrc = aSrcBuffer->meta_at_index<buffer_meta>();
 			const auto& metaDataDst = aDstBuffer->meta_at_index<buffer_meta>();
-			assert (aSrcOffset.value_or(0) + dataSize <= metaDataSrc.total_size());
-			assert (aDstOffset.value_or(0) + dataSize <= metaDataDst.total_size());
-			assert (aSrcOffset.value_or(0) + dataSize <= metaDataDst.total_size());
+			assert(aSrcOffset.value_or(0) + dataSize <= metaDataSrc.total_size());
+			assert(aDstOffset.value_or(0) + dataSize <= metaDataDst.total_size());
+			assert(aSrcOffset.value_or(0) + dataSize <= metaDataDst.total_size());
 		}
 #endif
 
-		auto copyRegion = vk::BufferCopy{}
-			.setSrcOffset(aSrcOffset.value_or(0))
-			.setDstOffset(aDstOffset.value_or(0))
-			.setSize(dataSize);
-		commandBuffer.handle().copyBuffer(aSrcBuffer->handle(), aDstBuffer->handle(), 1u, &copyRegion);
-
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		return avk::command::action_type_command{
+			avk::syncxxx::sync_hint {
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+			},
+			[
+				lRoot = aSrcBuffer->root_ptr(),
+				lSrcHandle = aSrcBuffer->handle(),
+				lDstHandle = aDstBuffer->handle(),
+				lSrcOffset = aSrcOffset.value_or(0),
+				lDstOffset = aDstOffset.value_or(0),
+				dataSize
+			](avk::resource_reference<avk::command_buffer_t> cb) {
+				const vk::BufferCopy2KHR region {
+					lSrcOffset, lDstOffset, dataSize
+				};
+				cb->handle().copyBuffer2KHR(vk::CopyBufferInfo2KHR{
+					lSrcHandle, 
+					lDstHandle,
+					1u, &region
+				}, lRoot->dispatch_loader_ext());
+			}
+		};
 	}
 
-	std::optional<command_buffer> copy_image_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, uint32_t aSrcLevel, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler, bool aRestoreSrcLayout)
+	avk::command::action_type_command copy_image_layer_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, uint32_t aSrcLayer, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
-		const auto originalSrcLayout = aSrcImage->target_layout();
-
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto srcLayoutAfterBarrier = aSrcImage->current_layout();
-		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
-									//|| initialSrcLayout == vk::ImageLayout::eGeneral
-									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableSrcLayout) {
-			// Just make sure that is really is in target layout:
-			aSrcImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable src layout => must transform
-			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
 		auto extent = aSrcImage->create_info().extent;
-		extent.width  = extent.width  > 1u ? extent.width  >> aSrcLevel : 1u;
+		extent.width = extent.width > 1u ? extent.width >> aSrcLevel : 1u;
 		extent.height = extent.height > 1u ? extent.height >> aSrcLevel : 1u;
-		extent.depth  = extent.depth  > 1u ? extent.depth  >> aSrcLevel : 1u;
+		extent.depth = extent.depth > 1u ? extent.depth >> aSrcLevel : 1u;
 
-		// Operation:
-		auto copyRegion = vk::BufferImageCopy()
-			.setBufferOffset(0)
-			.setBufferRowLength(0)
-			.setBufferImageHeight(0)
-			.setImageSubresource(vk::ImageSubresourceLayers()
-				.setAspectMask(aAspectFlagsOverride.value_or(aSrcImage->aspect_flags()))
-				.setMipLevel(aSrcLevel)
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u))
-			.setImageOffset({ 0u, 0u, 0u })
-			.setImageExtent(extent);
-		commandBuffer.handle().copyImageToBuffer(
-			aSrcImage->handle(),
-			vk::ImageLayout::eTransferSrcOptimal, // TODO: Should image layout transitions be handled somehow automatically or so? If not => Document that this function expects the image to be in eTransferSrcOptimal Layout.
-			aDstBuffer->handle(),
-			{ copyRegion });
-
-		if (aRestoreSrcLayout) { // => restore original layout of the src image
-			aSrcImage->transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		return avk::command::action_type_command{
+			avk::syncxxx::sync_hint {
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
+				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+			},
+			[
+				lRoot = aSrcImage->root_ptr(),
+				lSrcHandle = aSrcImage->handle(), aSrcImageLayout,
+				lDstHandle = aDstBuffer->handle(),
+				lDstOffset = aDstOffset.value_or(0),
+				aSrcLayer, aSrcLevel, aImageAspectFlags,
+				extent
+			](avk::resource_reference<avk::command_buffer_t> cb) {
+				// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
+				// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
+				const vk::BufferImageCopy2KHR region {
+					lDstOffset, 0u, 0u,
+					vk::ImageSubresourceLayers{ aImageAspectFlags, aSrcLevel, aSrcLayer, 1u },
+					vk::Offset3D{ 0, 0, 0 }, extent
+				};
+				cb->handle().copyImageToBuffer2KHR(vk::CopyImageToBufferInfo2KHR{
+					lSrcHandle, aSrcImageLayout.mLayout,
+					lDstHandle,
+					1u, &region
+				}, lRoot->dispatch_loader_ext());
+			}
+		};
 	}
 
-	std::optional<command_buffer> copy_image_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler, bool aRestoreSrcLayout)
+	avk::command::action_type_command copy_image_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
-		return copy_image_mip_level_to_buffer(std::move(aSrcImage), 0u, std::move(aDstBuffer), aAspectFlagsOverride, std::move(aSyncHandler), aRestoreSrcLayout);
+		return copy_image_layer_mip_level_to_buffer(aSrcImage, aSrcImageLayout, 0u, aSrcLevel, aImageAspectFlags, aDstBuffer, aDstOffset);
+	}
+
+	avk::command::action_type_command copy_image_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
+	{
+		return copy_image_mip_level_to_buffer(aSrcImage, aSrcImageLayout, 0u, aImageAspectFlags, aDstBuffer, aDstOffset);
 	}
 #pragma endregion
 
@@ -8111,134 +8032,6 @@ namespace avk
 #pragma endregion
 
 #pragma region commands and sync
-	submission_data::submission_data(submission_data&& aOther) noexcept
-		: mRoot{ std::move(aOther.mRoot) }
-		, mCommandBufferToSubmit{ std::move(aOther.mCommandBufferToSubmit) }
-		, mQueueToSubmitTo{ std::move(aOther.mQueueToSubmitTo) }
-		, mSemaphoreWaits{ std::move(aOther.mSemaphoreWaits) }
-		, mSemaphoreSignals{ std::move(aOther.mSemaphoreSignals) }
-		, mFence{ std::move(aOther.mFence) }
-		, mSubmissionCount{ std::move(aOther.mSubmissionCount) }
-	{
-		aOther.mRoot = nullptr;
-		aOther.mQueueToSubmitTo = nullptr;
-		aOther.mSemaphoreWaits.clear();
-		aOther.mSemaphoreSignals.clear();
-		aOther.mFence.reset();
-		aOther.mSubmissionCount = 0u;
-	}
-
-	submission_data& submission_data::operator=(submission_data&& aOther) noexcept
-	{
-		mRoot = std::move(aOther.mRoot);
-		mCommandBufferToSubmit = std::move(aOther.mCommandBufferToSubmit);
-		mQueueToSubmitTo = std::move(aOther.mQueueToSubmitTo);
-		mSemaphoreWaits = std::move(aOther.mSemaphoreWaits);
-		mSemaphoreSignals = std::move(aOther.mSemaphoreSignals);
-		mFence = std::move(aOther.mFence);
-		mSubmissionCount = std::move(aOther.mSubmissionCount);
-
-		aOther.mRoot = nullptr;
-		aOther.mQueueToSubmitTo = nullptr;
-		aOther.mSemaphoreWaits.clear();
-		aOther.mSemaphoreSignals.clear();
-		aOther.mFence.reset();
-		aOther.mSubmissionCount = 0u;
-
-		return *this;
-	}
-
-	submission_data::~submission_data() noexcept(false)
-	{
-		if (is_sane() && 0 == mSubmissionCount) { // TODO: PROBLEM HERE due to auto submission = .... in imgui_manager.cpp#L337
-			submit();
-		}
-	}
-
-	submission_data& submission_data::submit_to(const queue * aQueue)
-	{
-		mQueueToSubmitTo = aQueue;
-		return *this;
-	}
-
-	submission_data& submission_data::waiting_for(avk::semaphore_wait_info aWaitInfo)
-	{
-		mSemaphoreWaits.push_back(std::move(aWaitInfo));
-		return *this;
-	}
-
-	submission_data& submission_data::signaling_upon_completion(semaphore_signal_info aSignalInfo)
-	{
-		mSemaphoreSignals.push_back(std::move(aSignalInfo));
-		return *this;
-	}
-
-	submission_data& submission_data::signaling_upon_completion(avk::resource_reference<avk::fence_t> aFence)
-	{
-		mFence = std::move(aFence);
-		return *this;
-	}
-
-	submission_data&& submission_data::store_for_now() noexcept
-	{
-		return std::move(*this);
-	}
-	
-	void submission_data::submit()
-	{
-		// Gather config for wait semaphores:
-		std::vector<vk::SemaphoreSubmitInfoKHR> waitSem;
-		for (const auto& semWait : mSemaphoreWaits) {
-			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
-			std::visit(lambda_overload{
-				[&subInfo](const std::monostate&) {
-					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
-				},
-				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
-					subInfo.setStageMask(lFixedStage);
-				},
-				[&subInfo](const avk::stage::auto_stage_t& lAutoStage) {
-					// TODO: Try to find a tighter auto-stage:
-					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
-				}
-			}, semWait.mDstStage.mFlags);
-		}
-
-		// Gather config for signal semaphores:
-		std::vector<vk::SemaphoreSubmitInfoKHR> signalSem;
-		for (const auto& semSig : mSemaphoreSignals) {
-			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
-			std::visit(lambda_overload{
-				[&subInfo](const std::monostate&) {
-					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
-				},
-				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
-					subInfo.setStageMask(lFixedStage);
-				},
-				[&subInfo](const avk::stage::auto_stage_t& lAutoStage) {
-					// TODO: Try to find a tighter auto-stage:
-					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
-				}
-			}, semSig.mSrcStage.mFlags);
-		}
-
-		auto cmdBfrSubmitInfo = vk::CommandBufferSubmitInfoKHR{}
-			.setCommandBuffer(mCommandBufferToSubmit->handle());
-
-		auto submitInfo = vk::SubmitInfo2KHR{}
-			.setWaitSemaphoreInfoCount(static_cast<uint32_t>(waitSem.size()))
-			.setPWaitSemaphoreInfos(waitSem.data())
-			.setCommandBufferInfoCount(1u)
-			.setPCommandBufferInfos(&cmdBfrSubmitInfo)
-			.setSignalSemaphoreInfoCount(static_cast<uint32_t>(signalSem.size()))
-			.setPSignalSemaphoreInfos(signalSem.data());
-
-		auto fenceHandle = mFence.has_value() ? mFence.value()->handle() : vk::Fence{};
-		auto result = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
-
-		++mSubmissionCount;
-	}
-
 	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions);
 
 	template <typename T>
@@ -8392,7 +8185,7 @@ namespace avk
 		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>) {
 			auto imageSyncData = aBarrierData.image_memory_barrier_data();
 
-			barrier.setImage(imageSyncData.mImage->handle());
+			barrier.setImage(imageSyncData.mImage);
 			barrier.setSubresourceRange(imageSyncData.mSubresourceRange);
 
 			// Specification goes like this:
@@ -8407,7 +8200,7 @@ namespace avk
 
 		if constexpr (std::is_same_v<T, vk::BufferMemoryBarrier2KHR>) {
 			auto bufferSyncData = aBarrierData.buffer_memory_barrier_data();
-			barrier.setBuffer(bufferSyncData.mBuffer->handle());
+			barrier.setBuffer(bufferSyncData.mBuffer);
 			barrier.setOffset(bufferSyncData.mOffset);
 			barrier.setSize(bufferSyncData.mSize);
 		}
@@ -8492,12 +8285,13 @@ namespace avk
 
 	submission_data recorded_command_buffer::then_submit_to(const queue* aQueue)
 	{
-		return submission_data{ mRoot, mCommandBufferToRecordInto, aQueue };
+		return submission_data{ mRoot, mCommandBufferToRecordInto, aQueue, this };
 	}
 
-	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<command_buffer_t> aCommandBuffer)
+	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer)
 		: mRoot{ aRoot }
 		, mCommandBufferToRecordInto{ aCommandBuffer }
+		, mDangerousRecordedComandsPointer{ aDangerousRecordedCommandsPointer }
 	{
 		mCommandBufferToRecordInto->begin_recording();
 		record_into_command_buffer(mCommandBufferToRecordInto.get(), mRoot->dispatch_loader_ext(), aRecordedCommandsAndSyncInstructions);
@@ -8522,6 +8316,12 @@ namespace avk
 		return *this;
 	}
 
+	recorded_commands& recorded_commands::handle_lifetime_of(any_owning_resource_t aResource)
+	{
+		mLifetimeHandledResources.push_back(std::move(aResource));
+		return *this;
+	}
+
 	std::vector<recorded_commands_and_sync_instructions_t> recorded_commands::and_store()
 	{
 		return std::move(mRecordedCommandsAndSyncInstructions);
@@ -8529,12 +8329,256 @@ namespace avk
 
 	recorded_command_buffer recorded_commands::into_command_buffer(avk::resource_reference<command_buffer_t> aCommandBuffer)
 	{
-		return recorded_command_buffer(mRoot, mRecordedCommandsAndSyncInstructions, std::move(aCommandBuffer));
+		recorded_command_buffer result(mRoot, mRecordedCommandsAndSyncInstructions, std::move(aCommandBuffer), this);
+		for (auto& resource : mLifetimeHandledResources) {
+			result.handling_lifetime_of(std::move(resource));
+		}
+		mLifetimeHandledResources.clear();
+		return result;
 	}
-#pragma
 
+	namespace command
+	{
+		action_type_command render_pass(
+			avk::resource_reference<const avk::renderpass_t> aRenderpass,
+			avk::resource_reference<avk::framebuffer_t> aFramebuffer,
+			std::vector<recorded_commands_and_sync_instructions_t> aNestedCommandsAndSyncInstructions,
+			vk::Offset2D aRenderAreaOffset,
+			std::optional<vk::Extent2D> aRenderAreaExtent,
+			bool aSubpassesInline)
+		{
+			return action_type_command{
+				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
+				avk::syncxxx::sync_hint {
+					vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+					vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+				},
+				[
+					lRoot = aRenderpass->root_ptr(),
+					lExtent = aFramebuffer->image_view_at(0)->get_image().create_info().extent,
+					lClearValues = aRenderpass->clear_values(),
+					lRenderPassHandle = aRenderpass->handle(),
+					lFramebufferHandle = aFramebuffer->handle(),
+					aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline
+				](avk::resource_reference<avk::command_buffer_t> cb) {
+					auto renderPassBeginInfo = vk::RenderPassBeginInfo()
+						.setRenderPass(lRenderPassHandle)
+						.setFramebuffer(lFramebufferHandle)
+						.setRenderArea(vk::Rect2D()
+							.setOffset(vk::Offset2D{ aRenderAreaOffset.x, aRenderAreaOffset.y })
+							.setExtent(aRenderAreaExtent.has_value()
+										? vk::Extent2D{ aRenderAreaExtent.value() }
+										: vk::Extent2D{ lExtent.width, lExtent.height }
+								)
+							)
+						.setClearValueCount(static_cast<uint32_t>(lClearValues.size()))
+						.setPClearValues(lClearValues.data());
+					
+					cb->handle().beginRenderPass2KHR(
+						renderPassBeginInfo,
+						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
+						lRoot->dispatch_loader_ext()
+					);
+				},
+				std::move(aNestedCommandsAndSyncInstructions),
+				[
+					lRoot = aRenderpass->root_ptr()
+				](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().endRenderPass2KHR(vk::SubpassEndInfo{}, lRoot->dispatch_loader_ext());
+				}
+			};
+		}
+
+		state_type_command bind(avk::resource_reference<const graphics_pipeline_t> aPipeline)
+		{
+			return state_type_command{
+				[
+					lPipelineHandle = aPipeline->handle()
+				](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().bindPipeline(vk::PipelineBindPoint::eGraphics, lPipelineHandle);
+				}
+			};
+		}
+		
+		action_type_command draw(uint32_t aVertexCount, uint32_t aInstanceCount, uint32_t aFirstVertex, uint32_t aFirstInstance)
+		{
+			return action_type_command{
+				avk::syncxxx::sync_hint {
+					vk::PipelineStageFlagBits2KHR::eAllGraphics,
+					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+					vk::PipelineStageFlagBits2KHR::eAllGraphics,
+					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+				},
+				[aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().draw(aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance);
+				}
+			};
+		}
+	}
+
+	submission_data::submission_data(submission_data&& aOther) noexcept
+		: mRoot{ std::move(aOther.mRoot) }
+		, mCommandBufferToSubmit{ std::move(aOther.mCommandBufferToSubmit) }
+		, mQueueToSubmitTo{ std::move(aOther.mQueueToSubmitTo) }
+		, mSemaphoreWaits{ std::move(aOther.mSemaphoreWaits) }
+		, mSemaphoreSignals{ std::move(aOther.mSemaphoreSignals) }
+		, mFence{ std::move(aOther.mFence) }
+		, mSubmissionCount{ std::move(aOther.mSubmissionCount) }
+	{
+		aOther.mRoot = nullptr;
+		aOther.mQueueToSubmitTo = nullptr;
+		aOther.mSemaphoreWaits.clear();
+		aOther.mSemaphoreSignals.clear();
+		aOther.mFence.reset();
+		aOther.mSubmissionCount = 0u;
+	}
+
+	submission_data& submission_data::operator=(submission_data&& aOther) noexcept
+	{
+		mRoot = std::move(aOther.mRoot);
+		mCommandBufferToSubmit = std::move(aOther.mCommandBufferToSubmit);
+		mQueueToSubmitTo = std::move(aOther.mQueueToSubmitTo);
+		mSemaphoreWaits = std::move(aOther.mSemaphoreWaits);
+		mSemaphoreSignals = std::move(aOther.mSemaphoreSignals);
+		mFence = std::move(aOther.mFence);
+		mSubmissionCount = std::move(aOther.mSubmissionCount);
+
+		aOther.mRoot = nullptr;
+		aOther.mQueueToSubmitTo = nullptr;
+		aOther.mSemaphoreWaits.clear();
+		aOther.mSemaphoreSignals.clear();
+		aOther.mFence.reset();
+		aOther.mSubmissionCount = 0u;
+
+		return *this;
+	}
+
+	submission_data::~submission_data() noexcept(false)
+	{
+		if (is_sane() && 0 == mSubmissionCount) { // TODO: PROBLEM HERE due to auto submission = .... in imgui_manager.cpp#L337
+			submit();
+		}
+	}
+
+	submission_data& submission_data::submit_to(const queue* aQueue)
+	{
+		mQueueToSubmitTo = aQueue;
+		return *this;
+	}
+
+	submission_data& submission_data::waiting_for(avk::semaphore_wait_info aWaitInfo)
+	{
+		mSemaphoreWaits.push_back(std::move(aWaitInfo));
+		return *this;
+	}
+
+	submission_data& submission_data::signaling_upon_completion(semaphore_signal_info aSignalInfo)
+	{
+		mSemaphoreSignals.push_back(std::move(aSignalInfo));
+		return *this;
+	}
+
+	submission_data& submission_data::signaling_upon_completion(avk::resource_reference<avk::fence_t> aFence)
+	{
+		mFence = std::move(aFence);
+		return *this;
+	}
+
+	submission_data&& submission_data::store_for_now() noexcept
+	{
+		return std::move(*this);
+	}
+
+	void submission_data::submit()
+	{
+		// Gather config for wait semaphores:
+		std::vector<vk::SemaphoreSubmitInfoKHR> waitSem;
+		for (const auto& semWait : mSemaphoreWaits) {
+			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			std::visit(lambda_overload{
+				[&subInfo](const std::monostate&) {
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+				},
+				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
+					subInfo.setStageMask(lFixedStage);
+				},
+				[&subInfo, this](const avk::stage::auto_stage_t& lAutoStage) {
+					// Set something:
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+					// But now try to find a tighter auto-stage:
+					auto* prevPtr = recorded_command_buffer_ptr();
+					if (nullptr != prevPtr) {
+						auto* prevPrevPtr = prevPtr->recorded_commands_ptr();
+						if (nullptr != prevPrevPtr) {
+							subInfo.setStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+								prevPrevPtr->recorded_commands_and_sync_instructions(),
+								0,
+								static_cast<int>(lAutoStage),
+								/* after-wards: */  1,
+								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
+							);
+						}
+					}
+				}
+				}, semWait.mDstStage.mFlags);
+		}
+
+		// Gather config for signal semaphores:
+		std::vector<vk::SemaphoreSubmitInfoKHR> signalSem;
+		for (const auto& semSig : mSemaphoreSignals) {
+			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			std::visit(lambda_overload{
+				[&subInfo](const std::monostate&) {
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+				},
+				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
+					subInfo.setStageMask(lFixedStage);
+				},
+				[&subInfo, this](const avk::stage::auto_stage_t& lAutoStage) {
+					// Set something:
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+					// But now try to find a tighter auto-stage:
+					auto* prevPtr = recorded_command_buffer_ptr();
+					if (nullptr != prevPtr) {
+						auto* prevPrevPtr = prevPtr->recorded_commands_ptr();
+						if (nullptr != prevPrevPtr) {
+							subInfo.setStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+								prevPrevPtr->recorded_commands_and_sync_instructions(),
+								static_cast<int>(prevPrevPtr->recorded_commands_and_sync_instructions().size()) - 1,
+								static_cast<int>(lAutoStage),
+								/* before-wards: */  -1,
+								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
+							);
+						}
+					}
+				}
+				}, semSig.mSrcStage.mFlags);
+		}
+
+		auto cmdBfrSubmitInfo = vk::CommandBufferSubmitInfoKHR{}
+		.setCommandBuffer(mCommandBufferToSubmit->handle());
+
+		auto submitInfo = vk::SubmitInfo2KHR{}
+			.setWaitSemaphoreInfoCount(static_cast<uint32_t>(waitSem.size()))
+			.setPWaitSemaphoreInfos(waitSem.data())
+			.setCommandBufferInfoCount(1u)
+			.setPCommandBufferInfos(&cmdBfrSubmitInfo)
+			.setSignalSemaphoreInfoCount(static_cast<uint32_t>(signalSem.size()))
+			.setPSignalSemaphoreInfos(signalSem.data());
+
+		auto fenceHandle = mFence.has_value() ? mFence.value()->handle() : vk::Fence{};
+		auto result = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+
+		++mSubmissionCount;
+	}
+
+#pragma endregion
+	
 	avk::recorded_commands root::record(std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions) const
 	{
 		return avk::recorded_commands{ this, std::move(aRecordedCommandsAndSyncInstructions) };
 	}
+
 }

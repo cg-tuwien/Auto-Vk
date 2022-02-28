@@ -271,8 +271,8 @@ namespace avk
 		static const auto shader_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderWrite };
 		static const auto color_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentRead };
 		static const auto color_attachment_write                = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentWrite };
-		static const auto transform_read                        = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferRead };
-		static const auto transform_write                       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferWrite };
+		static const auto transfer_read                         = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferRead };
+		static const auto transfer_write                        = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferWrite };
 		static const auto host_read                             = memory_access_flags{ vk::AccessFlagBits2KHR::eHostRead };
 		static const auto host_write                            = memory_access_flags{ vk::AccessFlagBits2KHR::eHostWrite };
 		static const auto memory_read                           = memory_access_flags{ vk::AccessFlagBits2KHR::eMemoryRead };

@@ -86,8 +86,11 @@ namespace avk
 		 *	Attention: IF the image has no MIP levels, `aSyncHandler` will NOT be invoked!
 		 */
 		std::optional<command_buffer> generate_mip_maps(sync aSyncHandler = sync::wait_idle());
-		
+
+		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
+
 	private:
+		const root* mRoot;
 		// The image create info which contains all the parameters for image creation
 		vk::ImageCreateInfo mCreateInfo;
 		// The image handle. This member will contain a valid handle only after successful image creation.

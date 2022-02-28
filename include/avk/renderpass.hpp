@@ -70,7 +70,11 @@ namespace avk
 		auto& create_info()				{ return mCreateInfo; }
 		auto handle() const { return mRenderPass.get(); }
 
+		auto* root_ptr() const { return mRoot; }
+
 	private:
+		avk::root* mRoot;
+
 		// All the attachments to this renderpass
 		std::vector<vk::AttachmentDescription2KHR> mAttachmentDescriptions;
 

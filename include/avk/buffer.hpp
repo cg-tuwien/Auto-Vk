@@ -209,7 +209,7 @@ namespace avk
 		 *  @param aMetaDataIndex	Index of the buffer metadata to use (for determining the buffer size)
 		 *  @param aSyncHandler		Synchronization handler for the copy operation
 		 */
-		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler);
+		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex);
 
 		// TODO: Maybe the following overload could be re-enabled after command/commands refactoring?!
 		///** Fill buffer with data according to the meta data of the given type Meta.
@@ -233,7 +233,7 @@ namespace avk
 		*  @param aDataSizeInBytes	Number of bytes to copy
 		*  @param aSyncHandler		Synchronization handler for the copy operation
 		*/
-		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes, sync aSyncHandler);
+		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes);
 
 		/** Read data from buffer back to the CPU-side.
 		 */
@@ -253,7 +253,9 @@ namespace avk
 		 */
 		template <typename Ret>
 		Ret read(size_t aMetaDataIndex, sync aSyncHandler); // implemented in avk/buffer_read_impl.hpp
-		
+
+		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
+
 	private:
 #if VK_HEADER_VERSION >= 135
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta, indirect_buffer_meta>> mMetaData;

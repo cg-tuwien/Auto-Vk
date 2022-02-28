@@ -48,5 +48,6 @@ namespace avk
         static constexpr auto video_encode_dpb                           = image_layout{ vk::ImageLayout::eVideoEncodeDpbKHR };
         static constexpr auto read_only_optimal                          = image_layout{ vk::ImageLayout::eReadOnlyOptimalKHR };
         static constexpr auto attachment_optimal                         = image_layout{ vk::ImageLayout::eAttachmentOptimalKHR };
+
 	}
 }
