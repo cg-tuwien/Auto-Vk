@@ -2,10 +2,10 @@
 
 namespace avk
 {
-	command_pool sync::sPoolToAllocCommandBuffersFrom;
-	queue* sync::sQueueToUse;
+	command_pool old_sync::sPoolToAllocCommandBuffersFrom;
+	queue* old_sync::sQueueToUse;
 	
-	void sync::presets::default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess)
+	void old_sync::presets::default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess)
 	{
 		// We do not know which operation came before. Hence, we have to be overly cautious and
 		// establish a (possibly) hefty barrier w.r.t. write access that happened before.
@@ -15,7 +15,7 @@ namespace avk
 		);
 	}
 	
-	void sync::presets::default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess)
+	void old_sync::presets::default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess)
 	{
 		// We do not know which operation comes after. Hence, we have to be overly cautious and
 		// establish a (possibly) hefty barrier w.r.t. read access that happens after.
@@ -25,7 +25,7 @@ namespace avk
 		);
 	}
 	
-	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> sync::presets::image_copy::wait_for_previous_operations(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
+	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> old_sync::presets::image_copy::wait_for_previous_operations(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
 	{
 		return [&aSourceImage, &aDestinationImage](command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess) {
 			// Must transfer the swap chain image's layout:
@@ -49,7 +49,7 @@ namespace avk
 		};
 	}
 
-	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> sync::presets::image_copy::let_subsequent_operations_wait(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
+	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> old_sync::presets::image_copy::let_subsequent_operations_wait(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
 	{
 		return [&aSourceImage, &aDestinationImage, originalLayout = aDestinationImage.current_layout()](command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess){
 			assert(vk::ImageLayout::eTransferDstOptimal == aDestinationImage.current_layout());
@@ -64,7 +64,7 @@ namespace avk
 		};
 	}
 
-	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> sync::presets::image_copy::directly_into_present(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
+	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> old_sync::presets::image_copy::directly_into_present(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
 	{
 		return [&aSourceImage, &aDestinationImage](command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess){
 			assert(vk::ImageLayout::eTransferDstOptimal == aDestinationImage.current_layout());
@@ -76,11 +76,11 @@ namespace avk
 				memory_access::transfer_write_access,			// Copied memory must be available
 				std::optional<memory_access>{}					// Present does not need any memory access specified, it's synced with a semaphore anyways.
 			);
-			// No further sync required
+			// No further old_sync required
 		};
 	}
 	
-	sync::sync(sync&& aOther) noexcept
+	old_sync::old_sync(old_sync&& aOther) noexcept
 		: mSpecialSync{ std::move(aOther.mSpecialSync) }
 		, mCommandbufferRequest { std::move(aOther.mCommandbufferRequest) }
 		, mSemaphoreLifetimeHandler{ std::move(aOther.mSemaphoreLifetimeHandler) }
@@ -103,7 +103,7 @@ namespace avk
 		aOther.mQueueRecommendation.reset();
 	}
 
-	sync& sync::operator=(sync&& aOther) noexcept
+	old_sync& old_sync::operator=(old_sync&& aOther) noexcept
 	{
 		mSpecialSync = std::move(aOther.mSpecialSync);
 		mCommandbufferRequest = std::move(aOther.mCommandbufferRequest);
@@ -129,44 +129,44 @@ namespace avk
 		return *this;
 	}
 	
-	sync::~sync()
+	old_sync::~old_sync()
 	{
 		if (mCommandBuffer.has_value()) {
 			if (get_sync_type() == sync_type::by_return) {
 				AVK_LOG_ERROR("Sync is requested 'by_return', but command buffer has not been fetched.");
 			}
 			else {
-				AVK_LOG_ERROR("Command buffer has not been submitted but ak::sync instance is destructed. This must be a bug.");
+				AVK_LOG_ERROR("Command buffer has not been submitted but ak::old_sync instance is destructed. This must be a bug.");
 			}
 		}
 #ifdef _DEBUG
 		if (mEstablishBarrierBeforeOperationCallback) {
-			AVK_LOG_DEBUG("The before-operation-barrier-callback has never been invoked for this ak::sync instance. This can be a bug, but it can be okay as well.");
+			AVK_LOG_DEBUG("The before-operation-barrier-callback has never been invoked for this ak::old_sync instance. This can be a bug, but it can be okay as well.");
 		}
 		if (mEstablishBarrierBeforeOperationCallback) {
-			AVK_LOG_DEBUG("The after-operation-barrier-callback has never been invoked for this ak::sync instance. This can be a bug, but it can be okay as well.");
+			AVK_LOG_DEBUG("The after-operation-barrier-callback has never been invoked for this ak::old_sync instance. This can be a bug, but it can be okay as well.");
 		}
 #endif
 	}
 	
-	sync sync::not_required()
+	old_sync old_sync::not_required()
 	{
-		sync result;
-		result.mSpecialSync = sync_type::not_required; // User explicitely stated that there's no sync required.
+		old_sync result;
+		result.mSpecialSync = sync_type::not_required; // User explicitely stated that there's no old_sync required.
 		return result;
 	}
 	
-	sync sync::wait_idle(bool aDontWarn)
+	old_sync old_sync::wait_idle(bool aDontWarn)
 	{
-		sync result;
+		old_sync result;
 		if (aDontWarn) {
 			result.mSpecialSync = sync_type::via_wait_idle_deliberately;
 		}
 		return result;
 	}
 
-	sync sync::auxiliary_with_barriers(
-			sync& aMasterSync,
+	old_sync old_sync::auxiliary_with_barriers(
+			old_sync& aMasterSync,
 			unique_function<void(command_buffer_t&, pipeline_stage /* destination stage */, std::optional<read_memory_access> /* destination access */)> aEstablishBarrierBeforeOperation,
 			unique_function<void(command_buffer_t&, pipeline_stage /* source stage */, std::optional<write_memory_access> /* source access */)> aEstablishBarrierAfterOperation
 		)
@@ -211,24 +211,24 @@ namespace avk
 		}
 
 
-		// Prepare a shiny new sync instance
-		sync result;
+		// Prepare a shiny new old_sync instance
+		old_sync result;
 		result.mCommandBufferRefOrLifetimeHandler = std::ref(aMasterSync.get_or_create_command_buffer()); // <-- Set the command buffer reference, not the lifetime handler
 		result.mEstablishBarrierAfterOperationCallback = std::move(aEstablishBarrierAfterOperation);
 		result.mEstablishBarrierBeforeOperationCallback = std::move(aEstablishBarrierBeforeOperation);
-		// Queues may not be used anyways by auxiliary sync instances:
+		// Queues may not be used anyways by auxiliary old_sync instances:
 		result.mQueueToUse = {};
 		result.mQueueRecommendation = {};
 		return result;
 	}
 
-	sync& sync::on_queue(std::reference_wrapper<queue> aQueue)
+	old_sync& old_sync::on_queue(std::reference_wrapper<queue> aQueue)
 	{
 		mQueueToUse = aQueue;
 		return *this;
 	}
 	
-	sync::sync_type sync::get_sync_type() const
+	old_sync::sync_type old_sync::get_sync_type() const
 	{
 		if (mSemaphoreLifetimeHandler) {
 			return sync_type::via_semaphore;
@@ -239,7 +239,7 @@ namespace avk
 		return mSpecialSync.has_value() ? mSpecialSync.value() : sync_type::via_wait_idle;
 	}
 	
-	std::reference_wrapper<queue> sync::queue_to_use() const
+	std::reference_wrapper<queue> old_sync::queue_to_use() const
 	{
 //#if defined(_DEBUG) && LOG_LEVEL > 4
 //		if (!mQueueToUse.has_value()) {
@@ -255,19 +255,19 @@ namespace avk
 		return *sQueueToUse;
 	}
 
-	sync& sync::create_reusable_commandbuffer()
+	old_sync& old_sync::create_reusable_commandbuffer()
 	{
 		mCommandbufferRequest = commandbuffer_request::reusable;
 		return *this;
 	}
 	
-	sync& sync::create_single_use_commandbuffer()
+	old_sync& old_sync::create_single_use_commandbuffer()
 	{
 		mCommandbufferRequest = commandbuffer_request::single_use;
 		return *this;
 	}
 	
-	command_buffer_t& sync::get_or_create_command_buffer()
+	command_buffer_t& old_sync::get_or_create_command_buffer()
 	{
 		if (std::holds_alternative<std::reference_wrapper<command_buffer_t>>(mCommandBufferRefOrLifetimeHandler)) {
 			return std::get<std::reference_wrapper<command_buffer_t>>(mCommandBufferRefOrLifetimeHandler).get();
@@ -287,24 +287,24 @@ namespace avk
 		return mCommandBuffer.value().get();
 	}
 	
-	//std::reference_wrapper<queue> sync::queue_to_transfer_to() const
+	//std::reference_wrapper<queue> old_sync::queue_to_transfer_to() const
 	//{
 	//	return mQueueToTransferOwnershipTo.value_or(queue_to_use());
 	//}
 	//
-	//bool sync::queues_are_the_same() const
+	//bool old_sync::queues_are_the_same() const
 	//{
 	//	queue& q0 = queue_to_use();
 	//	queue& q1 = queue_to_transfer_to();
 	//	return q0 == q1;
 	//}
 
-	void sync::set_queue_hint(std::reference_wrapper<queue> aQueueRecommendation)
+	void old_sync::set_queue_hint(std::reference_wrapper<queue> aQueueRecommendation)
 	{
 		mQueueRecommendation = aQueueRecommendation;
 	}
 	
-	void sync::establish_barrier_before_the_operation(pipeline_stage aDestinationPipelineStages, std::optional<read_memory_access> aDestinationMemoryStages)
+	void old_sync::establish_barrier_before_the_operation(pipeline_stage aDestinationPipelineStages, std::optional<read_memory_access> aDestinationMemoryStages)
 	{
 		if (!mEstablishBarrierBeforeOperationCallback) {
 			return; // nothing to do here
@@ -313,7 +313,7 @@ namespace avk
 		mEstablishBarrierBeforeOperationCallback = {};
 	}
 
-	void sync::establish_barrier_after_the_operation(pipeline_stage aSourcePipelineStages, std::optional<write_memory_access> aSourceMemoryStages)
+	void old_sync::establish_barrier_after_the_operation(pipeline_stage aSourcePipelineStages, std::optional<write_memory_access> aSourceMemoryStages)
 	{
 		if (!mEstablishBarrierAfterOperationCallback) {
 			return; // nothing to do here
@@ -322,7 +322,7 @@ namespace avk
 		mEstablishBarrierAfterOperationCallback = {};
 	}
 
-	std::optional<command_buffer> sync::submit_and_sync()
+	std::optional<command_buffer> old_sync::submit_and_sync()
 	{
 		queue& queue = queue_to_use();
 		auto syncType = get_sync_type();
@@ -359,13 +359,13 @@ namespace avk
 				std::get<unique_function<void(command_buffer)>>(mCommandBufferRefOrLifetimeHandler)(std::move(mCommandBuffer.value())); // Transfer ownership and be done with it.
 				mCommandBuffer.reset();						// Command buffer has been moved from. It's gone.
 			}
-			else { // Must mean that we are an auxiliary sync handler
+			else { // Must mean that we are an auxiliary old_sync handler
 				assert(std::holds_alternative<std::reference_wrapper<command_buffer_t>>(mCommandBufferRefOrLifetimeHandler));
-				// ... that means: Nothing to do here. Master sync will submit the command buffer.
+				// ... that means: Nothing to do here. Master old_sync will submit the command buffer.
 			}
 			break;
 		case sync_type::via_wait_idle:
-			AVK_LOG_WARNING("Performing waitIdle on queue " + std::to_string(queue_to_use().get().queue_index()) + " in order to sync because no other type of handler is present.");
+			AVK_LOG_WARNING("Performing waitIdle on queue " + std::to_string(queue_to_use().get().queue_index()) + " in order to old_sync because no other type of handler is present.");
 		case sync_type::via_wait_idle_deliberately:
 			assert(mCommandBuffer.has_value());
 			mCommandBuffer.value()->end_recording();		// What started in get_or_create_command_buffer() ends here.
@@ -375,7 +375,7 @@ namespace avk
 			break;
 		case sync_type::not_required:
 			assert(false);
-			throw avk::runtime_error("You were wrong with your assumption that there was no sync required! => Provide a concrete sync strategy!");
+			throw avk::runtime_error("You were wrong with your assumption that there was no old_sync required! => Provide a concrete old_sync strategy!");
 		case sync_type::by_return:
 		{
 			if (!mCommandBuffer.has_value()) {

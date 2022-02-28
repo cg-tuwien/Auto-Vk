@@ -16,7 +16,7 @@ namespace avk
    * @returns				A value of type `Ret` which is returned by value.
    */
   template<typename Ret>
-  [[nodiscard]] Ret buffer_t::read(size_t aMetaDataIndex, sync aSyncHandler) {
+  [[nodiscard]] Ret buffer_t::read(size_t aMetaDataIndex, old_sync aSyncHandler) {
     auto memProps = memory_properties();
     Ret result;
     read(static_cast<void *>(&result), aMetaDataIndex, std::move(aSyncHandler));

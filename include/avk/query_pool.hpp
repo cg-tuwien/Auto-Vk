@@ -38,7 +38,7 @@ namespace avk
 		 *									I.e. the query indices [aFirstQueryIndex..aNumQueries) will be reset.
 		 *									If not set, all queries from [aFirstQueryIndex..maxIndex] will be reset.
 		 */
-		std::optional<command_buffer> reset(uint32_t aFirstQueryIndex = 0u, std::optional<uint32_t> aNumQueries = {}, avk::sync aSync = avk::sync::wait_idle());
+		std::optional<command_buffer> reset(uint32_t aFirstQueryIndex = 0u, std::optional<uint32_t> aNumQueries = {}, avk::old_sync aSync = avk::old_sync::wait_idle());
 
 		/**	Issues a command to write a timestamp after all current commands
 		 *	in a queue have reached the given pipeline stage.
@@ -49,7 +49,7 @@ namespace avk
 		 *	@param	aSync			How to submit this instruction
 		 * 
 		 */
-		std::optional<command_buffer> write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage, sync aSync);
+		std::optional<command_buffer> write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage, old_sync aSync);
 
 		/**	Issues a command to begin a certain query.
 		 *
@@ -58,7 +58,7 @@ namespace avk
 		 *	@param	aSync			How to submit this instruction
 		 * 
 		 */
-		std::optional<command_buffer> begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags, sync aSync);
+		std::optional<command_buffer> begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags, old_sync aSync);
 
 		/**	Issues a command to end a certain query.
 		 *
@@ -66,7 +66,7 @@ namespace avk
 		 *	@param	aSync			How to submit this instruction
 		 * 
 		 */
-		std::optional<command_buffer> end_query(uint32_t aQueryIndex, sync aSync);
+		std::optional<command_buffer> end_query(uint32_t aQueryIndex, old_sync aSync);
 
 		/**	Get results of multiple queries
 		 *
@@ -132,7 +132,7 @@ namespace avk
 		 *								data shall be stored into a 64-bit integer.
 		 *	@param	aSync				How to submit the instructions
 		 */
-		std::optional<command_buffer> copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, sync aSync);
+		std::optional<command_buffer> copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, old_sync aSync);
 		
 		/**	Copies the value of one single queries into the given buffer.
 		 *	The user must ensure proper lifetime handling of the buffer.
@@ -146,7 +146,7 @@ namespace avk
 		 *								data shall be stored into a 64-bit integer.
 		 *	@param	aSync				How to submit the instructions
 		 */
-		std::optional<command_buffer> copy_result(uint32_t aOnlyQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, sync aSync);
+		std::optional<command_buffer> copy_result(uint32_t aOnlyQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, old_sync aSync);
 		
 	private:
 		vk::QueryPoolCreateInfo mCreateInfo;

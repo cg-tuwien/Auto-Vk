@@ -34,7 +34,7 @@ namespace avk
 		 *	You don't have to do this, but it could be very helpful in some situations, where you are going to use the
 		 *	images not only for rendering into, but also maybe for displaying them in the UI.
 		 */
-		std::optional<command_buffer> initialize_attachments(avk::sync aSync = avk::sync::wait_idle());
+		std::optional<command_buffer> initialize_attachments(avk::old_sync aSync = avk::old_sync::wait_idle());
 		
 	private:
 		renderpass mRenderpass;

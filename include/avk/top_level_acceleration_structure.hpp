@@ -65,7 +65,7 @@ namespace avk
 		 *								If no scratch buffer is supplied, one will be created internally.
 		 *	@param	aSyncHandler		Sync handler which is to be deprecated
 		 */
-		void build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		void build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
 
 		/** Update this top level acceleration structure using a vector of geometry instances.
 		 *
@@ -75,7 +75,7 @@ namespace avk
 		 *								If no scratch buffer is supplied, one will be created internally.
 		 *	@param	aSyncHandler		Sync handler which is to be deprecated
 		 */
-		void update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		void update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
 		
 		/** Build this top level acceleration structure using a vector of geometry instances.
 		 *
@@ -86,7 +86,7 @@ namespace avk
 		 *										If no scratch buffer is supplied, one will be created internally.
 		 *	@param	aSyncHandler				Sync handler which is to be deprecated
 		 */
-		void build(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		void build(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
 
 		/** Build this top level acceleration structure using a vector of geometry instances.
 		 *
@@ -97,12 +97,12 @@ namespace avk
 		 *										If no scratch buffer is supplied, one will be created internally.
 		 *	@param	aSyncHandler				Sync handler which is to be deprecated
 		 */
-		void update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		void update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
 		
 	private:
 		enum struct tlas_action { build, update };
-		std::optional<command_buffer> build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction);
-		std::optional<command_buffer> build_or_update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction);
+		std::optional<command_buffer> build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, old_sync aSyncHandler, tlas_action aBuildAction);
+		std::optional<command_buffer> build_or_update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, old_sync aSyncHandler, tlas_action aBuildAction);
 		buffer_t& get_and_possibly_create_scratch_buffer();
 
 #if VK_HEADER_VERSION >= 162

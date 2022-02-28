@@ -3,10 +3,10 @@
 
 namespace avk
 {
-	/**	The sync class is a fundamental part of the framework and is used wherever synchronization is or can be needed.
+	/**	The old_sync class is a fundamental part of the framework and is used wherever synchronization is or can be needed.
 	 *	It allows a caller to inject a specific synchronization strategy into a particular method/function.
 	 */
-	class sync
+	class old_sync
 	{
 	public:
 		static command_pool sPoolToAllocCommandBuffersFrom;
@@ -26,7 +26,7 @@ namespace avk
 				/** Set up rather coarse barrier for subsequent operations and transfer the destination image into color attachment optimal format */
 				static avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> let_subsequent_operations_wait(avk::image_t& aSourceImage, avk::image_t& aDestinationImage);
 
-				/** Set up lightweight sync for the image is to be sent to present right afterwards. Destination image's layout is transferred in to presentable format. */
+				/** Set up lightweight old_sync for the image is to be sent to present right afterwards. Destination image's layout is transferred in to presentable format. */
 				static avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> directly_into_present(avk::image_t& aSourceImage, avk::image_t& aDestinationImage);
 			};
 		};
@@ -56,21 +56,21 @@ namespace avk
 			return nullptr == trgPtr ? false : *trgPtr == steal_after_handler_immediately ? true : false;
 		}
 		
-		sync() = default;
-		sync(sync&&) noexcept;
-		sync(const sync&) = delete;
-		sync& operator=(sync&&) noexcept;
-		sync& operator=(const sync&) = delete;
-		~sync();
+		old_sync() = default;
+		old_sync(old_sync&&) noexcept;
+		old_sync(const old_sync&) = delete;
+		old_sync& operator=(old_sync&&) noexcept;
+		old_sync& operator=(const old_sync&) = delete;
+		~old_sync();
 		
 #pragma region static creation functions
-		/**	Indicate that no sync is required. If you are wrong, there will be an exception.
+		/**	Indicate that no old_sync is required. If you are wrong, there will be an exception.
 		 */
-		static sync not_required();
+		static old_sync not_required();
 	
 		/**	Establish very coarse (and inefficient) synchronization by waiting for the queue to become idle before continuing.
 		 */
-		static sync wait_idle(bool aDontWarn = false);
+		static old_sync wait_idle(bool aDontWarn = false);
 
 		/**	Establish semaphore-based synchronization with a custom semaphore lifetime handler.
 		 *	@tparam F							void(semaphore)
@@ -78,12 +78,12 @@ namespace avk
 		 *	@param	aWaitBeforeOperation		A vector of other semaphores to be waited on before executing the command.
 		 *
 		 *	Example usage:
-		 *	avk::sync::with_semaphore([](avk::semaphore s) { avk::context().main_window()->set_extra_semaphore_dependency(std::move(s)); }
+		 *	avk::old_sync::with_semaphore([](avk::semaphore s) { avk::context().main_window()->set_extra_semaphore_dependency(std::move(s)); }
 		 */
 		template <typename F>
-		static sync with_semaphore(F&& aSignalledAfterOperation, std::vector<semaphore> aWaitBeforeOperation = {})
+		static old_sync with_semaphore(F&& aSignalledAfterOperation, std::vector<semaphore> aWaitBeforeOperation = {})
 		{
-			sync result;
+			old_sync result;
 			result.mSemaphoreLifetimeHandler = std::forward<F>(aSignalledAfterOperation);
 			result.mWaitBeforeSemaphores = std::move(aWaitBeforeOperation);
 			return result;
@@ -103,11 +103,11 @@ namespace avk
 		 *												Callback which gets called at the end of the operation, in order to sync with whatever comes after.
 		 *												This handler is generally considered to be neccessary and hence, set to a default handler by default.
 		 */
-		static sync with_barriers_by_return(
+		static old_sync with_barriers_by_return(
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* destination stage */, std::optional<read_memory_access> /* destination access */)> aEstablishBarrierBeforeOperation = {},
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* source stage */,	  std::optional<write_memory_access> /* source access */)> aEstablishBarrierAfterOperation = presets::default_handler_after_operation)
 		{
-			sync result;
+			old_sync result;
 			result.mSpecialSync = sync_type::by_return;
 			result.mEstablishBarrierAfterOperationCallback = std::move(aEstablishBarrierAfterOperation);
 			result.mEstablishBarrierBeforeOperationCallback = std::move(aEstablishBarrierBeforeOperation);
@@ -129,12 +129,12 @@ namespace avk
 		 *												Callback which gets called at the end of the operation, in order to sync with whatever comes after.
 		 *												This handler is generally considered to be neccessary and hence, set to a default handler by default.
 		 */
-		static sync with_barriers_into_existing_command_buffer(
+		static old_sync with_barriers_into_existing_command_buffer(
 			command_buffer_t& aExistingCommandBuffer,
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* destination stage */, std::optional<read_memory_access> /* destination access */)> aEstablishBarrierBeforeOperation = {},
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* source stage */,	  std::optional<write_memory_access> /* source access */)> aEstablishBarrierAfterOperation = presets::default_handler_after_operation)
 		{
-			sync result;
+			old_sync result;
 			result.mSpecialSync = sync_type::by_existing_command_buffer;
 			result.mCommandBufferRefOrLifetimeHandler = std::ref(aExistingCommandBuffer);
 			result.mEstablishBarrierAfterOperationCallback = std::move(aEstablishBarrierAfterOperation);
@@ -156,12 +156,12 @@ namespace avk
 		 *												This handler is generally considered to be neccessary and hence, set to a default handler by default.
 		 */
 		template <typename F>
-		static sync with_barriers(
+		static old_sync with_barriers(
 			F&& aCommandBufferLifetimeHandler,
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* destination stage */, std::optional<read_memory_access> /* destination access */)> aEstablishBarrierBeforeOperation = {},
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* source stage */,	  std::optional<write_memory_access> /* source access */)> aEstablishBarrierAfterOperation = presets::default_handler_after_operation)
 		{
-			sync result;
+			old_sync result;
 			result.mCommandBufferRefOrLifetimeHandler = std::forward<F>(aCommandBufferLifetimeHandler); // <-- Set the lifetime handler, not the command buffer reference.
 			result.mEstablishBarrierAfterOperationCallback = std::move(aEstablishBarrierAfterOperation);
 			result.mEstablishBarrierBeforeOperationCallback = std::move(aEstablishBarrierBeforeOperation);
@@ -169,40 +169,40 @@ namespace avk
 		}
 
 		/**	Establish barrier-based synchronization for a command which is subordinate to a
-		 *	"master"-sync handler. The master handler is usually provided by the user and this
-		 *	method is used to create sync objects which go along with the master sync, i.e.,
+		 *	"master"-old_sync handler. The master handler is usually provided by the user and this
+		 *	method is used to create old_sync objects which go along with the master old_sync, i.e.,
 		 *	lifetime of subordinate operations' command buffers are handled along with the
 		 *	master handler.
 		 *
 		 *	@param	aMasterSync		Master sync handler which is being modified by this method
 		 *							in order to also handle lifetime of subordinate command buffers.
 		 */
-		static sync auxiliary_with_barriers(
-			sync& aMasterSync,
+		static old_sync auxiliary_with_barriers(
+			old_sync& aMasterSync,
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* destination stage */, std::optional<read_memory_access> /* destination access */)> aEstablishBarrierBeforeOperation,
 			avk::unique_function<void(command_buffer_t&, pipeline_stage /* source stage */, std::optional<write_memory_access> /* source access */)> aEstablishBarrierAfterOperation
 		);
 #pragma endregion
 
 #pragma region commandbuffer-related settings
-		sync& create_reusable_commandbuffer();
-		sync& create_single_use_commandbuffer();
+		old_sync& create_reusable_commandbuffer();
+		old_sync& create_single_use_commandbuffer();
 #pragma endregion
 
 #pragma region ownership-related settings
-		/**	Set the queue where the command is to be submitted to AND also where the sync will happen.
+		/**	Set the queue where the command is to be submitted to AND also where the old_sync will happen.
 		 */
-		sync& on_queue(std::reference_wrapper<queue> aQueue);
+		old_sync& on_queue(std::reference_wrapper<queue> aQueue);
 #pragma endregion 
 
 #pragma region getters 
-		/** Determine the fundamental sync approach configured in this `sync`. */
+		/** Determine the fundamental old_sync approach configured in this `old_sync`. */
 		sync_type get_sync_type() const;
 		
-		/** Queue which the command and sync will be submitted to. */
+		/** Queue which the command and old_sync will be submitted to. */
 		std::reference_wrapper<queue> queue_to_use() const;
 
-		/** Get the command buffer reference stored internally or create a single-use command buffer and store it within the sync object */
+		/** Get the command buffer reference stored internally or create a single-use command buffer and store it within the old_sync object */
 		command_buffer_t& get_or_create_command_buffer();
 #pragma endregion 
 
@@ -212,9 +212,9 @@ namespace avk
 		void establish_barrier_before_the_operation(pipeline_stage aDestinationPipelineStages, std::optional<read_memory_access> aDestinationMemoryStages);
 		void establish_barrier_after_the_operation(pipeline_stage aSourcePipelineStages, std::optional<write_memory_access> aSourceMemoryStages);
 
-		/**	Submit the command buffer and engage sync!
+		/**	Submit the command buffer and engage old_sync!
 		 *	This method is intended not to be used by framework-consuming code, but by the framework-internals.
-		 *	Whichever synchronization strategy has been configured for this `ak::sync`, it will be executed here
+		 *	Whichever synchronization strategy has been configured for this `ak::old_sync`, it will be executed here
 		 *	(i.e. waiting idle, establishing a barrier, or creating a semaphore).
 		 *
 		 *	@param	aCommandBuffer				Hand over ownership of a command buffer in a "fire and forget"-manner from this method call on.

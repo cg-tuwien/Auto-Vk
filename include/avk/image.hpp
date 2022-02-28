@@ -80,12 +80,12 @@ namespace avk
 		/** Transition the image into the given layout, or (if no layout specified) into its target layout (i.e. into `target_layout()`).
 		 *	Attention: IF the image is already in the requested (or target) layout, no command will be executed and `aSyncHandler` will NOT be invoked!
 		 */
-		std::optional<command_buffer> transition_to_layout(std::optional<vk::ImageLayout> aTargetLayout = {}, sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> transition_to_layout(std::optional<vk::ImageLayout> aTargetLayout = {}, old_sync aSyncHandler = old_sync::wait_idle());
 
 		/**	Generate all the coarser MIP levels from the current level 0.
 		 *	Attention: IF the image has no MIP levels, `aSyncHandler` will NOT be invoked!
 		 */
-		std::optional<command_buffer> generate_mip_maps(sync aSyncHandler = sync::wait_idle());
+		std::optional<command_buffer> generate_mip_maps(old_sync aSyncHandler = old_sync::wait_idle());
 
 		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
 

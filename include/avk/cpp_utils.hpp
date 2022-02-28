@@ -1002,7 +1002,7 @@ namespace avk
 		}
 
 		template<class Fn>
-		const Fn* target() const noexcept // TODO/ATTENTION/NOTE: changed this to const Fn* in order to allow `const unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)>& aToTest` in `ak::sync` (i.e. the CONST&). Not sure if this is totally okay or has any side effects.
+		const Fn* target() const noexcept // TODO/ATTENTION/NOTE: changed this to const Fn* in order to allow `const unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)>& aToTest` in `ak::old_sync` (i.e. the CONST&). Not sure if this is totally okay or has any side effects.
 		{
 			return &base::template target<wrapper<Fn>>()->fn;
 		}

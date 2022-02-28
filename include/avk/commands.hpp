@@ -12,7 +12,7 @@ namespace avk
 	class fence_t;
 	class renderpass_t;
 	
-	namespace syncxxx
+	namespace sync
 	{
 		struct sync_hint final
 		{
@@ -197,7 +197,7 @@ namespace avk
 	}
 
 	// Define recorded* type:
-	using recorded_commands_and_sync_instructions_t = std::variant<command::state_type_command, command::action_type_command, syncxxx::barrier_data>;
+	using recorded_commands_and_sync_instructions_t = std::variant<command::state_type_command, command::action_type_command, sync::barrier_data>;
 	
 	namespace command
 	{
@@ -238,7 +238,7 @@ namespace avk
 
 			using rec_fun = avk::unique_function<void(avk::resource_reference<avk::command_buffer_t>)>;
 
-			avk::syncxxx::sync_hint mSyncHint = {};
+			avk::sync::sync_hint mSyncHint = {};
 			rec_fun mBeginFun = {};
 			std::vector<recorded_commands_and_sync_instructions_t> mNestedCommandsAndSyncInstructions;
 			rec_fun mEndFun = {};
@@ -310,7 +310,7 @@ namespace avk
 			}
 
 			return action_type_command{
-				avk::syncxxx::sync_hint {
+				avk::sync::sync_hint {
 					vk::PipelineStageFlagBits2KHR::eAllGraphics,
 					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
 					vk::PipelineStageFlagBits2KHR::eAllGraphics,

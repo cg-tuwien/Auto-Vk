@@ -5,7 +5,7 @@ namespace avk
 {
 	class command_buffer_t;
 	using command_buffer = avk::owning_resource<command_buffer_t>;
-	class sync;
+	class old_sync;
 	
 	/**	A helper-class representing a descriptor to a given buffer,
 	 *	containing the descriptor type and the descriptor info.
@@ -219,7 +219,7 @@ namespace avk
 		// *  @param aSyncHandler		Synchronization handler for the copy operation
 		// */
 		//template <typename Meta>
-		//std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataSkip, sync aSyncHandler)
+		//std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataSkip, old_sync aSyncHandler)
 		//{
 		//	assert(has_meta<Meta>(aMetaDataSkip));
 		//	return fill(aDataPtr, index_of_meta<Meta>(aMetaDataSkip), std::move(aSyncHandler));
@@ -237,7 +237,7 @@ namespace avk
 
 		/** Read data from buffer back to the CPU-side.
 		 */
-		std::optional<command_buffer> read(void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler) const;
+		std::optional<command_buffer> read(void* aDataPtr, size_t aMetaDataIndex, old_sync aSyncHandler) const;
 
 		/**
 		 * Read back data from a buffer.
@@ -245,14 +245,14 @@ namespace avk
 		 * This is a convenience overload to avk::read.
 		 *
 		 * Example usage:
-		 * uint32_t readData = avk::read<uint32_t>(mMySsbo, avk::sync::not_required());
+		 * uint32_t readData = avk::read<uint32_t>(mMySsbo, avk::old_sync::not_required());
 		 * // ^ given that mMySsbo is a host-coherent buffer. If it is not, sync is required.
 		 *
 		 * @tparam	Ret			Specify the type of data that shall be read from the buffer (this is `uint32_t` in the example above).
 		 * @returns				A value of type `Ret` which is returned by value.
 		 */
 		template <typename Ret>
-		Ret read(size_t aMetaDataIndex, sync aSyncHandler); // implemented in avk/buffer_read_impl.hpp
+		Ret read(size_t aMetaDataIndex, old_sync aSyncHandler); // implemented in avk/buffer_read_impl.hpp
 
 		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
 

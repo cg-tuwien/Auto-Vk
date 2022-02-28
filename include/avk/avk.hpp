@@ -59,7 +59,7 @@
 namespace avk
 {
 	class root;
-	class sync;
+	class old_sync;
 }
 
 #include <avk/image_color_channel_order.hpp>
@@ -186,10 +186,10 @@ namespace avk
 #include <avk/semaphore.hpp>
 #include <avk/fence.hpp>
 
-#include <avk/sync.hpp>
+#include <avk/old_sync.hpp>
 
 // NOTE: buffer_read_impl.hpp is included here, so Auto-Vk compiles with gcc & clang
-// TODO: Move read_impl back into buffer.hpp once avk::sync has been eliminated (Issue #2)
+// TODO: Move read_impl back into buffer.hpp once avk::old_sync has been eliminated (Issue #2)
 #include <avk/buffer_read_impl.hpp>
 
 #include <avk/image.hpp>
