@@ -231,7 +231,6 @@ namespace avk
 		*  @param aMetaDataIndex	Index of the buffer metadata to use (for size validation only)
 		*  @param aOffsetInBytes	Offset from the start of the buffer (data will be copied to bufferstart + aOffset)
 		*  @param aDataSizeInBytes	Number of bytes to copy
-		*  @param aSyncHandler		Synchronization handler for the copy operation
 		*/
 		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes);
 

@@ -209,7 +209,7 @@ namespace avk
 			//state_type_command& operator=(state_type_command&&) noexcept = default;
 			//~state_type_command() = default;
 
-			using rec_fun = avk::unique_function<void(avk::resource_reference<avk::command_buffer_t>)>;
+			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
 
 			rec_fun mFun;
 		};
@@ -236,13 +236,20 @@ namespace avk
 			//action_type_command& operator=(action_type_command&&) noexcept = default;
 			//~action_type_command() = default;
 
-			using rec_fun = avk::unique_function<void(avk::resource_reference<avk::command_buffer_t>)>;
+			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
 
 			avk::sync::sync_hint mSyncHint = {};
 			rec_fun mBeginFun = {};
 			std::vector<recorded_commands_and_sync_instructions_t> mNestedCommandsAndSyncInstructions;
 			rec_fun mEndFun = {};
 
+			action_type_command& handle_lifetime_of(any_owning_resource_t aResource)
+			{
+				mLifetimeHandledResources.push_back(std::move(aResource));
+				return *this;
+			}
+			
+			std::vector<any_owning_resource_t> mLifetimeHandledResources;
 		};
 		
 		extern action_type_command render_pass(
@@ -492,10 +499,7 @@ namespace avk
 	class recorded_commands final
 	{
 	public:
-		recorded_commands(const root* aRoot, std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions)
-			: mRoot{ aRoot }
-			, mRecordedCommandsAndSyncInstructions{ std::move(aRecordedCommandsAndSyncInstructions) }
-		{}
+		recorded_commands(const root* aRoot, std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions);
 		recorded_commands(const recorded_commands&) = delete;
 		recorded_commands(recorded_commands&&) noexcept = default;
 		recorded_commands& operator=(const recorded_commands&) = delete;

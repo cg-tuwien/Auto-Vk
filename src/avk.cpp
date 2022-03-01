@@ -7834,16 +7834,17 @@ namespace avk
 			](avk::resource_reference<avk::command_buffer_t> cb) {
 				// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
 				// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
-				const vk::BufferImageCopy2KHR region {
+				const vk::BufferImageCopy region {
 					0, 0u, 0u,
 					vk::ImageSubresourceLayers{ aImageAspectFlags, aDstLevel, aDstLayer, 1u },
 					vk::Offset3D{ 0, 0, 0 }, extent
 				};
-				cb->handle().copyBufferToImage2KHR(vk::CopyBufferToImageInfo2KHR{
+				cb->handle().copyBufferToImage(
 					lSrcHandle, 
 					lDstHandle, aDstImageLayout.mLayout,
-					1u, &region
-				}, lRoot->dispatch_loader_ext());
+					1u, &region,
+					lRoot->dispatch_loader_core()
+				);
 			}
 		};
 	}
@@ -7891,14 +7892,15 @@ namespace avk
 				lDstOffset = aDstOffset.value_or(0),
 				dataSize
 			](avk::resource_reference<avk::command_buffer_t> cb) {
-				const vk::BufferCopy2KHR region {
+				const vk::BufferCopy region {
 					lSrcOffset, lDstOffset, dataSize
 				};
-				cb->handle().copyBuffer2KHR(vk::CopyBufferInfo2KHR{
+				cb->handle().copyBuffer(
 					lSrcHandle, 
 					lDstHandle,
-					1u, &region
-				}, lRoot->dispatch_loader_ext());
+					1u, &region, 
+					lRoot->dispatch_loader_core()
+				);
 			}
 		};
 	}
@@ -7925,16 +7927,17 @@ namespace avk
 			](avk::resource_reference<avk::command_buffer_t> cb) {
 				// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
 				// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
-				const vk::BufferImageCopy2KHR region {
+				const vk::BufferImageCopy region {
 					lDstOffset, 0u, 0u,
 					vk::ImageSubresourceLayers{ aImageAspectFlags, aSrcLevel, aSrcLayer, 1u },
 					vk::Offset3D{ 0, 0, 0 }, extent
 				};
-				cb->handle().copyImageToBuffer2KHR(vk::CopyImageToBufferInfo2KHR{
+				cb->handle().copyImageToBuffer(
 					lSrcHandle, aSrcImageLayout.mLayout,
 					lDstHandle,
-					1u, &region
-				}, lRoot->dispatch_loader_ext());
+					1u, &region, 
+					lRoot->dispatch_loader_ext()
+				);
 			}
 		};
 	}
@@ -8297,6 +8300,20 @@ namespace avk
 		record_into_command_buffer(mCommandBufferToRecordInto.get(), mRoot->dispatch_loader_ext(), aRecordedCommandsAndSyncInstructions);
 		mCommandBufferToRecordInto->end_recording();
 	}
+
+	recorded_commands::recorded_commands(const root* aRoot, std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions)
+		: mRoot{ aRoot }
+		, mRecordedCommandsAndSyncInstructions{ std::move(aRecordedCommandsAndSyncInstructions) }
+	{
+		for (auto& recordee : mRecordedCommandsAndSyncInstructions) {
+			if (std::holds_alternative<avk::command::action_type_command>(recordee)) {
+				for (auto& lifetime : std::get<avk::command::action_type_command>(recordee).mLifetimeHandledResources) {
+					handle_lifetime_of(std::move(lifetime));
+				}
+				std::get<avk::command::action_type_command>(recordee).mLifetimeHandledResources.clear();
+			}
+		}
+	}
 	
 	recorded_commands& recorded_commands::move_into(std::vector<recorded_commands_and_sync_instructions_t>& aTarget)
 	{
@@ -8330,10 +8347,38 @@ namespace avk
 	recorded_command_buffer recorded_commands::into_command_buffer(avk::resource_reference<command_buffer_t> aCommandBuffer)
 	{
 		recorded_command_buffer result(mRoot, mRecordedCommandsAndSyncInstructions, std::move(aCommandBuffer), this);
-		for (auto& resource : mLifetimeHandledResources) {
-			result.handling_lifetime_of(std::move(resource));
+
+		for (int i = static_cast<int>(mLifetimeHandledResources.size() - 1); i > 0; --i) {
+			if (std::visit(lambda_overload{
+				[](const bottom_level_acceleration_structure& a) { return a.is_shared_ownership_enabled(); },
+				[](const buffer&                              a) { return a.is_shared_ownership_enabled(); },
+				[](const buffer_view&                         a) { return a.is_shared_ownership_enabled(); },
+				[](const command_buffer&                      a) { return a.is_shared_ownership_enabled(); },
+				[](const command_pool&                        a) { return a.is_shared_ownership_enabled(); },
+				[](const compute_pipeline&                    a) { return a.is_shared_ownership_enabled(); },
+				[](const fence&                               a) { return a.is_shared_ownership_enabled(); },
+				[](const framebuffer&                         a) { return a.is_shared_ownership_enabled(); },
+				[](const graphics_pipeline&                   a) { return a.is_shared_ownership_enabled(); },
+				[](const image&                               a) { return a.is_shared_ownership_enabled(); },
+				[](const image_sampler&                       a) { return a.is_shared_ownership_enabled(); },
+				[](const image_view&                          a) { return a.is_shared_ownership_enabled(); },
+				[](const query_pool&                          a) { return a.is_shared_ownership_enabled(); },
+				[](const ray_tracing_pipeline&                a) { return a.is_shared_ownership_enabled(); },
+				[](const renderpass&                          a) { return a.is_shared_ownership_enabled(); },
+				[](const sampler&                             a) { return a.is_shared_ownership_enabled(); },
+				[](const semaphore&                           a) { return a.is_shared_ownership_enabled(); },
+				[](const top_level_acceleration_structure&    a) { return a.is_shared_ownership_enabled(); }
+			}, mLifetimeHandledResources[i])) {
+				// Copy and possibly reuse in future:
+				result.handling_lifetime_of(mLifetimeHandledResources[i]);
+			}
+			else {
+				// Move and remove:
+				result.handling_lifetime_of(std::move(mLifetimeHandledResources[i]));
+				mLifetimeHandledResources.erase(std::begin(mLifetimeHandledResources) + i);
+			}
 		}
-		mLifetimeHandledResources.clear();
+
 		return result;
 	}
 
