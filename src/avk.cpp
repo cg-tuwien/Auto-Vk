@@ -8446,6 +8446,22 @@ namespace avk
 				}
 			};
 		}
+
+		state_type_command bind_descriptors(avk::resource_reference<const graphics_pipeline_t> aPipeline, std::vector<descriptor_set> aDescriptorSets)
+		{
+			return state_type_command{
+				[
+					lLayoutHandle = aPipeline->layout_handle(),
+					lDescriptorSets = std::move(aDescriptorSets)
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->bind_descriptors(
+						vk::PipelineBindPoint::eGraphics, 
+						lLayoutHandle, 
+						lDescriptorSets // Attention: Copy! => Potentially expensive?! TODO: What was the reason for bind_descriptors requiring std::vector<descriptor_set> being passed by value?
+					);
+				}
+			};
+		}
 		
 		action_type_command draw(uint32_t aVertexCount, uint32_t aInstanceCount, uint32_t aFirstVertex, uint32_t aFirstInstance)
 		{

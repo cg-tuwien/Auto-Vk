@@ -263,6 +263,8 @@ namespace avk
 
 		extern state_type_command bind(avk::resource_reference<const graphics_pipeline_t> aPipeline);
 
+		extern state_type_command bind_descriptors(avk::resource_reference<const graphics_pipeline_t> aPipeline, std::vector<descriptor_set> aDescriptorSets);
+
 		extern action_type_command draw(uint32_t aVertexCount, uint32_t aInstanceCount, uint32_t aFirstVertex, uint32_t aFirstInstance);
 
 		template <typename... Rest>
