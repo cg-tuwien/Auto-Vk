@@ -251,6 +251,24 @@ namespace avk
 			
 			std::vector<any_owning_resource_t> mLifetimeHandledResources;
 		};
+
+		/**	A utility function that creates an action_type_command which consists solely of custom commmands.
+		 *	@param	aCommandRecordingCallback	Must be convertible to action_type_command::rec_fun, which is
+		 *	                                    a function that takes one parameter of type
+		 *										avk::resource_reference<avk::command_buffer_t>, and returns void.
+		 *
+		 *	@example                            custom_command([](avk::resource_reference<avk::command_buffer_t> cb) {
+		 *	                                        cb->draw_vertices(1, 1, 0, 0);
+		 *                                      }
+		 */
+		template <typename F>
+		inline static avk::command::action_type_command custom_commands(F aCommandRecordingCallback)
+		{
+			return avk::command::action_type_command{
+				avk::sync::sync_hint {}, // No sync hints by default
+				std::move(aCommandRecordingCallback)
+			};
+		}
 		
 		extern action_type_command render_pass(
 			avk::resource_reference<const avk::renderpass_t> aRenderpass,
