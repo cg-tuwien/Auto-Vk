@@ -271,6 +271,8 @@ namespace avk
 		static const auto shader_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderWrite };
 		static const auto color_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentRead };
 		static const auto color_attachment_write                = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentWrite };
+		static const auto depth_stencil_attachment_read         = memory_access_flags{ vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead };
+		static const auto depth_stencil_attachment_write        = memory_access_flags{ vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite };
 		static const auto transfer_read                         = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferRead };
 		static const auto transfer_write                        = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferWrite };
 		static const auto host_read                             = memory_access_flags{ vk::AccessFlagBits2KHR::eHostRead };
@@ -299,7 +301,7 @@ namespace avk
 		static const auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadEXT };
 		static const auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNV };
 		static const auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNV };
-		static const auto shading_rate_image_read = memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV };
+		static const auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV };
 #if VK_HEADER_VERSION >= 204
 		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentReadKHR };
 		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureReadKHR };
