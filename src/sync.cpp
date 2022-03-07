@@ -365,7 +365,7 @@ namespace avk
 			}
 			break;
 		case sync_type::via_wait_idle:
-			AVK_LOG_WARNING("Performing waitIdle on queue " + std::to_string(queue_to_use().get().queue_index()) + " in order to old_sync because no other type of handler is present.");
+			//AVK_LOG_WARNING("Performing waitIdle on queue " + std::to_string(queue_to_use().get().queue_index()) + " in order to old_sync because no other type of handler is present.");
 		case sync_type::via_wait_idle_deliberately:
 			assert(mCommandBuffer.has_value());
 			mCommandBuffer.value()->end_recording();		// What started in get_or_create_command_buffer() ends here.
