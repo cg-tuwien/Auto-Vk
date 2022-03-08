@@ -5288,10 +5288,10 @@ namespace avk
 
 			std::array layoutTransitions = { // during the loop, we'll use 1 or 2 of these
 				vk::ImageMemoryBarrier{
-					{}, {}, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
+					vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferWrite | vk::AccessFlagBits::eTransferRead, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
 					originalLayout, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 0u, 1u, l, 1u }},
 				vk::ImageMemoryBarrier{
-					{}, vk::AccessFlagBits::eTransferWrite, // This is the first mip-level we're going to write to
+					vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferWrite | vk::AccessFlagBits::eTransferRead, // This is the first mip-level we're going to write to
 					originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 1u, 1u, l, 1u }},
 				vk::ImageMemoryBarrier{} // To be used in loop
 			};

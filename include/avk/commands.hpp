@@ -154,10 +154,10 @@ namespace avk
 			[[nodiscard]] auto src_stage() const { return mStages.mSrc; }
 			[[nodiscard]] auto dst_stage() const { return mStages.mDst; }
 			[[nodiscard]] decltype(avk::access::memory_access2::mSrc) src_access() const {
-				return mAccesses.has_value() ? decltype(avk::access::memory_access2::mSrc){} : mAccesses->mSrc;
+				return mAccesses.has_value() ? mAccesses->mSrc : decltype(avk::access::memory_access2::mSrc){};
 			}
 			[[nodiscard]] decltype(avk::access::memory_access2::mDst) dst_access() const {
-				return mAccesses.has_value() ? decltype(avk::access::memory_access2::mDst){} : mAccesses->mDst;
+				return mAccesses.has_value() ? mAccesses->mDst : decltype(avk::access::memory_access2::mDst){};
 			}
 			[[nodiscard]] auto queue_family_ownership_transfer() const { return mQueueFamilyOwnershipTransfer; }
 			[[nodiscard]] auto buffer_memory_barrier_data() const {
