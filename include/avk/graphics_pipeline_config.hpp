@@ -762,6 +762,14 @@ namespace avk
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
+	// Sets depth bounds config in the pipeline config
+	template <typename... Ts>
+	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_bounds aDepthBounds, Ts... args)
+	{
+		aConfig.mDepthBoundsConfig = aDepthBounds;
+		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
+	}
+
 	// Sets some color blending parameters in the pipeline config
 	template <typename... Ts>
 	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::color_blending_settings aColorBlendingSettings, Ts... args)
