@@ -302,6 +302,7 @@ namespace avk
 		static const auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadEXT };
 		static const auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNV };
 		static const auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNV };
+		static const auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV }; 
 #else
 		static const auto transform_feedback_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackWriteExt };
 		static const auto transform_feedback_counter_read       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterReadExt };
@@ -309,8 +310,8 @@ namespace avk
 		static const auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadExt };
 		static const auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNv };
 		static const auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNv };
+		static const auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNv }; 
 #endif
-		static const auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV }; 
 #if VK_HEADER_VERSION >= 204
 		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentReadKHR };
 		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureReadKHR };
