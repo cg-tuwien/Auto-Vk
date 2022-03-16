@@ -4,6 +4,7 @@ project(avk)
 if (MSVC)
     # <ranges> support requires /std:c++latest on MSVC
     set(CMAKE_CXX_STANDARD 23)
+    add_compile_options(/bigobj)
 else (MSVC)
     set(CMAKE_CXX_STANDARD 20)
 endif (MSVC)

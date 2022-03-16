@@ -247,6 +247,7 @@ namespace avk
 			static depth_clamp_bias config_nothing_special() { return { false, false, 0.0f, 0.0f, 0.0f, false }; }
 			static depth_clamp_bias config_enable_depth_bias(float pConstantFactor, float pBiasClamp, float pSlopeFactor) { return { false, true, pConstantFactor, pBiasClamp, pSlopeFactor, false }; }
 			static depth_clamp_bias config_enable_clamp_and_depth_bias(float pConstantFactor, float pBiasClamp, float pSlopeFactor) { return { true, true, pConstantFactor, pBiasClamp, pSlopeFactor, false }; }
+			static depth_clamp_bias config_enable_clamp() { return { true, false, 0.0f, 0.0f, 0.0f, false }; }
 			static depth_clamp_bias dynamic() { return { false, true, 0.0f, 0.0f, 0.0f, true }; } // also sets depth bias to enabled, otherwise this would be pointless
 
 			auto is_clamp_to_frustum_enabled() const { return mClampDepthToFrustum; }
