@@ -1586,7 +1586,7 @@ namespace avk
 		result.mBuildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 			.setFlags(result.mFlags)
-			.setGeometryCount(result.mAccStructureGeometries.size())
+			.setGeometryCount(static_cast<uint32_t>(result.mAccStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray);
 #else
 		result.mGeometryInfos.reserve(aGeometryDescriptions.size());
@@ -1936,7 +1936,7 @@ namespace avk
 		result.mBuildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
 			.setFlags(result.mFlags)
-			.setGeometryCount(result.mAccStructureGeometries.size())
+			.setGeometryCount(static_cast<uint32_t>(result.mAccStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray);
 #else
 		// 2. Assemble info about the TOP LEVEL acceleration structure and the set its geometry

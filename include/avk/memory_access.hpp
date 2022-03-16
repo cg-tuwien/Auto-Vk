@@ -313,7 +313,7 @@ namespace avk
 #endif
 		static const auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadEXT };
 		static const auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentEXT };
-#if VK_HEADER_VERSION > 182
+#if VK_HEADER_VERSION >= 204
 		static const auto invocation_mask_read                  = memory_access_flags{ vk::AccessFlagBits2KHR::eInvocationMaskReadHUAWEI };
 #endif
 
