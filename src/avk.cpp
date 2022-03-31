@@ -7098,7 +7098,8 @@ namespace avk
 
 	std::tuple<std::vector<vk::SubpassDependency2KHR>, std::vector<vk::MemoryBarrier2KHR>> root::compile_subpass_dependencies(const renderpass_t& aRenderpass)
 	{
-		const auto numSubpassesFirst = aRenderpass.mAttachmentDescriptions.size();
+		const auto numSubpassesFirst = aRenderpass.mSubpassData.size();
+		assert(numSubpassesFirst > 0);
 
 		// And construct the actual dependency-info from it:
 		std::vector<vk::SubpassDependency2KHR> subpassDependencies;
@@ -7153,7 +7154,13 @@ namespace avk
 	{
 		// Set pNext pointers in every vk::SubpassDependency2KHR
 		for (size_t i = 0; i < aAlignedSubpassDependencies.size(); ++i) {
-			aAlignedSubpassDependencies[i].setPNext(&aAlignedMemoryBarriers[i]);
+			//aAlignedSubpassDependencies[i].setPNext(&aAlignedMemoryBarriers[i]);
+			aAlignedSubpassDependencies[i]
+				.setPNext(nullptr)
+				.setSrcStageMask((vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].srcStageMask)
+				.setSrcAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].srcAccessMask)
+				.setDstStageMask((vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].dstStageMask)
+				.setDstAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].dstAccessMask);
 		}
 	}
 

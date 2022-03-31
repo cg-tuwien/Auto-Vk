@@ -72,7 +72,7 @@ namespace avk
 
 			result.emplace(std::make_tuple(
 				vk::SubpassDependency2KHR{}
-					.setSrcSubpass(aSrcSubpass).setDstSubpass(aDstSubpass)
+					.setSrcSubpass(aSrcSubpass).setDstSubpass(aDstSubpass) // If a VkMemoryBarrier2 is included in the pNext chain, srcStageMask, dstStageMask, srcAccessMask, and dstAccessMask parameters are ignored.
 					.setPNext(nullptr) // !!! ATTENTION: This will have to be set by the user of this function to point to the appropriate vk::MemoryBarrier2KHR{} !!!
 				, 
 				vk::MemoryBarrier2KHR{}
