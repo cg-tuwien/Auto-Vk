@@ -7154,13 +7154,13 @@ namespace avk
 	{
 		// Set pNext pointers in every vk::SubpassDependency2KHR
 		for (size_t i = 0; i < aAlignedSubpassDependencies.size(); ++i) {
-			//aAlignedSubpassDependencies[i].setPNext(&aAlignedMemoryBarriers[i]);
-			aAlignedSubpassDependencies[i]
-				.setPNext(nullptr)
-				.setSrcStageMask((vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].srcStageMask)
-				.setSrcAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].srcAccessMask)
-				.setDstStageMask((vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].dstStageMask)
-				.setDstAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].dstAccessMask);
+			aAlignedSubpassDependencies[i].setPNext(&aAlignedMemoryBarriers[i]);
+			//aAlignedSubpassDependencies[i]
+			//	.setPNext(nullptr)
+			//	.setSrcStageMask(aAlignedMemoryBarriers[i].srcStageMask == vk::PipelineStageFlagBits2KHR::eNone ? (vk::PipelineStageFlags)vk::PipelineStageFlagBits::eTopOfPipe : (vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].srcStageMask)
+			//	.setSrcAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].srcAccessMask)
+			//	.setDstStageMask(aAlignedMemoryBarriers[i].dstStageMask == vk::PipelineStageFlagBits2KHR::eNone ? (vk::PipelineStageFlags)vk::PipelineStageFlagBits::eBottomOfPipe : (vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].dstStageMask)
+			//	.setDstAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].dstAccessMask);
 		}
 	}
 
