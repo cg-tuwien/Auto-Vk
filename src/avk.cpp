@@ -7986,7 +7986,7 @@ namespace avk
 
 	query_pool root::create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount, vk::QueryPipelineStatisticFlags aPipelineStatistics)
 	{
-		return create_query_pool(vk::QueryType::ePipelineStatistics, aQueryCount);
+		return create_query_pool(vk::QueryType::ePipelineStatistics, aQueryCount, aPipelineStatistics);
 	}
 
 	void query_pool_t::host_reset(uint32_t aFirstQueryIndex, std::optional<uint32_t> aNumQueries)
