@@ -145,6 +145,7 @@ namespace avk
 
 #include <avk/memory_access.hpp>
 #include <avk/memory_usage.hpp>
+#include <avk/image_layout.hpp>
 #include <avk/on_load.hpp>
 #include <avk/on_store.hpp>
 #include <avk/usage_type.hpp>
@@ -211,7 +212,6 @@ namespace avk
 
 #include <avk/geometry_instance.hpp>
 
-#include <avk/image_layout.hpp>
 #include <avk/vk_utils2.hpp>
 
 #include <avk/acceleration_structure_size_requirements.hpp>

@@ -32,9 +32,9 @@ namespace avk
 
 	extern vk::LogicOp to_vk_logic_operation(cfg::blending_logic_operation aValue);
 
-	extern vk::AttachmentLoadOp to_vk_load_op(avk::on_load aValue);
+	extern vk::AttachmentLoadOp to_vk_load_op(avk::on_load_behavior aValue);
 
-	extern vk::AttachmentStoreOp to_vk_store_op(avk::on_store aValue);
+	extern vk::AttachmentStoreOp to_vk_store_op(avk::on_store_behavior aValue);
 
 	extern vk::PipelineStageFlags to_vk_pipeline_stage_flags(avk::pipeline_stage aValue);
 	extern vk::PipelineStageFlagBits to_vk_pipeline_stage_flag_bits(avk::pipeline_stage aValue);

@@ -17,18 +17,7 @@ namespace avk
 			static void default_handler_before_operation(command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess);
 			
 			static void default_handler_after_operation(command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess);
-			
-			struct image_copy
-			{
-				/** Destination image is assumed to be ready to be read. A rather coarse barrier is established for the source image, waiting for all commands and any memory access. */
-				static avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> wait_for_previous_operations(avk::image_t& aSourceImage, avk::image_t& aDestinationImage);
-
-				/** Set up rather coarse barrier for subsequent operations and transfer the destination image into color attachment optimal format */
-				static avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> let_subsequent_operations_wait(avk::image_t& aSourceImage, avk::image_t& aDestinationImage);
-
-				/** Set up lightweight old_sync for the image is to be sent to present right afterwards. Destination image's layout is transferred in to presentable format. */
-				static avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> directly_into_present(avk::image_t& aSourceImage, avk::image_t& aDestinationImage);
-			};
+		
 		};
 		
 		enum struct sync_type { not_required, by_return, by_existing_command_buffer, via_wait_idle, via_wait_idle_deliberately, via_semaphore, via_barrier };

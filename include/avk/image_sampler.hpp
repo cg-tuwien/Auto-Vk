@@ -3,6 +3,16 @@
 
 namespace avk
 {
+	class combined_image_sampler_descriptor_info
+	{
+		friend class image_sampler_t;
+	public:
+		const auto& descriptor_info() const { return mDescriptorInfo; }
+
+	private:
+		vk::DescriptorImageInfo mDescriptorInfo;
+	};
+
 	class image_sampler_t
 	{
 		friend class root;
@@ -23,8 +33,6 @@ namespace avk
 		auto view_handle() const				{ return mImageView->handle(); }
 		auto image_handle() const					{ return mImageView->get_image().handle(); }
 		auto sampler_handle() const				{ return mSampler->handle(); }
-		auto descriptor_info() const		{ return mDescriptorInfo; }
-		auto descriptor_type() const		{ return mDescriptorType; }
 		/** Gets the width of the image */
 		uint32_t width() const { return mImageView->get_image().width(); }
 		/** Gets the height of the image */
@@ -34,11 +42,23 @@ namespace avk
 		/** Gets the format of the image */
 		vk::Format format() const { return mImageView->get_image().format(); }
 
+		/** Declare that this image and sampler are to be used as "combined image sampler"
+		 *	@param	aImageLayout	The layout of the image during its usage as combined image sampler
+		 */
+		combined_image_sampler_descriptor_info as_combined_image_sampler(avk::image_layout::image_layout aImageLayout) const
+		{
+			combined_image_sampler_descriptor_info result;
+			result.mDescriptorInfo = vk::DescriptorImageInfo{}
+				.setImageView(view_handle())
+				.setSampler(sampler_handle())
+				.setImageLayout(aImageLayout.mLayout);
+			return result;
+		}
+
+
 	private:
 		image_view mImageView;
 		sampler mSampler;
-		vk::DescriptorImageInfo mDescriptorInfo;
-		vk::DescriptorType mDescriptorType;
 	};
 
 	/** Typedef representing any kind of OWNING image-sampler representations. */

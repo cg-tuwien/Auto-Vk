@@ -24,62 +24,7 @@ namespace avk
 			aSourceAccess,  read_memory_access{memory_access::any_read_access}		// Make the operation's writes available and visible to all memory stages
 		);
 	}
-	
-	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)> old_sync::presets::image_copy::wait_for_previous_operations(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
-	{
-		return [&aSourceImage, &aDestinationImage](command_buffer_t& aCommandBuffer, pipeline_stage aDestinationStage, std::optional<read_memory_access> aDestinationAccess) {
-			// Must transfer the swap chain image's layout:
-			aDestinationImage.set_target_layout(vk::ImageLayout::eTransferDstOptimal);
-			aCommandBuffer.establish_image_memory_barrier(
-				aDestinationImage,
-				pipeline_stage::top_of_pipe,					// Wait for nothing
-				pipeline_stage::transfer,						// Unblock TRANSFER after the layout transition is done
-				std::optional<memory_access>{},					// No pending writes to flush out
-				memory_access::transfer_write_access			// Transfer write access must have all required memory visible
-			);
 
-			// But, IMPORTANT: must also wait for writing to the image to complete!
-			aSourceImage.set_target_layout(vk::ImageLayout::eTransferDstOptimal);
-			aCommandBuffer.establish_image_memory_barrier_rw(
-				aSourceImage,
-				pipeline_stage::all_commands, /* -> */ aDestinationStage,	// Wait for all previous command before continuing with the operation's command
-				write_memory_access{memory_access::any_write_access},		// Make any write access available, ...
-				aDestinationAccess											// ... before making the operation's read access type visible
-			);
-		};
-	}
-
-	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> old_sync::presets::image_copy::let_subsequent_operations_wait(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
-	{
-		return [&aSourceImage, &aDestinationImage, originalLayout = aDestinationImage.current_layout()](command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess){
-			assert(vk::ImageLayout::eTransferDstOptimal == aDestinationImage.current_layout());
-			aDestinationImage.set_target_layout(vk::ImageLayout::eColorAttachmentOptimal); // From transfer-dst into color attachment optimal for further rendering
-			aCommandBuffer.establish_image_memory_barrier(
-				aDestinationImage,
-				pipeline_stage::transfer,							// When the TRANSFER has completed
-				pipeline_stage::all_commands,						// Afterwards come further commands
-				memory_access::transfer_write_access,				// Copied memory must be available
-				memory_access::any_access							// Data must be visible to any read and before any write access
-			);
-		};
-	}
-
-	avk::unique_function<void(command_buffer_t&, pipeline_stage, std::optional<write_memory_access>)> old_sync::presets::image_copy::directly_into_present(avk::image_t& aSourceImage, avk::image_t& aDestinationImage)
-	{
-		return [&aSourceImage, &aDestinationImage](command_buffer_t& aCommandBuffer, pipeline_stage aSourceStage, std::optional<write_memory_access> aSourceAccess){
-			assert(vk::ImageLayout::eTransferDstOptimal == aDestinationImage.current_layout());
-			aDestinationImage.set_target_layout(vk::ImageLayout::ePresentSrcKHR); // From transfer-dst into present-src layout
-			aCommandBuffer.establish_image_memory_barrier(
-				aDestinationImage,
-				pipeline_stage::transfer,						// When the TRANSFER has completed
-				pipeline_stage::bottom_of_pipe,					// Afterwards comes the semaphore -> present
-				memory_access::transfer_write_access,			// Copied memory must be available
-				std::optional<memory_access>{}					// Present does not need any memory access specified, it's synced with a semaphore anyways.
-			);
-			// No further old_sync required
-		};
-	}
-	
 	old_sync::old_sync(old_sync&& aOther) noexcept
 		: mSpecialSync{ std::move(aOther.mSpecialSync) }
 		, mCommandbufferRequest { std::move(aOther.mCommandbufferRequest) }

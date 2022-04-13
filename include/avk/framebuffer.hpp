@@ -30,12 +30,6 @@ namespace avk
 		auto& create_info()				{ return mCreateInfo; }
 		auto handle() const { return mFramebuffer.get(); }
 
-		/**	Initializes the attachments by transferring their image layouts away from uninitialized into something useful.
-		 *	You don't have to do this, but it could be very helpful in some situations, where you are going to use the
-		 *	images not only for rendering into, but also maybe for displaying them in the UI.
-		 */
-		std::optional<command_buffer> initialize_attachments(avk::old_sync aSync = avk::old_sync::wait_idle());
-		
 	private:
 		renderpass mRenderpass;
 		std::vector<image_view> mImageViews;

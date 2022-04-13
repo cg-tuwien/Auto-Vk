@@ -6,13 +6,13 @@ namespace avk
 	class buffer_t;
 	class buffer_descriptor;
 	class buffer_view_t;
-	class buffer_view_descriptor;
+	class buffer_view_descriptor_info;
 	class top_level_acceleration_structure_t;
-	class image_view_t;
+	class image_view_as_sampled_image;
 	class image_view_as_input_attachment;
 	class image_view_as_storage_image;
 	class sampler_t;
-	class image_sampler_t;
+	class combined_image_sampler_descriptor_info;
 	class descriptor_set_t;
 	class descriptor_set;
 	
@@ -28,23 +28,23 @@ namespace avk
 			const buffer_t*,
 			const buffer_descriptor*,
 			const buffer_view_t*,
-			const buffer_view_descriptor*,
+			const buffer_view_descriptor_info*,
 			const top_level_acceleration_structure_t*,
-			const image_view_t*,
+			const image_view_as_sampled_image*,
 			const image_view_as_input_attachment*,
 			const image_view_as_storage_image*,
 			const sampler_t*,
-			const image_sampler_t*,
+			const combined_image_sampler_descriptor_info*,
 			std::vector<const buffer_t*>,
 			std::vector<const buffer_descriptor*>,
 			std::vector<const buffer_view_t*>,
-			std::vector<const buffer_view_descriptor*>,
+			std::vector<const buffer_view_descriptor_info*>,
 			std::vector<const top_level_acceleration_structure_t*>,
-			std::vector<const image_view_t*>,
+			std::vector<const image_view_as_sampled_image*>,
 			std::vector<const image_view_as_input_attachment*>,
 			std::vector<const image_view_as_storage_image*>,
 			std::vector<const sampler_t*>,
-			std::vector<const image_sampler_t*>
+			std::vector<const combined_image_sampler_descriptor_info*>
 		> mResourcePtr;
 
 

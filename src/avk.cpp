@@ -1230,27 +1230,26 @@ namespace avk
 		}
 	}
 
-	vk::AttachmentLoadOp to_vk_load_op(on_load aValue)
+	vk::AttachmentLoadOp to_vk_load_op(on_load_behavior aValue)
 	{
 		switch (aValue) {
-		case on_load::dont_care:
+		case on_load_behavior::dont_care:
 			return vk::AttachmentLoadOp::eDontCare;
-		case on_load::clear:
+		case on_load_behavior::clear:
 			return vk::AttachmentLoadOp::eClear;
-		case on_load::load:
+		case on_load_behavior::load:
 			return vk::AttachmentLoadOp::eLoad;
 		default:
 			throw std::invalid_argument("Invalid attachment load operation.");
 		}
 	}
 
-	vk::AttachmentStoreOp to_vk_store_op(on_store aValue)
+	vk::AttachmentStoreOp to_vk_store_op(on_store_behavior aValue)
 	{
 		switch (aValue) {
-		case on_store::dont_care:
+		case on_store_behavior::dont_care:
 			return vk::AttachmentStoreOp::eDontCare;
-		case on_store::store:
-		case on_store::store_in_presentable_format:
+		case on_store_behavior::store:
 			return vk::AttachmentStoreOp::eStore;
 		default:
 			throw std::invalid_argument("Invalid attachment store operation.");
@@ -1483,7 +1482,7 @@ namespace avk
 #pragma endregion
 
 #pragma region attachment definitions
-	attachment attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp)
+	attachment attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, attachment_load_config aLoadOp, usage_desc aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		return attachment{
 			std::get<vk::Format>(aFormatAndSamples),
@@ -1496,20 +1495,16 @@ namespace avk
 		};
 	}
 
-	attachment attachment::declare(vk::Format aFormat, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp)
+	attachment attachment::declare(vk::Format aFormat, attachment_load_config aLoadOp, usage_desc aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		return declare({aFormat, vk::SampleCountFlagBits::e1}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
 	}
 
-	attachment attachment::declare_for(resource_reference<const image_view_t> aImageView, avk::on_load aLoadOp, avk::usage_desc aUsageInSubpasses, avk::on_store aStoreOp)
+	attachment attachment::declare_for(resource_reference<const image_view_t> aImageView, attachment_load_config aLoadOp, avk::usage_desc aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		const auto& imageConfig = aImageView->get_image().create_info();
 		const auto format = imageConfig.format;
-		const std::optional<image_usage> imageUsage = aImageView->get_image().usage_config();
 		auto result = declare({format, imageConfig.samples}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
-		if (imageUsage.has_value()) {
-			result.set_image_usage_hint(imageUsage.value());
-		}
 		return result;
 	}
 #pragma endregion
@@ -2143,16 +2138,16 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_t*>>(mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_t*>>(mResourcePtr).size()); }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_descriptor*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr).size()); }
 
 		//                                                                         vvv There can only be ONE pNext (at least I think so) vvv
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return 1u; }
 
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr))    { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_sampled_image*>>   (mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_input_attachment*>>(mResourcePtr).size()); }
-		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_storage_image*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr))    { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_storage_image*>>   (mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const sampler_t*>>(mResourcePtr).size()); }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_sampler_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr).size()); }
 
 		return 1u;
 	}
@@ -2162,11 +2157,11 @@ namespace avk
 		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
 
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) {
-			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_t*>(mResourcePtr)->descriptor_info());
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) {
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_as_sampled_image*>(mResourcePtr)->descriptor_info());
 		}
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) {
 			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_as_input_attachment*>(mResourcePtr)->descriptor_info());
@@ -2177,20 +2172,20 @@ namespace avk
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) {
 			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const sampler_t*>(mResourcePtr)->descriptor_info());
 		}
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) {
-			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_sampler_t*>(mResourcePtr)->descriptor_info());
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) {
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const combined_image_sampler_descriptor_info*>(mResourcePtr)->descriptor_info());
 		}
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
 
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) {
-			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_t*>>(mResourcePtr)));
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) {
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)));
 		}
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) {
 			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)));
@@ -2201,8 +2196,8 @@ namespace avk
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) {
 			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const sampler_t*>>(mResourcePtr)));
 		}
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) {
-			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_sampler_t*>>(mResourcePtr)));
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) {
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)));
 		}
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
@@ -2217,14 +2212,14 @@ namespace avk
 			return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const buffer_descriptor*>(mResourcePtr)->descriptor_info());
 		}
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) {
@@ -2234,14 +2229,14 @@ namespace avk
 			return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr)));
 		}
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
 	}
@@ -2251,7 +2246,7 @@ namespace avk
 		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 #if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) {
@@ -2259,17 +2254,17 @@ namespace avk
 		}
 #endif
 
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 #if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) {
@@ -2277,11 +2272,11 @@ namespace avk
 		}
 #endif
 
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
 	}
@@ -2294,16 +2289,16 @@ namespace avk
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) {
 			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_t*>(mResourcePtr)->view_handle());
 		}
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) {
-			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_descriptor*>(mResourcePtr)->view_handle());
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_descriptor_info*>(mResourcePtr)->view_handle());
 		}
 
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
@@ -2312,16 +2307,16 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) {
 			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_t*>>(mResourcePtr)));
 		}
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) {
-			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_descriptor*>>(mResourcePtr)));
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)));
 		}
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
 	}
@@ -2877,33 +2872,6 @@ namespace avk
 		// 2nd parameter: how the drawing commands within the render pass will be provided. It can have one of two values [7]:
 		//  - VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded in the primary command buffer itself and no secondary command buffers will be executed.
 		//  - VK_SUBPASS_CONTENTS_SECONDARY_command_buffer_tS : The render pass commands will be executed from secondary command buffers.
-
-		// Sorry, but have to do this:
-#ifdef _DEBUG
-		bool hadToEnable = false;
-#endif
-		std::vector<avk::image_view> imageViews;
-		for (auto& view : aFramebuffer->image_views()) {
-			if (!view.is_shared_ownership_enabled()) { // TODO: Make layout transitions explicit and get rid of this
-				view.enable_shared_ownership();
-#ifdef _DEBUG
-				hadToEnable = true;
-#endif
-			}
-			imageViews.push_back(view);
-		}
-#ifdef _DEBUG
-		if (hadToEnable) {
-			AVK_LOG_DEBUG("Had to enable shared ownership on all the framebuffers' views in command_buffer_t::begin_render_pass_for_framebuffer, fyi.");
-		}
-#endif
-		set_post_execution_handler([lAttachmentDescs = aRenderpass->attachment_descriptions(), lImageViews = std::move(imageViews)] () {
-			const auto n = lImageViews.size();
-			for (size_t i = 0; i < n; ++i) {
-				// I think, the const_cast is justified here:
-				const_cast<image_t&>(lImageViews[i]->get_image()).set_current_layout(lAttachmentDescs[i].finalLayout);
-			}
-		});
 	}
 
 	void command_buffer_t::next_subpass()
@@ -2940,7 +2908,7 @@ namespace avk
 		establish_global_memory_barrier(aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
 	}
 
-	void command_buffer_t::establish_image_memory_barrier(image_t& aImage, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
+	void command_buffer_t::establish_image_memory_barrier(const image_t& aImage, avk::image_layout::image_layout aSrcLayout, avk::image_layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
 	{
 		mCommandBuffer->pipelineBarrier(
 			to_vk_pipeline_stage_flags(aSrcStage),						// Up to which stage to execute before making memory available
@@ -2951,19 +2919,18 @@ namespace avk
 				vk::ImageMemoryBarrier{
 					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
 					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
-					aImage.current_layout(), aImage.target_layout(),	// Transition for the former to the latter
+					aSrcLayout.mLayout, aDstLayout.mLayout,				// Transition for the former to the latter
 					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,	// TODO: Support queue family ownership transfer
 					aImage.handle(),
 					aImage.entire_subresource_range()					// TODO: Support different subresource ranges
 				}
 			}
 		);
-		aImage.set_current_layout(aImage.target_layout()); // Just optimistically set it
 	}
 
-	void command_buffer_t::establish_image_memory_barrier_rw(image_t& aImage, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
+	void command_buffer_t::establish_image_memory_barrier_rw(const image_t& aImage, avk::image_layout::image_layout aSrcLayout, avk::image_layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
 	{
-		establish_image_memory_barrier(aImage, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
+		establish_image_memory_barrier(aImage, aSrcLayout, aDstLayout, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
 	}
 
 	void command_buffer_t::establish_buffer_memory_barrier(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
@@ -4134,10 +4101,6 @@ namespace avk
 			if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
 				AVK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
 			}
-			// TODO: Maybe further checks?
-			if (!a.mImageUsageHintBefore.has_value() && !a.mImageUsageHintAfter.has_value()) {
-				a.mImageUsageHintAfter = a.mImageUsageHintBefore = v->get_image().usage_config();
-			}
 		}
 	}
 
@@ -4170,14 +4133,6 @@ namespace avk
 		}
 
 		result.mFramebuffer = device().createFramebufferUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
-
-		// Set the right layouts for the images:
-		const auto n = result.mImageViews.size();
-		const auto& attDescs = result.mRenderpass->attachment_descriptions();
-		for (size_t i = 0; i < n; ++i) {
-			result.mImageViews[i]->get_image().transition_to_layout(attDescs[i].initialLayout);
-		}
-
 		return result;
 	}
 
@@ -4227,20 +4182,6 @@ namespace avk
 			aTemplate.get().mCreateInfo.height,
 			aAlterFramebufferConfigBeforeCreation
 		);
-	}
-
-	std::optional<command_buffer> framebuffer_t::initialize_attachments(old_sync aSync)
-	{
-		aSync.establish_barrier_before_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
-
-		const size_t n = mImageViews.size();
-		assert (n == mRenderpass->attachment_descriptions().size());
-		for (size_t i = 0; i < n; ++i) {
-			mImageViews[i]->get_image().transition_to_layout(mRenderpass->attachment_descriptions()[i].finalLayout, old_sync::auxiliary_with_barriers(aSync, {}, {}));
-		}
-
-		aSync.establish_barrier_after_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
-		return aSync.submit_and_sync();
 	}
 #pragma endregion
 
@@ -5034,8 +4975,6 @@ namespace avk
 		if (std::holds_alternative<vk::Image>(aOther.mImage)) {
 			mCreateInfo = aOther.mCreateInfo;
 			mImage = std::get<vk::Image>(aOther.mImage);
-			mTargetLayout = aOther.mTargetLayout;
-			mCurrentLayout = aOther.mCurrentLayout;
 			mImageUsage = aOther.mImageUsage;
 			mAspectFlags = aOther.mAspectFlags;
 		}
@@ -5049,8 +4988,6 @@ namespace avk
 		image_t result;
 		result.mRoot = aTemplate->mRoot;
 		result.mCreateInfo = aTemplate->mCreateInfo;
-		result.mTargetLayout = aTemplate->mTargetLayout;
-		result.mCurrentLayout = vk::ImageLayout::eUndefined;
 		result.mImageUsage = aTemplate->mImageUsage;
 		result.mAspectFlags = aTemplate->mAspectFlags;
 
@@ -5143,8 +5080,6 @@ namespace avk
 			.setSharingMode(vk::SharingMode::eExclusive) // TODO: Not sure yet how to handle this one, Exclusive should be the default, though.
 			.setSamples(samples)
 			.setFlags(imageCreateFlags);
-		result.mTargetLayout = targetLayout;
-		result.mCurrentLayout = vk::ImageLayout::eUndefined;
 		result.mImageUsage = aImageUsage;
 		result.mAspectFlags = aspectFlags;
 
@@ -5218,8 +5153,6 @@ namespace avk
 		result.mRoot = this;
 		result.mCreateInfo = aImageCreateInfo;
 		result.mImage = aImageToWrap;
-		result.mTargetLayout = targetLayout;
-		result.mCurrentLayout = vk::ImageLayout::eUndefined;
 		result.mImageUsage = aImageUsage;
 		result.mAspectFlags = aImageAspectFlags;
 		return result;
@@ -5234,42 +5167,7 @@ namespace avk
 		};
 	}
 
-	std::optional<command_buffer> image_t::transition_to_layout(std::optional<vk::ImageLayout> aTargetLayout, old_sync aSyncHandler)
-	{
-		const auto curLayout = current_layout();
-		const auto trgLayout = aTargetLayout.value_or(target_layout());
-		mTargetLayout = trgLayout;
-
-		if (curLayout == trgLayout) {
-			return {}; // done (:
-		}
-		if (vk::ImageLayout::eUndefined == trgLayout || vk::ImageLayout::ePreinitialized == trgLayout) {
-			AVK_LOG_VERBOSE("Won't transition into layout " + vk::to_string(trgLayout));
-			return {}; // Won't do it!
-		}
-
-		// Not done => perform a transition via an image memory barrier inside a command buffer
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		aSyncHandler.establish_barrier_before_the_operation(
-			pipeline_stage::transfer,	// Just use the transfer stage to create an execution dependency chain
-			read_memory_access{memory_access::transfer_read_access}
-		);
-
-		// An image's layout is tranformed by the means of an image memory barrier:
-		commandBuffer.establish_image_memory_barrier(*this,
-			pipeline_stage::transfer, pipeline_stage::transfer,				// Execution dependency chain
-			std::optional<memory_access>{}, std::optional<memory_access>{}	// There should be no need to make any memory available or visible... the image should be available already (see above)
-		); // establish_image_memory_barrier ^ will set the mCurrentLayout to mTargetLayout
-
-		aSyncHandler.establish_barrier_after_the_operation(
-			pipeline_stage::transfer,	// The end of the execution dependency chain
-			write_memory_access{memory_access::transfer_write_access}
-		);
-		return aSyncHandler.submit_and_sync();
-	}
-
-
-	std::optional<command_buffer> image_t::generate_mip_maps(old_sync aSyncHandler)
+	std::optional<command_buffer> image_t::generate_mip_maps(old_sync aSyncHandler, vk::ImageLayout originalLayout, vk::ImageLayout targetLayout)
 	{
 		if (create_info().mipLevels <= 1u) {
 			return {};
@@ -5277,10 +5175,7 @@ namespace avk
 
 		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{ memory_access::transfer_read_access }); // Make memory visible
-
-		const auto originalLayout = current_layout();
-		const auto targetLayout = target_layout();
-
+		
 		for (uint32_t l = 0u; l < create_info().arrayLayers; ++l) {
 
 			auto w = static_cast<int32_t>(width());
@@ -5386,9 +5281,6 @@ namespace avk
 		}
 
 		result.mImageView = device().createImageViewUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
-		result.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(result.handle())
-			.setImageLayout(result.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
 
 		return result;
 	}
@@ -5511,9 +5403,6 @@ namespace avk
 		}
 
 		aImageView.mImageView = device().createImageViewUnique(aImageView.mCreateInfo, nullptr, dispatch_loader_core());
-		aImageView.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(aImageView.handle())
-			.setImageLayout(aImageView.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
 	}
 #pragma endregion
 
@@ -5661,13 +5550,6 @@ namespace avk
 		image_sampler_t result;
 		result.mImageView = aImageView.own();
 		result.mSampler = aSampler.own();
-
-		result.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(result.view_handle())
-			.setSampler(result.sampler_handle());
-		result.mDescriptorInfo.setImageLayout(result.mImageView->get_image().target_layout());
-
-		result.mDescriptorType = vk::DescriptorType::eCombinedImageSampler;
 		return result;
 	}
 #pragma endregion
@@ -7190,134 +7072,110 @@ namespace avk
 
 		result.mAttachmentDescriptions.reserve(aAttachments.size());
 		for (const auto& a : aAttachments) {
-			// Try to infer initial and final image layouts (If this isn't cool => user must use aAlterConfigBeforeCreation)
-			vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
-			vk::ImageLayout finalLayout = vk::ImageLayout::eUndefined;
+			//// Try to infer initial and final image layouts (If this isn't cool => user must use aAlterConfigBeforeCreation)
+			//vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
+			//vk::ImageLayout finalLayout = vk::ImageLayout::eUndefined;
 
-			const auto isLoad = avk::on_load::load == a.mLoadOperation;
-			const auto isClear = avk::on_load::clear == a.mLoadOperation;
-			const auto isStore  = avk::on_store::store == a.mStoreOperation || avk::on_store::store_in_presentable_format == a.mStoreOperation;
-			const auto makePresentable = avk::on_store::store_in_presentable_format == a.mStoreOperation;
+			const auto isLoad = avk::on_load_behavior::load == a.mLoadOperation.mLoadBehavior;
+			const auto isClear = avk::on_load_behavior::clear == a.mLoadOperation.mLoadBehavior;
+			const auto isStore  = avk::on_store_behavior::store == a.mStoreOperation.mStoreBehavior;
 
 			const auto hasSeparateStencilLoad = a.mStencilLoadOperation.has_value();
 			const auto hasSeparateStencilStore = a.mStencilStoreOperation.has_value();
-			const auto isStencilLoad = avk::on_load::load == a.get_stencil_load_op();
-			const auto isStencilClear = avk::on_load::clear == a.get_stencil_load_op();
-			const auto isStencilStore  = avk::on_store::store == a.get_stencil_store_op() || avk::on_store::store_in_presentable_format == a.get_stencil_store_op();
-			const auto makeStencilPresentable = avk::on_store::store_in_presentable_format == a.get_stencil_store_op();
+			const auto isStencilLoad = avk::on_load_behavior::load == a.get_stencil_load_op().mLoadBehavior;
+			const auto isStencilClear = avk::on_load_behavior::clear == a.get_stencil_load_op().mLoadBehavior;
+			const auto isStencilStore  = avk::on_store_behavior::store == a.get_stencil_store_op().mStoreBehavior;
 			const auto hasStencilComponent = has_stencil_component(a.format());
 
-			bool initialLayoutFixed = false;
-			auto firstUsage = a.get_first_color_depth_input();
-			if (firstUsage.as_input()) {
-				if (isLoad) {
-					initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-					initialLayoutFixed = true;
-				}
-				if (isClear) {
-					initialLayoutFixed = true;
-				}
-			}
-			if (firstUsage.as_color()) { // this potentially overwrites the above
-				if (isLoad) {
-					initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
-					initialLayoutFixed = true;
-				}
-				if (isClear) {
-					initialLayoutFixed = true;
-				}
-			}
-			if (firstUsage.as_depth_stencil()) {
-				if (isLoad) {
-					initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-					{
-						// TODO: Set other depth/stencil-specific formats
-						//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
-						//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
-						//       - vk::ImageLayout::eDepthReadOnlyOptimal
-						//       - vk::ImageLayout::eStencilAttachmentOptimal
-						//       - vk::ImageLayout::eStencilReadOnlyOptimal
-					}
-					initialLayoutFixed = true;
-				}
-				if (isClear) {
-					initialLayoutFixed = true;
-				}
-			}
-			if (!initialLayoutFixed) {
-				if (a.mImageUsageHintBefore.has_value()) {
-					// If we detect the image usage to be more generic, we should change the layout to something more generic
-					if (avk::has_flag(a.mImageUsageHintBefore.value(), avk::image_usage::sampled)) {
-						initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-					}
-					if (avk::has_flag(a.mImageUsageHintBefore.value(), avk::image_usage::shader_storage)) {
-						initialLayout = vk::ImageLayout::eGeneral;
-					}
-				}
-			}
+			//bool initialLayoutFixed = false;
+			//auto firstUsage = a.get_first_color_depth_input();
+			//if (firstUsage.as_input()) {
+			//	if (isLoad) {
+			//		initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//		initialLayoutFixed = true;
+			//	}
+			//	if (isClear) {
+			//		initialLayoutFixed = true;
+			//	}
+			//}
+			//if (firstUsage.as_color()) { // this potentially overwrites the above
+			//	if (isLoad) {
+			//		initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			//		initialLayoutFixed = true;
+			//	}
+			//	if (isClear) {
+			//		initialLayoutFixed = true;
+			//	}
+			//}
+			//if (firstUsage.as_depth_stencil()) {
+			//	if (isLoad) {
+			//		initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+			//		{
+			//			// TODO: Set other depth/stencil-specific formats
+			//			//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
+			//			//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
+			//			//       - vk::ImageLayout::eDepthReadOnlyOptimal
+			//			//       - vk::ImageLayout::eStencilAttachmentOptimal
+			//			//       - vk::ImageLayout::eStencilReadOnlyOptimal
+			//		}
+			//		initialLayoutFixed = true;
+			//	}
+			//	if (isClear) {
+			//		initialLayoutFixed = true;
+			//	}
+			//}
 
-			auto lastUsage = a.get_last_color_depth_input();
-			if (lastUsage.as_input()) {
-				finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-			}
-			if (lastUsage.as_color()) { // This potentially overwrites the above
-				finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
-			}
-			if (lastUsage.as_depth_stencil()) {
-				finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-				{
-					// TODO: Set other depth/stencil-specific formats
-					//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
-					//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
-					//       - vk::ImageLayout::eDepthReadOnlyOptimal
-					//       - vk::ImageLayout::eStencilAttachmentOptimal
-					//       - vk::ImageLayout::eStencilReadOnlyOptimal
-				}
-			}
-			if (isStore && vk::ImageLayout::eUndefined == finalLayout) {
-				if (a.is_used_as_color_attachment()) {
-					finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
-				}
-				else if (a.is_used_as_depth_stencil_attachment()) {
-					finalLayout = vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal;
-				}
-				else if (a.is_used_as_input_attachment()) {
-					finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-				}
-			}
-			if (a.mImageUsageHintAfter.has_value()) {
-				// If we detect the image usage to be more generic, we should change the layout to something more generic
-				if (avk::has_flag(a.mImageUsageHintAfter.value(), avk::image_usage::sampled)) {
-					finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-				}
-				if (avk::has_flag(a.mImageUsageHintAfter.value(), avk::image_usage::shader_storage)) {
-					finalLayout = vk::ImageLayout::eGeneral;
-				}
-			}
-			if (vk::ImageLayout::eUndefined == finalLayout) {
-				// We can just guess:
-				finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-			}
+			//auto lastUsage = a.get_last_color_depth_input();
+			//if (lastUsage.as_input()) {
+			//	finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//}
+			//if (lastUsage.as_color()) { // This potentially overwrites the above
+			//	finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			//}
+			//if (lastUsage.as_depth_stencil()) {
+			//	finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+			//	{
+			//		// TODO: Set other depth/stencil-specific formats
+			//		//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
+			//		//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
+			//		//       - vk::ImageLayout::eDepthReadOnlyOptimal
+			//		//       - vk::ImageLayout::eStencilAttachmentOptimal
+			//		//       - vk::ImageLayout::eStencilReadOnlyOptimal
+			//	}
+			//}
+			//if (isStore && vk::ImageLayout::eUndefined == finalLayout) {
+			//	if (a.is_used_as_color_attachment()) {
+			//		finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			//	}
+			//	else if (a.is_used_as_depth_stencil_attachment()) {
+			//		finalLayout = vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal;
+			//	}
+			//	else if (a.is_used_as_input_attachment()) {
+			//		finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//	}
+			//}
+			//if (vk::ImageLayout::eUndefined == finalLayout) {
+			//	// We can just guess:
+			//	finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//}
 
-			if (a.shall_be_presentable()) {
-				finalLayout = vk::ImageLayout::ePresentSrcKHR;
-			}
+			//if (a.shall_be_presentable()) {
+			//	finalLayout = vk::ImageLayout::ePresentSrcKHR;
+			//}
 
-			if (!initialLayoutFixed && isLoad) {
-				initialLayout = finalLayout;
-			}
-			// ^^^ I have no idea what I'm assuming ^^^
+			//if (!initialLayoutFixed && isLoad) {
+			//	initialLayout = finalLayout;
+			//}
+			//// ^^^ I have no idea what I'm assuming ^^^
 
 			// 1. Create the attachment descriptions
-			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription2KHR{}
+			auto& newAttachmentDesc = result.mAttachmentDescriptions.emplace_back(vk::AttachmentDescription2KHR{}
 				.setFormat(a.format())
 				.setSamples(a.sample_count())
-				.setLoadOp(to_vk_load_op(a.mLoadOperation))
-				.setStoreOp(to_vk_store_op(a.mStoreOperation))
-				.setStencilLoadOp(to_vk_load_op(a.get_stencil_load_op()))
-				.setStencilStoreOp(to_vk_store_op(a.get_stencil_store_op()))
-				.setInitialLayout(initialLayout)
-				.setFinalLayout(finalLayout)
+				.setLoadOp(to_vk_load_op(a.mLoadOperation.mLoadBehavior))
+				.setStoreOp(to_vk_store_op(a.mStoreOperation.mStoreBehavior))
+				.setStencilLoadOp(to_vk_load_op(a.get_stencil_load_op().mLoadBehavior))
+				.setStencilStoreOp(to_vk_store_op(a.get_stencil_store_op().mStoreBehavior))
 			);
 
 			const auto attachmentIndex = static_cast<uint32_t>(result.mAttachmentDescriptions.size() - 1); // Index of this attachment as used in the further subpasses
@@ -7346,6 +7204,17 @@ namespace avk
 			}
 			assert(result.mAttachmentDescriptions.size() == result.mClearValues.size());
 
+			// Now go over all the sub passes and remember initial and final layouts along the way
+			std::optional<vk::ImageLayout> initialLayout{};
+			std::optional<vk::ImageLayout> finalLayout{};
+			auto useLayout = [&initialLayout, &finalLayout](vk::ImageLayout aLayout) {
+				if (!initialLayout.has_value()) {
+					initialLayout = aLayout;
+				}
+				finalLayout = aLayout;
+				return aLayout;
+			};
+
 			for (size_t i = 0; i < nSubpasses; ++i) {
 				auto& sp = subpasses[i];
 				auto subpassUsage = a.mSubpassUsages.get_subpass_usage(i);
@@ -7356,12 +7225,12 @@ namespace avk
 						if (sp.mSpecificInputLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for an input attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificInputLocations[loc] = vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+						sp.mSpecificInputLocations[loc] = vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal));
 						sp.mInputMaxLoc = std::max(sp.mInputMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for an input attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(vk::ImageLayout::eShaderReadOnlyOptimal));
+						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal)));
 					}
 				}
 				if (subpassUsage.as_color()) {
@@ -7371,14 +7240,14 @@ namespace avk
 						if (sp.mSpecificColorLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for a color attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificColorLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-						sp.mSpecificResolveLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+						sp.mSpecificColorLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal));
+						sp.mSpecificResolveLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal));
 						sp.mColorMaxLoc = std::max(sp.mColorMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for a color attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(vk::ImageLayout::eColorAttachmentOptimal));
-						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(vk::ImageLayout::eColorAttachmentOptimal));
+						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal)));
+						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal)));
 					}
 				}
 				if (subpassUsage.as_depth_stencil()) {
@@ -7390,7 +7259,7 @@ namespace avk
 					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference2KHR{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
 					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
 					//}
-					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal));
+					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)));
 				}
 				if (subpassUsage.as_preserve()) {
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment
@@ -7398,6 +7267,11 @@ namespace avk
 					sp.mPreserveAttachments.push_back(attachmentIndex);
 				}
 			}
+
+			// Now that we have found all the subpass data => set initial and final layouts
+			newAttachmentDesc
+				.setInitialLayout(a.mLoadOperation.mPreviousLayout.has_value() ? a.mLoadOperation.mPreviousLayout.value().mLayout : initialLayout.value_or(vk::ImageLayout::eUndefined))
+				.setFinalLayout(  a.mStoreOperation.mTargetLayout.has_value()  ? a.mStoreOperation.mTargetLayout.value().mLayout  : finalLayout.value_or(  vk::ImageLayout::eUndefined));
 		}
 
 		// 3. Fill all the vectors in the right order:
