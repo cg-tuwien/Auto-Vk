@@ -3,9 +3,16 @@
 
 namespace avk
 {
-	namespace image_layout
+	namespace layout
 	{
-		struct image_layout2
+        /**	To define an image_layout_transition, use operator>> with two layout values!
+		 *	There are multiple such memory_access_flags values prepared in the avk::layout namespace.
+		 *
+		 *	Example:
+		 *	  // Create an image layout transition from color attachment optimal to transfer source:
+		 *	  avk::layout::color_attachment_optimal >> avk::layout::transfer_src
+		 */
+		struct image_layout_transition
 		{
 			vk::ImageLayout mOld;
 			vk::ImageLayout mNew;
@@ -15,10 +22,10 @@ namespace avk
 		{
 			vk::ImageLayout mLayout;
 		};
-
-		inline image_layout2 operator>> (image_layout a, image_layout b)
+        
+		inline image_layout_transition operator>> (image_layout a, image_layout b)
 		{
-			return image_layout2{ a.mLayout, b.mLayout };
+			return image_layout_transition{ a.mLayout, b.mLayout };
 		}
 
         static constexpr auto undefined                                  = image_layout{ vk::ImageLayout::eUndefined };

@@ -3,13 +3,13 @@
 
 namespace avk
 {
-	struct usage_type
+	struct subpass_usage_type
 	{
-		static usage_type create_unused()			{ return { false, false, false, false,  -1,  -1, false, -1 }; }
-		static usage_type create_input(int loc)		{ return { true , false, false, false, loc,  -1, false, -1 }; }
-		static usage_type create_color(int loc)		{ return { false, true , false, false,  -1, loc, false, -1 }; }
-		static usage_type create_depth_stencil()	{ return { false, false, true , false,  -1,  -1, false, -1 }; }
-		static usage_type create_preserve()			{ return { false, false, false, true ,  -1,  -1, false, -1 }; }
+		static subpass_usage_type create_unused()			{ return { false, false, false, false,  -1,  -1, false, -1 }; }
+		static subpass_usage_type create_input(int loc)		{ return { true , false, false, false, loc,  -1, false, -1 }; }
+		static subpass_usage_type create_color(int loc)		{ return { false, true , false, false,  -1, loc, false, -1 }; }
+		static subpass_usage_type create_depth_stencil()	{ return { false, false, true , false,  -1,  -1, false, -1 }; }
+		static subpass_usage_type create_preserve()			{ return { false, false, false, true ,  -1,  -1, false, -1 }; }
 		
 		bool as_unused() const { return !(mInput || mColor || mDepthStencil || mPreserve); }
 		bool as_input() const { return mInput; }

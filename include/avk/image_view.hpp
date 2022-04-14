@@ -83,7 +83,7 @@ namespace avk
 		/** Declare that this image is intended to be used as sampled image.
 		 *	@param	aImageLayout	The layout of the image during its usage as sampled image
 		 */
-		image_view_as_sampled_image as_sampled_image(avk::image_layout::image_layout aImageLayout) const
+		image_view_as_sampled_image as_sampled_image(avk::layout::image_layout aImageLayout) const
 		{
 			image_view_as_sampled_image result;
 			result.mDescriptorInfo = vk::DescriptorImageInfo{}
@@ -95,7 +95,7 @@ namespace avk
 		/** Declare that this image is intended to be used as input attachment.
 		 *	@param	aImageLayout	The layout of the image during its usage as sampled image
 		 */
-		image_view_as_input_attachment as_input_attachment(avk::image_layout::image_layout aImageLayout) const
+		image_view_as_input_attachment as_input_attachment(avk::layout::image_layout aImageLayout) const
 		{
 			image_view_as_input_attachment result;
 			result.mDescriptorInfo = vk::DescriptorImageInfo{}
@@ -107,7 +107,7 @@ namespace avk
 		/** Declare that this image is intended to be used as storage image.
 		 *	@param	aImageLayout	The layout of the image during its usage as sampled image
 		 */
-		image_view_as_storage_image as_storage_image(avk::image_layout::image_layout aImageLayout) const
+		image_view_as_storage_image as_storage_image(avk::layout::image_layout aImageLayout) const
 		{
 			image_view_as_storage_image result;
 			result.mDescriptorInfo = vk::DescriptorImageInfo{}

@@ -1482,7 +1482,7 @@ namespace avk
 #pragma endregion
 
 #pragma region attachment definitions
-	attachment attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, attachment_load_config aLoadOp, usage_desc aUsageInSubpasses, attachment_store_config aStoreOp)
+	attachment attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		return attachment{
 			std::get<vk::Format>(aFormatAndSamples),
@@ -1495,12 +1495,12 @@ namespace avk
 		};
 	}
 
-	attachment attachment::declare(vk::Format aFormat, attachment_load_config aLoadOp, usage_desc aUsageInSubpasses, attachment_store_config aStoreOp)
+	attachment attachment::declare(vk::Format aFormat, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		return declare({aFormat, vk::SampleCountFlagBits::e1}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
 	}
 
-	attachment attachment::declare_for(resource_reference<const image_view_t> aImageView, attachment_load_config aLoadOp, avk::usage_desc aUsageInSubpasses, attachment_store_config aStoreOp)
+	attachment attachment::declare_for(resource_reference<const image_view_t> aImageView, attachment_load_config aLoadOp, avk::subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		const auto& imageConfig = aImageView->get_image().create_info();
 		const auto format = imageConfig.format;
@@ -2908,7 +2908,7 @@ namespace avk
 		establish_global_memory_barrier(aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
 	}
 
-	void command_buffer_t::establish_image_memory_barrier(const image_t& aImage, avk::image_layout::image_layout aSrcLayout, avk::image_layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
+	void command_buffer_t::establish_image_memory_barrier(const image_t& aImage, avk::layout::image_layout aSrcLayout, avk::layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
 	{
 		mCommandBuffer->pipelineBarrier(
 			to_vk_pipeline_stage_flags(aSrcStage),						// Up to which stage to execute before making memory available
@@ -2928,7 +2928,7 @@ namespace avk
 		);
 	}
 
-	void command_buffer_t::establish_image_memory_barrier_rw(const image_t& aImage, avk::image_layout::image_layout aSrcLayout, avk::image_layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
+	void command_buffer_t::establish_image_memory_barrier_rw(const image_t& aImage, avk::layout::image_layout aSrcLayout, avk::layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
 	{
 		establish_image_memory_barrier(aImage, aSrcLayout, aDstLayout, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
 	}
@@ -7633,7 +7633,7 @@ namespace avk
 #pragma endregion
 
 #pragma region vk_utils2 definitions
-	avk::command::action_type_command copy_image_to_another(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
+	avk::command::action_type_command copy_image_to_another(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
 		return avk::command::action_type_command {
 			avk::sync::sync_hint {
@@ -7662,7 +7662,7 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command blit_image(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags, vk::Filter aFilter)
+	avk::command::action_type_command blit_image(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags, vk::Filter aFilter)
 	{
 		return avk::command::action_type_command{
 			avk::sync::sync_hint {
@@ -7694,7 +7694,7 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command copy_buffer_to_image_layer_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
+	avk::command::action_type_command copy_buffer_to_image_layer_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
 		auto extent = aDstImage->create_info().extent;
 		extent.width  = extent.width  > 1u ? extent.width  >> aDstLevel : 1u;
@@ -7730,12 +7730,12 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command copy_buffer_to_image_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLevel, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
+	avk::command::action_type_command copy_buffer_to_image_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
 		return copy_buffer_to_image_layer_mip_level(aSrcBuffer, aDstImage, 0u, aDstLevel, aDstImageLayout, aImageAspectFlags);
 	}
 
-	avk::command::action_type_command copy_buffer_to_image(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, avk::image_layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
+	avk::command::action_type_command copy_buffer_to_image(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
 		return copy_buffer_to_image_mip_level(aSrcBuffer, aDstImage, 0u, aDstImageLayout, aImageAspectFlags);
 	}
@@ -7786,7 +7786,7 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command copy_image_layer_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, uint32_t aSrcLayer, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
+	avk::command::action_type_command copy_image_layer_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, uint32_t aSrcLayer, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
 		auto extent = aSrcImage->create_info().extent;
 		extent.width = extent.width > 1u ? extent.width >> aSrcLevel : 1u;
@@ -7823,12 +7823,12 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command copy_image_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
+	avk::command::action_type_command copy_image_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
 		return copy_image_layer_mip_level_to_buffer(aSrcImage, aSrcImageLayout, 0u, aSrcLevel, aImageAspectFlags, aDstBuffer, aDstOffset);
 	}
 
-	avk::command::action_type_command copy_image_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::image_layout::image_layout aSrcImageLayout, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
+	avk::command::action_type_command copy_image_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
 		return copy_image_mip_level_to_buffer(aSrcImage, aSrcImageLayout, 0u, aImageAspectFlags, aDstBuffer, aDstOffset);
 	}

@@ -45,7 +45,7 @@ namespace avk
 		/** Declare that this image and sampler are to be used as "combined image sampler"
 		 *	@param	aImageLayout	The layout of the image during its usage as combined image sampler
 		 */
-		combined_image_sampler_descriptor_info as_combined_image_sampler(avk::image_layout::image_layout aImageLayout) const
+		combined_image_sampler_descriptor_info as_combined_image_sampler(avk::layout::image_layout aImageLayout) const
 		{
 			combined_image_sampler_descriptor_info result;
 			result.mDescriptorInfo = vk::DescriptorImageInfo{}

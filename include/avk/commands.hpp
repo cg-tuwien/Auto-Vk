@@ -59,39 +59,39 @@ namespace avk
 		{
 			vk::Image mImage;
 			vk::ImageSubresourceRange mSubresourceRange;
-			std::optional<avk::image_layout::image_layout2> mLayoutTransition;
+			std::optional<avk::layout::image_layout_transition> mLayoutTransition;
 		};
 
 		class barrier_data final
 		{
 		public:
 			// Constructs a global execution barrier:
-			barrier_data(avk::stage::pipeline_stage2 aStages)
+			barrier_data(avk::stage::execution_dependency aStages)
 				: mStages{ aStages }, mAccesses{}, mQueueFamilyOwnershipTransfer{}, mSpecificData{} {}
 
 			// Constructs a global memory barrier:
-			barrier_data(avk::stage::pipeline_stage2 aStages, avk::access::memory_access2 aAccesses)
+			barrier_data(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}, mSpecificData{} {}
 
 			// Constructs an image memory barrier:
-			barrier_data(avk::stage::pipeline_stage2 aStages, avk::access::memory_access2 aAccesses, avk::resource_reference<const avk::image_t> aImage, vk::ImageSubresourceRange aSubresourceRange)
+			barrier_data(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::image_t> aImage, vk::ImageSubresourceRange aSubresourceRange)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}
-				, mSpecificData{ image_sync_info{ aImage->handle(), aSubresourceRange, std::optional<avk::image_layout::image_layout2>{} } } {}
+				, mSpecificData{ image_sync_info{ aImage->handle(), aSubresourceRange, std::optional<avk::layout::image_layout_transition>{} } } {}
 
 			// Constructs a buffer memory barrier:
-			barrier_data(avk::stage::pipeline_stage2 aStages, avk::access::memory_access2 aAccesses, avk::resource_reference<const avk::buffer_t> aBuffer, vk::DeviceSize aOffset, vk::DeviceSize aSize)
+			barrier_data(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::buffer_t> aBuffer, vk::DeviceSize aOffset, vk::DeviceSize aSize)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}
 				, mSpecificData{ buffer_sync_info{ aBuffer->handle(), aOffset, aSize } } {}
 
 			// Adds memory access, potentially turning a execution barrier into a memory barrier.
-			barrier_data& with_memory_access(avk::access::memory_access2 aMemoryAccess)
+			barrier_data& with_memory_access(avk::access::memory_dependency aMemoryAccess)
 			{
 				mAccesses = aMemoryAccess;
 				return *this;
 			}
 
 			// Adds an image layout transition to this barrier_data:
-			barrier_data& with_layout_transition(avk::image_layout::image_layout2 aLayoutTransition)
+			barrier_data& with_layout_transition(avk::layout::image_layout_transition aLayoutTransition)
 			{
 				if (!std::holds_alternative<image_sync_info>(mSpecificData)) {
 					throw avk::runtime_error("with_layout_transition has been called for a barrier_data which does not represent an image memory barrier.");
@@ -153,11 +153,11 @@ namespace avk
 
 			[[nodiscard]] auto src_stage() const { return mStages.mSrc; }
 			[[nodiscard]] auto dst_stage() const { return mStages.mDst; }
-			[[nodiscard]] decltype(avk::access::memory_access2::mSrc) src_access() const {
-				return mAccesses.has_value() ? mAccesses->mSrc : decltype(avk::access::memory_access2::mSrc){};
+			[[nodiscard]] decltype(avk::access::memory_dependency::mSrc) src_access() const {
+				return mAccesses.has_value() ? mAccesses->mSrc : decltype(avk::access::memory_dependency::mSrc){};
 			}
-			[[nodiscard]] decltype(avk::access::memory_access2::mDst) dst_access() const {
-				return mAccesses.has_value() ? mAccesses->mDst : decltype(avk::access::memory_access2::mDst){};
+			[[nodiscard]] decltype(avk::access::memory_dependency::mDst) dst_access() const {
+				return mAccesses.has_value() ? mAccesses->mDst : decltype(avk::access::memory_dependency::mDst){};
 			}
 			[[nodiscard]] auto queue_family_ownership_transfer() const { return mQueueFamilyOwnershipTransfer; }
 			[[nodiscard]] auto buffer_memory_barrier_data() const {
@@ -169,28 +169,28 @@ namespace avk
 				return std::get<image_sync_info>(mSpecificData);
 			}
 		private:
-			avk::stage::pipeline_stage2 mStages;
-			std::optional<avk::access::memory_access2> mAccesses;
+			avk::stage::execution_dependency mStages;
+			std::optional<avk::access::memory_dependency> mAccesses;
 			std::optional<queue_family_info> mQueueFamilyOwnershipTransfer;
 			std::variant<std::monostate, buffer_sync_info, image_sync_info> mSpecificData;
 		};
 
-		inline static barrier_data global_execution_barrier(avk::stage::pipeline_stage2 aStages)
+		inline static barrier_data global_execution_barrier(avk::stage::execution_dependency aStages)
 		{
 			return barrier_data{ aStages };
 		}
 
-		inline static barrier_data global_memory_barrier(avk::stage::pipeline_stage2 aStages, avk::access::memory_access2 aAccesses = avk::access::none >> avk::access::none)
+		inline static barrier_data global_memory_barrier(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
 			return barrier_data{ aStages, aAccesses };
 		}
 
-		inline static barrier_data image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage::pipeline_stage2 aStages, avk::access::memory_access2 aAccesses = avk::access::none >> avk::access::none)
+		inline static barrier_data image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
 			return barrier_data{ aStages, aAccesses, aImage, aImage->entire_subresource_range() };
 		}
 
-		inline static barrier_data buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage::pipeline_stage2 aStages, avk::access::memory_access2 aAccesses = avk::access::none >> avk::access::none)
+		inline static barrier_data buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
 			return barrier_data{ aStages, aAccesses, aBuffer, 0, VK_WHOLE_SIZE };
 		}

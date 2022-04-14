@@ -12,25 +12,18 @@ namespace avk
 	struct attachment_store_config
 	{
 		on_store_behavior mStoreBehavior;
-		std::optional<avk::image_layout::image_layout> mTargetLayout;
+		std::optional<avk::layout::image_layout> mTargetLayout;
 
-		attachment_store_config& in_layout(avk::image_layout::image_layout aTargetLayout)
+		attachment_store_config in_layout(avk::layout::image_layout aTargetLayout) const
 		{
-			mTargetLayout = aTargetLayout;
-			return *this;
+			return attachment_store_config{ mStoreBehavior, aTargetLayout };
 		}
 	};
 
 	namespace on_store
 	{
-		inline attachment_store_config dont_care()
-		{
-			return attachment_store_config{ on_store_behavior::dont_care, {} };
-		}
+		static constexpr auto dont_care = attachment_store_config{ on_store_behavior::dont_care, {} };
+		static constexpr auto store     = attachment_store_config{ on_store_behavior::store, {} };
 
-		inline attachment_store_config store()
-		{
-			return attachment_store_config{ on_store_behavior::store, {} };
-		}
 	}
 }

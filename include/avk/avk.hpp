@@ -145,11 +145,11 @@ namespace avk
 
 #include <avk/memory_access.hpp>
 #include <avk/memory_usage.hpp>
-#include <avk/image_layout.hpp>
+#include <avk/layout.hpp>
 #include <avk/on_load.hpp>
 #include <avk/on_store.hpp>
-#include <avk/usage_type.hpp>
-#include <avk/usage_desc.hpp>
+#include <avk/subpass_usage_type.hpp>
+#include <avk/subpass_usages.hpp>
 
 #include <avk/shader_type.hpp>
 #include <avk/pipeline_stage.hpp>

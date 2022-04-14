@@ -155,7 +155,14 @@ namespace avk
 	{
 		using auto_access_t = uint8_t;
 
-		struct memory_access2 
+		/**	To define a memory_dependency, use operator>> with two memory_access_flags values!
+		 *	There are multiple such memory_access_flags values prepared in the avk::access namespace.
+		 *
+		 *	Example:
+		 *	  // Create a memory dependency between color attachment writes and transform reads:
+		 *	  avk::access::color_attachment_write >> avk::access::transfer_read
+		 */
+		struct memory_dependency 
 		{
 			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mSrc;
 			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mDst;
@@ -166,9 +173,9 @@ namespace avk
 			std::variant<std::monostate, vk::AccessFlags2KHR, auto_access_t> mFlags;
 		};
 
-		inline memory_access2 operator>> (memory_access_flags a, memory_access_flags b)
+		inline memory_dependency operator>> (memory_access_flags a, memory_access_flags b)
 		{
-			return memory_access2{ a.mFlags, b.mFlags };
+			return memory_dependency{ a.mFlags, b.mFlags };
 		}
 
 #pragma region memory_access_flags operators
@@ -216,128 +223,128 @@ namespace avk
 #pragma endregion
 
 #pragma region memory_access2 | memory_access_flags operators
-		inline memory_access2 operator| (memory_access2 a, memory_access_flags b)
+		inline memory_dependency operator| (memory_dependency a, memory_access_flags b)
 		{
 			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mDst) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mFlags)) {
 				throw avk::runtime_error("operator| may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
 			}
-			return memory_access2{ a.mSrc, std::get<vk::AccessFlags2KHR>(a.mDst) | std::get<vk::AccessFlags2KHR>(b.mFlags) };
+			return memory_dependency{ a.mSrc, std::get<vk::AccessFlags2KHR>(a.mDst) | std::get<vk::AccessFlags2KHR>(b.mFlags) };
 		}
 
-		inline memory_access2 operator& (memory_access2 a, memory_access_flags b)
+		inline memory_dependency operator& (memory_dependency a, memory_access_flags b)
 		{
 			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mDst) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mFlags)) {
 				throw avk::runtime_error("operator| may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
 			}
-			return memory_access2{ a.mSrc, std::get<vk::AccessFlags2KHR>(a.mDst) & std::get<vk::AccessFlags2KHR>(b.mFlags) };
+			return memory_dependency{ a.mSrc, std::get<vk::AccessFlags2KHR>(a.mDst) & std::get<vk::AccessFlags2KHR>(b.mFlags) };
 		}
 
-		inline memory_access2& operator |= (memory_access2& a, memory_access_flags b)
+		inline memory_dependency& operator |= (memory_dependency& a, memory_access_flags b)
 		{
 			return a = a | b;
 		}
 
-		inline memory_access2& operator &= (memory_access2& a, memory_access_flags b)
+		inline memory_dependency& operator &= (memory_dependency& a, memory_access_flags b)
 		{
 			return a = a & b;
 		}
 #pragma endregion
 
 #pragma region memory_access_flags | memory_access2 operators
-		inline memory_access2 operator| (memory_access_flags a, memory_access2 b)
+		inline memory_dependency operator| (memory_access_flags a, memory_dependency b)
 		{
 			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mSrc)) {
 				throw avk::runtime_error("operator| may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
 			}
-			return memory_access2{ std::get<vk::AccessFlags2KHR>(a.mFlags) | std::get<vk::AccessFlags2KHR>(b.mSrc), b.mDst };
+			return memory_dependency{ std::get<vk::AccessFlags2KHR>(a.mFlags) | std::get<vk::AccessFlags2KHR>(b.mSrc), b.mDst };
 		}
 
-		inline memory_access2 operator& (memory_access_flags a, memory_access2 b)
+		inline memory_dependency operator& (memory_access_flags a, memory_dependency b)
 		{
 			if (!std::holds_alternative<vk::AccessFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::AccessFlags2KHR>(b.mSrc)) {
 				throw avk::runtime_error("operator& may only be used with concrete memory access set, not with auto_access nor with uninitialized values.");
 			}
-			return memory_access2{ std::get<vk::AccessFlags2KHR>(a.mFlags) & std::get<vk::AccessFlags2KHR>(b.mSrc), b.mDst };
+			return memory_dependency{ std::get<vk::AccessFlags2KHR>(a.mFlags) & std::get<vk::AccessFlags2KHR>(b.mSrc), b.mDst };
 		}
 #pragma endregion
 
-		static const auto none                                  = memory_access_flags{ vk::AccessFlagBits2KHR::eNone };
-		static const auto indirect_command_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eIndirectCommandRead };
-		static const auto index_read                            = memory_access_flags{ vk::AccessFlagBits2KHR::eIndexRead };
-		static const auto vertex_attribute_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eVertexAttributeRead };
-		static const auto uniform_read                          = memory_access_flags{ vk::AccessFlagBits2KHR::eUniformRead };
-		static const auto input_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eInputAttachmentRead };
-		static const auto shader_read                           = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderRead };
-		static const auto shader_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderWrite };
-		static const auto color_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentRead };
-		static const auto color_attachment_write                = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentWrite };
-		static const auto depth_stencil_attachment_read         = memory_access_flags{ vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead };
-		static const auto depth_stencil_attachment_write        = memory_access_flags{ vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite };
-		static const auto transfer_read                         = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferRead };
-		static const auto transfer_write                        = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferWrite };
-		static const auto host_read                             = memory_access_flags{ vk::AccessFlagBits2KHR::eHostRead };
-		static const auto host_write                            = memory_access_flags{ vk::AccessFlagBits2KHR::eHostWrite };
-		static const auto memory_read                           = memory_access_flags{ vk::AccessFlagBits2KHR::eMemoryRead };
-		static const auto memory_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eMemoryWrite };
-		static const auto shader_sampled_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderSampledRead };
-		static const auto shader_storage_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageRead };
-		static const auto shader_storage_write                  = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageWrite };
+		static constexpr auto none                                  = memory_access_flags{ vk::AccessFlagBits2KHR::eNone };
+		static constexpr auto indirect_command_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eIndirectCommandRead };
+		static constexpr auto index_read                            = memory_access_flags{ vk::AccessFlagBits2KHR::eIndexRead };
+		static constexpr auto vertex_attribute_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eVertexAttributeRead };
+		static constexpr auto uniform_read                          = memory_access_flags{ vk::AccessFlagBits2KHR::eUniformRead };
+		static constexpr auto input_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eInputAttachmentRead };
+		static constexpr auto shader_read                           = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderRead };
+		static constexpr auto shader_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderWrite };
+		static constexpr auto color_attachment_read                 = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentRead };
+		static constexpr auto color_attachment_write                = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentWrite };
+		static constexpr auto depth_stencil_attachment_read         = memory_access_flags{ vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead };
+		static constexpr auto depth_stencil_attachment_write        = memory_access_flags{ vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite };
+		static constexpr auto transfer_read                         = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferRead };
+		static constexpr auto transfer_write                        = memory_access_flags{ vk::AccessFlagBits2KHR::eTransferWrite };
+		static constexpr auto host_read                             = memory_access_flags{ vk::AccessFlagBits2KHR::eHostRead };
+		static constexpr auto host_write                            = memory_access_flags{ vk::AccessFlagBits2KHR::eHostWrite };
+		static constexpr auto memory_read                           = memory_access_flags{ vk::AccessFlagBits2KHR::eMemoryRead };
+		static constexpr auto memory_write                          = memory_access_flags{ vk::AccessFlagBits2KHR::eMemoryWrite };
+		static constexpr auto shader_sampled_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderSampledRead };
+		static constexpr auto shader_storage_read                   = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageRead };
+		static constexpr auto shader_storage_write                  = memory_access_flags{ vk::AccessFlagBits2KHR::eShaderStorageWrite };
 #if defined( VK_ENABLE_BETA_EXTENSIONS )
 #if VK_HEADER_VERSION >= 204
-		static const auto video_decode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeReadKHR };
-		static const auto video_decode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeWriteKHR };
-		static const auto video_encode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeReadKHR };
-		static const auto video_encode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeWriteKHR };
+		static constexpr auto video_decode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeReadKHR };
+		static constexpr auto video_decode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeWriteKHR };
+		static constexpr auto video_encode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeReadKHR };
+		static constexpr auto video_encode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeWriteKHR };
 #else
-		static const auto video_decode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeRead };
-		static const auto video_decode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeWrite };
-		static const auto video_encode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeRead };
-		static const auto video_encode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeWrite };
+		static constexpr auto video_decode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeRead };
+		static constexpr auto video_decode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoDecodeWrite };
+		static constexpr auto video_encode_read                     = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeRead };
+		static constexpr auto video_encode_write                    = memory_access_flags{ vk::AccessFlagBits2KHR::eVideoEncodeWrite };
 #endif
 #endif
 #if VK_HEADER_VERSION >= 180
-		static const auto transform_feedback_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackWriteEXT };
-		static const auto transform_feedback_counter_read       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterReadEXT };
-		static const auto transform_feedback_counter_write      = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterWriteEXT };
-		static const auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadEXT };
-		static const auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNV };
-		static const auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNV };
-		static const auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV }; 
+		static constexpr auto transform_feedback_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackWriteEXT };
+		static constexpr auto transform_feedback_counter_read       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterReadEXT };
+		static constexpr auto transform_feedback_counter_write      = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterWriteEXT };
+		static constexpr auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadEXT };
+		static constexpr auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNV };
+		static constexpr auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNV };
+		static constexpr auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNV }; 
 #else
-		static const auto transform_feedback_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackWriteExt };
-		static const auto transform_feedback_counter_read       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterReadExt };
-		static const auto transform_feedback_counter_write      = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterWriteExt };
-		static const auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadExt };
-		static const auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNv };
-		static const auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNv };
-		static const auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNv }; 
+		static constexpr auto transform_feedback_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackWriteExt };
+		static constexpr auto transform_feedback_counter_read       = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterReadExt };
+		static constexpr auto transform_feedback_counter_write      = memory_access_flags{ vk::AccessFlagBits2KHR::eTransformFeedbackCounterWriteExt };
+		static constexpr auto conditional_rendering_read            = memory_access_flags{ vk::AccessFlagBits2KHR::eConditionalRenderingReadExt };
+		static constexpr auto command_preprocess_read               = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessReadNv };
+		static constexpr auto command_preprocess_write              = memory_access_flags{ vk::AccessFlagBits2KHR::eCommandPreprocessWriteNv };
+		static constexpr auto shading_rate_image_read				= memory_access_flags{ vk::AccessFlagBits2KHR::eShadingRateImageReadNv }; 
 #endif
 #if VK_HEADER_VERSION >= 204
-		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentReadKHR };
-		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureReadKHR };
-		static const auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR };
+		static constexpr auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentReadKHR };
+		static constexpr auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureReadKHR };
+		static constexpr auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR };
 #elif VK_HEADER_VERSION >= 180
-		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentRead };
-		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureRead };
-		static const auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWrite };
-		static const auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadEXT };
-		static const auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentEXT };
+		static constexpr auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentRead };
+		static constexpr auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureRead };
+		static constexpr auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWrite };
+		static constexpr auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadEXT };
+		static constexpr auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentEXT };
 #else
-		static const auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentRead };
-		static const auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureReadNv };
-		static const auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWriteNv };
-		static const auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadExt };
-		static const auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentExt };
+		static constexpr auto fragment_shading_rate_attachment_read = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentShadingRateAttachmentRead };
+		static constexpr auto acceleration_structure_read           = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureReadNv };
+		static constexpr auto acceleration_structure_write          = memory_access_flags{ vk::AccessFlagBits2KHR::eAccelerationStructureWriteNv };
+		static constexpr auto fragment_density_map_read             = memory_access_flags{ vk::AccessFlagBits2KHR::eFragmentDensityMapReadExt };
+		static constexpr auto color_attachment_read_noncoherent     = memory_access_flags{ vk::AccessFlagBits2KHR::eColorAttachmentReadNoncoherentExt };
 #endif
 #if VK_HEADER_VERSION >= 204
-		static const auto invocation_mask_read                  = memory_access_flags{ vk::AccessFlagBits2KHR::eInvocationMaskReadHUAWEI };
+		static constexpr auto invocation_mask_read                  = memory_access_flags{ vk::AccessFlagBits2KHR::eInvocationMaskReadHUAWEI };
 #endif
 
 		/** Automatically try to determine the preceding/succeeding access and establish a memory dependency to it.
 		 *	If a specific access cannot be determined, a rather hefty memory dependency will be installed, so that
 		 *	correctness is prioritized over performance.
 		 */
-		static const auto auto_access = memory_access_flags{ auto_access_t{ 0 } };
+		static constexpr auto auto_access = memory_access_flags{ auto_access_t{ 0 } };
 
 		/** Automatically try to establish a memory dependency to the given number of preceding/succeeding stages.
 		 *	If specific access cannot be determined, a rather hefty memory dependency will be installed, so that

@@ -111,7 +111,14 @@ namespace avk
 	{
 		using auto_stage_t = uint8_t;
 
-		struct pipeline_stage2
+		/**	To define an execution_dependency, use operator>> with two pipeline_stage_flags values!
+		 *	There are multiple such pipeline_stage_flags values prepared in the avk::stage namespace.
+		 *
+		 *	Example:
+		 *	  // Create an execution dependency between copy commands and fragment shader stages:
+		 *	  avk::stage::copy >> avk::stage::fragment_shader
+		 */
+		struct execution_dependency
 		{
 			std::variant<std::monostate, vk::PipelineStageFlags2KHR, auto_stage_t> mSrc;
 			std::variant<std::monostate, vk::PipelineStageFlags2KHR, auto_stage_t> mDst;
@@ -122,9 +129,9 @@ namespace avk
 			std::variant<std::monostate, vk::PipelineStageFlags2KHR, auto_stage_t> mFlags;
 		};
 
-		inline pipeline_stage2 operator>> (pipeline_stage_flags a, pipeline_stage_flags b)
+		inline execution_dependency operator>> (pipeline_stage_flags a, pipeline_stage_flags b)
 		{
-			return pipeline_stage2{ a.mFlags, b.mFlags };
+			return execution_dependency{ a.mFlags, b.mFlags };
 		}
 
 #pragma region pipeline_stage_flags operators
@@ -172,125 +179,125 @@ namespace avk
 #pragma endregion
 
 #pragma region pipeline_stage2 | pipeline_stage_flags operators
-		inline pipeline_stage2 operator| (pipeline_stage2 a, pipeline_stage_flags b)
+		inline execution_dependency operator| (execution_dependency a, pipeline_stage_flags b)
 		{
 			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mDst) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mFlags)) {
 				throw avk::runtime_error("operator| may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
 			}
-			return pipeline_stage2{ a.mSrc, std::get<vk::PipelineStageFlags2KHR>(a.mDst) | std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
+			return execution_dependency{ a.mSrc, std::get<vk::PipelineStageFlags2KHR>(a.mDst) | std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
 		}
 
-		inline pipeline_stage2 operator& (pipeline_stage2 a, pipeline_stage_flags b)
+		inline execution_dependency operator& (execution_dependency a, pipeline_stage_flags b)
 		{
 			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mDst) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mFlags)) {
 				throw avk::runtime_error("operator& may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
 			}
-			return pipeline_stage2{ a.mSrc, std::get<vk::PipelineStageFlags2KHR>(a.mDst) & std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
+			return execution_dependency{ a.mSrc, std::get<vk::PipelineStageFlags2KHR>(a.mDst) & std::get<vk::PipelineStageFlags2KHR>(b.mFlags) };
 		}
 
-		inline pipeline_stage2& operator |= (pipeline_stage2& a, pipeline_stage_flags b)
+		inline execution_dependency& operator |= (execution_dependency& a, pipeline_stage_flags b)
 		{
 			return a = a | b;
 		}
 
-		inline pipeline_stage2& operator &= (pipeline_stage2& a, pipeline_stage_flags b)
+		inline execution_dependency& operator &= (execution_dependency& a, pipeline_stage_flags b)
 		{
 			return a = a & b;
 		}
 #pragma endregion
 
 #pragma region pipeline_stage_flags | pipeline_stage2 operators
-		inline pipeline_stage2 operator| (pipeline_stage_flags a, pipeline_stage2 b)
+		inline execution_dependency operator| (pipeline_stage_flags a, execution_dependency b)
 		{
 			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mSrc)) {
 				throw avk::runtime_error("operator| may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
 			}
-			return pipeline_stage2{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) | std::get<vk::PipelineStageFlags2KHR>(b.mSrc), b.mDst };
+			return execution_dependency{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) | std::get<vk::PipelineStageFlags2KHR>(b.mSrc), b.mDst };
 		}
 
-		inline pipeline_stage2 operator& (pipeline_stage_flags a, pipeline_stage2 b)
+		inline execution_dependency operator& (pipeline_stage_flags a, execution_dependency b)
 		{
 			if (!std::holds_alternative<vk::PipelineStageFlags2KHR>(a.mFlags) || !std::holds_alternative<vk::PipelineStageFlags2KHR>(b.mSrc)) {
 				throw avk::runtime_error("operator& may only be used with concrete pipeline stages set, not with auto_stage nor with uninitialized values.");
 			}
-			return pipeline_stage2{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) & std::get<vk::PipelineStageFlags2KHR>(b.mSrc), b.mDst };
+			return execution_dependency{ std::get<vk::PipelineStageFlags2KHR>(a.mFlags) & std::get<vk::PipelineStageFlags2KHR>(b.mSrc), b.mDst };
 		}
 #pragma endregion
 
-		static const auto none                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eNone };
-		static const auto top_of_pipe                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTopOfPipe };
-		static const auto draw_indirect                    = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eDrawIndirect };
-		static const auto vertex_input                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexInput };
-		static const auto vertex_shader                    = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexShader };
-		static const auto tessellation_control_shader      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTessellationControlShader };
-		static const auto tessellation_evaluation_shader   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTessellationEvaluationShader };
-		static const auto geometry_shader                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eGeometryShader };
-		static const auto fragment_shader                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShader };
-		static const auto early_fragment_tests             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests };
-		static const auto late_fragment_tests              = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eLateFragmentTests };
-		static const auto color_attachment_output          = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput };
-		static const auto compute_shader                   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eComputeShader };
-		static const auto all_transfer                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllTransfer };
-		static const auto transfer                         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransfer };
-		static const auto bottom_of_pipe                   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eBottomOfPipe };
-		static const auto host                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eHost };
-		static const auto all_graphics                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllGraphics };
-		static const auto all_commands                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllCommands };
-		static const auto copy                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCopy };
-		static const auto resolve                          = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eResolve };
-		static const auto blit                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eBlit };
-		static const auto clear                            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eClear };
-		static const auto index_input                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eIndexInput };
-		static const auto vertex_attribute_input           = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexAttributeInput };
-		static const auto pre_rasterization_shaders        = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::ePreRasterizationShaders };
+		static constexpr auto none                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eNone };
+		static constexpr auto top_of_pipe                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTopOfPipe };
+		static constexpr auto draw_indirect                    = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eDrawIndirect };
+		static constexpr auto vertex_input                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexInput };
+		static constexpr auto vertex_shader                    = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexShader };
+		static constexpr auto tessellation_control_shader      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTessellationControlShader };
+		static constexpr auto tessellation_evaluation_shader   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTessellationEvaluationShader };
+		static constexpr auto geometry_shader                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eGeometryShader };
+		static constexpr auto fragment_shader                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShader };
+		static constexpr auto early_fragment_tests             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests };
+		static constexpr auto late_fragment_tests              = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eLateFragmentTests };
+		static constexpr auto color_attachment_output          = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput };
+		static constexpr auto compute_shader                   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eComputeShader };
+		static constexpr auto all_transfer                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllTransfer };
+		static constexpr auto transfer                         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransfer };
+		static constexpr auto bottom_of_pipe                   = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eBottomOfPipe };
+		static constexpr auto host                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eHost };
+		static constexpr auto all_graphics                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllGraphics };
+		static constexpr auto all_commands                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAllCommands };
+		static constexpr auto copy                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCopy };
+		static constexpr auto resolve                          = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eResolve };
+		static constexpr auto blit                             = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eBlit };
+		static constexpr auto clear                            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eClear };
+		static constexpr auto index_input                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eIndexInput };
+		static constexpr auto vertex_attribute_input           = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVertexAttributeInput };
+		static constexpr auto pre_rasterization_shaders        = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::ePreRasterizationShaders };
 #if defined( VK_ENABLE_BETA_EXTENSIONS )
 #if VK_HEADER_VERSION >= 204
-		static const auto video_decode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoDecodeKHR };
-		static const auto video_encode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoEncodeKHR };
+		static constexpr auto video_decode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoDecodeKHR };
+		static constexpr auto video_encode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoEncodeKHR };
 #else
-		static const auto video_decode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoDecode };
-		static const auto video_encode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoEncode };
+		static constexpr auto video_decode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoDecode };
+		static constexpr auto video_encode                     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eVideoEncode };
 #endif
 #endif
 #if VK_HEADER_VERSION >= 180
-		static const auto transform_feedback               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransformFeedbackEXT };
-		static const auto conditional_rendering            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eConditionalRenderingEXT };
-		static const auto command_preprocess               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCommandPreprocessNV };
-		static const auto shading_rate_image               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eShadingRateImageNV };
+		static constexpr auto transform_feedback               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransformFeedbackEXT };
+		static constexpr auto conditional_rendering            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eConditionalRenderingEXT };
+		static constexpr auto command_preprocess               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCommandPreprocessNV };
+		static constexpr auto shading_rate_image               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eShadingRateImageNV };
 #else
-		static const auto transform_feedback               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransformFeedbackExt };
-		static const auto conditional_rendering            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eConditionalRenderingExt };
-		static const auto command_preprocess               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCommandPreprocessNv };
-		static const auto shading_rate_image               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eShadingRateImageNv };
+		static constexpr auto transform_feedback               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTransformFeedbackExt };
+		static constexpr auto conditional_rendering            = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eConditionalRenderingExt };
+		static constexpr auto command_preprocess               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eCommandPreprocessNv };
+		static constexpr auto shading_rate_image               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eShadingRateImageNv };
 #endif 
 #if VK_HEADER_VERSION >= 204
-		static const auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachmentKHR };
-		static const auto acceleration_structure_build     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR };
-		static const auto ray_tracing_shader               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eRayTracingShaderKHR };
+		static constexpr auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachmentKHR };
+		static constexpr auto acceleration_structure_build     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR };
+		static constexpr auto ray_tracing_shader               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eRayTracingShaderKHR };
 #else
-		static const auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachment };
-		static const auto acceleration_structure_build     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild };
-		static const auto ray_tracing_shader               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eRayTracingShader };
+		static constexpr auto fragment_shading_rate_attachment = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentShadingRateAttachment };
+		static constexpr auto acceleration_structure_build     = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild };
+		static constexpr auto ray_tracing_shader               = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eRayTracingShader };
 #endif
 #if VK_HEADER_VERSION >= 180
-		static const auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessEXT };
-		static const auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNV };
-		static const auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNV };
+		static constexpr auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessEXT };
+		static constexpr auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNV };
+		static constexpr auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNV };
 #else
-		static const auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessExt };
-		static const auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNv };
-		static const auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNv };
+		static constexpr auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessExt };
+		static constexpr auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNv };
+		static constexpr auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNv };
 #endif
 #if VK_HEADER_VERSION >= 204
-		static const auto subpass_shading                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eSubpassShadingHUAWEI };
-		static const auto invocation_mask                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eInvocationMaskHUAWEI };
+		static constexpr auto subpass_shading                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eSubpassShadingHUAWEI };
+		static constexpr auto invocation_mask                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eInvocationMaskHUAWEI };
 #endif
 
 		/** Automatically try to determine the preceding/succeeding stage and establish a synchronization dependency to it.
 		 *	If a specific stage cannot be determined, a rather hefty synchronization dependency will be installed, so that
 		 *	correctness is prioritized over performance.
 		 */
-		static const auto auto_stage                       = pipeline_stage_flags{ auto_stage_t{ 0 } };
+		static constexpr auto auto_stage                       = pipeline_stage_flags{ auto_stage_t{ 0 } };
 
 		/** Automatically try to establish a synchronization dependency to the given number of preceding/succeeding stages.
 		 *	If specific stages cannot be determined, a rather hefty synchronization dependency will be installed, so that

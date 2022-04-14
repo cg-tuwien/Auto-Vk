@@ -27,13 +27,13 @@ namespace avk
 
 	struct subpass_dependency
 	{
-		subpass_dependency(subpass::subpass_index2 aIndices, stage::pipeline_stage2 aStages, access::memory_access2 aAccesses)
+		subpass_dependency(subpass::subpass_index2 aIndices, stage::execution_dependency aStages, access::memory_dependency aAccesses)
 			: mIndices{ aIndices }
 			, mStages{ aStages }
 			, mAccesses{ aAccesses }
 		{}
 
-		subpass_dependency(subpass::subpass_index2 aIndices, stage::pipeline_stage2 aStages)
+		subpass_dependency(subpass::subpass_index2 aIndices, stage::execution_dependency aStages)
 			: mIndices{ aIndices }
 			, mStages{ aStages } {
 			mAccesses = access::none >> access::none;
@@ -46,8 +46,8 @@ namespace avk
 		}
 
 		subpass::subpass_index2 mIndices;
-		stage::pipeline_stage2 mStages;
-		access::memory_access2 mAccesses;
+		stage::execution_dependency mStages;
+		access::memory_dependency mAccesses;
 	};
 
 	using subpass_dependencies = std::vector<subpass_dependency>;

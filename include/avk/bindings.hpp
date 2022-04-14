@@ -158,7 +158,7 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_sampled_image>>::type as_sampled_images(const T& aCollection, avk::image_layout::image_layout aImageLayout)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_sampled_image>>::type as_sampled_images(const T& aCollection, avk::layout::image_layout aImageLayout)
 	{
 		std::vector<image_view_as_sampled_image> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
@@ -168,7 +168,7 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_input_attachment>>::type as_input_attachments(const T& aCollection, avk::image_layout::image_layout aImageLayout)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_input_attachment>>::type as_input_attachments(const T& aCollection, avk::layout::image_layout aImageLayout)
 	{
 		std::vector<image_view_as_input_attachment> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
@@ -178,7 +178,7 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_storage_image>>::type as_storage_images(const T& aCollection, avk::image_layout::image_layout aImageLayout)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_storage_image>>::type as_storage_images(const T& aCollection, avk::layout::image_layout aImageLayout)
 	{
 		std::vector<image_view_as_storage_image> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
@@ -188,7 +188,7 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<combined_image_sampler_descriptor_info>>::type as_combined_image_samplers(const T& aCollection, avk::image_layout::image_layout aImageLayout)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<combined_image_sampler_descriptor_info>>::type as_combined_image_samplers(const T& aCollection, avk::layout::image_layout aImageLayout)
 	{
 		std::vector<combined_image_sampler_descriptor_info> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
