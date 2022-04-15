@@ -5,11 +5,11 @@ namespace avk
 {
 	struct subpass_usage_type
 	{
-		static subpass_usage_type create_unused()			{ return { false, false, false, false,  -1,  -1, false, -1 }; }
-		static subpass_usage_type create_input(int loc)		{ return { true , false, false, false, loc,  -1, false, -1 }; }
-		static subpass_usage_type create_color(int loc)		{ return { false, true , false, false,  -1, loc, false, -1 }; }
-		static subpass_usage_type create_depth_stencil()	{ return { false, false, true , false,  -1,  -1, false, -1 }; }
-		static subpass_usage_type create_preserve()			{ return { false, false, false, true ,  -1,  -1, false, -1 }; }
+		static subpass_usage_type create_unused()			{ return { false, false, false, false,  -1,  -1, false, -1, {} }; }
+		static subpass_usage_type create_input(int loc)		{ return { true , false, false, false, loc,  -1, false, -1, {} }; }
+		static subpass_usage_type create_color(int loc)		{ return { false, true , false, false,  -1, loc, false, -1, {} }; }
+		static subpass_usage_type create_depth_stencil()	{ return { false, false, true , false,  -1,  -1, false, -1, {} }; }
+		static subpass_usage_type create_preserve()			{ return { false, false, false, true ,  -1,  -1, false, -1, {} }; }
 		
 		bool as_unused() const { return !(mInput || mColor || mDepthStencil || mPreserve); }
 		bool as_input() const { return mInput; }
@@ -23,6 +23,12 @@ namespace avk
 		auto color_location() const { return mColorLocation; }
 		bool has_resolve() const { return mResolve; }
 		auto resolve_target_index() const { return mResolveAttachmentIndex; }
+
+		subpass_usage_type& use_aspect(vk::ImageAspectFlags aAspect)
+		{
+			mAspectToBeUsed = aAspect;
+			return *this;
+		}
 		
 		bool mInput;
 		bool mColor;
@@ -32,5 +38,7 @@ namespace avk
 		int mColorLocation;
 		bool mResolve;
 		int mResolveAttachmentIndex;
+
+		vk::ImageAspectFlags mAspectToBeUsed;
 	};
 }

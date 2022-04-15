@@ -7087,6 +7087,10 @@ namespace avk
 			const auto isStencilStore  = avk::on_store_behavior::store == a.get_stencil_store_op().mStoreBehavior;
 			const auto hasStencilComponent = has_stencil_component(a.format());
 
+			const auto attachmentAspect = is_depth_format(a.format())
+				? vk::ImageAspectFlagBits::eDepth
+				: vk::ImageAspectFlagBits::eColor;
+
 			//bool initialLayoutFixed = false;
 			//auto firstUsage = a.get_first_color_depth_input();
 			//if (firstUsage.as_input()) {
@@ -7218,6 +7222,7 @@ namespace avk
 			for (size_t i = 0; i < nSubpasses; ++i) {
 				auto& sp = subpasses[i];
 				auto subpassUsage = a.mSubpassUsages.get_subpass_usage(i);
+				auto subpassAspect = static_cast<bool>(subpassUsage.mAspectToBeUsed) ? subpassUsage.mAspectToBeUsed : vk::ImageAspectFlags{ attachmentAspect };
 				if (subpassUsage.as_input()) {
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment
 					if (subpassUsage.has_input_location()) {
@@ -7225,12 +7230,19 @@ namespace avk
 						if (sp.mSpecificInputLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for an input attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificInputLocations[loc] = vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal));
+						sp.mSpecificInputLocations[loc] = vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal))
+							.setAspectMask(subpassAspect);
 						sp.mInputMaxLoc = std::max(sp.mInputMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for an input attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal)));
+						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal))
+							.setAspectMask(subpassAspect)
+						);
 					}
 				}
 				if (subpassUsage.as_color()) {
@@ -7240,14 +7252,28 @@ namespace avk
 						if (sp.mSpecificColorLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for a color attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificColorLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal));
-						sp.mSpecificResolveLocations[loc] =	vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal));
+						sp.mSpecificColorLocations[loc] =	vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect);
+						sp.mSpecificResolveLocations[loc] =	vk::AttachmentReference2KHR{}
+							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect);
 						sp.mColorMaxLoc = std::max(sp.mColorMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for a color attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex                                                     ).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal)));
-						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference2KHR{}.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED).setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal)));
+						sp.mUnspecifiedColorLocations.push(vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect)
+						);
+						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference2KHR{}
+							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect)
+						);
 					}
 				}
 				if (subpassUsage.as_depth_stencil()) {
@@ -7259,7 +7285,11 @@ namespace avk
 					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference2KHR{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
 					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
 					//}
-					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}.setAttachment(attachmentIndex).setLayout(useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)));
+					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}
+						.setAttachment(attachmentIndex)
+						.setLayout(useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal))
+						.setAspectMask(subpassAspect)
+					);
 				}
 				if (subpassUsage.as_preserve()) {
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment

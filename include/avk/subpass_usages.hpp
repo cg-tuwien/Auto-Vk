@@ -117,6 +117,7 @@ namespace avk
 	{
 		static const auto unused = subpass_usages{ subpass_usage_type::create_unused() };
 		static const auto resolve_receiver = subpass_usages{ subpass_usage_type::create_unused() };
+
 		inline static auto input(int location) { return subpass_usages{ subpass_usage_type::create_input(location) }; }
 		inline static auto color(int location) { return subpass_usages{ subpass_usage_type::create_color(location) }; }
 
@@ -131,7 +132,7 @@ namespace avk
 			return subpass_usages{ r };
 		}
 
-		inline static auto depth_stencil(int location = 0) { return subpass_usages{ subpass_usage_type::create_depth_stencil() }; }
+		static const auto depth_stencil = subpass_usages{ subpass_usage_type::create_depth_stencil() };
 		static const auto preserve = subpass_usages{ subpass_usage_type::create_preserve() };
 	}
 }
