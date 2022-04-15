@@ -116,7 +116,6 @@ namespace avk
 	namespace usage
 	{
 		static const auto unused = subpass_usages{ subpass_usage_type::create_unused() };
-		static const auto resolve_receiver = subpass_usages{ subpass_usage_type::create_unused() };
 
 		inline static auto input(int location) { return subpass_usages{ subpass_usage_type::create_input(location) }; }
 		inline static auto color(int location) { return subpass_usages{ subpass_usage_type::create_color(location) }; }

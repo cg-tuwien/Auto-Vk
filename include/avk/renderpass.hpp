@@ -28,9 +28,14 @@ namespace avk
 			// The ordered list of depth attachments. Actually, only one or zero are supported.
 			std::vector<vk::AttachmentReference2KHR> mOrderedDepthStencilAttachmentRefs;
 
-			// The ordered list of attachments that shall be resolved.
+			// The ordered list of color attachments that shall be resolved.
 			// The length of this list must be zero or the same length as the color attachments.
-			std::vector<vk::AttachmentReference2KHR> mOrderedResolveAttachmentRefs;
+			std::vector<vk::AttachmentReference2KHR> mOrderedColorResolveAttachmentRefs;
+
+			// Ordered list of depth/stencil attachments that shall be resolved.
+			// The length of this list must be zero or the same length as the depth/stencil attachments (I guess).
+			std::vector<vk::AttachmentReference2KHR> mOrderedDepthStencilResolveAttachmentRefs;
+			std::vector<vk::SubpassDescriptionDepthStencilResolve> mOrderedDepthStencilResolveAttachmentData;
 
 			// The list of attachments that are to be preserved
 			std::vector<uint32_t> mPreserveAttachments;

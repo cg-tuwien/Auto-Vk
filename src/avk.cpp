@@ -6940,11 +6940,12 @@ namespace avk
 		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificColorLocations;
 		std::queue<vk::AttachmentReference2KHR> mUnspecifiedColorLocations;
 		int mColorMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificDepthStencilLocations;
 		std::queue<vk::AttachmentReference2KHR> mUnspecifiedDepthStencilLocations;
 		int mDepthStencilMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificResolveLocations;
-		std::queue<vk::AttachmentReference2KHR> mUnspecifiedResolveLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificColorResolveLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedColorResolveLocations;
+		std::queue<vk::SubpassDescriptionDepthStencilResolve> mUnspecifiedDepthStencilResolveData;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedDepthStencilResolveRefs;
 		std::vector<uint32_t> mPreserveAttachments;
 	};
 
@@ -6958,6 +6959,14 @@ namespace avk
 		for (size_t i = 0; i < nSubpasses; ++i) {
 			auto& b = aRenderpass.mSubpassData[i];
 
+			assert(b.mOrderedDepthStencilResolveAttachmentRefs.size() == b.mOrderedDepthStencilResolveAttachmentData.size());
+			const auto nDepthStencilResolve = b.mOrderedDepthStencilResolveAttachmentRefs.size();
+			for (size_t ids = 0; ids < nDepthStencilResolve; ++ids) {
+				b.mOrderedDepthStencilResolveAttachmentData[ids].setPDepthStencilResolveAttachment(
+					&b.mOrderedDepthStencilResolveAttachmentRefs[ids]
+				);
+			}
+
 			aRenderpass.mSubpasses.push_back(vk::SubpassDescription2KHR{}
 				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
@@ -6966,15 +6975,18 @@ namespace avk
 				// If pResolveAttachments is not NULL, each of its elements corresponds to a color attachment
 				//  (the element in pColorAttachments at the same index), and a multisample resolve operation
 				//  is defined for each attachment. [1]
-				.setPResolveAttachments(b.mOrderedResolveAttachmentRefs.size() == 0 ? nullptr : b.mOrderedResolveAttachmentRefs.data())
+				.setPResolveAttachments(b.mOrderedColorResolveAttachmentRefs.empty() ? nullptr : b.mOrderedColorResolveAttachmentRefs.data())
 				// If pDepthStencilAttachment is NULL, or if its attachment index is VK_ATTACHMENT_UNUSED, it
 				//  indicates that no depth/stencil attachment will be used in the subpass. [1]
-				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.size() == 0 ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
+				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.empty() ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
 				// The following two attachment types are probably totally irrelevant if we only have one subpass
 				.setInputAttachmentCount(static_cast<uint32_t>(b.mOrderedInputAttachmentRefs.size()))
 				.setPInputAttachments(b.mOrderedInputAttachmentRefs.data())
 				.setPreserveAttachmentCount(static_cast<uint32_t>(b.mPreserveAttachments.size()))
-				.setPPreserveAttachments(b.mPreserveAttachments.data()));
+				.setPPreserveAttachments(b.mPreserveAttachments.data())
+				// Add depth/stencil resolve attachment:
+				.setPNext(b.mOrderedDepthStencilResolveAttachmentData.empty() ? nullptr : b.mOrderedDepthStencilResolveAttachmentData.data())
+			);				
 		}
 	}
 
@@ -7256,7 +7268,7 @@ namespace avk
 							.setAttachment(attachmentIndex)
 							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
 							.setAspectMask(subpassAspect);
-						sp.mSpecificResolveLocations[loc] =	vk::AttachmentReference2KHR{}
+						sp.mSpecificColorResolveLocations[loc] =	vk::AttachmentReference2KHR{}
 							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
 							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
 							.setAspectMask(subpassAspect);
@@ -7269,7 +7281,7 @@ namespace avk
 							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
 							.setAspectMask(subpassAspect)
 						);
-						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference2KHR{}
+						sp.mUnspecifiedColorResolveLocations.push(vk::AttachmentReference2KHR{}
 							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
 							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
 							.setAspectMask(subpassAspect)
@@ -7277,24 +7289,41 @@ namespace avk
 					}
 				}
 				if (subpassUsage.as_depth_stencil()) {
-					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment // TODO: Support depth/stencil resolve by using VkSubpassDescription2
-					//if (hasLoc) { // Depth/stencil attachments have no location... have they?
-					//	if (sp.mSpecificDepthStencilLocations.count(loc) != 0) {
-					//		throw avk::runtime_error(fmt::format("Layout location {} is used multiple times for a depth/stencil attachments in subpass {}. This is not allowed.", loc, i));
-					//	}
-					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference2KHR{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
-					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
-					//}
+					auto resolve = subpassUsage.has_resolve();
 					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}
 						.setAttachment(attachmentIndex)
 						.setLayout(useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal))
 						.setAspectMask(subpassAspect)
 					);
+					if (resolve) {
+						sp.mUnspecifiedDepthStencilResolveData.push(vk::SubpassDescriptionDepthStencilResolve{}
+							.setDepthResolveMode(vk::ResolveModeFlagBits::eAverage)
+							.setStencilResolveMode(vk::ResolveModeFlagBits::eAverage)
+							// pDepthStencilResolveAttachment to be set later to aligned vector   vvv   never forgetti!
+						);
+						sp.mUnspecifiedDepthStencilResolveRefs.push(vk::AttachmentReference2KHR{}
+							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
+							.setLayout(useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal))
+							.setAspectMask(subpassAspect)
+						);
+					}
 				}
 				if (subpassUsage.as_preserve()) {
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment
 					assert(!subpassUsage.as_input() && !subpassUsage.as_color() && !subpassUsage.as_depth_stencil()); // Makes no sense to preserve and use as something else
 					sp.mPreserveAttachments.push_back(attachmentIndex);
+				}
+				if (subpassUsage.as_unused()) {
+					for (const auto& aaaarr : aAttachments) {
+						if (aaaarr.mSubpassUsages.get_subpass_usage(i).resolve_target_index() == attachmentIndex) { // Talkin 'bout me, bro?
+							if (aaaarr.mSubpassUsages.get_subpass_usage(i).as_color()) {
+								useLayout(vk::ImageLayout::eColorAttachmentOptimal);
+							}
+							else if (aaaarr.mSubpassUsages.get_subpass_usage(i).as_depth_stencil()) {
+								useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+							}
+						}
+					}
 				}
 			}
 
@@ -7331,45 +7360,48 @@ namespace avk
 			for (int loc = 0; loc <= a.mColorMaxLoc || !a.mUnspecifiedColorLocations.empty(); ++loc) {
 				if (a.mSpecificColorLocations.count(loc) > 0) {
 					assert (a.mSpecificColorLocations.count(loc) == 1);
-					assert (a.mSpecificResolveLocations.count(loc) == 1);
+					assert (a.mSpecificColorResolveLocations.count(loc) == 1);
 					b.mOrderedColorAttachmentRefs.push_back(a.mSpecificColorLocations[loc]);
-					b.mOrderedResolveAttachmentRefs.push_back(a.mSpecificResolveLocations[loc]);
+					b.mOrderedColorResolveAttachmentRefs.push_back(a.mSpecificColorResolveLocations[loc]);
 				}
 				else {
 					if (!a.mUnspecifiedColorLocations.empty()) {
-						assert(a.mUnspecifiedColorLocations.size() == a.mUnspecifiedResolveLocations.size());
+						assert(a.mUnspecifiedColorLocations.size() == a.mUnspecifiedColorResolveLocations.size());
 						b.mOrderedColorAttachmentRefs.push_back(a.mUnspecifiedColorLocations.front());
 						a.mUnspecifiedColorLocations.pop();
-						b.mOrderedResolveAttachmentRefs.push_back(a.mUnspecifiedResolveLocations.front());
-						a.mUnspecifiedResolveLocations.pop();
+						b.mOrderedColorResolveAttachmentRefs.push_back(a.mUnspecifiedColorResolveLocations.front());
+						a.mUnspecifiedColorResolveLocations.pop();
 					}
 					else {
 						b.mOrderedColorAttachmentRefs.push_back(unusedAttachmentRef);
-						b.mOrderedResolveAttachmentRefs.push_back(unusedAttachmentRef);
+						b.mOrderedColorResolveAttachmentRefs.push_back(unusedAttachmentRef);
 					}
 				}
 			}
 			// DEPTH/STENCIL ATTACHMENTS
 			for (int loc = 0; loc <= a.mDepthStencilMaxLoc || !a.mUnspecifiedDepthStencilLocations.empty(); ++loc) {
-				if (a.mSpecificDepthStencilLocations.count(loc) > 0) {
-					assert (a.mSpecificDepthStencilLocations.count(loc) == 1);
-					b.mOrderedDepthStencilAttachmentRefs.push_back(a.mSpecificDepthStencilLocations[loc]);
+				if (!a.mUnspecifiedDepthStencilLocations.empty()) {
+					b.mOrderedDepthStencilAttachmentRefs.push_back(a.mUnspecifiedDepthStencilLocations.front());
+					a.mUnspecifiedDepthStencilLocations.pop();
+					if (!a.mUnspecifiedDepthStencilResolveRefs.empty()) {
+						assert(a.mUnspecifiedDepthStencilResolveRefs.size() == a.mUnspecifiedDepthStencilResolveData.size());
+						b.mOrderedDepthStencilResolveAttachmentRefs.push_back(a.mUnspecifiedDepthStencilResolveRefs.front());
+						a.mUnspecifiedDepthStencilResolveRefs.pop();
+						b.mOrderedDepthStencilResolveAttachmentData.push_back(a.mUnspecifiedDepthStencilResolveData.front());
+						a.mUnspecifiedDepthStencilResolveData.pop();
+					}
 				}
 				else {
-					if (!a.mUnspecifiedDepthStencilLocations.empty()) {
-						b.mOrderedDepthStencilAttachmentRefs.push_back(a.mUnspecifiedDepthStencilLocations.front());
-						a.mUnspecifiedDepthStencilLocations.pop();
-					}
-					else {
-						b.mOrderedDepthStencilAttachmentRefs.push_back(unusedAttachmentRef);
-					}
+					b.mOrderedDepthStencilAttachmentRefs.push_back(unusedAttachmentRef);
 				}
 			}
 			b.mPreserveAttachments = std::move(a.mPreserveAttachments);
 
 			// SOME SANITY CHECKS:
-			// - The resolve attachments must either be empty or there must be a entry for each color attachment
-			assert(b.mOrderedResolveAttachmentRefs.empty() || b.mOrderedResolveAttachmentRefs.size() == b.mOrderedColorAttachmentRefs.size());
+			// - The color resolve attachments must either be empty or there must be a entry for each color attachment
+			assert(b.mOrderedColorResolveAttachmentRefs.empty() || b.mOrderedColorResolveAttachmentRefs.size() == b.mOrderedColorAttachmentRefs.size());
+			// - The depth/stencil resolve attachments must either be empty or there must be a entry for each depth/stencil attachment
+			assert(b.mOrderedDepthStencilResolveAttachmentRefs.empty() || b.mOrderedDepthStencilResolveAttachmentRefs.size() == b.mOrderedDepthStencilAttachmentRefs.size());
 			// - There must not be more than 1 depth/stencil attachements
 			assert(b.mOrderedDepthStencilAttachmentRefs.size() <= 1);
 		}
@@ -7474,7 +7506,7 @@ namespace avk
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
-		return b.mOrderedResolveAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedResolveAttachmentRefs), std::end(b.mOrderedResolveAttachmentRefs),
+		return b.mOrderedColorResolveAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedColorResolveAttachmentRefs), std::end(b.mOrderedColorResolveAttachmentRefs),
 			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
@@ -7512,7 +7544,7 @@ namespace avk
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
-		return b.mOrderedResolveAttachmentRefs;
+		return b.mOrderedColorResolveAttachmentRefs;
 	}
 
 	const std::vector<uint32_t>& renderpass_t::preserve_attachments_for_subpass(uint32_t aSubpassId)
