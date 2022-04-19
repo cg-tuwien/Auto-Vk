@@ -65,11 +65,13 @@ namespace avk
 		bool is_resolve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const;
 		bool is_preserve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const;
 
-		const std::vector<vk::AttachmentReference2KHR>& input_attachments_for_subpass(uint32_t aSubpassId);
-		const std::vector<vk::AttachmentReference2KHR>& color_attachments_for_subpass(uint32_t aSubpassId);
-		const std::vector<vk::AttachmentReference2KHR>& depth_stencil_attachments_for_subpass(uint32_t aSubpassId);
-		const std::vector<vk::AttachmentReference2KHR>& resolve_attachments_for_subpass(uint32_t aSubpassId);
-		const std::vector<uint32_t>& preserve_attachments_for_subpass(uint32_t aSubpassId);
+		const std::vector<vk::AttachmentReference2KHR>& input_attachments_for_subpass(uint32_t aSubpassId) const;
+		const std::vector<vk::AttachmentReference2KHR>& color_attachments_for_subpass(uint32_t aSubpassId) const;
+		const std::vector<vk::AttachmentReference2KHR>& depth_stencil_attachments_for_subpass(uint32_t aSubpassId) const;
+		const std::vector<vk::AttachmentReference2KHR>& resolve_attachments_for_subpass(uint32_t aSubpassId) const;
+		const std::vector<uint32_t>& preserve_attachments_for_subpass(uint32_t aSubpassId) const;
+
+		vk::SampleCountFlagBits num_samples_for_subpass(uint32_t aSubpassId) const;
 
 		const auto& create_info() const	{ return mCreateInfo; }
 		auto& create_info()				{ return mCreateInfo; }

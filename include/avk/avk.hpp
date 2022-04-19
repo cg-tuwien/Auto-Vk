@@ -647,8 +647,31 @@ namespace avk
 #pragma endregion
 
 #pragma region graphics pipeline
+		/** Helper function which internally rewires all the config that is necessary for graphics pipeline creation. */
 		void rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline);
+
+		/**	Creates a graphics pipeline based on the passed configuration.
+		 *	@param	aConfig						Configuration parameters for the graphics pipeline
+		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the pipeline's config right before it is being created on the device.
+		 *	@return A new graphics pipeline instance.
+		 */
 		graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+
+		/**	Creates a graphics pipeline based on another graphics pipeline, which serves as a template, providing a renderpass instance.
+		 *	@param	aTemplate					Another, already existing graphics pipeline, which serves as a template for the newly created graphics pipeline.
+		 *	@param	aNewRenderpass				The (owned) renderpass which shall be used for the newly created graphics pipeline
+		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the new pipeline's config right before it is being created on the device.
+		 *	@return A new graphics pipeline instance.
+		 */
+		graphics_pipeline create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, renderpass aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex = {}, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+
+		/**	Creates a graphics pipeline based on another graphics pipeline, which serves as a template,
+		 *	which either uses the same renderpass (if it has shared ownership enabled) or creates a new
+		 *	renderpass internally using create_renderpass_from_template with the template's renderpass.
+		 *	@param	aTemplate					Another, already existing graphics pipeline, which serves as a template for the newly created graphics pipeline.
+		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the new pipeline's config right before it is being created on the device.
+		 *	@return A new graphics pipeline instance.
+		 */
 		graphics_pipeline create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Convenience function for gathering the graphic pipeline's configuration.

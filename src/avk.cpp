@@ -2848,7 +2848,7 @@ namespace avk
 		mState = command_buffer_state::finished_recording;
 	}
 
-	void command_buffer_t::begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
+	void command_buffer_t::begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<const framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
 	{
 		const auto firstAttachmentsSize = aFramebuffer->image_view_at(0)->get_image().create_info().extent;
 		const auto& clearValues = aRenderpass->clear_values();
@@ -4434,6 +4434,7 @@ namespace avk
 			.setPAttachments(aPreparedPipeline.mBlendingConfigsForColorAttachments.data());
 
 		aPreparedPipeline.mMultisampleStateCreateInfo
+			.setRasterizationSamples(aPreparedPipeline.get_renderpass()->num_samples_for_subpass(aPreparedPipeline.subpass_id()))
 			.setPSampleMask(nullptr);
 
 		aPreparedPipeline.mDynamicStateCreateInfo
@@ -4752,53 +4753,8 @@ namespace avk
 		// 10. Multisample state
 		// TODO: Can the settings be inferred from the renderpass' color attachments (as they are right now)? If they can't, how to handle this situation?
 		{ /////////////////// TODO: FIX this section (after renderpass refactoring)
-			vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
-
-			// See what is configured in the render pass
-			auto colorAttConfigs = (*result.mRenderPass).color_attachments_for_subpass(result.subpass_id())
-				| std::views::filter([](const vk::AttachmentReference2KHR& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-				| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference2KHR& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; });
-
-			for (const vk::AttachmentDescription2KHR& config: colorAttConfigs) {
-				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
-				numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
-			}
-
-#if defined(_DEBUG)
-			for (const vk::AttachmentDescription2KHR& config: colorAttConfigs) {
-				if (config.samples != numSamples) {
-					AVK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
-				}
-			}
-#endif
-
-			if (vk::SampleCountFlagBits::e1 == numSamples) {
-				auto depthAttConfigs = (*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id())
-					| std::views::filter([](const vk::AttachmentReference2KHR& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-					| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference2KHR& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; });
-
-				for (const vk::AttachmentDescription2KHR& config: depthAttConfigs) {
-					typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
-					numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
-				}
-
-#if defined(_DEBUG)
-					for (const vk::AttachmentDescription2KHR& config: depthAttConfigs) {
-						if (config.samples != numSamples) {
-							AVK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
-						}
-					}
-#endif
-
-#if defined(_DEBUG)
-					for (const vk::AttachmentDescription2KHR& config: colorAttConfigs) {
-						if (config.samples != numSamples) {
-							AVK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
-						}
-					}
-#endif
-			}
-
+			vk::SampleCountFlagBits numSamples = (*result.mRenderPass).num_samples_for_subpass(result.subpass_id());
+			
 			// Evaluate and set the PER SAMPLE shading configuration:
 			auto perSample = aConfig.mPerSampleShading.value_or(per_sample_shading_config{ false, 1.0f });
 
@@ -4900,18 +4856,12 @@ namespace avk
 		return result;
 	}
 
-	graphics_pipeline root::create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	graphics_pipeline root::create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, renderpass aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		graphics_pipeline_t result;
+		result.mRenderPass = std::move(aNewRenderpass);
+		result.mSubpassIndex = aSubpassIndex.value_or(cfg::subpass_index{ aTemplate->mSubpassIndex }).mSubpassIndex;
 
-		if (aTemplate->mRenderPass.is_shared_ownership_enabled()) {
-			result.mRenderPass							= aTemplate->mRenderPass								;
-		}
-		else {
-			result.mRenderPass = create_renderpass_from_template(const_referenced(aTemplate->mRenderPass), {});
-		}
-
-		result.mSubpassIndex							= aTemplate->mSubpassIndex						   ;
 		result.mOrderedVertexInputBindingDescriptions	= aTemplate->mOrderedVertexInputBindingDescriptions;
 		result.mVertexInputAttributeDescriptions		= aTemplate->mVertexInputAttributeDescriptions	   ;
 		result.mPipelineVertexInputStateCreateInfo		= aTemplate->mPipelineVertexInputStateCreateInfo   ;
@@ -4954,6 +4904,18 @@ namespace avk
 
 		rewire_config_and_create_graphics_pipeline(result);
 		return result;
+	}
+
+	graphics_pipeline root::create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		renderpass renderpassForPipeline;
+		if (aTemplate->mRenderPass.is_shared_ownership_enabled()) {
+			renderpassForPipeline = aTemplate->mRenderPass;
+		}
+		else {
+			renderpassForPipeline = create_renderpass_from_template(const_referenced(aTemplate->mRenderPass), {});
+		}
+		return create_graphics_pipeline_from_template(aTemplate, std::move(renderpassForPipeline), std::nullopt, std::move(aAlterConfigBeforeCreation));
 	}
 
 	renderpass root::replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass)
@@ -7519,39 +7481,91 @@ namespace avk
 			[aAttachmentIndex](uint32_t idx) { return idx == aAttachmentIndex; });
 	}
 
-	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::input_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::input_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedInputAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::color_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::color_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedColorAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::depth_stencil_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::depth_stencil_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedDepthStencilAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::resolve_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::resolve_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedColorResolveAttachmentRefs;
 	}
 
-	const std::vector<uint32_t>& renderpass_t::preserve_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<uint32_t>& renderpass_t::preserve_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mPreserveAttachments;
+	}
+
+	vk::SampleCountFlagBits renderpass_t::num_samples_for_subpass(uint32_t aSubpassId) const
+	{
+		vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
+
+		// See what is configured in the render pass
+		auto colorAttConfigs = color_attachments_for_subpass(aSubpassId)
+			| std::views::filter([](const vk::AttachmentReference2KHR& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+			| std::views::transform([this](const vk::AttachmentReference2KHR& colorAttachment) { return attachment_descriptions()[colorAttachment.attachment]; });
+
+		for (const vk::AttachmentDescription2KHR& config : colorAttConfigs) {
+			typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
+			numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
+		}
+
+#if defined(_DEBUG)
+		for (const vk::AttachmentDescription2KHR& config : colorAttConfigs) {
+			if (config.samples != numSamples) {
+				AVK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
+			}
+		}
+#endif
+
+		if (vk::SampleCountFlagBits::e1 == numSamples) {
+			auto depthAttConfigs = depth_stencil_attachments_for_subpass(aSubpassId)
+				| std::views::filter([](const vk::AttachmentReference2KHR& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+				| std::views::transform([this](const vk::AttachmentReference2KHR& depthStencilAttachment) { return attachment_descriptions()[depthStencilAttachment.attachment]; });
+
+			for (const vk::AttachmentDescription2KHR& config : depthAttConfigs) {
+				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
+				numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
+			}
+
+#if defined(_DEBUG)
+			for (const vk::AttachmentDescription2KHR& config : depthAttConfigs) {
+				if (config.samples != numSamples) {
+					AVK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
+				}
+			}
+#endif
+
+#if defined(_DEBUG)
+			for (const vk::AttachmentDescription2KHR& config : colorAttConfigs) {
+				if (config.samples != numSamples) {
+					AVK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
+				}
+			}
+#endif
+		}
+
+		return numSamples;
 	}
 #pragma endregion
 

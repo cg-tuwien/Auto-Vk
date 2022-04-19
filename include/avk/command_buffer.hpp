@@ -176,7 +176,7 @@ namespace avk
 
 		void begin_recording();
 		void end_recording();
-		void begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+		void begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<const framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
 		void next_subpass();
 		void establish_execution_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage);
 		void establish_global_memory_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible);
