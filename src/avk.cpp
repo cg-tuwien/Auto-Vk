@@ -7259,8 +7259,8 @@ namespace avk
 					);
 					if (resolve) {
 						sp.mUnspecifiedDepthStencilResolveData.push(vk::SubpassDescriptionDepthStencilResolve{}
-							.setDepthResolveMode(vk::ResolveModeFlagBits::eAverage)
-							.setStencilResolveMode(vk::ResolveModeFlagBits::eAverage)
+							.setDepthResolveMode(  static_cast<bool>(subpassUsage.mResolveModeDepth)   ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(subpassUsage.mResolveModeDepth)  ) : vk::ResolveModeFlagBits::eAverage)
+							.setStencilResolveMode(static_cast<bool>(subpassUsage.mResolveModeStencil) ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(subpassUsage.mResolveModeStencil)) : vk::ResolveModeFlagBits::eAverage)
 							// pDepthStencilResolveAttachment to be set later to aligned vector   vvv   never forgetti!
 						);
 						sp.mUnspecifiedDepthStencilResolveRefs.push(vk::AttachmentReference2KHR{}

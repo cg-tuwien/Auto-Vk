@@ -24,12 +24,32 @@ namespace avk
 		bool has_resolve() const { return mResolve; }
 		auto resolve_target_index() const { return mResolveAttachmentIndex; }
 
+		/**	Declare which aspect of the image shall be used.
+		 *	This can be handy with depth_stencil attachments, where it can make sense to set the
+		 *	aspect to either vk::ImageAspectFlagBits::eDepth or vk::ImageAspectFlagBits::eStencil.
+		 */
 		subpass_usage_type& use_aspect(vk::ImageAspectFlags aAspect)
 		{
 			mAspectToBeUsed = aAspect;
 			return *this;
 		}
 		
+		/**	Declare the resolve mode for a the depth aspect of a depth_stencil attachment.
+		 */
+		subpass_usage_type& set_depth_resolve_mode(vk::ResolveModeFlagBits aResolveMode)
+		{
+			mResolveModeDepth = aResolveMode;
+			return *this;
+		}
+
+		/**	Declare the resolve mode for a the stencil aspect of a depth_stencil attachment.
+		 */
+		subpass_usage_type& set_stencil_resolve_mode(vk::ResolveModeFlagBits aResolveMode)
+		{
+			mResolveModeStencil = aResolveMode;
+			return *this;
+		}
+
 		bool mInput;
 		bool mColor;
 		bool mDepthStencil;
@@ -40,5 +60,7 @@ namespace avk
 		int mResolveAttachmentIndex;
 
 		vk::ImageAspectFlags mAspectToBeUsed;
+		vk::ResolveModeFlags mResolveModeDepth;
+		vk::ResolveModeFlags mResolveModeStencil;
 	};
 }
