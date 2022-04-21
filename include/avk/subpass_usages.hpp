@@ -163,16 +163,16 @@ namespace avk
 		inline static auto color(int location) { return subpass_usages{ subpass_usage_type::create_color(location) }; }
 
 		/** Declare that this attachment's contents shall be resolved into another attachment at the end of the current sub pass.
-		 *	@param	targetLocation	The index of the attachment where to resolve this attachment into.
-		 *	                        Note: In contrast to input(int) and color(int), this parameter does NOT refer to a binding location.
-		 *							      Instead, this parameter refers to the attachment index within its associated renderpass.
-		 *							Note: The appropriate usage declaration for the resolve target attachment is usage::unused.
+		 *	@param	targetAttachmentIndex	The index of the attachment where to resolve this attachment into.
+		 *									Note: In contrast to input(int) and color(int), this parameter does NOT refer to a binding location.
+		 *									      Instead, this parameter refers to the attachment index within its associated renderpass.
+		 *									Note: The appropriate usage declaration for the resolve target attachment is usage::unused.
 		 */
-		inline static auto resolve_to(int targetLocation)
+		inline static auto resolve_to(int targetAttachmentIndex)
 		{
 			auto r = subpass_usage_type::create_unused(); // <-- subpass_usage_type not applicable here, but actually it *is* unused.
 			r.mResolve = true;
-			r.mResolveAttachmentIndex = targetLocation;
+			r.mResolveAttachmentIndex = targetAttachmentIndex;
 			return subpass_usages{ r };
 		}
 
