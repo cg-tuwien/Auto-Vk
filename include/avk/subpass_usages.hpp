@@ -58,6 +58,28 @@ namespace avk
 		//auto has_color_location_at_subpass(size_t subpassId) const { return mDescriptions[subpassId].as_color() && mDescriptions[subpassId].mColorLocation != -1; }
 		//auto color_location_at_subpass(size_t subpassId) const { return mDescriptions[subpassId].mColorLocation; }
 
+		/**	Declare the resolve mode for the depth aspect of the last subpass_usage_type 
+		 *  (which should be a depth_stencil attachment, in order to result in a useful configuration).
+		 */
+		subpass_usages& set_depth_resolve_mode(vk::ResolveModeFlagBits aResolveMode)
+		{
+			if (!mDescriptions.empty()) {
+				mDescriptions.back().set_depth_resolve_mode(aResolveMode);
+			}
+			return *this;
+		}
+
+		/**	Declare the resolve mode for the stencil aspect of the last subpass_usage_type
+		 *  (which should be a depth_stencil attachment, in order to result in a useful configuration).
+		 */
+		subpass_usages& set_stencil_resolve_mode(vk::ResolveModeFlagBits aResolveMode)
+		{
+			if (!mDescriptions.empty()) {
+				mDescriptions.back().set_stencil_resolve_mode(aResolveMode);
+			}
+			return *this;
+		}
+
 	protected:
 		subpass_usages() = default;
 		std::vector<subpass_usage_type> mDescriptions;
