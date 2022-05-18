@@ -624,6 +624,16 @@ namespace avk
 		return it != twoComponentFormats.end();
 	}
 
+	bool is_int_format(const vk::Format& aImageFormat)
+	{
+		return is_int8_format(aImageFormat) || is_int16_format(aImageFormat) || is_int32_format(aImageFormat);
+	}
+
+	bool is_uint_format(const vk::Format& aImageFormat)
+	{
+		return is_uint8_format(aImageFormat) || is_uint16_format(aImageFormat) || is_uint32_format(aImageFormat);
+	}
+
 	bool is_3component_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> threeCompFormat = {
@@ -756,9 +766,7 @@ namespace avk
 			vk::Format::eBc2UnormBlock,
 			vk::Format::eBc3UnormBlock,
 			vk::Format::eBc4UnormBlock,
-			vk::Format::eBc4SnormBlock,
 			vk::Format::eBc5UnormBlock,
-			vk::Format::eBc5SnormBlock,
 			vk::Format::eBc7UnormBlock,
 		};
 		auto it = std::find(std::begin(unormFormats), std::end(unormFormats), aImageFormat);
@@ -778,7 +786,9 @@ namespace avk
 			vk::Format::eR16Snorm,
 			vk::Format::eR16G16Snorm,
 			vk::Format::eR16G16B16Snorm,
-			vk::Format::eR16G16B16A16Snorm
+			vk::Format::eR16G16B16A16Snorm,
+			vk::Format::eBc4SnormBlock,
+			vk::Format::eBc5SnormBlock,
 		};
 		auto it = std::find(std::begin(snormFormats), std::end(snormFormats), aImageFormat);
 		return it != snormFormats.end();
