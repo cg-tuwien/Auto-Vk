@@ -2782,15 +2782,17 @@ namespace avk
 		std::transform(std::begin(tmp), std::end(tmp),
 			std::back_inserter(buffers),
 			// ...transform them into `ak::command_buffer_t` objects:
-			[lUsageFlags = aUsageFlags, poolPtr = mCommandPool](auto& vkCb) -> command_buffer {
+			[lUsageFlags = aUsageFlags, poolPtr = mCommandPool, lRoot = mRoot](auto& vkCb) -> command_buffer {
 				command_buffer_t result;
 				result.mBeginInfo = vk::CommandBufferBeginInfo()
 					.setFlags(lUsageFlags)
 					.setPInheritanceInfo(nullptr);
 				result.mCommandBuffer = std::move(vkCb);
 				result.mCommandPool = std::move(poolPtr);
+				result.mRoot = lRoot;
 				return result;
 			});
+
 		return buffers;
 	}
 
@@ -8002,11 +8004,11 @@ namespace avk
 #pragma endregion
 
 #pragma region commands and sync
-	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions);
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions);
 
 	template <typename T>
 	inline static T accumulate_sync_details(
-		const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions,
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions,
 		const int aStartIndex,
 		const int aNumSteps,
 		const int aStepDirection,
@@ -8061,13 +8063,15 @@ namespace avk
 
 	template <typename T>
 	inline static T assemble_barrier_data(
-		const sync::barrier_data& aBarrierData, 
-		const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions,
+		const sync::sync_type_command& aBarrierData, 
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions,
 		int aRecordedStuffIndex
 	) {
-		assert(std::holds_alternative<sync::barrier_data>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex]));
-		if (!std::holds_alternative<sync::barrier_data>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex])) {
-			throw avk::logic_error("The element at aRecordedStuffIndex[" + std::to_string(aRecordedStuffIndex) + "] is not of type barrier_data.");
+		if (!aRecordedCommandsAndSyncInstructions.empty()) {
+			assert(std::holds_alternative<sync::sync_type_command>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex]));
+			if (!std::holds_alternative<sync::sync_type_command>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex])) {
+				throw avk::logic_error("The element at aRecordedStuffIndex[" + std::to_string(aRecordedStuffIndex) + "] is not of type sync_type_command.");
+			}
 		}
 
 		// We're definitely going to establish a barrier:
@@ -8082,13 +8086,18 @@ namespace avk
 				barrier.setSrcStageMask(lFixedStage);
 			},
 			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::stage::auto_stage_t& lAutoStage){
-				// Gotta determine which stage:
-				barrier.setSrcStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
-					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-					static_cast<int>(lAutoStage),
-					/* before-wards: */ -1,
-					/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
-				);
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setSrcStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+				}
+				else {
+					// Gotta determine which stage:
+					barrier.setSrcStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+						static_cast<int>(lAutoStage),
+						/* before-wards: */ -1,
+						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
+					);
+				}
 			},
 		}, aBarrierData.src_stage());
 
@@ -8101,13 +8110,18 @@ namespace avk
 				barrier.setDstStageMask(lFixedStage);
 			},
 			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::stage::auto_stage_t& lAutoStage){
-				// Gotta determine which stage:
-				barrier.setDstStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
-					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-					static_cast<int>(lAutoStage),
-					/* after-wards: */  1,
-					/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
-				);
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setDstStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+				}
+				else {
+					// Gotta determine which stage:
+					barrier.setDstStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+						static_cast<int>(lAutoStage),
+						/* after-wards: */  1,
+						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
+					);
+				}
 			},
 		}, aBarrierData.dst_stage());
 
@@ -8120,13 +8134,18 @@ namespace avk
 				barrier.setSrcAccessMask(lFixedAccess);
 			},
 			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::access::auto_access_t& lAutoAccess){
-				// Gotta determine which access:
-				barrier.setSrcAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
-					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-					static_cast<int>(lAutoAccess),
-					/* before-wards: */ -1,
-					/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite)
-				);
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eMemoryWrite);
+				}
+				else {
+					// Gotta determine which access:
+					barrier.setSrcAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+						static_cast<int>(lAutoAccess),
+						/* before-wards: */ -1,
+						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite)
+					);
+				}
 			},
 		}, aBarrierData.src_access());
 
@@ -8139,13 +8158,18 @@ namespace avk
 				barrier.setDstAccessMask(lFixedAccess);
 			},
 			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::access::auto_access_t& lAutoAccess){
-				// Gotta determine which access:
-				barrier.setDstAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
-					aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-					static_cast<int>(lAutoAccess),
-					/* after-wards: */  1,
-					/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead)
-				);
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead);
+				}
+				else {
+					// Gotta determine which access:
+					barrier.setDstAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
+						static_cast<int>(lAutoAccess),
+						/* after-wards: */  1,
+						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead)
+					);
+				}
 			},
 		}, aBarrierData.dst_access());
 
@@ -8185,55 +8209,93 @@ namespace avk
 		return barrier;
 	}
 
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const command::state_type_command& aStateCmd)
+	{
+		if (aStateCmd.mFun) {
+			aStateCmd.mFun(aCommandBuffer);
+		}
+	}
+
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const command::action_type_command& aActionCmd)
+	{
+		if (aActionCmd.mBeginFun) {
+			aActionCmd.mBeginFun(aCommandBuffer);
+		}
+		if (!aActionCmd.mNestedCommandsAndSyncInstructions.empty()) {
+			record_into_command_buffer(aCommandBuffer, aDispatchLoader, aActionCmd.mNestedCommandsAndSyncInstructions);
+		}
+		if (aActionCmd.mEndFun) {
+			aActionCmd.mEndFun(aCommandBuffer);
+		}
+	}
+
+	inline static void record_into_command_buffer(
+		command_buffer_t& aCommandBuffer, 
+		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, 
+		const sync::sync_type_command& aSyncCmd, 
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, 
+		int aRecordedStuffIndex)
+	{
+		if (aSyncCmd.is_global_execution_barrier() || aSyncCmd.is_global_memory_barrier()) {
+			auto barrier = assemble_barrier_data<vk::MemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
+			auto dependencyInfo = vk::DependencyInfoKHR{}
+				.setMemoryBarrierCount(1u)
+				.setPMemoryBarriers(&barrier);
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+		}
+		else if (aSyncCmd.is_image_memory_barrier()) {
+			auto barrier = assemble_barrier_data<vk::ImageMemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
+			auto dependencyInfo = vk::DependencyInfoKHR{}
+				.setImageMemoryBarrierCount(1u)
+				.setPImageMemoryBarriers(&barrier);
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+		}
+		else if (aSyncCmd.is_buffer_memory_barrier()) {
+			auto barrier = assemble_barrier_data<vk::BufferMemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
+			auto dependencyInfo = vk::DependencyInfoKHR{}
+				.setBufferMemoryBarrierCount(1u)
+				.setPBufferMemoryBarriers(&barrier);
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+		}
+	}
+
+
+	void command_buffer_t::record(const avk::command::state_type_command& aToBeRecorded)
+	{
+		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded);
+	}
+
+	void command_buffer_t::record(const avk::command::action_type_command& aToBeRecorded)
+	{
+		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded);
+	}
+
+	void command_buffer_t::record(const avk::sync::sync_type_command& aToBeRecorded)
+	{
+		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded, std::vector<recorded_commands_t>{}, 0);
+	}
+
+
 	struct recordee_visitors
 	{
 		void operator()(const command::state_type_command& vStateCmd) const {
-			if (vStateCmd.mFun) {
-				vStateCmd.mFun(mCommandBuffer);
-			}
+			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vStateCmd);
 		}
 		void operator()(const command::action_type_command& vActionCmd) const {
-			if (vActionCmd.mBeginFun) {
-				vActionCmd.mBeginFun(mCommandBuffer);
-			}
-			if (!vActionCmd.mNestedCommandsAndSyncInstructions.empty()) {
-				record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vActionCmd.mNestedCommandsAndSyncInstructions);
-			}
-			if (vActionCmd.mEndFun) {
-				vActionCmd.mEndFun(mCommandBuffer);
-			}
+			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vActionCmd);
+			
 		}
-		void operator()(const sync::barrier_data& vBarrDat) const {
-			if (vBarrDat.is_global_execution_barrier() || vBarrDat.is_global_memory_barrier()) {
-				auto barrier = assemble_barrier_data<vk::MemoryBarrier2KHR>(vBarrDat, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
-				auto dependencyInfo = vk::DependencyInfoKHR{}
-					.setMemoryBarrierCount(1u)
-					.setPMemoryBarriers(&barrier);
-				mCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, mDispatchLoaderExt);
-			}
-			else if (vBarrDat.is_image_memory_barrier()) {
-				auto barrier = assemble_barrier_data<vk::ImageMemoryBarrier2KHR>(vBarrDat, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
-				auto dependencyInfo = vk::DependencyInfoKHR{}
-					.setImageMemoryBarrierCount(1u)
-					.setPImageMemoryBarriers(&barrier);
-				mCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, mDispatchLoaderExt);
-			}
-			else if (vBarrDat.is_buffer_memory_barrier()) {
-				auto barrier = assemble_barrier_data<vk::BufferMemoryBarrier2KHR>(vBarrDat, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
-				auto dependencyInfo = vk::DependencyInfoKHR{}
-					.setBufferMemoryBarrierCount(1u)
-					.setPBufferMemoryBarriers(&barrier);
-				mCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, mDispatchLoaderExt);
-			}
+		void operator()(const sync::sync_type_command& vSyncCmd) const {
+			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vSyncCmd, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
 		}
 
 		command_buffer_t& mCommandBuffer;
 		const DISPATCH_LOADER_EXT_TYPE& mDispatchLoaderExt;
-		const std::vector<recorded_commands_and_sync_instructions_t>& mRecordedStuff;
+		const std::vector<recorded_commands_t>& mRecordedStuff;
 		int mCurrentIndexIntoRecordedStuff;
 	};
-
-	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions)
+	
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions)
 	{
 		recordee_visitors visitState{ aCommandBuffer, aDispatchLoader, aRecordedCommandsAndSyncInstructions, /* Current index: */ 0 };
 		
@@ -8258,7 +8320,7 @@ namespace avk
 		return submission_data{ mRoot, mCommandBufferToRecordInto, aQueue, this };
 	}
 
-	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer)
+	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer)
 		: mRoot{ aRoot }
 		, mCommandBufferToRecordInto{ aCommandBuffer }
 		, mDangerousRecordedComandsPointer{ aDangerousRecordedCommandsPointer }
@@ -8268,7 +8330,7 @@ namespace avk
 		mCommandBufferToRecordInto->end_recording();
 	}
 
-	recorded_commands::recorded_commands(const root* aRoot, std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions)
+	recorded_commands::recorded_commands(const root* aRoot, std::vector<recorded_commands_t> aRecordedCommandsAndSyncInstructions)
 		: mRoot{ aRoot }
 		, mRecordedCommandsAndSyncInstructions{ std::move(aRecordedCommandsAndSyncInstructions) }
 	{
@@ -8282,19 +8344,19 @@ namespace avk
 		}
 	}
 	
-	recorded_commands& recorded_commands::move_into(std::vector<recorded_commands_and_sync_instructions_t>& aTarget)
+	recorded_commands& recorded_commands::move_into(std::vector<recorded_commands_t>& aTarget)
 	{
 		aTarget = std::move(mRecordedCommandsAndSyncInstructions);
 		return *this;
 	}
 
-	recorded_commands& recorded_commands::prepend_by(std::vector<recorded_commands_and_sync_instructions_t>& aCommands)
+	recorded_commands& recorded_commands::prepend_by(std::vector<recorded_commands_t>& aCommands)
 	{
 		mRecordedCommandsAndSyncInstructions.insert(std::begin(mRecordedCommandsAndSyncInstructions), std::begin(aCommands), std::end(aCommands));
 		return *this;
 	}
 
-	recorded_commands& recorded_commands::append_by(std::vector<recorded_commands_and_sync_instructions_t>& aTarget)
+	recorded_commands& recorded_commands::append_by(std::vector<recorded_commands_t>& aTarget)
 	{
 		mRecordedCommandsAndSyncInstructions.insert(std::end(mRecordedCommandsAndSyncInstructions), std::begin(aTarget), std::end(aTarget));
 		return *this;
@@ -8306,7 +8368,7 @@ namespace avk
 		return *this;
 	}
 
-	std::vector<recorded_commands_and_sync_instructions_t> recorded_commands::and_store()
+	std::vector<recorded_commands_t> recorded_commands::and_store()
 	{
 		return std::move(mRecordedCommandsAndSyncInstructions);
 	}
@@ -8351,13 +8413,7 @@ namespace avk
 
 	namespace command
 	{
-		action_type_command render_pass(
-			avk::resource_reference<const avk::renderpass_t> aRenderpass,
-			avk::resource_reference<avk::framebuffer_t> aFramebuffer,
-			std::vector<recorded_commands_and_sync_instructions_t> aNestedCommandsAndSyncInstructions,
-			vk::Offset2D aRenderAreaOffset,
-			std::optional<vk::Extent2D> aRenderAreaExtent,
-			bool aSubpassesInline)
+		action_type_command begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<const framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
 		{
 			return action_type_command{
 				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
@@ -8378,7 +8434,7 @@ namespace avk
 					auto renderPassBeginInfo = vk::RenderPassBeginInfo()
 						.setRenderPass(lRenderPassHandle)
 						.setFramebuffer(lFramebufferHandle)
-						.setRenderArea(vk::Rect2D()
+						.setRenderArea(vk::Rect2D{}
 							.setOffset(vk::Offset2D{ aRenderAreaOffset.x, aRenderAreaOffset.y })
 							.setExtent(aRenderAreaExtent.has_value()
 										? vk::Extent2D{ aRenderAreaExtent.value() }
@@ -8387,29 +8443,100 @@ namespace avk
 							)
 						.setClearValueCount(static_cast<uint32_t>(lClearValues.size()))
 						.setPClearValues(lClearValues.data());
-					
+
 					cb->handle().beginRenderPass2KHR(
 						renderPassBeginInfo,
 						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
 						lRoot->dispatch_loader_ext()
 					);
-				},
-				std::move(aNestedCommandsAndSyncInstructions),
-				[
-					lRoot = aRenderpass->root_ptr()
-				](avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().endRenderPass2KHR(vk::SubpassEndInfo{}, lRoot->dispatch_loader_ext());
 				}
 			};
 		}
 
-		state_type_command bind(avk::resource_reference<const graphics_pipeline_t> aPipeline)
+		action_type_command end_render_pass()
+		{
+			return action_type_command{
+				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
+				avk::sync::sync_hint {
+					vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+					vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+				},
+				[](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().endRenderPass2KHR(vk::SubpassEndInfo{}, cb->root_ptr()->dispatch_loader_ext());
+				}
+			};
+		}
+		
+		action_type_command render_pass(
+			avk::resource_reference<const avk::renderpass_t> aRenderpass,
+			avk::resource_reference<avk::framebuffer_t> aFramebuffer,
+			std::vector<recorded_commands_t> aNestedCommands,
+			vk::Offset2D aRenderAreaOffset,
+			std::optional<vk::Extent2D> aRenderAreaExtent,
+			bool aSubpassesInline)
+		{
+			auto tmpBeginRenderPass = begin_render_pass_for_framebuffer(aRenderpass, aFramebuffer, aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline);
+			auto tmpEndRenderPass = end_render_pass();
+
+			return action_type_command{
+				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
+				avk::sync::sync_hint {
+					tmpBeginRenderPass.mSyncHint.mStageHintBefore,
+					tmpBeginRenderPass.mSyncHint.mAccessHintBefore,
+					tmpEndRenderPass.mSyncHint.mStageHintAfter,
+					tmpEndRenderPass.mSyncHint.mAccessHintAfter
+				},
+				std::move(tmpBeginRenderPass.mBeginFun),
+				std::move(aNestedCommands),
+				std::move(tmpEndRenderPass.mBeginFun)
+			};
+		}
+
+		action_type_command next_subpass(bool aSubpassesInline)
+		{
+			return action_type_command{
+				avk::sync::sync_hint{},
+				[aSubpassesInline](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().nextSubpass2KHR(
+						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
+						vk::SubpassEndInfo{},
+						cb->root_ptr()->dispatch_loader_ext()
+					);
+				}
+			};
+		}
+
+		state_type_command bind_pipeline(avk::resource_reference<const graphics_pipeline_t> aPipeline)
 		{
 			return state_type_command{
 				[
 					lPipelineHandle = aPipeline->handle()
-				](avk::resource_reference<avk::command_buffer_t> cb) {
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
 					cb->handle().bindPipeline(vk::PipelineBindPoint::eGraphics, lPipelineHandle);
+				}
+			};
+		}
+
+		state_type_command bind_pipeline(avk::resource_reference<const compute_pipeline_t> aPipeline)
+		{
+			return state_type_command{
+				[
+					lPipelineHandle = aPipeline->handle()
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().bindPipeline(vk::PipelineBindPoint::eCompute, lPipelineHandle);
+				}
+			};
+		}
+
+		state_type_command bind_pipeline(avk::resource_reference<const ray_tracing_pipeline_t> aPipeline)
+		{
+			return state_type_command{
+				[
+					lPipelineHandle = aPipeline->handle()
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, lPipelineHandle);
 				}
 			};
 		}
@@ -8604,9 +8731,9 @@ namespace avk
 
 #pragma endregion
 	
-	avk::recorded_commands root::record(std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions) const
+	avk::recorded_commands root::record(std::vector<recorded_commands_t> aRecordedCommands) const
 	{
-		return avk::recorded_commands{ this, std::move(aRecordedCommandsAndSyncInstructions) };
+		return avk::recorded_commands{ this, std::move(aRecordedCommands) };
 	}
 
 }

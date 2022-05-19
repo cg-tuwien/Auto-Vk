@@ -188,6 +188,24 @@ namespace avk
 		void copy_image(const image_t& aSource, const vk::Image& aDestination);
 		void end_render_pass() const;
 
+		/**	Record a given state-type command directly into the given command buffer.
+		 *	I.e., when calling this method, the actions of the given command are
+		 *	immediately executed, recording the operations into this command buffer.
+		 */
+		void record(const avk::command::state_type_command& aToBeRecorded);
+
+		/**	Record a given action-type command directly into the given command buffer.
+		 *	I.e., when calling this method, the actions of the given command are
+		 *	immediately executed, recording the operations into this command buffer.
+		 */
+		void record(const avk::command::action_type_command& aToBeRecorded);
+
+		/**	Record a given synchronization-type command directly into the given command buffer.
+		 *	I.e., when calling this method, the actions of the given command are
+		 *	immediately executed, recording the operations into this command buffer.
+		 */
+		void record(const avk::sync::sync_type_command& aToBeRecorded);
+
 		/** Prepare a command buffer for re-recording.
 		 *   This essentially calls (and removes) any custom deleters, and removes any post-execution-handlers.
 		 *   Call this method before re-recording an existing command buffer.
@@ -660,7 +678,10 @@ namespace avk
 		}
 #endif
 		
+		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
+
 	private:
+		const root* mRoot;
 		std::shared_ptr<vk::UniqueHandle<vk::CommandPool, DISPATCH_LOADER_CORE_TYPE>> mCommandPool;
 
 		command_buffer_state mState;

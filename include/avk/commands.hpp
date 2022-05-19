@@ -62,70 +62,70 @@ namespace avk
 			std::optional<avk::layout::image_layout_transition> mLayoutTransition;
 		};
 
-		class barrier_data final
+		class sync_type_command final
 		{
 		public:
 			// Constructs a global execution barrier:
-			barrier_data(avk::stage::execution_dependency aStages)
+			sync_type_command(avk::stage::execution_dependency aStages)
 				: mStages{ aStages }, mAccesses{}, mQueueFamilyOwnershipTransfer{}, mSpecificData{} {}
 
 			// Constructs a global memory barrier:
-			barrier_data(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses)
+			sync_type_command(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}, mSpecificData{} {}
 
 			// Constructs an image memory barrier:
-			barrier_data(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::image_t> aImage, vk::ImageSubresourceRange aSubresourceRange)
+			sync_type_command(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::image_t> aImage, vk::ImageSubresourceRange aSubresourceRange)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}
 				, mSpecificData{ image_sync_info{ aImage->handle(), aSubresourceRange, std::optional<avk::layout::image_layout_transition>{} } } {}
 
 			// Constructs a buffer memory barrier:
-			barrier_data(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::buffer_t> aBuffer, vk::DeviceSize aOffset, vk::DeviceSize aSize)
+			sync_type_command(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::buffer_t> aBuffer, vk::DeviceSize aOffset, vk::DeviceSize aSize)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}
 				, mSpecificData{ buffer_sync_info{ aBuffer->handle(), aOffset, aSize } } {}
 
 			// Adds memory access, potentially turning a execution barrier into a memory barrier.
-			barrier_data& with_memory_access(avk::access::memory_dependency aMemoryAccess)
+			sync_type_command& with_memory_access(avk::access::memory_dependency aMemoryAccess)
 			{
 				mAccesses = aMemoryAccess;
 				return *this;
 			}
 
-			// Adds an image layout transition to this barrier_data:
-			barrier_data& with_layout_transition(avk::layout::image_layout_transition aLayoutTransition)
+			// Adds an image layout transition to this sync_type_command:
+			sync_type_command& with_layout_transition(avk::layout::image_layout_transition aLayoutTransition)
 			{
 				if (!std::holds_alternative<image_sync_info>(mSpecificData)) {
-					throw avk::runtime_error("with_layout_transition has been called for a barrier_data which does not represent an image memory barrier.");
+					throw avk::runtime_error("with_layout_transition has been called for a sync_type_command which does not represent an image memory barrier.");
 				}
 				std::get<image_sync_info>(mSpecificData).mLayoutTransition = aLayoutTransition;
 				return *this;
 			}
 
-			// Adds a subresource range to this barrier_data:
-			barrier_data& for_subresource_range(vk::ImageSubresourceRange aSubresourceRange)
+			// Adds a subresource range to this sync_type_command:
+			sync_type_command& for_subresource_range(vk::ImageSubresourceRange aSubresourceRange)
 			{
 				if (!std::holds_alternative<image_sync_info>(mSpecificData)) {
-					throw avk::runtime_error("for_subresource_range has been called for a barrier_data which does not represent an image memory barrier.");
+					throw avk::runtime_error("for_subresource_range has been called for a sync_type_command which does not represent an image memory barrier.");
 				}
 				std::get<image_sync_info>(mSpecificData).mSubresourceRange = aSubresourceRange;
 				return *this;
 			}
 
-			// Adds buffer offset and size to this barrier_data:
-			barrier_data& for_offset_and_size(vk::DeviceSize aOffset, vk::DeviceSize aSize)
+			// Adds buffer offset and size to this sync_type_command:
+			sync_type_command& for_offset_and_size(vk::DeviceSize aOffset, vk::DeviceSize aSize)
 			{
 				if (!std::holds_alternative<buffer_sync_info>(mSpecificData)) {
-					throw avk::runtime_error("for_offset_and_size has been called for a barrier_data which does not represent a buffer memory barrier.");
+					throw avk::runtime_error("for_offset_and_size has been called for a sync_type_command which does not represent a buffer memory barrier.");
 				}
 				std::get<buffer_sync_info>(mSpecificData).mOffset = aOffset;
 				std::get<buffer_sync_info>(mSpecificData).mSize   = aSize;
 				return *this;
 			}
 
-			// Adds an queue family ownership transfer to this barrier_data:
-			barrier_data& with_queue_family_ownership_transfer(uint32_t aSrcQueueFamilyIndex, uint32_t aDstQueueFamilyIndex)
+			// Adds an queue family ownership transfer to this sync_type_command:
+			sync_type_command& with_queue_family_ownership_transfer(uint32_t aSrcQueueFamilyIndex, uint32_t aDstQueueFamilyIndex)
 			{
 				if (!std::holds_alternative<image_sync_info>(mSpecificData) && !std::holds_alternative<buffer_sync_info>(mSpecificData)) {
-					throw avk::runtime_error("with_queue_family_ownership_transfer has been called for a barrier_data which does not represent an image memory barrier nor a buffer memory barrier.");
+					throw avk::runtime_error("with_queue_family_ownership_transfer has been called for a sync_type_command which does not represent an image memory barrier nor a buffer memory barrier.");
 				}
 				mQueueFamilyOwnershipTransfer = queue_family_info{ aSrcQueueFamilyIndex, aDstQueueFamilyIndex };
 				return *this;
@@ -175,29 +175,29 @@ namespace avk
 			std::variant<std::monostate, buffer_sync_info, image_sync_info> mSpecificData;
 		};
 
-		inline static barrier_data global_execution_barrier(avk::stage::execution_dependency aStages)
+		inline static sync_type_command global_execution_barrier(avk::stage::execution_dependency aStages)
 		{
-			return barrier_data{ aStages };
+			return sync_type_command{ aStages };
 		}
 
-		inline static barrier_data global_memory_barrier(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
+		inline static sync_type_command global_memory_barrier(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
-			return barrier_data{ aStages, aAccesses };
+			return sync_type_command{ aStages, aAccesses };
 		}
 
-		inline static barrier_data image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
+		inline static sync_type_command image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
-			return barrier_data{ aStages, aAccesses, aImage, aImage->entire_subresource_range() };
+			return sync_type_command{ aStages, aAccesses, aImage, aImage->entire_subresource_range() };
 		}
 
-		inline static barrier_data buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
+		inline static sync_type_command buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
-			return barrier_data{ aStages, aAccesses, aBuffer, 0, VK_WHOLE_SIZE };
+			return sync_type_command{ aStages, aAccesses, aBuffer, 0, VK_WHOLE_SIZE };
 		}
 	}
 
 	// Define recorded* type:
-	using recorded_commands_and_sync_instructions_t = std::variant<command::state_type_command, command::action_type_command, sync::barrier_data>;
+	using recorded_commands_t = std::variant<command::state_type_command, command::action_type_command, sync::sync_type_command>;
 	
 	namespace command
 	{
@@ -240,7 +240,7 @@ namespace avk
 
 			avk::sync::sync_hint mSyncHint = {};
 			rec_fun mBeginFun = {};
-			std::vector<recorded_commands_and_sync_instructions_t> mNestedCommandsAndSyncInstructions;
+			std::vector<recorded_commands_t> mNestedCommandsAndSyncInstructions;
 			rec_fun mEndFun = {};
 
 			action_type_command& handle_lifetime_of(any_owning_resource_t aResource)
@@ -269,18 +269,59 @@ namespace avk
 				std::move(aCommandRecordingCallback)
 			};
 		}
-		
+
+		/**	Begins a render pass for a given framebuffer
+		 *	@param	aRenderpass			Renderpass which shall begin
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass
+		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
+		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
+		 */
+		extern action_type_command begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<const framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+
+		/**	Ends a render pass
+		 */
+		extern action_type_command end_render_pass();
+
+		/**	Begins and ends a render pass for a given framebuffer, and supports some nested commands to be recorded in between
+		 *	@param	aRenderpass			Renderpass which shall begin
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass
+		 *	@param	aNestedCommands		Nested commands to be recorded between begin and end
+		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
+		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
+		 */
 		extern action_type_command render_pass(
 			avk::resource_reference<const avk::renderpass_t> aRenderpass,
 			avk::resource_reference<avk::framebuffer_t> aFramebuffer,
-			std::vector<recorded_commands_and_sync_instructions_t> aNestedCommandsAndSyncInstructions = {},
+			std::vector<recorded_commands_t> aNestedCommands = {},
 			vk::Offset2D aRenderAreaOffset = { 0, 0 }, 
 			std::optional<vk::Extent2D> aRenderAreaExtent = {}, 
 			bool aSubpassesInline = true
 		);
 
-		extern state_type_command bind(avk::resource_reference<const graphics_pipeline_t> aPipeline);
+		/** Advances to the next subpass within a render pass.
+		 */
+		extern action_type_command next_subpass(bool aSubpassesInline = true);
 
+		/** Binds a graphics pipeline.
+		 *	@param	aPipeline	The graphics pipeline to bind
+		 */
+		extern state_type_command bind_pipeline(avk::resource_reference<const graphics_pipeline_t> aPipeline);
+
+		/** Binds a compute pipeline.
+		 *	@param	aPipeline	The graphics pipeline to bind
+		 */
+		extern state_type_command bind_pipeline(avk::resource_reference<const compute_pipeline_t> aPipeline);
+
+		/** Binds a ray tracing pipeline.
+		 *	@param	aPipeline	The graphics pipeline to bind
+		 */
+		extern state_type_command bind_pipeline(avk::resource_reference<const ray_tracing_pipeline_t> aPipeline);
+
+		/** Binds a graphics pipeline.
+		 *	@param	aPipeline	The graphics pipeline to bind
+		 */
 		extern state_type_command bind_descriptors(avk::resource_reference<const graphics_pipeline_t> aPipeline, std::vector<descriptor_set> aDescriptorSets);
 
 		extern action_type_command draw(uint32_t aVertexCount, uint32_t aInstanceCount, uint32_t aFirstVertex, uint32_t aFirstInstance);
@@ -482,12 +523,12 @@ namespace avk
 
 	class recorded_commands;
 
-	// This class turns a std::vector<recorded_commands_and_sync_instructions_t> into an actual command buffer
+	// This class turns a std::vector<recorded_commands_t> into an actual command buffer
 	class recorded_command_buffer final
 	{
 	public:
-		// The constructor performs all the parsing, therefore, there's no std::vector<recorded_commands_and_sync_instructions_t> member.
-		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_and_sync_instructions_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer = nullptr);
+		// The constructor performs all the parsing, therefore, there's no std::vector<recorded_commands_t> member.
+		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer = nullptr);
 		
 		recorded_command_buffer(const recorded_command_buffer&) = default;
 		recorded_command_buffer(recorded_command_buffer&&) noexcept = default;
@@ -519,27 +560,27 @@ namespace avk
 	class recorded_commands final
 	{
 	public:
-		recorded_commands(const root* aRoot, std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions);
+		recorded_commands(const root* aRoot, std::vector<recorded_commands_t> aRecordedCommandsAndSyncInstructions);
 		recorded_commands(const recorded_commands&) = delete;
 		recorded_commands(recorded_commands&&) noexcept = default;
 		recorded_commands& operator=(const recorded_commands&) = delete;
 		recorded_commands& operator=(recorded_commands&&) noexcept = default;
 		~recorded_commands() = default;
 		
-		recorded_commands& move_into(std::vector<recorded_commands_and_sync_instructions_t>& aTarget);
-		recorded_commands& prepend_by(std::vector<recorded_commands_and_sync_instructions_t>& aCommands);
-		recorded_commands& append_by(std::vector<recorded_commands_and_sync_instructions_t>& aCommands);
+		recorded_commands& move_into(std::vector<recorded_commands_t>& aTarget);
+		recorded_commands& prepend_by(std::vector<recorded_commands_t>& aCommands);
+		recorded_commands& append_by(std::vector<recorded_commands_t>& aCommands);
 
 		recorded_commands& handle_lifetime_of(any_owning_resource_t aResource);
 
-		std::vector<recorded_commands_and_sync_instructions_t> and_store();
+		std::vector<recorded_commands_t> and_store();
 		recorded_command_buffer into_command_buffer(avk::resource_reference<avk::command_buffer_t> aCommandBuffer);
 
 		const auto& recorded_commands_and_sync_instructions() const { return mRecordedCommandsAndSyncInstructions; }
 
 	private:
 		const root* mRoot;
-		std::vector<recorded_commands_and_sync_instructions_t> mRecordedCommandsAndSyncInstructions;
+		std::vector<recorded_commands_t> mRecordedCommandsAndSyncInstructions;
 		std::vector<any_owning_resource_t> mLifetimeHandledResources;
 	};
 

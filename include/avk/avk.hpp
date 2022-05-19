@@ -175,6 +175,10 @@ namespace avk
 		struct state_type_command;
 		struct action_type_command;
 	}
+	namespace sync
+	{
+		class sync_type_command;
+	}
 }
 
 #include <avk/buffer.hpp>
@@ -943,14 +947,17 @@ namespace avk
 		query_pool create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
 #pragma endregion
 
-		avk::recorded_commands record(std::vector<recorded_commands_and_sync_instructions_t> aRecordedCommandsAndSyncInstructions) const;
+		/**	Prepare an avk::recorded_commands object containing all the passed recorded_commands_t
+		 *	@param	aRecordedCommands	Stuff to be put into a new instance of avk::recoded_commands
+		 */
+		avk::recorded_commands record(std::vector<recorded_commands_t> aRecordedCommands) const;
 
 		// End of recursive variadic template handling
-		inline void add_commands(std::vector<avk::recorded_commands_and_sync_instructions_t>&) { /* We're done here. */ }
+		inline void add_commands(std::vector<avk::recorded_commands_t>&) { /* We're done here. */ }
 
 		// Add a specific pipeline setting to the pipeline config
 		template <typename... Ts>
-		void add_commands(std::vector<avk::recorded_commands_and_sync_instructions_t>& aGatheredCommands, avk::command::state_type_command& aOneMoreCommand, Ts&... aRest)
+		void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::command::state_type_command& aOneMoreCommand, Ts&... aRest)
 		{
 			aGatheredCommands.push_back(std::move(aOneMoreCommand));
 			add_commands(aGatheredCommands, aRest...);
@@ -958,7 +965,7 @@ namespace avk
 
 		// Add a specific pipeline setting to the pipeline config
 		template <typename... Ts>
-		void add_commands(std::vector<avk::recorded_commands_and_sync_instructions_t>& aGatheredCommands, avk::command::action_type_command& aOneMoreCommand, Ts&... aRest)
+		void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::command::action_type_command& aOneMoreCommand, Ts&... aRest)
 		{
 			aGatheredCommands.push_back(std::move(aOneMoreCommand));
 			add_commands(aGatheredCommands, aRest...);
@@ -966,7 +973,7 @@ namespace avk
 
 		// Add a specific pipeline setting to the pipeline config
 		template <typename... Ts>
-		void add_commands(std::vector<avk::recorded_commands_and_sync_instructions_t>& aGatheredCommands, avk::sync::barrier_data& aOneMoreCommand, Ts&... aRest)
+		void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::sync::sync_type_command& aOneMoreCommand, Ts&... aRest)
 		{
 			aGatheredCommands.push_back(std::move(aOneMoreCommand));
 			add_commands(aGatheredCommands, aRest...);
@@ -974,7 +981,7 @@ namespace avk
 
 		// Add a specific pipeline setting to the pipeline config
 		template <typename... Ts>
-		void add_commands(std::vector<avk::recorded_commands_and_sync_instructions_t>& aGatheredCommands, avk::recorded_commands_and_sync_instructions_t& aOneMoreCommand, Ts&... aRest)
+		void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::recorded_commands_t& aOneMoreCommand, Ts&... aRest)
 		{
 			aGatheredCommands.push_back(std::move(aOneMoreCommand));
 			add_commands(aGatheredCommands, aRest...);
@@ -982,7 +989,7 @@ namespace avk
 
 		// Add a specific pipeline setting to the pipeline config
 		template <typename... Ts>
-		void add_commands(std::vector<avk::recorded_commands_and_sync_instructions_t>& aGatheredCommands, std::vector<avk::recorded_commands_and_sync_instructions_t>& aManyMoreCommands, Ts&... aRest)
+		void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, std::vector<avk::recorded_commands_t>& aManyMoreCommands, Ts&... aRest)
 		{
 			// Use std::insert with std::make_move_iterator as suggested here: https://stackoverflow.com/questions/15004517/moving-elements-from-stdvector-to-another-one
 			aGatheredCommands.insert(std::end(aGatheredCommands), std::make_move_iterator(std::begin(aManyMoreCommands)),
@@ -998,18 +1005,18 @@ namespace avk
 		 *
 		 */
 		template <typename... Ts>
-		std::vector<avk::recorded_commands_and_sync_instructions_t> gather_commands(Ts... args)
+		std::vector<avk::recorded_commands_t> gather_commands(Ts... args)
 		{
-			std::vector<avk::recorded_commands_and_sync_instructions_t> result;
+			std::vector<avk::recorded_commands_t> result;
 			add_commands(result, args...);
 			return result;
 		}
 
 		// TODO: Comment
 		template <typename T, typename F>
-		std::vector<avk::recorded_commands_and_sync_instructions_t> command_for_each(T aCollection, F aGenerator)
+		std::vector<avk::recorded_commands_t> command_for_each(T aCollection, F aGenerator)
 		{
-			std::vector<avk::recorded_commands_and_sync_instructions_t> result;
+			std::vector<avk::recorded_commands_t> result;
 			for (const auto& element : aCollection) {
 				result.push_back(std::move(aGenerator(element)));
 			}
@@ -1018,9 +1025,9 @@ namespace avk
 
 		// TODO: Comment
 		template <typename T, typename F>
-		std::vector<avk::recorded_commands_and_sync_instructions_t> commands_for_each(T aCollection, F aGenerator)
+		std::vector<avk::recorded_commands_t> commands_for_each(T aCollection, F aGenerator)
 		{
-			std::vector<avk::recorded_commands_and_sync_instructions_t> result;
+			std::vector<avk::recorded_commands_t> result;
 			for (const auto& element : aCollection) {
 				auto commands = aGenerator(element);
 				for (auto& command : commands) {
