@@ -3387,7 +3387,7 @@ namespace avk
 			aName = "Descriptor Cache #" + std::to_string(sDescCacheId++);
 		}
 
-		descriptor_cache result;
+		descriptor_cache_t result;
 		result.mName = std::move(aName);
 		result.mRoot = this;
 		return result;
@@ -3527,7 +3527,7 @@ namespace avk
 
 #pragma region standard descriptor set
 
-	const descriptor_set_layout& descriptor_cache::get_or_alloc_layout(descriptor_set_layout aPreparedLayout)
+	const descriptor_set_layout& descriptor_cache_t::get_or_alloc_layout(descriptor_set_layout aPreparedLayout)
 	{
 		const auto it = mLayouts.find(aPreparedLayout);
 		if (mLayouts.end() != it) {
@@ -3542,7 +3542,7 @@ namespace avk
 		return *result.first;
 	}
 
-	std::optional<descriptor_set> descriptor_cache::get_descriptor_set_from_cache(const descriptor_set& aPreparedSet)
+	std::optional<descriptor_set> descriptor_cache_t::get_descriptor_set_from_cache(const descriptor_set& aPreparedSet)
 	{
 		const auto it = mSets.find(aPreparedSet);
 		if (mSets.end() != it) {
@@ -3554,7 +3554,7 @@ namespace avk
 		return {};
 	}
 
-	std::vector<descriptor_set> descriptor_cache::alloc_new_descriptor_sets(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts, std::vector<descriptor_set> aPreparedSets)
+	std::vector<descriptor_set> descriptor_cache_t::alloc_new_descriptor_sets(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts, std::vector<descriptor_set> aPreparedSets)
 	{
 		assert(aLayouts.size() == aPreparedSets.size());
 
@@ -3658,13 +3658,13 @@ namespace avk
 		return result;
 	}
 
-	void descriptor_cache::cleanup()
+	void descriptor_cache_t::cleanup()
 	{
 		mSets.clear();
 		mLayouts.clear();
 	}
 
-	std::shared_ptr<descriptor_pool> descriptor_cache::get_descriptor_pool_for_layouts(const descriptor_alloc_request& aAllocRequest, bool aRequestNewPool)
+	std::shared_ptr<descriptor_pool> descriptor_cache_t::get_descriptor_pool_for_layouts(const descriptor_alloc_request& aAllocRequest, bool aRequestNewPool)
 	{
 		// We'll allocate the pools per (thread and name)
 		auto tId = std::this_thread::get_id();
@@ -3836,7 +3836,7 @@ namespace avk
 		mPool.get()->mDescriptorPool.getOwner().updateDescriptorSets(static_cast<uint32_t>(mOrderedDescriptorDataWrites.size()), mOrderedDescriptorDataWrites.data(), 0u, nullptr);
 	}
 
-	std::vector<descriptor_set> descriptor_cache::get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings)
+	std::vector<descriptor_set> descriptor_cache_t::get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings)
 	{
 		std::vector<binding_data> orderedBindings;
 		uint32_t minSetId = std::numeric_limits<uint32_t>::max();
@@ -3909,7 +3909,7 @@ namespace avk
 		return cachedSets;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::ImageView aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::ImageView aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -3941,7 +3941,7 @@ namespace avk
 		return numDeleted;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::Buffer aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::Buffer aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -3973,7 +3973,7 @@ namespace avk
 		return numDeleted;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::Sampler aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::Sampler aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -4005,7 +4005,7 @@ namespace avk
 		return numDeleted;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::BufferView aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::BufferView aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -8186,8 +8186,8 @@ namespace avk
 			// > When the old and new layout are equal, the layout values are ignored - data is preserved
 			// > no matter what values are specified, or what layout the image is currently in.
 			if (imageSyncData.mLayoutTransition.has_value()) {
-				barrier.setOldLayout(imageSyncData.mLayoutTransition.value().mOld);
-				barrier.setNewLayout(imageSyncData.mLayoutTransition.value().mNew);
+				barrier.setOldLayout(imageSyncData.mLayoutTransition.value().mOld.mLayout);
+				barrier.setNewLayout(imageSyncData.mLayoutTransition.value().mNew.mLayout);
 			}
 			// else leave both set to 0 which corresponds to eUndefined -> eUndefined, a.k.a. no layout transition
 		}

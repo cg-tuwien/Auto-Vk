@@ -26,7 +26,7 @@ namespace avk
 	 *  cache class or in general, handle it manually.
 	 *
 	 */
-	class descriptor_cache
+	class descriptor_cache_t
 	{
 		friend class root;
 		
@@ -62,4 +62,6 @@ namespace avk
 		// pool will be created.
 		std::unordered_map<std::thread::id, std::vector<std::weak_ptr<descriptor_pool>>> mDescriptorPools;
 	};
+
+	using descriptor_cache = owning_resource<descriptor_cache_t>;
 }

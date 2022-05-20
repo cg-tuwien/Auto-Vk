@@ -584,4 +584,106 @@ namespace avk
 		std::vector<any_owning_resource_t> mLifetimeHandledResources;
 	};
 
+
+	// Some convenience functions:
+
+	namespace command
+	{
+		// End of recursive variadic template handling
+		inline static void add_commands(std::vector<avk::recorded_commands_t>&) { /* We're done here. */ }
+
+		// Add a specific pipeline setting to the pipeline config
+		template <typename... Ts>
+		inline static void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::command::state_type_command& aOneMoreCommand, Ts&... aRest)
+		{
+			aGatheredCommands.push_back(std::move(aOneMoreCommand));
+			add_commands(aGatheredCommands, aRest...);
+		}
+
+		// Add a specific pipeline setting to the pipeline config
+		template <typename... Ts>
+		inline static void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::command::action_type_command& aOneMoreCommand, Ts&... aRest)
+		{
+			aGatheredCommands.push_back(std::move(aOneMoreCommand));
+			add_commands(aGatheredCommands, aRest...);
+		}
+
+		// Add a specific pipeline setting to the pipeline config
+		template <typename... Ts>
+		inline static void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::sync::sync_type_command& aOneMoreCommand, Ts&... aRest)
+		{
+			aGatheredCommands.push_back(std::move(aOneMoreCommand));
+			add_commands(aGatheredCommands, aRest...);
+		}
+
+		// Add a specific pipeline setting to the pipeline config
+		template <typename... Ts>
+		inline static void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, avk::recorded_commands_t& aOneMoreCommand, Ts&... aRest)
+		{
+			aGatheredCommands.push_back(std::move(aOneMoreCommand));
+			add_commands(aGatheredCommands, aRest...);
+		}
+
+		// Add a specific pipeline setting to the pipeline config
+		template <typename... Ts>
+		inline static void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, std::vector<avk::recorded_commands_t>& aManyMoreCommands, Ts&... aRest)
+		{
+			// Use std::insert with std::make_move_iterator as suggested here: https://stackoverflow.com/questions/15004517/moving-elements-from-stdvector-to-another-one
+			aGatheredCommands.insert(std::end(aGatheredCommands), std::make_move_iterator(std::begin(aManyMoreCommands)),
+				std::make_move_iterator(std::end(aManyMoreCommands)));
+			add_commands(aGatheredCommands, aRest...);
+		}
+
+		/**	Convenience function for gathering recorded commands
+		 *
+		 *	It supports the following types:
+		 *   - avk::recorded_commands_and_sync_instructions_t
+		 *   - std::vector<avk::recorded_commands_t>
+		 *
+		 */
+		template <typename... Ts>
+		inline static std::vector<avk::recorded_commands_t> gather(Ts... args)
+		{
+			std::vector<avk::recorded_commands_t> result;
+			add_commands(result, args...);
+			return result;
+		}
+
+		// TODO: Comment
+		template <typename T, typename F>
+		inline static std::vector<avk::recorded_commands_t> one_for_each(T aCollection, F aGenerator)
+		{
+			std::vector<avk::recorded_commands_t> result;
+			for (const auto& element : aCollection) {
+				result.push_back(std::move(aGenerator(element)));
+			}
+			return result;
+		}
+
+		// TODO: Comment
+		template <typename T, typename F>
+		inline static std::vector<avk::recorded_commands_t> many_for_each(T aCollection, F aGenerator)
+		{
+			std::vector<avk::recorded_commands_t> result;
+			for (const auto& element : aCollection) {
+				auto commands = aGenerator(element);
+				for (auto& command : commands) {
+					result.push_back(std::move(command));
+				}
+			}
+			return result;
+		}
+
+		// TODO: Comment
+		template <typename C, typename F1, typename F2>
+		inline static avk::recorded_commands_t conditional(C aCondition, F1 aPositive, F2 aNegative)
+		{
+			if (aCondition()) {
+				return aPositive();
+			}
+			else {
+				return aNegative();
+			}
+		}
+	}
 }

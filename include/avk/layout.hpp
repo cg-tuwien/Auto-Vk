@@ -5,6 +5,11 @@ namespace avk
 {
 	namespace layout
 	{
+		struct image_layout
+		{
+			vk::ImageLayout mLayout;
+		};
+        
         /**	To define an image_layout_transition, use operator>> with two layout values!
 		 *	There are multiple such memory_access_flags values prepared in the avk::layout namespace.
 		 *
@@ -14,15 +19,10 @@ namespace avk
 		 */
 		struct image_layout_transition
 		{
-			vk::ImageLayout mOld;
-			vk::ImageLayout mNew;
+			image_layout mOld;
+			image_layout mNew;
 		};
 
-		struct image_layout
-		{
-			vk::ImageLayout mLayout;
-		};
-        
 		inline image_layout_transition operator>> (image_layout a, image_layout b)
 		{
 			return image_layout_transition{ a.mLayout, b.mLayout };
