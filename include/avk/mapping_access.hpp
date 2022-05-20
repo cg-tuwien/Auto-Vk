@@ -30,10 +30,4 @@ namespace avk
 	{
 		return a = a & b;
 	}
-
-	inline mapping_access exclude(mapping_access original, mapping_access toExclude)
-	{
-		typedef std::underlying_type<mapping_access>::type EnumType;
-		return static_cast<mapping_access>(static_cast<EnumType>(original) & (~static_cast<EnumType>(toExclude)));
-	}
 }

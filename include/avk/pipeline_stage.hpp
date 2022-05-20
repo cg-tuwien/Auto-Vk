@@ -55,18 +55,6 @@ namespace avk
 		return a = a & b;
 	}
 
-	inline pipeline_stage exclude(pipeline_stage original, pipeline_stage toExclude)
-	{
-		typedef std::underlying_type<pipeline_stage>::type EnumType;
-		return static_cast<pipeline_stage>(static_cast<EnumType>(original) & (~static_cast<EnumType>(toExclude)));
-	}
-
-	inline bool is_included(const pipeline_stage toTest, const pipeline_stage includee)
-	{
-		return (toTest & includee) == includee;
-	}
-
-
 	class queue;
 
 	struct queue_ownership

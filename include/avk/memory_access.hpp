@@ -75,17 +75,6 @@ namespace avk
 		return a = a & b;
 	}
 
-	inline memory_access exclude(memory_access original, memory_access toExclude)
-	{
-		typedef std::underlying_type<memory_access>::type EnumType;
-		return static_cast<memory_access>(static_cast<EnumType>(original) & (~static_cast<EnumType>(toExclude)));
-	}
-
-	inline bool is_included(const memory_access toTest, const memory_access includee)
-	{
-		return (toTest & includee) == includee;
-	}
-
 	inline bool is_read_access(memory_access aValue)
 	{
 		return (aValue & (memory_access::indirect_command_data_read_access			

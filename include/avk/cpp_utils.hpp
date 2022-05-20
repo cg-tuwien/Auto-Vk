@@ -205,6 +205,19 @@ namespace avk
 		return std::disjunction_v<std::is_same<InQuestion, Existing>...>;
 	}
 
+	template <typename V, typename F>
+	V exclude(V original, F toExclude)
+	{
+		typedef std::underlying_type_t<V> EnumType;
+		return static_cast<V>(static_cast<EnumType>(original) & (~static_cast<EnumType>(toExclude)));
+	}
+
+	template <typename V, typename F>
+	bool is_included(V toTest, F inQuestion)
+	{
+		return (toTest & inQuestion) == inQuestion;
+	}
+
 	// SFINAE test for detecting if a type has a `.size()` member and iterators
 	template <typename T>
 	class has_size_and_iterators
