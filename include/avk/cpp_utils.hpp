@@ -318,7 +318,6 @@ namespace avk
 		x[size_t{1}];
 	};
 
-
 	// A concept which requires a type to have ::value_type
 	template <typename T>
 	concept has_value_type = requires
@@ -332,8 +331,15 @@ namespace avk
 	{
 		x.handle();
 	};
-	
 
+	// A concept which requires a type to have iterators
+	template <typename T>
+	concept has_iterators = requires (T x)
+	{
+		std::begin(x);
+		std::end(x);
+	};
+	
 	// This class represents a/the owner of a specific resource T.
 	//
 	// The resource is either held locally on the stack, or -- as an additional features -- moved onto

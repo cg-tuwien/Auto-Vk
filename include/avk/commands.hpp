@@ -676,7 +676,41 @@ namespace avk
 
 		// TODO: Comment
 		template <typename C, typename F1, typename F2>
+		inline static avk::recorded_commands_t conditional(C aCondition, F1 aPositive)
+		{
+			if (aCondition()) {
+				return aPositive();
+			}
+			return avk::recorded_commands_t{ avk::command::state_type_command{} };
+		}
+
+		// TODO: Comment
+		template <typename C, typename F1, typename F2>
 		inline static avk::recorded_commands_t conditional(C aCondition, F1 aPositive, F2 aNegative)
+		{
+			if (aCondition()) {
+				return aPositive();
+			}
+			else {
+				return aNegative();
+			}
+		}
+
+		// TODO: Comment
+		// TODO: Should check for is_vector instead of has_iterators
+		template <typename C, typename F1> requires avk::has_iterators<std::invoke_result_t<F1>>
+		inline static std::vector<avk::recorded_commands_t> conditional(C aCondition, F1 aPositive)
+		{
+			if (aCondition()) {
+				return aPositive();
+			}
+			return std::vector<avk::recorded_commands_t>{};
+		}
+
+		// TODO: Comment
+		// TODO: Should check for is_vector instead of has_iterators
+		template <typename C, typename F1, typename F2> requires avk::has_iterators<std::invoke_result_t<F1>> && avk::has_iterators<std::invoke_result_t<F2>>
+		inline static std::vector<avk::recorded_commands_t> conditional(C aCondition, F1 aPositive, F2 aNegative)
 		{
 			if (aCondition()) {
 				return aPositive();
