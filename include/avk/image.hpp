@@ -59,10 +59,10 @@ namespace avk
 		auto aspect_flags() const { return mAspectFlags; }
 
 		/**	Generate all the coarser MIP levels from the current level 0.
-		 *	Attention: IF the image has no MIP levels, `aSyncHandler` will NOT be invoked!
+		 *	@param	aLayoutTransition		Layout of the image before the generate_mip_maps >> layout that the image shall be transitioned into afterwards
 		 */
-		std::optional<command_buffer> generate_mip_maps(old_sync aSyncHandler, vk::ImageLayout originalLayout, vk::ImageLayout targetLayout);
-
+		avk::command::action_type_command generate_mip_maps(avk::layout::image_layout_transition aLayoutTransition);
+		
 		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
 
 	private:
