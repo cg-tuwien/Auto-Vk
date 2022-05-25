@@ -2017,7 +2017,7 @@ namespace avk
 		);
 
 		// TODO: THIS IS BROKEN FOR NOW:
-		//geomInstBuffer->fill(geomInstances.data(), 0, old_sync::not_required());
+		geomInstBuffer->fill(geomInstances.data(), 0);
 
 		auto result = build_or_update(geomInstBuffer, aScratchBuffer, std::move(aSyncHandler), aBuildAction);
 
