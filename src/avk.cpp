@@ -8443,6 +8443,9 @@ namespace avk
 					lFramebufferHandle = aFramebuffer->handle(),
 					aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline
 				](avk::resource_reference<avk::command_buffer_t> cb) {
+					// TODO: make vk::SubpassContentscontents state explicit
+					cb->save_subpass_contents_state(aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers);
+
 					auto renderPassBeginInfo = vk::RenderPassBeginInfo()
 						.setRenderPass(lRenderPassHandle)
 						.setFramebuffer(lFramebufferHandle)

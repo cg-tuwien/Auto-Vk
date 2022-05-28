@@ -677,6 +677,8 @@ namespace avk
 			return trace_rays(aRaygenDimensions, aShaderBindingTableRef, *aShaderBindingTableRef.mRoot, raygen, raymiss, rayhit, callable);
 		}
 #endif
+
+		void save_subpass_contents_state(vk::SubpassContents x) { mSubpassContentsState = x; }
 		
 		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
 
