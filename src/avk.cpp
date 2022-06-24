@@ -6976,58 +6976,66 @@ namespace avk
 		}
 	}
 
+
+	/**	Creates memory barrier data which is appropriate for the given subpass dependency.
+	 *	@param	aSubpassDependency	Subpass dependency to create memory barrier data for.
+	 *	@return	Memory barrier data including stage and access masks.
+	 */
+	static inline vk::MemoryBarrier2KHR get_memory_barrier_for_subpass_dependency(const subpass_dependency& aSubpassDependency)
+	{
+		const bool srcStageIsAuto = std::holds_alternative<avk::stage::auto_stage_t>(aSubpassDependency.mStages.mSrc);
+		const bool dstStageIsAuto = std::holds_alternative<avk::stage::auto_stage_t>(aSubpassDependency.mStages.mDst);
+		const bool srcAccessIsAuto = std::holds_alternative<avk::access::auto_access_t>(aSubpassDependency.mAccesses.mSrc);
+		const bool dstAccessIsAuto = std::holds_alternative<avk::access::auto_access_t>(aSubpassDependency.mAccesses.mDst);
+
+		return vk::MemoryBarrier2KHR{}
+			.setSrcStageMask(srcStageIsAuto
+				? vk::PipelineStageFlags2KHR{
+					VK_SUBPASS_EXTERNAL == aSubpassDependency.mIndices.mSrc
+					? vk::PipelineStageFlagBits2KHR::eAllCommands // TODO: Try to determine tighter stage mask; needs more information about external commands, though
+					: vk::PipelineStageFlagBits2KHR::eAllGraphics
+				}
+				: std::get<vk::PipelineStageFlags2KHR>(aSubpassDependency.mStages.mSrc)
+			)
+			.setDstStageMask(dstStageIsAuto
+				? vk::PipelineStageFlags2KHR{
+					VK_SUBPASS_EXTERNAL == aSubpassDependency.mIndices.mDst
+					? vk::PipelineStageFlagBits2KHR::eAllCommands // TODO: Try to determine tighter stage mask; needs more information about external commands, though
+					: vk::PipelineStageFlagBits2KHR::eAllGraphics
+				}
+				: std::get<vk::PipelineStageFlags2KHR>(aSubpassDependency.mStages.mDst)
+			)
+			.setSrcAccessMask(srcAccessIsAuto
+				? vk::AccessFlags2KHR{ vk::AccessFlagBits2KHR::eMemoryWrite }  // TODO: Try to determine tighter access mask; needs more information about external commands, though
+				: std::get<vk::AccessFlags2KHR>(aSubpassDependency.mAccesses.mSrc)
+			)
+			.setDstAccessMask(dstAccessIsAuto
+				? vk::AccessFlags2KHR{ vk::AccessFlagBits2KHR::eMemoryWrite }  // TODO: Try to determine tighter access mask; needs more information about external commands, though
+				: std::get<vk::AccessFlags2KHR>(aSubpassDependency.mAccesses.mDst)
+			);
+	}
+
 	std::tuple<std::vector<vk::SubpassDependency2KHR>, std::vector<vk::MemoryBarrier2KHR>> root::compile_subpass_dependencies(const renderpass_t& aRenderpass)
 	{
 		const auto numSubpassesFirst = aRenderpass.mSubpassData.size();
 		assert(numSubpassesFirst > 0);
 
 		// And construct the actual dependency-info from it:
-		std::vector<vk::SubpassDependency2KHR> subpassDependencies;
-		std::vector<vk::MemoryBarrier2KHR> memoryBarriers;
+		std::vector<vk::SubpassDependency2KHR> subpassDependencies2;
+		std::vector<vk::MemoryBarrier2KHR> memoryBarriers2;
 
-		const uint32_t firstSubpassId = 0u;
-		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
-
-		// Sync with whatever comes before
-		{
-			auto hasDependency = try_get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, VK_SUBPASS_EXTERNAL, firstSubpassId);
-			if (hasDependency.has_value()) {
-				auto [sd, mb] = hasDependency.value();
-				subpassDependencies.push_back(std::move(sd));
-				memoryBarriers.push_back(std::move(mb));
-				assert(subpassDependencies.back().srcSubpass == VK_SUBPASS_EXTERNAL);
-				assert(subpassDependencies.back().dstSubpass == 0u);
-			}
+		// Just turn them all into subpass dependencies:
+		for (auto& subDep : aRenderpass.mSubpassDependencies) {
+			subpassDependencies2.push_back(vk::SubpassDependency2KHR{}
+				.setSrcSubpass(subDep.mIndices.mSrc).setDstSubpass(subDep.mIndices.mDst) // If a VkMemoryBarrier2 is included in the pNext chain, srcStageMask, dstStageMask, srcAccessMask, and dstAccessMask parameters are ignored.
+				.setPNext(nullptr) // !!! ATTENTION: This will have to be set by the user of this function to point to the appropriate vk::MemoryBarrier2KHR{} !!!
+			);
+			memoryBarriers2.push_back(get_memory_barrier_for_subpass_dependency(subDep));
 		}
 
-		// Sync with subpasses
-		// Iterate over all combinations of [id, id] and [id, id+1]
-		for (auto i = firstSubpassId, j = firstSubpassId; j <= lastSubpassId; i += (j - i), j += static_cast<uint32_t>(i == j)) {
-			auto hasDependency = try_get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, i, j);
-			if (hasDependency.has_value()) {
-				auto [sd, mb] = hasDependency.value();
-				subpassDependencies.push_back(std::move(sd));
-				memoryBarriers.push_back(std::move(mb));
-				assert(subpassDependencies.back().srcSubpass == i);
-				assert(subpassDependencies.back().dstSubpass == j);
-			}
-		}
+		assert(subpassDependencies2.size() == memoryBarriers2.size());
 
-		// Sync with whatever comes after
-		{
-			auto hasDependency = try_get_subpass_dependency_for_indices(aRenderpass.mSubpassDependencies, lastSubpassId, VK_SUBPASS_EXTERNAL);
-			if (hasDependency.has_value()) {
-				auto [sd, mb] = hasDependency.value();
-				subpassDependencies.push_back(std::move(sd));
-				memoryBarriers.push_back(std::move(mb));
-				assert(subpassDependencies.back().srcSubpass == lastSubpassId);
-				assert(subpassDependencies.back().dstSubpass == VK_SUBPASS_EXTERNAL);
-			}
-		}
-
-		assert(subpassDependencies.size() == memoryBarriers.size());
-
-		return std::make_tuple(std::move(subpassDependencies), std::move(memoryBarriers));
+		return std::make_tuple(std::move(subpassDependencies2), std::move(memoryBarriers2));
 	}
 
 	void root::rewire_subpass_dependencies(std::vector<vk::SubpassDependency2KHR>& aAlignedSubpassDependencies, std::vector<vk::MemoryBarrier2KHR>& aAlignedMemoryBarriers)
