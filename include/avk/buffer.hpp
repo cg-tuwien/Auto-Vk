@@ -234,9 +234,11 @@ namespace avk
 		*/
 		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes);
 
-		/** Read data from buffer back to the CPU-side.
-		 */
-		std::optional<command_buffer> read(void* aDataPtr, size_t aMetaDataIndex, old_sync aSyncHandler) const;
+		/** Read data from buffer back to the CPU-side, into some given memory.
+		 *	@param	aDataPtr		Target memory where to write read-back data into
+		 *	@param	aMetaDataIndex	Index of the meta data index which is used for the buffer's read-back data (size and stuff)
+		 */	
+		avk::command::action_type_command read_into(void* aDataPtr, size_t aMetaDataIndex) const;
 
 		/**
 		 * Read back data from a buffer.
@@ -250,8 +252,13 @@ namespace avk
 		 * @tparam	Ret			Specify the type of data that shall be read from the buffer (this is `uint32_t` in the example above).
 		 * @returns				A value of type `Ret` which is returned by value.
 		 */
-		template <typename Ret>
-		Ret read(size_t aMetaDataIndex, old_sync aSyncHandler); // implemented in avk/buffer_read_impl.hpp
+		template<typename Ret>
+		[[nodiscard]] Ret read(size_t aMetaDataIndex) {
+			auto memProps = memory_properties();
+			Ret result;
+			read_into(static_cast<void*>(&result), aMetaDataIndex);
+			return result;
+		}
 
 		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
 

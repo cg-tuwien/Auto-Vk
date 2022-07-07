@@ -50,72 +50,72 @@ namespace avk
 		 *
 		 *	@param	aGeometries		Vector of pairs of buffers where one buffer must be an index buffer and the other must be a vertex buffer.
 		 *							I.e. they must have the appropriate meta_data set: index_buffer_meta and vertex_buffer_meta, respectively.
-		 *	@param	aScratchBuffer	Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer	Optional (owning resource) buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *							vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *							If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler	Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		std::optional<command_buffer> build(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
+		avk::command::action_type_command build(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<avk::buffer> aScratchBuffer = {});
 
 		/** Update this bottom level acceleration structure using one pair or multiple pairs of buffers.
 		 *
 		 *	@param	aGeometries		Vector of pairs of buffers where one buffer must be an index buffer and the other must be a vertex buffer.
 		 *							I.e. they must have the appropriate meta_data set: index_buffer_meta and vertex_buffer_meta, respectively.
-		 *	@param	aScratchBuffer	Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer	Optional (owning resource) buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *							vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *							If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler	Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		std::optional<command_buffer> update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
+		avk::command::action_type_command update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<avk::buffer> aScratchBuffer = {});
 		
 		/** Build this bottom level acceleration structure using a vector of axis-aligned bounding boxes.
 		 *
 		 *	@param	aGeometries		Vector of axis aligned bounding boxes that will be used as bottom-level acceleration structure geometry primitives.
-		 *	@param	aScratchBuffer	Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer	Optional (owning resource) buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *							vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *							If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler	Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		std::optional<command_buffer> build(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
+		avk::command::action_type_command build(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer = {});
 		
 		/** Update this bottom level acceleration structure using a vector of axis-aligned bounding boxes.
 		 *
 		 *	@param	aGeometries		Vector of axis aligned bounding boxes that will be used as bottom-level acceleration structure geometry primitives.
-		 *	@param	aScratchBuffer	Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer	Optional (owning resource) buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *							vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *							If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler	Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		std::optional<command_buffer> update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
+		avk::command::action_type_command update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer = {});
 
 		/** Build this bottom level acceleration structure using a buffer containing axis-aligned bounding boxes.
 		 *
 		 *	@param	aGeometriesBuffer	Buffer containing containing one or multiple axis-aligned bounding boxes. The buffer must have the appropriate
 		 *								meta data set, which is aabb_buffer_meta.
-		 *	@param	aScratchBuffer		Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer		Optional (owning resource) buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *								vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *								If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler		Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		std::optional<command_buffer> build(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
+		avk::command::action_type_command build(const buffer& aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer = {});
 
 		/** Update this bottom level acceleration structure using a buffer containing axis-aligned bounding boxes.
 		 *
 		 *	@param	aGeometriesBuffer	Buffer containing one or multiple axis-aligned bounding boxes. The buffer must have the appropriate
 		 *								meta data set, which is aabb_buffer_meta.
-		 *	@param	aScratchBuffer		Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer		Optional (owning resource) buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *								vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *								If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler		Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		std::optional<command_buffer> update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, old_sync aSyncHandler = old_sync::wait_idle());
+		avk::command::action_type_command update(const buffer& aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer = {});
 		
 	private:
 		enum struct blas_action { build, update };
-		std::optional<command_buffer> build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, old_sync aSyncHandler, blas_action aBuildAction);
-		std::optional<command_buffer> build_or_update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, old_sync aSyncHandler, blas_action aBuildAction);
-		std::optional<command_buffer> build_or_update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, old_sync aSyncHandler, blas_action aBuildAction);
-		buffer_t& get_and_possibly_create_scratch_buffer();
+		avk::command::action_type_command build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction);
+		avk::command::action_type_command build_or_update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction);
+		avk::command::action_type_command build_or_update(avk::buffer aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction);
+		avk::buffer get_and_possibly_create_scratch_buffer();
 		
 #if VK_HEADER_VERSION >= 162
 		vk::DeviceSize mMemoryRequirementsForAccelerationStructure = {};

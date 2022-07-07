@@ -243,12 +243,43 @@ namespace avk
 			std::vector<recorded_commands_t> mNestedCommandsAndSyncInstructions;
 			rec_fun mEndFun = {};
 
+			/**	Takes care of the lifetime of the given resource.
+			 *	It will be deleted when this action_type goes out of scope. TODO: Or will it?
+			 */
 			action_type_command& handle_lifetime_of(any_owning_resource_t aResource)
 			{
 				mLifetimeHandledResources.push_back(std::move(aResource));
 				return *this;
 			}
-			
+
+			/**	Overwrites the mSyncHint member with the mSyncHint of the first nested action command's "before" sync hint,
+			 *	and the "after" sync hint with the last nested action command's "after" sync hint.
+			 *	TODO: implement a better logic for this!
+			 *	TODO: Maybe also take sync_type_commands into account?
+			 */
+			void infer_sync_hint_from_nested_commands()
+			{
+				if (mNestedCommandsAndSyncInstructions.empty()) {
+					return;
+				}
+
+				for (auto it = mNestedCommandsAndSyncInstructions.begin(); it != mNestedCommandsAndSyncInstructions.end(); ++it) {
+					if (std::holds_alternative<command::action_type_command>(*it)) {
+						mSyncHint.mStageHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mStageHintBefore;
+						mSyncHint.mAccessHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mAccessHintBefore;
+						break;
+					}
+				}
+
+				for (auto it = mNestedCommandsAndSyncInstructions.rbegin(); it != mNestedCommandsAndSyncInstructions.rend(); ++it) {
+					if (std::holds_alternative<command::action_type_command>(*it)) {
+						mSyncHint.mStageHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mStageHintAfter;
+						mSyncHint.mAccessHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mAccessHintAfter;
+						break;
+					}
+				}
+			}
+
 			std::vector<any_owning_resource_t> mLifetimeHandledResources;
 		};
 

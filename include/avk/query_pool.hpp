@@ -3,8 +3,6 @@
 
 namespace avk
 {
-	class query_t;
-
 	/** Represents a Vulkan query pool
 	*/
 	class query_pool_t
@@ -38,7 +36,7 @@ namespace avk
 		 *									I.e. the query indices [aFirstQueryIndex..aNumQueries) will be reset.
 		 *									If not set, all queries from [aFirstQueryIndex..maxIndex] will be reset.
 		 */
-		std::optional<command_buffer> reset(uint32_t aFirstQueryIndex = 0u, std::optional<uint32_t> aNumQueries = {}, avk::old_sync aSync = avk::old_sync::wait_idle());
+		avk::command::action_type_command reset(uint32_t aFirstQueryIndex = 0u, std::optional<uint32_t> aNumQueries = {});
 
 		/**	Issues a command to write a timestamp after all current commands
 		 *	in a queue have reached the given pipeline stage.
@@ -46,27 +44,21 @@ namespace avk
 		 *	@param	aQueryIndex		Which query of the pool shall the timestamp be written to
 		 *	@param	aTimestampStage	The stage(s) which all previously submitted commands have
 		 *							to reach before the timestamp is written.
-		 *	@param	aSync			How to submit this instruction
-		 * 
 		 */
-		std::optional<command_buffer> write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage, old_sync aSync);
+		avk::command::action_type_command write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage);
 
 		/**	Issues a command to begin a certain query.
 		 *
 		 *	@param	aQueryIndex		Which query of the pool shall the result be written to
 		 *	@param	aFlags			Additional flags for the instruction
-		 *	@param	aSync			How to submit this instruction
-		 * 
 		 */
-		std::optional<command_buffer> begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags, old_sync aSync);
+		avk::command::action_type_command begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags);
 
 		/**	Issues a command to end a certain query.
 		 *
 		 *	@param	aQueryIndex		Which query of the pool shall the result be written to
-		 *	@param	aSync			How to submit this instruction
-		 * 
 		 */
-		std::optional<command_buffer> end_query(uint32_t aQueryIndex, old_sync aSync);
+		avk::command::action_type_command end_query(uint32_t aQueryIndex);
 
 		/**	Get results of multiple queries
 		 *
@@ -130,9 +122,8 @@ namespace avk
 		 *	@param	aBufferMetaSkip		Optional: Skip this many meta data entries of type avk::query_results_buffer_meta (if the buffer has multiple).
 		 *	@param	aFlags				Additional flags. Make sure to pass vk::QueryResultFlagBits::e64 if the query
 		 *								data shall be stored into a 64-bit integer.
-		 *	@param	aSync				How to submit the instructions
 		 */
-		std::optional<command_buffer> copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, old_sync aSync);
+		avk::command::action_type_command copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags);
 		
 		/**	Copies the value of one single queries into the given buffer.
 		 *	The user must ensure proper lifetime handling of the buffer.
@@ -144,9 +135,8 @@ namespace avk
 		 *	@param	aBufferMetaSkip		Optional: Skip this many meta data entries of type avk::query_results_buffer_meta (if the buffer has multiple).
 		 *	@param	aFlags				Additional flags. Make sure to pass vk::QueryResultFlagBits::e64 if the query
 		 *								data shall be stored into a 64-bit integer.
-		 *	@param	aSync				How to submit the instructions
 		 */
-		std::optional<command_buffer> copy_result(uint32_t aOnlyQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, old_sync aSync);
+		avk::command::action_type_command copy_result(uint32_t aOnlyQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags);
 		
 	private:
 		vk::QueryPoolCreateInfo mCreateInfo;

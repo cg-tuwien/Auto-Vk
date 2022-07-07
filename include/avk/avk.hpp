@@ -47,19 +47,33 @@
  *	from device-only memory, when a scratch buffer is needed to build acceleration
  *	structures and none was provided, etc.
  *
- *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+ *	By default, such a staging buffer is created with avk::memory_usage::host_coherent
  *	if nothing else is specified. Feel free to specify a different value by defining
  *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
  *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
  */
 #if !defined(AVK_STAGING_BUFFER_MEMORY_USAGE)
-#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_visible
+#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_coherent
+#endif
+
+ /** CONFIG SETTING: AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE
+  *
+  *	The following setting CAN be set BEFORE including avk.hpp in order to change
+  *	the behavior whenever staging buffers for reading back values are created
+  *	internally. 
+  *
+  *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+  *	if nothing else is specified. Feel free to specify a different value by defining
+  *	the AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
+  *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
+  */
+#if !defined(AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE)
+#define AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE	avk::memory_usage::host_visible
 #endif
 
 namespace avk
 {
 	class root;
-	class old_sync;
 }
 
 #include <avk/image_color_channel_order.hpp>
@@ -190,12 +204,6 @@ namespace avk
 
 #include <avk/semaphore.hpp>
 #include <avk/fence.hpp>
-
-#include <avk/old_sync.hpp>
-
-// NOTE: buffer_read_impl.hpp is included here, so Auto-Vk compiles with gcc & clang
-// TODO: Move read_impl back into buffer.hpp once avk::old_sync has been eliminated (Issue #2)
-#include <avk/buffer_read_impl.hpp>
 
 #include <avk/image.hpp>
 #include <avk/image_view.hpp>
