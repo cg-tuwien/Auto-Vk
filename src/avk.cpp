@@ -1746,10 +1746,17 @@ namespace avk
 		return avk::command::action_type_command{
 			// Define a sync hint for acceleration structure builds:
 			avk::sync::sync_hint {
+#if VK_HEADER_VERSION >= 204
 				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
 				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR,
 				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
 				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR
+#else
+				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+				vk::AccessFlagBits2KHR::eAccelerationStructureWrite,
+				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+				vk::AccessFlagBits2KHR::eAccelerationStructureWrite
+#endif
 			},
 			[
 				lRoot = mRoot,
@@ -1886,10 +1893,17 @@ namespace avk
 		return avk::command::action_type_command{
 			// Define a sync hint for acceleration structure builds:
 			avk::sync::sync_hint {
+#if VK_HEADER_VERSION >= 204
 				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
 				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR,
 				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
 				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR
+#else
+				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+				vk::AccessFlagBits2KHR::eAccelerationStructureWrite,
+				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+				vk::AccessFlagBits2KHR::eAccelerationStructureWrite
+#endif
 			},
 			[
 				lRoot = mRoot,
@@ -2139,10 +2153,17 @@ namespace avk
 		return avk::command::action_type_command{
 			// Define a sync hint for acceleration structure builds:
 			avk::sync::sync_hint {
+#if VK_HEADER_VERSION >= 204
 				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
 				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR,
 				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
 				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR
+#else
+				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+				vk::AccessFlagBits2KHR::eAccelerationStructureWrite,
+				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+				vk::AccessFlagBits2KHR::eAccelerationStructureWrite
+#endif
 			},
 			[
 				lRoot = mRoot,
