@@ -624,12 +624,12 @@ namespace avk
 
 #pragma region framebuffer
 		// Helper methods for the create methods that take attachments and image views
-		void check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<resource_ownership<image_view_t>>& aImageViews);
+		void check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<image_view>& aImageViews);
 
-		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
 		framebuffer create_framebuffer_from_template(resource_reference<const framebuffer_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {}, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation = {});
 
 		template <typename ...ImViews> requires are_same<resource_ownership<image_view_t>, ImViews...>::value
@@ -823,9 +823,9 @@ namespace avk
 		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.create_info()` to access the configuration structure!
 		*	@return	Returns a newly created image.
 		*/
-		image_view create_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		image_view create_depth_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		image_view create_stencil_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_image_view(avk::image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_depth_image_view(avk::image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_stencil_image_view(avk::image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
 
 		image_view create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {});
 

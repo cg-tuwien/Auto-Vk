@@ -374,17 +374,31 @@ namespace avk
 
 		// Construct an owning_resource by rvalue reference of a resource T.
 		// The original resource that is moved from might not be modified by the move.
-		owning_resource(T&& aResource) noexcept
-			: std::variant<std::monostate, T, std::shared_ptr<T>>{ std::move(aResource) }
-		{}
-
-		// Move-assign an owning_resource from an rvalue reference of a resource T.
-		// The original resource that is moved from might not be modified by the move.
-		owning_resource<T>& operator=(T&& aResource) noexcept
+		// By default, an owning_resource is created with shared ownership enabled.
+		owning_resource(T&& aResource, bool aCreateWithSharedOwnershipEnabled = true) noexcept
 		{
-			*this_as_variant() = std::move(aResource);
-			return *this;
+			if (aCreateWithSharedOwnershipEnabled) {
+				*this_as_variant() = std::make_shared<T>(std::move(aResource));
+			}
+			else {
+				*this_as_variant() = std::move(aResource);
+			}
 		}
+
+		owning_resource<T>& operator=(T&& aResource) = delete;
+		//// Move-assign an owning_resource from an rvalue reference of a resource T.
+		//// The original resource that is moved from might not be modified by the move.
+		//// By default, an owning_resource is created with shared ownership enabled.
+		//owning_resource<T>& operator=(T&& aResource) noexcept
+		//{
+		//	if (aCreateWithSharedOwnershipEnabled) {
+		//		*this_as_variant() = std::make_shared<T>(std::move(aResource));
+		//	}
+		//	else {
+		//		*this_as_variant() = std::move(aResource);
+		//	}
+		//	return *this;
+		//}
 
 		// Move-construct an owning_resource from another owning_resource.
 		// The other owning_reference is reset to std::monostate.
@@ -530,17 +544,15 @@ namespace avk
 			throw avk::logic_error("This owning_resource is uninitialized, i.e. std::monostate.");
 		}
 
-		//// Explicitly cast to the resource type and return a reference to it
-		//explicit operator const T&() const
+		//[[nodiscard]] const T& as_const_reference() const
 		//{
 		//	return get();
 		//}
 
-		//// Explicitly cast to the resource type and return a reference to it
-		//explicit operator T&()
-		//{
-		//	return get();
-		//}
+		[[nodiscard]] T& as_reference()
+		{
+			return get();
+		}
 
 		// Access the resource by returning a reference to it
 		const T& operator*() const
@@ -567,7 +579,96 @@ namespace avk
 		}
 	};
 
+	// A type for passing resources as arguments. Can be used to express that
+	// ownership shall be passed along with it, or only a reference to it.
+	template <typename T>
+	class resource_argument : public std::variant<T*, owning_resource<T>>
+	{
+	public:
+		// The type of the resource:
+		using value_type = T;
+		
+		// Cast the this-pointer to what it is: a std::variant-pointer (and to const)
+		const std::variant<T*, owning_resource<T>>* this_as_variant() const noexcept
+		{
+			return static_cast<std::variant<T*, owning_resource<T>>*>(this);
+		}
 
+		// Cast the this-pointer to what it is: a std::variant-pointer
+		std::variant<T*, owning_resource<T>>* this_as_variant() noexcept
+		{
+			return static_cast<std::variant<T*, owning_resource<T>>*>(this);
+		}
+		
+		resource_argument(T& aResource) noexcept
+		{
+			*this_as_variant() = &aResource;
+		}
+
+		resource_argument(owning_resource<T> aResource) noexcept
+		{
+			*this_as_variant() = std::move(aResource);
+		}
+
+		resource_argument(resource_argument&&) noexcept = default;
+		resource_argument(const resource_argument& aOther) = default;
+		resource_argument& operator=(resource_argument&&) noexcept = default;
+		resource_argument& operator=(const resource_argument&) = default;
+		~resource_argument() = default;
+
+		bool is_ownership() {
+			return std::holds_alternative<owning_resource<T>>(*this);
+		}
+
+		bool is_reference() {
+			return !is_ownership();
+		}
+
+		// Get a reference to the owned resource T
+		T& get()
+		{
+			if (is_reference()) {
+				assert(std::holds_alternative<T*>(*this_as_variant()));
+				return *std::get<T*>(*this);
+			}
+			assert(is_ownership());
+			return std::get<owning_resource<T>>(*this_as_variant()).as_reference();
+		}
+
+		// Access the resource by returning a reference to it
+		T& operator*()
+		{
+			return get();
+		}
+
+		// Access the resource by returning its address
+		T* operator->()
+		{
+			return &get();
+		}
+
+		// Get the ownership, i.e. the owned resource:
+		owning_resource<T>& get_ownership()
+		{
+			if (is_reference()) {
+				throw avk::logic_error("The resource of type '" + std::string(typeid(T).name()) + "' is stored as reference. Cannot get its parent (owning) resource.");
+			}
+			assert(is_ownership());
+			return std::get<owning_resource<T>>(*this_as_variant());
+		}
+
+		// Get the ownership or an empty ownership object.
+		// This method does not throw.
+		owning_resource<T> move_ownership_or_get_empty()
+		{
+			if (is_reference()) {
+				return owning_resource<T>{};
+			}
+			assert(is_ownership());
+			return std::move(std::get<owning_resource<T>>(*this_as_variant()));
+		}
+	};
+	
 	// A reference to an (owning/non-owning) resource
 	//  - Can be initialized with owning_resource<T>
 	//  - or with resource T
@@ -1330,5 +1431,19 @@ namespace avk
 	template<class... Ts> struct lambda_overload : Ts... { using Ts::operator()...; };
 	template<class... Ts> lambda_overload(Ts...) -> lambda_overload<Ts...>;
 #pragma endregion
+
+	// Add the resource R as to the list of resources to be lifetime-handled by object LH
+	template <typename LH, typename R>
+	void let_it_handle_lifetime_of(LH& lh, R& r)
+	{
+		if (r.has_value()) {
+			if (r.is_shared_ownership_enabled()) {
+				lh.handle_lifetime_of(r);
+			}
+			else {
+				lh.handle_lifetime_of(std::move(r));
+			}
+		}
+	}
 
 }

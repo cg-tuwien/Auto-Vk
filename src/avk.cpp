@@ -2930,6 +2930,8 @@ namespace avk
 
 	command_buffer_t& command_buffer_t::handle_lifetime_of(any_owning_resource_t aResource)
 	{
+
+
 		mLifetimeHandledResources.push_back(std::move(aResource));
 		return *this;
 	}
@@ -4194,7 +4196,7 @@ namespace avk
 #pragma endregion
 
 #pragma region framebuffer definitions
-	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<resource_ownership<image_view_t>>& aImageViews)
+	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<image_view>& aImageViews)
 	{
 		if (aAttachments.size() != aImageViews.size()) {
 			throw avk::runtime_error("Incomplete config for framebuffer creation: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
@@ -4209,14 +4211,11 @@ namespace avk
 		}
 	}
 
-	framebuffer root::create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		framebuffer_t result;
 		result.mRenderpass = aRenderpass.own(); // move
-		result.mImageViews.reserve(aImageViews.size());
-		for (auto& iv : aImageViews) {
-			result.mImageViews.emplace_back(iv.own()); // move
-		}
+		result.mImageViews = std::move(aImageViews);
 
 		std::vector<vk::ImageView> imageViewHandles;
 		for (const auto& iv : result.mImageViews) {
@@ -4241,7 +4240,7 @@ namespace avk
 		return result;
 	}
 
-	framebuffer root::create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
@@ -4252,14 +4251,14 @@ namespace avk
 		);
 	}
 
-	framebuffer root::create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		assert(!aImageViews.empty());
 		auto extent = aImageViews.front()->get_image().create_info().extent;
 		return create_framebuffer(std::move(aRenderpass), std::move(aImageViews), extent.width, extent.height, std::move(aAlterConfigBeforeCreation));
 	}
 
-	framebuffer root::create_framebuffer(std::vector<avk::attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(std::vector<avk::attachment> aAttachments, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
@@ -4273,7 +4272,7 @@ namespace avk
 		std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation)
 	{
 		const auto& templateImageViews = aTemplate->image_views();
-		std::vector<resource_ownership<avk::image_view_t>> imageViews;
+		std::vector<image_view> imageViews;
 
 		for (auto& imView : templateImageViews)	{
 			auto imageView = create_image_view_from_template(imView, aAlterImageConfigBeforeCreation, aAlterImageViewConfigBeforeCreation);
@@ -5365,12 +5364,12 @@ namespace avk
 	}
 
 
-	image_view root::create_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_image_view(avk::image aImage, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 
 		// Transfer ownership:
-		result.mImage = aImageToOwn.own();
+		result.mImage = std::move(aImage);
 
 		// What's the format of the image view?
 		if (!aViewFormat.has_value()) {
@@ -5382,12 +5381,12 @@ namespace avk
 		return result;
 	}
 
-	image_view root::create_depth_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_depth_image_view(avk::image aImage, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 
 		// Transfer ownership:
-		result.mImage = aImageToOwn.own();
+		result.mImage = std::move(aImage);
 
 		// What's the format of the image view?
 		if (!aViewFormat.has_value()) {
@@ -5399,12 +5398,12 @@ namespace avk
 		return result;
 	}
 
-	image_view root::create_stencil_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_stencil_image_view(avk::image aImage, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 
 		// Transfer ownership:
-		result.mImage = aImageToOwn.own();
+		result.mImage = std::move(aImage);
 
 		// What's the format of the image view?
 		if (!aViewFormat.has_value()) {
@@ -7895,14 +7894,14 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command copy_buffer_to_image_layer_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
+	avk::command::action_type_command copy_buffer_to_image_layer_mip_level(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
 		auto extent = aDstImage->create_info().extent;
 		extent.width  = extent.width  > 1u ? extent.width  >> aDstLevel : 1u;
 		extent.height = extent.height > 1u ? extent.height >> aDstLevel : 1u;
 		extent.depth  = extent.depth  > 1u ? extent.depth  >> aDstLevel : 1u;
 
-		return avk::command::action_type_command{
+		auto actionTypeCommand = avk::command::action_type_command{
 			avk::sync::sync_hint {
 				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
 				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
@@ -7929,16 +7928,28 @@ namespace avk
 				);
 			}
 		};
+
+		if (aSrcBuffer.is_ownership() || aDstImage.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lSrcBuffer = aSrcBuffer.move_ownership_or_get_empty(),
+				lDstImage = aDstImage.move_ownership_or_get_empty()
+			](avk::resource_reference<avk::command_buffer_t> cb) mutable {
+				let_it_handle_lifetime_of(*cb, lSrcBuffer);
+				let_it_handle_lifetime_of(*cb, lDstImage);
+			};
+		};
+
+		return actionTypeCommand;
 	}
 
-	avk::command::action_type_command copy_buffer_to_image_mip_level(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
+	avk::command::action_type_command copy_buffer_to_image_mip_level(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<image_t> aDstImage, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		return copy_buffer_to_image_layer_mip_level(aSrcBuffer, aDstImage, 0u, aDstLevel, aDstImageLayout, aImageAspectFlags);
+		return copy_buffer_to_image_layer_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstLevel, aDstImageLayout, aImageAspectFlags);
 	}
 
-	avk::command::action_type_command copy_buffer_to_image(avk::resource_reference<const buffer_t> aSrcBuffer, avk::resource_reference<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
+	avk::command::action_type_command copy_buffer_to_image(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		return copy_buffer_to_image_mip_level(aSrcBuffer, aDstImage, 0u, aDstImageLayout, aImageAspectFlags);
+		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstImageLayout, aImageAspectFlags);
 	}
 
 	avk::command::action_type_command copy_buffer_to_another(avk::resource_reference<buffer_t> aSrcBuffer, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize)
