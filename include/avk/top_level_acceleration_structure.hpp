@@ -102,7 +102,7 @@ namespace avk
 	private:
 		enum struct tlas_action { build, update };
 		avk::command::action_type_command build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction);
-		avk::command::action_type_command build_or_update(avk::buffer aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction);
+		avk::command::action_type_command build_or_update(avk::resource_argument<avk::buffer_t> aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction);
 		avk::buffer get_and_possibly_create_scratch_buffer();
 
 #if VK_HEADER_VERSION >= 162

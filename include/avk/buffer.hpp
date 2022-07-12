@@ -204,10 +204,11 @@ namespace avk
 		auto as_storage_buffer() const { return get_buffer_descriptor<storage_buffer_meta>(); }
 
 		/** Fill buffer with data.
-		 *  The buffer's size is determined from its metadata
+		 *  The buffer's size is determined from its metadata.
+		 *	Please note: The returned command will not contain any sort of lifetime handling measure for the given buffer.
+		 *               Instead, the caller must ensure that the buffer outlives the lifetime of the returned command.
 		 *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
 		 *  @param aMetaDataIndex	Index of the buffer metadata to use (for determining the buffer size)
-		 *  @param aSyncHandler		Synchronization handler for the copy operation
 		 */
 		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex);
 
@@ -216,7 +217,6 @@ namespace avk
 		// *  The buffer's size is determined from its metadata
 		// *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
 		// *  @param aMetaDataSkip	How often a meta data of type Meta shall be skipped. I.e. values != 0 only make sense if there ar multiple meta data entries of type Meta.
-		// *  @param aSyncHandler		Synchronization handler for the copy operation
 		// */
 		//template <typename Meta>
 		//std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataSkip, old_sync aSyncHandler)

@@ -555,7 +555,13 @@ namespace avk
 			if (hasStorageTexelBufferMeta && !hasUniformTexelBufferMeta) {
 				return create_buffer_view<storage_texel_buffer_meta>(std::move(aBufferToOwn), aMetaSkip, std::move(aAlterConfigBeforeCreation));
 			}
-			throw avk::runtime_error("Buffer has both, uniform_texel_buffer_meta and storage_texel_buffer_meta. Don't know which one to use. => Use the templated create_buffer_view overload and specify the meta type explicitly!");
+
+			if (hasUniformTexelBufferMeta && hasStorageTexelBufferMeta) {
+				throw avk::runtime_error("Buffer has both, uniform_texel_buffer_meta and storage_texel_buffer_meta. Don't know which one to use. => Use the templated create_buffer_view overload and specify the meta type explicitly!");
+			}
+			else {
+				throw avk::runtime_error("Buffer has neither uniform_texel_buffer_meta nor storage_texel_buffer_meta, but need at least one of them here. Add one of the metas at buffer creation time!");
+			}
 		}
 
 		/**	Create a buffer view over the given buffer in the specified format.

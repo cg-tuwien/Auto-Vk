@@ -1432,8 +1432,19 @@ namespace avk
 	template<class... Ts> lambda_overload(Ts...) -> lambda_overload<Ts...>;
 #pragma endregion
 
+	// A concept which requires a type to have a .has_value()
+	template <typename T>
+	concept has_has_value = requires (T& x)
+	{
+		x.has_value();
+	};
+
+	// A concept which requires a type to not have a .has_value()
+	template <typename T>
+	concept not_has_value = !has_has_value<T>;
+
 	// Add the resource R as to the list of resources to be lifetime-handled by object LH
-	template <typename LH, typename R>
+	template <typename LH, typename R> requires has_has_value<R>
 	void let_it_handle_lifetime_of(LH& lh, R& r)
 	{
 		if (r.has_value()) {
@@ -1446,4 +1457,15 @@ namespace avk
 		}
 	}
 
+	// Add the resource R as to the list of resources to be lifetime-handled by object LH
+	template <typename LH, typename R> requires not_has_value<R>
+	void let_it_handle_lifetime_of(LH& lh, R& r)
+	{
+		if (r.is_shared_ownership_enabled()) {
+			lh.handle_lifetime_of(r);
+		}
+		else {
+			lh.handle_lifetime_of(std::move(r));
+		}
+	}
 }

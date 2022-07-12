@@ -1658,6 +1658,127 @@ namespace avk
 
 	avk::command::action_type_command bottom_level_acceleration_structure_t::build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction)
 	{
+//		return avk::command::action_type_command{
+//			// Define a sync hint for acceleration structure builds:
+//			avk::sync::sync_hint {
+//#if VK_HEADER_VERSION >= 204
+//				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
+//				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR,
+//				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
+//				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR
+//#else
+//				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+//				vk::AccessFlagBits2KHR::eAccelerationStructureWrite,
+//				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
+//				vk::AccessFlagBits2KHR::eAccelerationStructureWrite
+//#endif
+//			},
+//			[
+//				this, aGeometries, aScratchBuffer, aBuildAction
+//			] (avk::resource_reference<avk::command_buffer_t> cb) mutable {
+//				// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
+//				buffer scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
+//
+//				std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
+//				accStructureGeometries.reserve(aGeometries.size());
+//
+//				std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> buildGeometryInfos;
+//				buildGeometryInfos.reserve(aGeometries.size());
+//
+//		#if VK_HEADER_VERSION >= 162
+//				std::vector<vk::AccelerationStructureBuildRangeInfoKHR> buildRangeInfos;
+//				buildRangeInfos.reserve(aGeometries.size());
+//				std::vector<vk::AccelerationStructureBuildRangeInfoKHR*> buildRangeInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
+//				buildRangeInfoPtrs.reserve(aGeometries.size());
+//		#else
+//				std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
+//				buildOffsetInfos.reserve(aGeometries.size());
+//				std::vector<vk::AccelerationStructureBuildOffsetInfoKHR*> buildOffsetInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
+//				buildOffsetInfoPtrs.reserve(aGeometries.size());
+//		#endif
+//
+//				for (auto& pair : aGeometries) {
+//					auto vertexBuffer = pair.vertex_buffer();
+//					const auto& vertexBufferMeta = vertexBuffer->meta<vertex_buffer_meta>();
+//					auto indexBuffer = pair.index_buffer();
+//					const auto& indexBufferMeta = indexBuffer->meta<index_buffer_meta>();
+//
+//					if (vertexBufferMeta.member_descriptions().size() == 0) {
+//						throw avk::runtime_error("ak::vertex_buffers passed to acceleration_structure_size_requirements::from_buffers must have a member_description for their positions element in their meta data.");
+//					}
+//					// Find member representing the positions
+//					const auto& posMember = vertexBufferMeta.member_description(content_description::position);
+//
+//					assert(vertexBuffer->has_device_address());
+//					assert(indexBuffer->has_device_address());
+//
+//					accStructureGeometries.emplace_back()
+//						.setGeometryType(vk::GeometryTypeKHR::eTriangles)
+//						.setGeometry(vk::AccelerationStructureGeometryTrianglesDataKHR{}
+//							.setVertexFormat(posMember.mFormat)
+//							.setVertexData(vk::DeviceOrHostAddressConstKHR{ vertexBuffer->device_address() }) // TODO: Support host addresses
+//							.setVertexStride(static_cast<vk::DeviceSize>(vertexBufferMeta.sizeof_one_element()))
+//		#if VK_HEADER_VERSION >= 162
+//							.setMaxVertex(static_cast<uint32_t>(vertexBufferMeta.num_elements()))
+//		#endif
+//							.setIndexType(avk::to_vk_index_type(indexBufferMeta.sizeof_one_element()))
+//							.setIndexData(vk::DeviceOrHostAddressConstKHR{ indexBuffer->device_address() }) // TODO: Support host addresses
+//							.setTransformData(nullptr)
+//						)
+//						.setFlags(vk::GeometryFlagsKHR{}); // TODO: Support flags
+//
+//		#if VK_HEADER_VERSION >= 162
+//					auto& bri = buildRangeInfos.emplace_back()
+//						.setPrimitiveCount(static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3u)
+//						.setPrimitiveOffset(0u)
+//						.setFirstVertex(0u)
+//						.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
+//					buildRangeInfoPtrs.emplace_back(&bri);
+//		#else
+//					auto& boi = buildOffsetInfos.emplace_back()
+//						.setPrimitiveCount(static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3u)
+//						.setPrimitiveOffset(0u)
+//						.setFirstVertex(0u)
+//						.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
+//					buildOffsetInfoPtrs.emplace_back(&boi);
+//		#endif
+//				}
+//
+//				const auto* pointerToAnArray = accStructureGeometries.data();
+//
+//				buildGeometryInfos.emplace_back()
+//					.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
+//					.setFlags(mFlags) // TODO: support individual flags per geometry?
+//		#if VK_HEADER_VERSION >= 162
+//					.setMode(aBuildAction == blas_action::build ? vk::BuildAccelerationStructureModeKHR::eBuild : vk::BuildAccelerationStructureModeKHR::eUpdate)
+//		#else
+//					.setUpdate(aBuildAction == blas_action::build ? VK_FALSE : VK_TRUE)
+//					.setGeometryArrayOfPointers(VK_FALSE)
+//		#endif
+//					.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle())
+//					.setDstAccelerationStructure(acceleration_structure_handle())
+//					.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
+//					.setPpGeometries(&pointerToAnArray)
+//					.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
+//
+//
+//		#if VK_HEADER_VERSION >= 162
+//				cb->handle().buildAccelerationStructuresKHR(
+//					static_cast<uint32_t>(buildGeometryInfos.size()),
+//					buildGeometryInfos.data(),
+//					buildRangeInfoPtrs.data(),
+//					mRoot->dispatch_loader_ext()
+//				);
+//		#else
+//				cb->handle()buildAccelerationStructureKHR(
+//					static_cast<uint32_t>(buildGeometryInfos.size()),
+//					buildGeometryInfos.data(),
+//					buildOffsetInfoPtrs.data(),
+//					mRoot->dispatch_loader_ext()
+//				);
+//		#endif
+//			} };
+
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
 		avk::buffer scratchBuffer = std::move(aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer()));
 
@@ -2090,7 +2211,7 @@ namespace avk
 		return result;
 	}
 
-	avk::command::action_type_command top_level_acceleration_structure_t::build_or_update(avk::buffer aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction)
+	avk::command::action_type_command top_level_acceleration_structure_t::build_or_update(avk::resource_argument<avk::buffer_t> aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction)
 	{
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
 		avk::buffer scratchBuffer = std::move(aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer()));
@@ -2150,7 +2271,7 @@ namespace avk
 			//.setPpGeometries(&pointerToAnArray)
 			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
 
-		return avk::command::action_type_command{
+		auto actionTypeCommand = avk::command::action_type_command{
 			// Define a sync hint for acceleration structure builds:
 			avk::sync::sync_hint {
 #if VK_HEADER_VERSION >= 204
@@ -2196,14 +2317,19 @@ namespace avk
 #endif
 
 				// Take care of the scratch buffer's lifetime:
-				if (lScratchBuffer.is_shared_ownership_enabled()) {
-					cb->handle_lifetime_of(lScratchBuffer);
-				}
-				else {
-					cb->handle_lifetime_of(std::move(lScratchBuffer));
-				}
+				let_it_handle_lifetime_of(*cb, lScratchBuffer);
 			}
 		};
+
+		if (aGeometryInstancesBuffer.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lGeometryInstancesBuffer = aGeometryInstancesBuffer.move_ownership_or_get_empty()
+			](avk::resource_reference<avk::command_buffer_t> cb) mutable {
+				let_it_handle_lifetime_of(*cb, lGeometryInstancesBuffer);
+			};
+		};
+
+		return actionTypeCommand;
 	}
 
 	avk::command::action_type_command top_level_acceleration_structure_t::build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer)
@@ -2620,7 +2746,15 @@ namespace avk
 #endif
 
 		// Prepare a result which defines no sync hints and no instructions to be executed for some cases:
-		auto result = command::action_type_command{};
+		auto result = command::action_type_command{
+			avk::sync::sync_hint {
+				vk::PipelineStageFlagBits2KHR::eNone, // No need to wait on anything
+				vk::AccessFlagBits2KHR::eNone,        // Therefore, no need to make anything available
+				// Set defaults for the host-visible-only case, overwrite them for device buffers further down:
+				vk::PipelineStageFlagBits2KHR::eNone, // <-- This is okay for host-visible buffers, because the queue submit transfers the memory
+				vk::AccessFlagBits2KHR::eNone         //     Same here, the queue submit has implicit memory guarantees
+			}
+		};
 
 		// #0: Sanity check
 		if (dataSize == 0) {
@@ -2657,12 +2791,10 @@ namespace avk
 			stagingBuffer.enable_shared_ownership(); // TODO: Why does it not work WITHOUT shared_ownership? (Fails when assigning it to mBeginFun)
 			stagingBuffer->fill(aDataPtr, 0); // Recurse into the other if-branch
 
-			result.mSyncHint = {
-				// We really don't need any prior sync, because we're only transferring from stagingBuffer, and that one has implicit host write guarantee:
-				{}, {},
-				// Whatever comes after must synchronize with the device-local copy:
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
-			};
+			// Whatever comes after must synchronize with the device-local copy:
+			result.mSyncHint.mStageHintAfter  = vk::PipelineStageFlagBits2KHR::eCopy;
+			result.mSyncHint.mAccessHintAfter = vk::AccessFlagBits2KHR::eTransferWrite;
+			
 			result.mBeginFun = [
 				lRoot = mRoot,
 				lOwnedStagingBuffer = std::move(stagingBuffer),
@@ -3716,9 +3848,11 @@ namespace avk
 					AVK_LOG_INFO("Trying again with doubled size requirements...");
 					allocRequest = allocRequest.multiply_size_requirements(2u);
 					poolToTry = get_descriptor_pool_for_layouts(allocRequest);
+					break;
 				default:
 					AVK_LOG_INFO("Trying again with new pool..."); // and possibly doubled size requirements, depending on whether maxTries is 2 or 0
 					poolToTry = get_descriptor_pool_for_layouts(allocRequest, true);
+					break;
 				}
 			}
 		}
@@ -8201,23 +8335,25 @@ namespace avk
 					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
 						result |= syncHint.mStageHintAfter.value_or(aDefaultValue);
 					}
-					else if constexpr (std::is_same_v<T, vk::AccessFlagBits2KHR>) {
+					else if constexpr (std::is_same_v<T, vk::AccessFlags2KHR>) {
 						result |= syncHint.mAccessHintAfter.value_or(aDefaultValue);
 					}
 					else {
 						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
 					}
+					break;
 				case  1:
 					// Moving forwards, i.e. the subsequent command(s) "BEFORE" values are relevant:
 					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
 						result |= syncHint.mStageHintBefore.value_or(aDefaultValue);
 					}
-					else if constexpr (std::is_same_v<T, vk::AccessFlagBits2KHR>) {
+					else if constexpr (std::is_same_v<T, vk::AccessFlags2KHR>) {
 						result |= syncHint.mAccessHintBefore.value_or(aDefaultValue);
 					}
 					else {
 						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
 					}
+					break;
 				default:
 					throw avk::logic_error("Invalid value for aStepDirection.");
 				}
