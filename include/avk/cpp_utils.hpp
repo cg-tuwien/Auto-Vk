@@ -617,7 +617,7 @@ namespace avk
 		~resource_argument() = default;
 
 		bool is_ownership() {
-			return std::holds_alternative<owning_resource<T>>(*this);
+			return std::holds_alternative<owning_resource<T>>(*this_as_variant());
 		}
 
 		bool is_reference() {
@@ -629,7 +629,7 @@ namespace avk
 		{
 			if (is_reference()) {
 				assert(std::holds_alternative<T*>(*this_as_variant()));
-				return *std::get<T*>(*this);
+				return *std::get<T*>(*this_as_variant());
 			}
 			assert(is_ownership());
 			return std::get<owning_resource<T>>(*this_as_variant()).as_reference();
