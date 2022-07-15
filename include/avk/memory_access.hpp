@@ -329,17 +329,58 @@ namespace avk
 		static constexpr auto invocation_mask_read                  = memory_access_flags{ vk::AccessFlagBits2KHR::eInvocationMaskReadHUAWEI };
 #endif
 
-		/** Automatically try to determine the preceding/succeeding access and establish a memory dependency to it.
+		/** Automatically try to determine the single immediate preceding/succeeding access and establish a memory dependency to it.
 		 *	If a specific access cannot be determined, a rather hefty memory dependency will be installed, so that
 		 *	correctness is prioritized over performance.
+		 *	Attention: This is equivalent to using stage::auto_accesses(1) and can lead to insufficient synchronization if the command
+		 *	           to be synchronized with is not directly adjacent to this sync instruction in the list of recorded commands.
 		 */
-		static constexpr auto auto_access = memory_access_flags{ auto_access_t{ 0 } };
+		static constexpr auto auto_access = memory_access_flags{ auto_access_t{ 1 } };
 
 		/** Automatically try to establish a memory dependency to the given number of preceding/succeeding stages.
 		 *	If specific access cannot be determined, a rather hefty memory dependency will be installed, so that
 		 *	correctness is prioritized over performance.
 		 */
-		inline static auto auto_accesses(uint8_t aNumMaxCommands = 100) { return memory_access_flags{ auto_access_t{ aNumMaxCommands } }; }
+		inline static auto auto_accesses(uint8_t aNumMaxCommands = 20) { return memory_access_flags{ auto_access_t{ aNumMaxCommands } }; }
 
+		
+		// Struct which supports stage:: but disallows monostate or auto stages
+		struct memory_access_flags_precisely
+		{
+			memory_access_flags_precisely()
+				: mAccess{ vk::AccessFlagBits2KHR::eNone }
+			{}
+
+			memory_access_flags_precisely(vk::AccessFlags2KHR aAcces)
+				: mAccess{ aAcces }
+			{}
+
+			memory_access_flags_precisely(memory_access_flags aInput)
+				: mAccess{ std::get<vk::AccessFlags2KHR>(aInput.mFlags) }
+			{
+				assert(std::holds_alternative<vk::AccessFlags2KHR>(aInput.mFlags));
+			}
+
+			memory_access_flags_precisely(memory_access_flags_precisely&&) noexcept = default;
+			memory_access_flags_precisely(const memory_access_flags_precisely&) = default;
+
+			memory_access_flags_precisely& operator=(memory_access_flags aInput)
+			{
+				assert(std::holds_alternative<vk::AccessFlags2KHR>(aInput.mFlags));
+				mAccess = std::get<vk::AccessFlags2KHR>(aInput.mFlags);
+				return *this;
+			}
+
+			memory_access_flags_precisely& operator=(memory_access_flags_precisely&&) noexcept = default;
+			memory_access_flags_precisely& operator=(const memory_access_flags_precisely&) = default;
+			~memory_access_flags_precisely() = default;
+
+			operator memory_access_flags() const
+			{
+				return memory_access_flags{ mAccess };
+			}
+
+			vk::AccessFlags2KHR mAccess;
+		};
 	}
 }

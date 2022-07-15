@@ -167,6 +167,8 @@ namespace avk
 
 #include <avk/shader_type.hpp>
 #include <avk/pipeline_stage.hpp>
+#include <avk/stage_and_access.hpp>
+
 #include <avk/descriptor_alloc_request.hpp>
 #include <avk/descriptor_pool.hpp>
 

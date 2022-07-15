@@ -45,7 +45,7 @@ namespace avk
 		 *	@param	aTimestampStage	The stage(s) which all previously submitted commands have
 		 *							to reach before the timestamp is written.
 		 */
-		avk::command::action_type_command write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage);
+		avk::command::action_type_command write_timestamp(uint32_t aQueryIndex, stage::pipeline_stage_flags_precisely aTimestampStage);
 
 		/**	Issues a command to begin a certain query.
 		 *
@@ -117,26 +117,32 @@ namespace avk
 		 *	@param	aFirstQueryIndex	Query index of the FIRST result to be copied into the buffer.
 		 *	@param	aNumQueries			Number queries that shall be copied into the buffer, namely aNumQueries-1 many after the first one.
 		 *	@param	aBuffer				The destination buffer where to copy the values into.
-		 *								Note: The buffer MUST have an avk::query_results_buffer_meta meta data
-		 *								      AND also a member description with content type query_result.
+		 *								Note 1: The buffer MUST have an avk::query_results_buffer_meta meta data
+		 *								        AND also a member description with content type query_result.
+		 *								Note 2: This buffer parameter does not support lifetime handling, because
+		 *								        it would not make any sense to have this buffer fire&forget. 
+		 *										Therefore, the user of this function must ensure that the buffer outlives the command execution on the GPU.
 		 *	@param	aBufferMetaSkip		Optional: Skip this many meta data entries of type avk::query_results_buffer_meta (if the buffer has multiple).
 		 *	@param	aFlags				Additional flags. Make sure to pass vk::QueryResultFlagBits::e64 if the query
 		 *								data shall be stored into a 64-bit integer.
 		 */
-		avk::command::action_type_command copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags);
+		avk::command::action_type_command copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, const buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags);
 		
 		/**	Copies the value of one single queries into the given buffer.
 		 *	The user must ensure proper lifetime handling of the buffer.
 		 *
 		 *	@param	aOnlyQueryIndex		Query index of the ONLY result to be copied into the buffer.
-		 *	@param	aBuffer				The destination buffer where to copy the value into.
-		 *								Note: The buffer MUST have an avk::query_results_buffer_meta meta data
-		 *								      AND also a member description with content type query_result.
+		 *	@param	aBuffer				The destination buffer where to copy the values into.
+		 *								Note 1: The buffer MUST have an avk::query_results_buffer_meta meta data
+		 *								        AND also a member description with content type query_result.
+		 *								Note 2: This buffer parameter does not support lifetime handling, because
+		 *								        it would not make any sense to have this buffer fire&forget.
+		 *										Therefore, the user of this function must ensure that the buffer outlives the command execution on the GPU.
 		 *	@param	aBufferMetaSkip		Optional: Skip this many meta data entries of type avk::query_results_buffer_meta (if the buffer has multiple).
 		 *	@param	aFlags				Additional flags. Make sure to pass vk::QueryResultFlagBits::e64 if the query
 		 *								data shall be stored into a 64-bit integer.
 		 */
-		avk::command::action_type_command copy_result(uint32_t aOnlyQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags);
+		avk::command::action_type_command copy_result(uint32_t aOnlyQueryIndex, const buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags);
 		
 	private:
 		vk::QueryPoolCreateInfo mCreateInfo;

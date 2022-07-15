@@ -114,7 +114,7 @@ namespace avk
 		enum struct blas_action { build, update };
 		avk::command::action_type_command build_or_update(std::vector<vertex_index_buffer_pair> aGeometries, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction);
 		avk::command::action_type_command build_or_update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction);
-		avk::command::action_type_command build_or_update(avk::buffer aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction);
+		avk::command::action_type_command build_or_update(resource_argument<buffer_t> aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction);
 		avk::buffer get_and_possibly_create_scratch_buffer();
 		
 #if VK_HEADER_VERSION >= 162

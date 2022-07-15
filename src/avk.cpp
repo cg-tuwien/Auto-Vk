@@ -1665,6 +1665,19 @@ namespace avk
 		));
 		auto getScratchBuffer = [&]() { return lifetimeHandledBuffers.front(); };
 
+		// Construct before, then pass to the action_type_command:
+		std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> resSpecificSyncHints;
+		resSpecificSyncHints.push_back( // For the scratch buffer
+			std::make_tuple(getScratchBuffer()->handle(), avk::sync::sync_hint{
+				// As the specification has it:
+				//   Accesses to the acceleration structure scratch buffers as identified by the VkAccelerationStructureBuildGeometryInfoKHR::scratchData buffer device addresses must be synchronized with the 
+				//   VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR or VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
+				stage::acceleration_structure_build + (access::acceleration_structure_read | access::acceleration_structure_write),
+				stage::acceleration_structure_build +                                        access::acceleration_structure_write
+			})
+		);
+		// Later, also fill in the dependencies for ALL the buffers referenced by aGeometries.
+
 		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
 		accStructureGeometries.reserve(aGeometries.size());
 
@@ -1729,6 +1742,12 @@ namespace avk
 			buildOffsetInfoPtrs.emplace_back(&boi);
 #endif
 
+			// Create sync hint for each one of the buffers
+			// As the specification has it:
+			//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stageand an access type of VK_ACCESS_SHADER_READ_BIT:
+			resSpecificSyncHints.push_back(std::make_tuple(vertexBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+			resSpecificSyncHints.push_back(std::make_tuple(indexBuffer->handle(),  avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+
 			// See if we must handle the lifetime of the two buffers:
 			if (vertexBuffer.is_ownership()) {
 				lifetimeHandledBuffers.push_back(std::move(vertexBuffer.get_ownership()));
@@ -1755,21 +1774,9 @@ namespace avk
 			//.setPpGeometries(&pointerToAnArray)
 			.setScratchData(vk::DeviceOrHostAddressKHR{ getScratchBuffer()->device_address() });
 
-		return avk::command::action_type_command{
-			// Define a sync hint for acceleration structure builds:
-			avk::sync::sync_hint {
-#if VK_HEADER_VERSION >= 204
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR,
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR
-#else
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWrite,
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWrite
-#endif
-			},
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
+			std::move(resSpecificSyncHints),
 			[
 				lRoot = mRoot,
 				lAccStructureGeometries = std::move(accStructureGeometries),
@@ -1808,17 +1815,16 @@ namespace avk
 				);
 #endif
 
-				// Take care of the the buffers:
+				// Take care of the the buffers' lifetimes:
 				for (auto& b : lLifetimeHandledBuffers) {
-					if (b.is_shared_ownership_enabled()) {
-						cb->handle_lifetime_of(b);
-					}
-					else {
-						cb->handle_lifetime_of(std::move(b));
-					}
+					let_it_handle_lifetime_of(*cb, b);
 				}
 			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
 	avk::command::action_type_command bottom_level_acceleration_structure_t::build(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<avk::buffer> aScratchBuffer)
@@ -1850,10 +1856,26 @@ namespace avk
 		return result;
 	}
 
-	avk::command::action_type_command bottom_level_acceleration_structure_t::build_or_update(avk::buffer aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::build_or_update(resource_argument<buffer_t> aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction)
 	{
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		avk::buffer scratchBuffer = std::move(aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer()));
+		avk::buffer scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
+
+		// Construct before, then pass to the action_type_command:
+		std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> resSpecificSyncHints;
+		resSpecificSyncHints.push_back( // For the scratch buffer
+			std::make_tuple(scratchBuffer->handle(), avk::sync::sync_hint{
+				// As the specification has it:
+				//   Accesses to the acceleration structure scratch buffers as identified by the VkAccelerationStructureBuildGeometryInfoKHR::scratchData buffer device addresses must be synchronized with the 
+				//   VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR or VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
+				stage::acceleration_structure_build + (access::acceleration_structure_read | access::acceleration_structure_write),
+				stage::acceleration_structure_build + access::acceleration_structure_write
+				})
+		);
+		// Let's additionally also fill the dependencies for the geometries buffer:
+		// As the specification has it:
+		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometriesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
 
 		const auto& aabbMeta = aGeometriesBuffer->meta<aabb_buffer_meta>();
 		auto startAddress = aGeometriesBuffer->device_address();
@@ -1904,25 +1926,13 @@ namespace avk
 			//.setPpGeometries(&pointerToAnArray)
 			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
 
-		return avk::command::action_type_command{
-			// Define a sync hint for acceleration structure builds:
-			avk::sync::sync_hint {
-#if VK_HEADER_VERSION >= 204
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR,
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR
-#else
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWrite,
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWrite
-#endif
-			},
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
+			std::move(resSpecificSyncHints),
 			[
 				lRoot = mRoot,
 				lScratchBuffer = std::move(scratchBuffer),
-				lGeometriesBuffer = std::move(aGeometriesBuffer),
+				lGeometriesBuffer = aGeometriesBuffer.move_ownership_or_get_empty(),
 				lAccStructureGeometry = std::move(accStructureGeometry),
 				lBuildGeometryInfos = std::move(buildGeometryInfos),
 				lBuildRangeInfo = std::move(buildRangeInfo)
@@ -1948,22 +1958,15 @@ namespace avk
 				);
 #endif
 
-				// Take care of the scratch buffer's lifetime:
-				if (lScratchBuffer.is_shared_ownership_enabled()) {
-					cb->handle_lifetime_of(lScratchBuffer);
-				}
-				else {
-					cb->handle_lifetime_of(std::move(lScratchBuffer));
-				}
-				// Take care of the geometries buffer's lifetime:
-				if (lGeometriesBuffer.is_shared_ownership_enabled()) {
-					cb->handle_lifetime_of(lGeometriesBuffer);
-				}
-				else {
-					cb->handle_lifetime_of(std::move(lGeometriesBuffer));
-				}
-		}
+				// Take care of the buffers' lifetimes:
+				let_it_handle_lifetime_of(*cb, lScratchBuffer);
+				let_it_handle_lifetime_of(*cb, lGeometriesBuffer);
+			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
 	avk::command::action_type_command bottom_level_acceleration_structure_t::build(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer)
@@ -2109,6 +2112,22 @@ namespace avk
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
 		avk::buffer scratchBuffer = std::move(aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer()));
 
+		// Construct before, then pass to the action_type_command:
+		std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> resSpecificSyncHints;
+		resSpecificSyncHints.push_back( // For the scratch buffer
+			std::make_tuple(scratchBuffer->handle(), avk::sync::sync_hint{
+				// As the specification has it:
+				//   Accesses to the acceleration structure scratch buffers as identified by the VkAccelerationStructureBuildGeometryInfoKHR::scratchData buffer device addresses must be synchronized with the 
+				//   VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR or VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
+				stage::acceleration_structure_build + (access::acceleration_structure_read | access::acceleration_structure_write),
+				stage::acceleration_structure_build + access::acceleration_structure_write
+			})
+		);
+		// Let's additionally also fill the dependencies for the geometries buffer:
+		// As the specification has it:
+		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometryInstancesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+
 		const auto& metaData = aGeometryInstancesBuffer->meta<geometry_instance_buffer_meta>();
 		auto startAddress = aGeometryInstancesBuffer->device_address();
 		const auto* memberDesc = metaData.find_member_description(content_description::geometry_instance);
@@ -2165,26 +2184,15 @@ namespace avk
 			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
 
 		auto actionTypeCommand = avk::command::action_type_command{
-			// Define a sync hint for acceleration structure builds:
-			avk::sync::sync_hint {
-#if VK_HEADER_VERSION >= 204
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR,
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuildKHR,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWriteKHR
-#else
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWrite,
-				vk::PipelineStageFlagBits2KHR::eAccelerationStructureBuild,
-				vk::AccessFlagBits2KHR::eAccelerationStructureWrite
-#endif
-			},
+			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
+			std::move(resSpecificSyncHints),
 			[
 				lRoot = mRoot,
 				lScratchBuffer = std::move(scratchBuffer),
 				lAccStructureGeometries = std::move(accStructureGeometries),
 				lBuildGeometryInfo = std::move(buildGeometryInfo),
-				lBuildRangeInfo = std::move(bri)
+				lBuildRangeInfo = std::move(bri),
+				lGeometryInstancesBuffer = aGeometryInstancesBuffer.move_ownership_or_get_empty()
 			] (avk::resource_reference<avk::command_buffer_t> cb) mutable {
 				// It requires pointer to a pointer => set here, inside the lambda:
 				vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &lBuildRangeInfo;
@@ -2211,16 +2219,11 @@ namespace avk
 
 				// Take care of the scratch buffer's lifetime:
 				let_it_handle_lifetime_of(*cb, lScratchBuffer);
+				let_it_handle_lifetime_of(*cb, lGeometryInstancesBuffer);
 			}
 		};
 
-		if (aGeometryInstancesBuffer.is_ownership()) {
-			actionTypeCommand.mEndFun = [
-				lGeometryInstancesBuffer = aGeometryInstancesBuffer.move_ownership_or_get_empty()
-			](avk::resource_reference<avk::command_buffer_t> cb) mutable {
-				let_it_handle_lifetime_of(*cb, lGeometryInstancesBuffer);
-			};
-		};
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 
 		return actionTypeCommand;
 	}
@@ -2641,11 +2644,9 @@ namespace avk
 		// Prepare a result which defines no sync hints and no instructions to be executed for some cases:
 		auto result = command::action_type_command{
 			avk::sync::sync_hint {
-				vk::PipelineStageFlagBits2KHR::eNone, // No need to wait on anything
-				vk::AccessFlagBits2KHR::eNone,        // Therefore, no need to make anything available
+				stage::none + access::none, // No need to wait on anything nor to make anything available
 				// Set defaults for the host-visible-only case, overwrite them for device buffers further down:
-				vk::PipelineStageFlagBits2KHR::eNone, // <-- This is okay for host-visible buffers, because the queue submit transfers the memory
-				vk::AccessFlagBits2KHR::eNone         //     Same here, the queue submit has implicit memory guarantees
+				stage::none + access::none, // <-- This is okay for host-visible buffers, because the queue submit transfers the memory
 			}
 		};
 
@@ -2685,8 +2686,7 @@ namespace avk
 			stagingBuffer->fill(aDataPtr, 0); // Recurse into the other if-branch
 
 			// Whatever comes after must synchronize with the device-local copy:
-			result.mSyncHint.mStageHintAfter  = vk::PipelineStageFlagBits2KHR::eCopy;
-			result.mSyncHint.mAccessHintAfter = vk::AccessFlagBits2KHR::eTransferWrite;
+			result.mSyncHint.mSrcForSubsequentCmds = stage::copy + access::transfer_write;
 			
 			result.mBeginFun = [
 				lRoot = mRoot,
@@ -2784,22 +2784,23 @@ namespace avk
 			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
 			// "somewhat temporary" means that it can not be deleted in this function, but only
 			//						after the transfer operation has completed => handle via avk::old_sync!
-			auto stagingBuffer = root::create_buffer(
+			auto stagingBuffer = root::create_buffer( // Need it in shared ownership (default), because we do not know how often the user of this function will execute the commands
 				*mRoot,
 				AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferDst,
-				generic_buffer_meta::create_from_size(bufferSize));
-			stagingBuffer.enable_shared_ownership(); // Because we do not know how often the user of this function will execute the commands
+				generic_buffer_meta::create_from_size(bufferSize)
+			);
 
 			// TODO: Creating a staging buffer in every read()-call is probably not optimal. => Think about alternative ways!
 
-			return avk::command::action_type_command{
-				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
-				avk::sync::sync_hint {
-					vk::PipelineStageFlagBits2KHR::eAllCommands,
-					vk::AccessFlagBits2KHR::eMemoryWrite,
-					vk::PipelineStageFlagBits2KHR::eCopy,
-					vk::AccessFlagBits2KHR::eNone // No memory to be made available => just wait for the copy to finish
+			auto actionTypeCommand = avk::command::action_type_command{
+				{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+				{
+					std::make_tuple(handle(), avk::sync::sync_hint{
+						stage::copy + access::transfer_read,
+						stage::copy + access::none
+					})
+					// No need for any dependencies for the staging buffer
 				},
 				[
 					lBufferSize = bufferSize,
@@ -2813,7 +2814,7 @@ namespace avk
 						.setSize(lBufferSize);
 					cb->handle().copyBuffer(lBufferHandle, lStagingBuffer->handle(), { copyRegion });
 
-					//cb->handle_lifetime_of(lStagingBuffer); // Don't need that here because we're storing it in the post execution handler
+					// Don't need to handle ownership here, because we're storing it in the post execution handler
 
 					cb->set_post_execution_handler([
 						lStagingBuffer, // enabled shared ownership anyways, so just pass by value
@@ -2824,6 +2825,10 @@ namespace avk
 					});
 				}
 			};
+
+			actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+			return actionTypeCommand;
 		}
 	}
 #pragma endregion
@@ -5266,10 +5271,13 @@ namespace avk
 			return {};
 		}
 		
-		return avk::command::action_type_command{
-			avk::sync::sync_hint {
-				vk::PipelineStageFlagBits2KHR::eBlit, vk::AccessFlagBits2KHR::eTransferRead,
-				vk::PipelineStageFlagBits2KHR::eBlit, vk::AccessFlagBits2KHR::eTransferWrite
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(handle(), avk::sync::sync_hint{
+					stage::transfer + (access::transfer_read | access::transfer_write), // This one is actually only here to establish a dependency chain to the first image layout transition
+					stage::transfer +                          access::transfer_write   // This one as well
+				})
 			},
 			[
 				lRoot = root_ptr(),
@@ -5352,6 +5360,10 @@ namespace avk
 				}
 			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 #pragma endregion
 
@@ -7862,10 +7874,11 @@ namespace avk
 #pragma region vk_utils2 definitions
 	avk::command::action_type_command copy_image_to_another(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		return avk::command::action_type_command {
-			avk::sync::sync_hint {
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+		auto actionTypeCommand = avk::command::action_type_command {
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcImage->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_read,  stage::copy + access::none           }),
+				std::make_tuple(aDstImage->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
 			},
 			[
 				lRoot = aSrcImage->root_ptr(),
@@ -7887,14 +7900,19 @@ namespace avk
 				);
 			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
 	avk::command::action_type_command blit_image(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, avk::resource_reference<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags, vk::Filter aFilter)
 	{
-		return avk::command::action_type_command{
-			avk::sync::sync_hint {
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcImage->handle(), avk::sync::sync_hint{ stage::blit + access::transfer_read,  stage::blit + access::none           }),
+				std::make_tuple(aDstImage->handle(), avk::sync::sync_hint{ stage::blit + access::transfer_write, stage::blit + access::transfer_write })
 			},
 			[
 				lRoot = aSrcImage->root_ptr(),
@@ -7919,6 +7937,10 @@ namespace avk
 				);
 			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
 	avk::command::action_type_command copy_buffer_to_image_layer_mip_level(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
@@ -7929,9 +7951,10 @@ namespace avk
 		extent.depth  = extent.depth  > 1u ? extent.depth  >> aDstLevel : 1u;
 
 		auto actionTypeCommand = avk::command::action_type_command{
-			avk::sync::sync_hint {
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_read,  stage::copy + access::none           }),
+				std::make_tuple(aDstImage->handle(),  avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
 			},
 			[
 				lRoot = aSrcBuffer->root_ptr(),
@@ -7966,6 +7989,8 @@ namespace avk
 			};
 		};
 
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
 		return actionTypeCommand;
 	}
 
@@ -7999,10 +8024,11 @@ namespace avk
 		}
 #endif
 
-		return avk::command::action_type_command{
-			avk::sync::sync_hint {
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_read , stage::copy + access::none           }),
+				std::make_tuple(aDstBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
 			},
 			[
 				lRoot = aSrcBuffer->root_ptr(),
@@ -8023,6 +8049,10 @@ namespace avk
 				);
 			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
 	avk::command::action_type_command copy_image_layer_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, uint32_t aSrcLayer, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
@@ -8032,10 +8062,11 @@ namespace avk
 		extent.height = extent.height > 1u ? extent.height >> aSrcLevel : 1u;
 		extent.depth = extent.depth > 1u ? extent.depth >> aSrcLevel : 1u;
 
-		return avk::command::action_type_command{
-			avk::sync::sync_hint {
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferRead,
-				vk::PipelineStageFlagBits2KHR::eCopy, vk::AccessFlagBits2KHR::eTransferWrite
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcImage->handle() , avk::sync::sync_hint{ stage::copy + access::transfer_read , stage::copy + access::none           }),
+				std::make_tuple(aDstBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
 			},
 			[
 				lRoot = aSrcImage->root_ptr(),
@@ -8060,6 +8091,10 @@ namespace avk
 				);
 			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
 	avk::command::action_type_command copy_image_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
@@ -8110,9 +8145,7 @@ namespace avk
 	avk::command::action_type_command query_pool_t::reset(uint32_t aFirstQueryIndex, std::optional<uint32_t> aNumQueries)
 	{
 		return avk::command::action_type_command{
-			avk::sync::sync_hint{
-				// TODO: not sure about useful sync hint values here
-			},
+			{}, {}, // Sync not applicable here, I guess
 			[
 				lHandle = handle(),
 				aFirstQueryIndex,
@@ -8123,21 +8156,17 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command query_pool_t::write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage)
+	avk::command::action_type_command query_pool_t::write_timestamp(uint32_t aQueryIndex, stage::pipeline_stage_flags_precisely aTimestampStage)
 	{
-		typedef std::underlying_type<pipeline_stage>::type EnumType;
-		assert( std::bitset<32>{ static_cast<EnumType>(aTimestampStage) }.count() == 1 );
-
 		return avk::command::action_type_command{
-			avk::sync::sync_hint{
-				// TODO: not sure about useful sync hint values here
-			},
+			{ aTimestampStage + access::none, aTimestampStage + access::none }, // <-- Guess, that's fine. // TODO: Is it?
+			{}, 
 			[
-				lTimestampStage = to_vk_pipeline_stage_flag_bits(aTimestampStage),
+				lTimestampStage = aTimestampStage.mStage,
 				lHandle = handle(),
 				aQueryIndex
 			](avk::resource_reference<avk::command_buffer_t> cb) {
-				cb->handle().writeTimestamp(lTimestampStage, lHandle, aQueryIndex, cb->root_ptr()->dispatch_loader_core());
+				cb->handle().writeTimestamp2KHR(lTimestampStage, lHandle, aQueryIndex, cb->root_ptr()->dispatch_loader_core());
 			}
 		};
 	}
@@ -8145,9 +8174,7 @@ namespace avk
 	avk::command::action_type_command query_pool_t::begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags)
 	{
 		return avk::command::action_type_command{
-			avk::sync::sync_hint{
-				// TODO: not sure about useful sync hint values here
-			},
+			{}, {}, // Sync not applicable here, I guess
 			[
 				lHandle = handle(),
 				aQueryIndex,
@@ -8161,9 +8188,7 @@ namespace avk
 	avk::command::action_type_command query_pool_t::end_query(uint32_t aQueryIndex)
 	{
 		return avk::command::action_type_command{
-			avk::sync::sync_hint{
-				// TODO: not sure about useful sync hint values here
-			},
+			{}, {}, // Sync not applicable here, I guess
 			[
 				lHandle = handle(),
 				aQueryIndex
@@ -8173,11 +8198,18 @@ namespace avk
 		};
 	}
 
-	avk::command::action_type_command query_pool_t::copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags)
+	avk::command::action_type_command query_pool_t::copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, const buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags)
 	{
-		return avk::command::action_type_command{
-			avk::sync::sync_hint{
-				// TODO: not sure about useful sync hint values here
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				// As per the specification:
+				//   vkCmdCopyQueryPoolResults is considered to be a transfer operation, and its writes to buffer memory must be
+				//   synchronized using VK_PIPELINE_STAGE_TRANSFER_BIT and VK_ACCESS_TRANSFER_WRITE_BIT before using the results.
+				std::make_tuple(aBuffer.handle(), avk::sync::sync_hint{
+					stage::transfer + access::transfer_write,
+					stage::transfer + access::transfer_write
+				})
 			},
 			[
 				lHandle = handle(),
@@ -8188,9 +8220,13 @@ namespace avk
 				cb->handle().copyQueryPoolResults(lHandle, aFirstQueryIndex, aNumQueries, lBufferHandle, lMeta.member_description(content_description::query_result).mOffset, lMeta.sizeof_one_element(), aFlags, cb->root_ptr()->dispatch_loader_core());
 			}
 		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
-	avk::command::action_type_command query_pool_t::copy_result(uint32_t aOnlyQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags)
+	avk::command::action_type_command query_pool_t::copy_result(uint32_t aOnlyQueryIndex, const buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags)
 	{
 		return copy_results(aOnlyQueryIndex, 1u, aBuffer, aBufferMetaSkip, aFlags);
 	}
@@ -8203,9 +8239,12 @@ namespace avk
 	inline static T accumulate_sync_details(
 		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions,
 		const int aStartIndex,
-		const int aNumSteps,
+		uint32_t aNumSteps,
 		const int aStepDirection,
-		T aDefaultValue
+		T aDefaultValue,
+		// If the following parameter is provided, it means that we are looking for sync-dependencies w.r.t. this resource only.
+		// If it is not, we are looking for ANY sync-dependencies (e.g., relevant for semaphore signals)
+		std::optional<std::variant<vk::Image, vk::Buffer>> aWrtResource 
 	) {
 		assert(aStartIndex >= 0);
 		assert(aStartIndex < static_cast<int>(aRecordedCommandsAndSyncInstructions.size()));
@@ -8216,20 +8255,51 @@ namespace avk
 		T result{};
 
 		const int ub = static_cast<int>(aRecordedCommandsAndSyncInstructions.size());
-		int accSoFar = -1; // This must become equal to aNumSteps, then we're done
+
+		// Doesn't make sense if aNumSteps is less than 1, but the user could pass it (e.g., thorugh stage::auto_stages(0)) => just max it:
+		aNumSteps = std::max(aNumSteps, 1u);
+		uint32_t accSoFar = 0; // This must become equal to aNumSteps, then we're done
+
 		for (int i = aStartIndex; i >= 0 && i < ub && accSoFar < aNumSteps; i += aStepDirection) {
 			if (std::holds_alternative<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i])) { // Only regard action_type_commands here!
 																											     // TODO: Do we also have to regard image layout transitions here????!?!?!?!
-				// Evaluate:
-				const auto& syncHint = std::get<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i]).mSyncHint;
+				// We used the general sync hint, except if we are looking for a specific resource:
+				auto* syncHint = &std::get<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i]).mSyncHint;
+				if (aWrtResource.has_value()) {
+					// See if we can find a resource-specific one (otherwise do not regard this action_type_command):
+					syncHint = nullptr;
+					for (const auto& [res, resSyncHint] : std::get<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i]).mResourceSpecificSyncHints) {
+						if (res == aWrtResource.value()) {
+							syncHint = &resSyncHint;
+							break;
+						}
+					}
+				}
+
+				if (nullptr == syncHint) {
+					continue;
+				}
+
 				switch (aStepDirection) {
 				case -1:
 					// Moving backwards, i.e. the previous command(s) "AFTER" values are relevant:
 					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
-						result |= syncHint.mStageHintAfter.value_or(aDefaultValue);
+						if (syncHint->mSrcForSubsequentCmds.has_value()) {
+							result |= syncHint->mSrcForSubsequentCmds.value().mStage;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
 					}
 					else if constexpr (std::is_same_v<T, vk::AccessFlags2KHR>) {
-						result |= syncHint.mAccessHintAfter.value_or(aDefaultValue);
+						if (syncHint->mSrcForSubsequentCmds.has_value()) {
+							result |= syncHint->mSrcForSubsequentCmds.value().mAccess;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
 					}
 					else {
 						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
@@ -8238,10 +8308,22 @@ namespace avk
 				case  1:
 					// Moving forwards, i.e. the subsequent command(s) "BEFORE" values are relevant:
 					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
-						result |= syncHint.mStageHintBefore.value_or(aDefaultValue);
+						if (syncHint->mDstForPreviousCmds.has_value()) {
+							result |= syncHint->mDstForPreviousCmds.value().mStage;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
 					}
 					else if constexpr (std::is_same_v<T, vk::AccessFlags2KHR>) {
-						result |= syncHint.mAccessHintBefore.value_or(aDefaultValue);
+						if (syncHint->mDstForPreviousCmds.has_value()) {
+							result |= syncHint->mDstForPreviousCmds.value().mAccess;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
 					}
 					else {
 						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
@@ -8253,15 +8335,29 @@ namespace avk
 			}
 		}
 
+		// If we were unable to find anything to sync with, just return the default:
+		if (0 == accSoFar) {
+			result = aDefaultValue;
+		}
 		return result;
 	}
 
+	// Internal helper function to assemble all the data for a barrier, based on:
+	//  - A given sync_type_command (aBarrierData)
+	//  - All the sync_hints of action_type_commands aRecordedCommandsAndSyncInstructions
 	template <typename T>
 	inline static T assemble_barrier_data(
 		const sync::sync_type_command& aBarrierData, 
 		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions,
 		int aRecordedStuffIndex
 	) {
+		// Sanity check: Does T and aBarrierData fit together?
+		assert(
+			   (std::is_same_v<T, vk::MemoryBarrier2KHR>       && (aBarrierData.is_global_execution_barrier() || aBarrierData.is_global_memory_barrier()))
+			|| (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>  && (aBarrierData.is_image_memory_barrier()                                               ))
+			|| (std::is_same_v<T, vk::BufferMemoryBarrier2KHR> && (aBarrierData.is_buffer_memory_barrier()                                              ))
+		);
+
 		if (!aRecordedCommandsAndSyncInstructions.empty()) {
 			assert(std::holds_alternative<sync::sync_type_command>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex]));
 			if (!std::holds_alternative<sync::sync_type_command>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex])) {
@@ -8271,27 +8367,39 @@ namespace avk
 
 		// We're definitely going to establish a barrier:
 		auto barrier = T{};
+
+		// The barrier can be restricted to a specific resource only, in which case, we should only accumulate
+		// sync data from relevant sync hints (i.e., relevant means: restricted to the same resource):
+		std::optional<std::variant<vk::Image, vk::Buffer>> restrictedToSpecificResource;
+		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>) {
+			restrictedToSpecificResource = aBarrierData.image_memory_barrier_data().mImage;
+		}
+		if constexpr (std::is_same_v<T, vk::BufferMemoryBarrier2KHR>) {
+			restrictedToSpecificResource = aBarrierData.buffer_memory_barrier_data().mBuffer;
+		}
 		
 		// Handle source stage:
 		std::visit(lambda_overload{
 			[&barrier                                                            ](const std::monostate&){
 				barrier.setSrcStageMask(vk::PipelineStageFlagBits2KHR::eNone);
 			},
-			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& lFixedStage){
-				barrier.setSrcStageMask(lFixedStage);
+			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& bFixedStage){
+				barrier.setSrcStageMask(bFixedStage);
 			},
-			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::stage::auto_stage_t& lAutoStage){
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::stage::auto_stage_t& bAutoStage){
 				if (aRecordedCommandsAndSyncInstructions.empty()) {
 					barrier.setSrcStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
 				}
 				else {
 					// Gotta determine which stage:
 					barrier.setSrcStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
-						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-						static_cast<int>(lAutoStage),
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<int>(bAutoStage),
 						/* before-wards: */ -1,
-						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
-					);
+						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+						restrictedToSpecificResource
+					));
 				}
 			},
 		}, aBarrierData.src_stage());
@@ -8301,21 +8409,23 @@ namespace avk
 			[&barrier                                                            ](const std::monostate&){
 				barrier.setDstStageMask(vk::PipelineStageFlagBits2KHR::eNone);
 			},
-			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& lFixedStage){
-				barrier.setDstStageMask(lFixedStage);
+			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& bFixedStage){
+				barrier.setDstStageMask(bFixedStage);
 			},
-			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::stage::auto_stage_t& lAutoStage){
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::stage::auto_stage_t& bAutoStage){
 				if (aRecordedCommandsAndSyncInstructions.empty()) {
 					barrier.setDstStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
 				}
 				else {
 					// Gotta determine which stage:
 					barrier.setDstStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
-						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-						static_cast<int>(lAutoStage),
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<int>(bAutoStage),
 						/* after-wards: */  1,
-						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
-					);
+						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+						restrictedToSpecificResource
+					));
 				}
 			},
 		}, aBarrierData.dst_stage());
@@ -8325,21 +8435,23 @@ namespace avk
 			[&barrier                                                            ](const std::monostate&){
 				barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eNone);
 			},
-			[&barrier                                                            ](const vk::AccessFlags2KHR& lFixedAccess){
-				barrier.setSrcAccessMask(lFixedAccess);
+			[&barrier                                                            ](const vk::AccessFlags2KHR& bFixedAccess){
+				barrier.setSrcAccessMask(bFixedAccess);
 			},
-			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::access::auto_access_t& lAutoAccess){
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::access::auto_access_t& bAutoAccess){
 				if (aRecordedCommandsAndSyncInstructions.empty()) {
 					barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eMemoryWrite);
 				}
 				else {
 					// Gotta determine which access:
 					barrier.setSrcAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
-						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-						static_cast<int>(lAutoAccess),
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<int>(bAutoAccess),
 						/* before-wards: */ -1,
-						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite)
-					);
+						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite,
+						restrictedToSpecificResource
+					));
 				}
 			},
 		}, aBarrierData.src_access());
@@ -8349,28 +8461,30 @@ namespace avk
 			[&barrier                                                            ](const std::monostate&){
 				barrier.setDstAccessMask(vk::AccessFlagBits2KHR::eNone);
 			},
-			[&barrier                                                            ](const vk::AccessFlags2KHR& lFixedAccess){
-				barrier.setDstAccessMask(lFixedAccess);
+			[&barrier                                                            ](const vk::AccessFlags2KHR& bFixedAccess){
+				barrier.setDstAccessMask(bFixedAccess);
 			},
-			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex](const avk::access::auto_access_t& lAutoAccess){
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::access::auto_access_t& bAutoAccess){
 				if (aRecordedCommandsAndSyncInstructions.empty()) {
 					barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead);
 				}
 				else {
 					// Gotta determine which access:
 					barrier.setDstAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
-						aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex,
-						static_cast<int>(lAutoAccess),
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<uint32_t>(bAutoAccess),
 						/* after-wards: */  1,
-						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead)
-					);
+						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead,
+						restrictedToSpecificResource
+					));
 				}
 			},
 		}, aBarrierData.dst_access());
 
 		// For T = vk::MemoryBarrier2KHR, we are done.
 		// But for image memory barriers or buffer memory barriers, there could be more sync data to be filled-in:
-
+		
 		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>) {
 			auto imageSyncData = aBarrierData.image_memory_barrier_data();
 
@@ -8613,11 +8727,16 @@ namespace avk
 			return action_type_command{
 				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
 				avk::sync::sync_hint {
-					vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
-					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-					vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
-					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
 				},
+				{},
 				[
 					lRoot = aRenderpass->root_ptr(),
 					lExtent = aFramebuffer->image_view_at(0)->get_image().create_info().extent,
@@ -8656,11 +8775,16 @@ namespace avk
 			return action_type_command{
 				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
 				avk::sync::sync_hint {
-					vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
-					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-					vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
-					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
 				},
+				{},
 				[](avk::resource_reference<avk::command_buffer_t> cb) {
 					cb->handle().endRenderPass2KHR(vk::SubpassEndInfo{}, cb->root_ptr()->dispatch_loader_ext());
 				}
@@ -8681,11 +8805,10 @@ namespace avk
 			return action_type_command{
 				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
 				avk::sync::sync_hint {
-					tmpBeginRenderPass.mSyncHint.mStageHintBefore,
-					tmpBeginRenderPass.mSyncHint.mAccessHintBefore,
-					tmpEndRenderPass.mSyncHint.mStageHintAfter,
-					tmpEndRenderPass.mSyncHint.mAccessHintAfter
+					tmpBeginRenderPass.mSyncHint.mDstForPreviousCmds,
+					tmpEndRenderPass.mSyncHint.mSrcForSubsequentCmds
 				},
+				std::move(tmpBeginRenderPass.mResourceSpecificSyncHints),
 				std::move(tmpBeginRenderPass.mBeginFun),
 				std::move(aNestedCommands),
 				std::move(tmpEndRenderPass.mBeginFun)
@@ -8695,7 +8818,7 @@ namespace avk
 		action_type_command next_subpass(bool aSubpassesInline)
 		{
 			return action_type_command{
-				avk::sync::sync_hint{},
+				{}, {}, // Sync hints not applicable here, I guess
 				[aSubpassesInline](avk::resource_reference<avk::command_buffer_t> cb) {
 					cb->handle().nextSubpass2KHR(
 						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
@@ -8759,11 +8882,16 @@ namespace avk
 		{
 			return action_type_command{
 				avk::sync::sync_hint {
-					vk::PipelineStageFlagBits2KHR::eAllGraphics,
-					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-					vk::PipelineStageFlagBits2KHR::eAllGraphics,
-					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
 				},
+				{},
 				[aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance](avk::resource_reference<avk::command_buffer_t> cb) {
 					cb->handle().draw(aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance);
 				}
@@ -8854,10 +8982,10 @@ namespace avk
 				[&subInfo](const std::monostate&) {
 					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
 				},
-				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
-					subInfo.setStageMask(lFixedStage);
+				[&subInfo](const vk::PipelineStageFlags2KHR& aFixedStage) {
+					subInfo.setStageMask(aFixedStage);
 				},
-				[&subInfo, this](const avk::stage::auto_stage_t& lAutoStage) {
+				[&subInfo, this](const avk::stage::auto_stage_t& aAutoStage) {
 					// Set something:
 					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
 					// But now try to find a tighter auto-stage:
@@ -8867,15 +8995,16 @@ namespace avk
 						if (nullptr != prevPrevPtr) {
 							subInfo.setStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
 								prevPrevPtr->recorded_commands_and_sync_instructions(),
-								0,
-								static_cast<int>(lAutoStage),
+								/* Start index: within std::vector<recorded_commands_t>: */ 0,
+								/* How many steps to accumulate: */ static_cast<uint32_t>(aAutoStage),
 								/* after-wards: */  1,
-								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
-							);
+								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+								{} // <-- For the semaphore signal, we do not want to restrict looking for specific images or buffers; everything is relevant
+							));
 						}
 					}
 				}
-				}, semWait.mDstStage.mFlags);
+			}, semWait.mDstStage.mFlags);
 		}
 
 		// Gather config for signal semaphores:
@@ -8899,11 +9028,12 @@ namespace avk
 						if (nullptr != prevPrevPtr) {
 							subInfo.setStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
 								prevPrevPtr->recorded_commands_and_sync_instructions(),
-								static_cast<int>(prevPrevPtr->recorded_commands_and_sync_instructions().size()) - 1,
-								static_cast<int>(lAutoStage),
+								/* Start index: within std::vector<recorded_commands_t>: */ static_cast<int>(prevPrevPtr->recorded_commands_and_sync_instructions().size()) - 1,
+								/* How many steps to accumulate: */ static_cast<uint32_t>(lAutoStage),
 								/* before-wards: */  -1,
-								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands)
-							);
+								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+								{} // <-- For the semaphore signal, we do not want to restrict looking for specific images or buffers; everything is relevant
+							));
 						}
 					}
 				}

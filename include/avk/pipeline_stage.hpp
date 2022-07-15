@@ -281,16 +281,60 @@ namespace avk
 		static constexpr auto invocation_mask                  = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eInvocationMaskHUAWEI };
 #endif
 
-		/** Automatically try to determine the preceding/succeeding stage and establish a synchronization dependency to it.
+		/** Automatically try to determine the single immediate preceding/succeeding stage and establish a synchronization dependency to it.
 		 *	If a specific stage cannot be determined, a rather hefty synchronization dependency will be installed, so that
 		 *	correctness is prioritized over performance.
+		 *	Attention: This is equivalent to using stage::auto_stages(1) and can lead to insufficient synchronization if the command
+		 *	           to be synchronized with is not directly adjacent to this sync instruction in the list of recorded commands.
 		 */
-		static constexpr auto auto_stage                       = pipeline_stage_flags{ auto_stage_t{ 0 } };
+		static constexpr auto auto_stage                       = pipeline_stage_flags{ auto_stage_t{ 1 } };
 
 		/** Automatically try to establish a synchronization dependency to the given number of preceding/succeeding stages.
 		 *	If specific stages cannot be determined, a rather hefty synchronization dependency will be installed, so that
 		 *	correctness is prioritized over performance.
 		 */
-		inline static auto auto_stages(uint8_t aNumMaxCommands = 100) { return pipeline_stage_flags{ auto_stage_t{ aNumMaxCommands } }; }
+		inline static auto auto_stages(uint8_t aNumMaxCommands = 20) { return pipeline_stage_flags{ auto_stage_t{ aNumMaxCommands } }; }
+
+
+		// Struct which supports stage:: but disallows monostate or auto stages
+		struct pipeline_stage_flags_precisely
+		{
+			pipeline_stage_flags_precisely()
+				: mStage{ vk::PipelineStageFlagBits2KHR::eNone }
+			{}
+
+			pipeline_stage_flags_precisely(vk::PipelineStageFlags2KHR aStages)
+				: mStage{ aStages }
+			{}
+
+			pipeline_stage_flags_precisely(pipeline_stage_flags aInput)
+				: mStage{ std::get<vk::PipelineStageFlags2KHR>(aInput.mFlags) }
+			{
+				assert(std::holds_alternative<vk::PipelineStageFlags2KHR>(aInput.mFlags));
+			}
+
+			pipeline_stage_flags_precisely(pipeline_stage_flags_precisely&&) noexcept = default;
+			pipeline_stage_flags_precisely(const pipeline_stage_flags_precisely&) = default;
+
+			pipeline_stage_flags_precisely& operator=(pipeline_stage_flags aInput)
+			{
+				assert(std::holds_alternative<vk::PipelineStageFlags2KHR>(aInput.mFlags));
+				mStage = std::get<vk::PipelineStageFlags2KHR>(aInput.mFlags);
+				return *this;
+			}
+
+			pipeline_stage_flags_precisely& operator=(pipeline_stage_flags_precisely&&) noexcept = default;
+			pipeline_stage_flags_precisely& operator=(const pipeline_stage_flags_precisely&) = default;
+			~pipeline_stage_flags_precisely() = default;
+
+			operator pipeline_stage_flags() const
+			{
+				return pipeline_stage_flags{ mStage };
+			}
+
+			vk::PipelineStageFlags2KHR mStage;
+		};
+
 	}
+
 }

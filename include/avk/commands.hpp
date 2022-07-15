@@ -16,25 +16,17 @@ namespace avk
 	{
 		struct sync_hint final
 		{
-			/**	Which stages of the affected command must wait on whatever comes before?
-			 *	I.e., this member would mean the DESTINATION stage of a barrier that comes before the affected command.
+			/**	In which stages and accesses does the associated command starts to perform its work, s.t.
+			 *	previous commands can synchronize with it?
+			 *	I.e., this member would mean the DESTINATION stage/access of a barrier that comes before the associated command.
 			 */
-			std::optional<vk::PipelineStageFlags2KHR> mStageHintBefore = {};
+			std::optional<stage_and_access_precisely> mDstForPreviousCmds = {};
 
-			/**	Which access of the affected command must wait on whatever comes before?
-			 *	I.e., this member would mean the DESTINATION access of a barrier that comes before the affected command.
+			/**	In which stages and accesses does the associated command end to perform its work, s.t.
+			 *	subsequent commands can synchronize with it?
+			 *	I.e., this member would mean the SOURCE stage of a barrier that comes after the associated command.
 			 */
-			std::optional<vk::AccessFlags2KHR> mAccessHintBefore = {};
-
-			/**	Which stages of the affected command must be waited-on from whatever comes after?
-			 *	I.e., this member would mean the SOURCE stage of a barrier that comes after the affected command.
-			 */
-			std::optional<vk::PipelineStageFlags2KHR> mStageHintAfter = {};
-
-			/**	Which access of the affected command must be waited-on from whatever comes after?
-			 *	I.e., this member would mean the SOURCE access of a barrier that comes after the affected command.
-			 */
-			std::optional<vk::AccessFlags2KHR> mAccessHintAfter = {};
+			std::optional<stage_and_access_precisely> mSrcForSubsequentCmds = {};
 
 			// TODO: I think it would be pretty hard to incorporate the following two in a meaningful manner:
 			//       (If possible, we'd need to track their respective vk::Image and vk::Buffer handles.)
@@ -175,24 +167,125 @@ namespace avk
 			std::variant<std::monostate, buffer_sync_info, image_sync_info> mSpecificData;
 		};
 
+		/**	Create a global execution barrier which only has execution dependencies, but no memory dependencies (i.e., both access scopes set to eNone).
+		 *	The best way to create the execution_dependency parameter is to use operator>> to combine source and destination stages as follows:
+		 *	Example:    avk::stage::copy >> avk::stage::fragment_shader
+		 *	            ^ This creates an execution_dependency with source stage eCopy and destination stage eFragmentShader
+		 *
+		 *	@param	aStages		Source and destination stages of this global execution barrier.
+		 *						Create it by using operator>> with two avk::stage::pipeline_stage_flags operands!
+		 *
+		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
+		 */
 		inline static sync_type_command global_execution_barrier(avk::stage::execution_dependency aStages)
 		{
 			return sync_type_command{ aStages };
 		}
 
+		/**	Create a global memory barrier which has execution and memory barriers.
+		 *	The best way to create the aStages and aAccesses parameters is to use operator>> to combine source and destination stages, or source and destination access masks as follows:
+		 *	Example:    avk::stage::copy >> avk::stage::fragment_shader,   avk::access::transfer_write >> avk::access::shader_read
+		 *	            ^ This creates an execution_dependency with source stage eCopy and destination stage eFragmentShader,
+		 *	              and a memory_dependency with source access eTransferWrite and destination access eShaderRead.
+		 *
+		 *	@param	aStages		Source and destination stages of this global memory barrier.
+		 *						Create it by using operator>> with two avk::stage::pipeline_stage_flags operands!
+		 *	@param	aAccesses	Source and destination access flags of this global memory barrier.
+		 *						Create it by using operator>> with two avk::access::memory_access_flags operands!
+		 *
+		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
+		 */
 		inline static sync_type_command global_memory_barrier(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
 			return sync_type_command{ aStages, aAccesses };
 		}
 
+		/**	Syntactic-sugary alternative to sync::global_memory_barrier, where stages and accesses can be passed as follows:
+		 *	Example:    avk::stage::copy + avk::access::transfer_write >> avk::stage::fragment_shader + avk::access::shader_read
+		 *	            ^ This creates an execution_dependency with source stage eCopy and source access aTransferWrite,
+		 *				  and destination stage eFragmentShader with destination access eShaderRead.
+		 *
+		 *	@param	aDependency	Source and destination stages and memory accesses of this global memory barrier.
+		 *						Create it by using operator+ with avk::stage::pipeline_stage_flags and avk::access::memory_access_flags 
+		 *						to create source and destination data, then combine source and destination with operator>>.
+		 *
+		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
+		 */
+		inline static sync_type_command global_memory_barrier(avk::stage_and_access_dependency aDependency)
+		{
+			return global_memory_barrier(aDependency.mSrc.mStage >> aDependency.mDst.mStage, aDependency.mSrc.mAccess >> aDependency.mDst.mAccess);
+		}
+
+		/**	Create an image memory barrier which has execution and memory barriers.
+		 *	The best way to create the aStages and aAccesses parameters is to use operator>> to combine source and destination stages, or source and destination access masks as follows:
+		 *	Example:    avk::stage::copy >> avk::stage::fragment_shader,   avk::access::transfer_write >> avk::access::shader_read
+		 *	            ^ This creates an execution_dependency with source stage eCopy and destination stage eFragmentShader,
+		 *	              and a memory_dependency with source access eTransferWrite and destination access eShaderRead.
+		 *
+		 *	@param	aImage		The image this image memory barrier refers to.
+		 *	@param	aStages		Source and destination stages of this image memory barrier.
+		 *						Create it by using operator>> with two avk::stage::pipeline_stage_flags operands!
+		 *	@param	aAccesses	Source and destination access flags of this image memory barrier.
+		 *						Create it by using operator>> with two avk::access::memory_access_flags operands!
+		 *
+		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
+		 */
 		inline static sync_type_command image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
 			return sync_type_command{ aStages, aAccesses, aImage, aImage->entire_subresource_range() };
 		}
 
+		/**	Syntactic-sugary alternative to sync::image_memory_barrier, where stages and accesses can be passed as follows:
+		 *	Example:    avk::stage::copy + avk::access::transfer_write >> avk::stage::fragment_shader + avk::access::shader_read
+		 *	            ^ This creates an execution_dependency with source stage eCopy and source access aTransferWrite,
+		 *				  and destination stage eFragmentShader with destination access eShaderRead.
+		 *
+		 *	@param	aImage		The image this image memory barrier refers to.
+		 *	@param	aDependency	Source and destination stages and memory accesses of this image memory barrier.
+		 *						Create it by using operator+ with avk::stage::pipeline_stage_flags and avk::access::memory_access_flags
+		 *						to create source and destination data, then combine source and destination with operator>>.
+		 *
+		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
+		 */
+		inline static sync_type_command image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage_and_access_dependency aDependency)
+		{
+			return image_memory_barrier(aImage, aDependency.mSrc.mStage >> aDependency.mDst.mStage, aDependency.mSrc.mAccess >> aDependency.mDst.mAccess);
+		}
+
+		/**	Create a buffer memory barrier which has execution and memory barriers.
+		 *	The best way to create the aStages and aAccesses parameters is to use operator>> to combine source and destination stages, or source and destination access masks as follows:
+		 *	Example:    avk::stage::copy >> avk::stage::fragment_shader,   avk::access::transfer_write >> avk::access::shader_read
+		 *	            ^ This creates an execution_dependency with source stage eCopy and destination stage eFragmentShader,
+		 *	              and a memory_dependency with source access eTransferWrite and destination access eShaderRead.
+		 *
+		 *	@param	aBuffer		The buffer this buffer memory barrier refers to.
+		 *	@param	aStages		Source and destination stages of this buffer memory barrier.
+		 *						Create it by using operator>> with two avk::stage::pipeline_stage_flags operands!
+		 *	@param	aAccesses	Source and destination access flags of this buffer memory barrier.
+		 *						Create it by using operator>> with two avk::access::memory_access_flags operands!
+		 *
+		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
+		 */
 		inline static sync_type_command buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
 			return sync_type_command{ aStages, aAccesses, aBuffer, 0, VK_WHOLE_SIZE };
+		}
+
+		/**	Syntactic-sugary alternative to sync::buffer_memory_barrier, where stages and accesses can be passed as follows:
+		 *	Example:    avk::stage::copy + avk::access::transfer_write >> avk::stage::fragment_shader + avk::access::shader_read
+		 *	            ^ This creates an execution_dependency with source stage eCopy and source access aTransferWrite,
+		 *				  and destination stage eFragmentShader with destination access eShaderRead.
+		 *
+		 *	@param	aBuffer		The buffer this buffer memory barrier refers to.
+		 *	@param	aDependency	Source and destination stages and memory accesses of this buffer memory barrier.
+		 *						Create it by using operator+ with avk::stage::pipeline_stage_flags and avk::access::memory_access_flags
+		 *						to create source and destination data, then combine source and destination with operator>>.
+		 *
+		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
+		 */
+		inline static sync_type_command buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage_and_access_dependency aDependency)
+		{
+			return buffer_memory_barrier(aBuffer, aDependency.mSrc.mStage >> aDependency.mDst.mStage, aDependency.mSrc.mAccess >> aDependency.mDst.mAccess);
 		}
 	}
 
@@ -239,6 +332,7 @@ namespace avk
 			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
 
 			avk::sync::sync_hint mSyncHint = {};
+			std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> mResourceSpecificSyncHints;
 			rec_fun mBeginFun = {};
 			std::vector<recorded_commands_t> mNestedCommandsAndSyncInstructions;
 			rec_fun mEndFun = {};
@@ -252,10 +346,44 @@ namespace avk
 				return *this;
 			}
 
+			/**	IF there are entries in mResourceSpecificSyncHints, overwrited whatever values are set in
+			 *	the mSyncHint member by accumulating all the sync hints from the mResourceSpecificSyncHints.
+			 */
+			void infer_sync_hint_from_resource_sync_hints()
+			{
+				if (mResourceSpecificSyncHints.empty()) {
+					return;
+				}
+
+				vk::PipelineStageFlags2KHR dstStageForPrevCmds  = vk::PipelineStageFlagBits2KHR::eNone;
+				vk::AccessFlags2KHR        dstAccessForPrevCmds = vk::AccessFlagBits2KHR::eNone;
+				vk::PipelineStageFlags2KHR srcStageForSubsCmds   = vk::PipelineStageFlagBits2KHR::eNone;
+				vk::AccessFlags2KHR        srcAccessForSubsCmds  = vk::AccessFlagBits2KHR::eNone;
+
+				for (const auto& [res, resSyncHint] : mResourceSpecificSyncHints) {
+					if (resSyncHint.mDstForPreviousCmds.has_value()) {
+						dstStageForPrevCmds  |= resSyncHint.mDstForPreviousCmds.value().mStage;
+						dstAccessForPrevCmds |= resSyncHint.mDstForPreviousCmds.value().mAccess;
+					}
+					if (resSyncHint.mSrcForSubsequentCmds.has_value()) {
+						srcStageForSubsCmds  |= resSyncHint.mSrcForSubsequentCmds.value().mStage;
+						srcAccessForSubsCmds |= resSyncHint.mSrcForSubsequentCmds.value().mAccess;
+					}
+				}
+				
+				mSyncHint.mDstForPreviousCmds.emplace();
+				mSyncHint.mDstForPreviousCmds->mStage  = dstStageForPrevCmds;
+				mSyncHint.mDstForPreviousCmds->mAccess = dstAccessForPrevCmds;
+
+				mSyncHint.mSrcForSubsequentCmds.emplace();
+				mSyncHint.mSrcForSubsequentCmds->mStage  = srcStageForSubsCmds;
+				mSyncHint.mSrcForSubsequentCmds->mAccess = srcAccessForSubsCmds;
+			}
+
 			/**	Overwrites the mSyncHint member with the mSyncHint of the first nested action command's "before" sync hint,
 			 *	and the "after" sync hint with the last nested action command's "after" sync hint.
 			 *	TODO: implement a better logic for this!
-			 *	TODO: Maybe also take sync_type_commands into account?
+			 *	TODO: Maybe also take sync_type_commands into account? <--- Particularly image layout transitions?!
 			 */
 			void infer_sync_hint_from_nested_commands()
 			{
@@ -265,16 +393,14 @@ namespace avk
 
 				for (auto it = mNestedCommandsAndSyncInstructions.begin(); it != mNestedCommandsAndSyncInstructions.end(); ++it) {
 					if (std::holds_alternative<command::action_type_command>(*it)) {
-						mSyncHint.mStageHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mStageHintBefore;
-						mSyncHint.mAccessHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mAccessHintBefore;
+						mSyncHint.mDstForPreviousCmds = std::get<command::action_type_command>(*it).mSyncHint.mDstForPreviousCmds;
 						break;
 					}
 				}
 
 				for (auto it = mNestedCommandsAndSyncInstructions.rbegin(); it != mNestedCommandsAndSyncInstructions.rend(); ++it) {
 					if (std::holds_alternative<command::action_type_command>(*it)) {
-						mSyncHint.mStageHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mStageHintAfter;
-						mSyncHint.mAccessHintBefore = std::get<command::action_type_command>(*it).mSyncHint.mAccessHintAfter;
+						mSyncHint.mSrcForSubsequentCmds = std::get<command::action_type_command>(*it).mSyncHint.mSrcForSubsequentCmds;
 						break;
 					}
 				}
@@ -296,7 +422,7 @@ namespace avk
 		inline static avk::command::action_type_command custom_commands(F aCommandRecordingCallback)
 		{
 			return avk::command::action_type_command{
-				avk::sync::sync_hint {}, // No sync hints by default
+				{}, {}, // No sync hints by default
 				std::move(aCommandRecordingCallback)
 			};
 		}
@@ -410,10 +536,14 @@ namespace avk
 
 			return action_type_command{
 				avk::sync::sync_hint {
-					vk::PipelineStageFlagBits2KHR::eAllGraphics,
-					vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-					vk::PipelineStageFlagBits2KHR::eAllGraphics,
-					vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					{{ // DESTINATION dependencies for previous commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // SOURCE dependencies for subsequent commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
 				},
 				[
 					lBindingCount = static_cast<uint32_t>(N),

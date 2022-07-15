@@ -23,8 +23,7 @@ option(avk_UseVMA "Use Vulkan Memory Allocator (VMA) for custom memory allocatio
 set(avk_IncludeDirs
         include)
 set(avk_Sources
-        src/avk.cpp
-        src/sync.cpp)
+        src/avk.cpp)
 
 if(avk_UseVMA)
     list(APPEND avk_Sources src/vk_mem_alloc.cpp)
