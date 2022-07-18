@@ -2642,18 +2642,22 @@ namespace avk
 #endif
 
 		// Prepare a result which defines no sync hints and no instructions to be executed for some cases:
-		auto result = command::action_type_command{
-			avk::sync::sync_hint {
-				stage::none + access::none, // No need to wait on anything nor to make anything available
-				// Set defaults for the host-visible-only case, overwrite them for device buffers further down:
-				stage::none + access::none, // <-- This is okay for host-visible buffers, because the queue submit transfers the memory
+		auto actionTypeCommand = command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(handle(), avk::sync::sync_hint{
+					stage::none + access::none, // No need to wait on anything nor to make anything available
+					// Set defaults for the host-visible-only case, overwrite them for device buffers further down:
+					stage::none + access::none, // <-- This is okay for host-visible buffers, because the queue submit transfers the memory
+				})
 			}
 		};
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 
 		// #0: Sanity check
 		if (dataSize == 0) {
 			// Nothing to do here
-			return result;
+			return actionTypeCommand;
 		}
 
 		// #1: Is our memory accessible from the CPU-SIDE?
@@ -2662,7 +2666,7 @@ namespace avk
 			// Memcpy doesn't have to wait on anything, no sync required.
 			memcpy(static_cast<uint8_t *>(mapped.get()) + dstOffset, aDataPtr, dataSize);
 			// Since this is a host-write, no need for any barrier, because of implicit host write guarantee.
-			return result;
+			return actionTypeCommand;
 		}
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
@@ -2686,9 +2690,10 @@ namespace avk
 			stagingBuffer->fill(aDataPtr, 0); // Recurse into the other if-branch
 
 			// Whatever comes after must synchronize with the device-local copy:
-			result.mSyncHint.mSrcForSubsequentCmds = stage::copy + access::transfer_write;
-			
-			result.mBeginFun = [
+			std::get<avk::sync::sync_hint>(actionTypeCommand.mResourceSpecificSyncHints.front()).mSrcForSubsequentCmds = stage::copy + access::transfer_write;
+			actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+						
+			actionTypeCommand.mBeginFun = [
 				lRoot = mRoot,
 				lOwnedStagingBuffer = std::move(stagingBuffer),
 				lDstBufferHandle = handle(),
@@ -2706,7 +2711,7 @@ namespace avk
 				cb->handle_lifetime_of(std::move(lOwnedStagingBuffer));
 			};
 
-			return result;
+			return actionTypeCommand;
 		}
 	}
 
@@ -8004,7 +8009,7 @@ namespace avk
 		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstImageLayout, aImageAspectFlags);
 	}
 
-	avk::command::action_type_command copy_buffer_to_another(avk::resource_reference<buffer_t> aSrcBuffer, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize)
+	avk::command::action_type_command copy_buffer_to_another(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize)
 	{
 		vk::DeviceSize dataSize{ 0 };
 		if (aDataSize.has_value()) {
@@ -8048,6 +8053,16 @@ namespace avk
 					lRoot->dispatch_loader_core()
 				);
 			}
+		};
+
+		if (aSrcBuffer.is_ownership() || aDstBuffer.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lSrcBuffer = aSrcBuffer.move_ownership_or_get_empty(),
+				lDstBuffer = aDstBuffer.move_ownership_or_get_empty()
+			](avk::resource_reference<avk::command_buffer_t> cb) mutable {
+				let_it_handle_lifetime_of(*cb, lSrcBuffer);
+				let_it_handle_lifetime_of(*cb, lDstBuffer);
+			};
 		};
 
 		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();

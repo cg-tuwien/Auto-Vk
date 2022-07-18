@@ -16,11 +16,10 @@ namespace avk
 		access::memory_access_flags mAccess;
 	};
 
-	inline stage_and_access operator+ (stage::pipeline_stage_flags aStages, access::memory_access_flags aAccesses)
+	inline avk::stage_and_access operator+ (const avk::stage::pipeline_stage_flags& aStages, const avk::access::memory_access_flags& aAccesses)
 	{
-		return stage_and_access{ aStages, aAccesses };
+		return avk::stage_and_access{ aStages, aAccesses };
 	}
-
 
 
 	struct stage_and_access_dependency
@@ -29,7 +28,7 @@ namespace avk
 		stage_and_access mDst;
 	};
 
-	inline stage_and_access_dependency operator>> (stage_and_access a, stage_and_access b)
+	inline static stage_and_access_dependency operator>> (stage_and_access a, stage_and_access b)
 	{
 		return stage_and_access_dependency{ a, b };
 	}

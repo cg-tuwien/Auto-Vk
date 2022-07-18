@@ -357,8 +357,8 @@ namespace avk
 
 				vk::PipelineStageFlags2KHR dstStageForPrevCmds  = vk::PipelineStageFlagBits2KHR::eNone;
 				vk::AccessFlags2KHR        dstAccessForPrevCmds = vk::AccessFlagBits2KHR::eNone;
-				vk::PipelineStageFlags2KHR srcStageForSubsCmds   = vk::PipelineStageFlagBits2KHR::eNone;
-				vk::AccessFlags2KHR        srcAccessForSubsCmds  = vk::AccessFlagBits2KHR::eNone;
+				vk::PipelineStageFlags2KHR srcStageForSubsCmds  = vk::PipelineStageFlagBits2KHR::eNone;
+				vk::AccessFlags2KHR        srcAccessForSubsCmds = vk::AccessFlagBits2KHR::eNone;
 
 				for (const auto& [res, resSyncHint] : mResourceSpecificSyncHints) {
 					if (resSyncHint.mDstForPreviousCmds.has_value()) {
@@ -391,19 +391,31 @@ namespace avk
 					return;
 				}
 
+				vk::PipelineStageFlags2KHR dstStageForPrevCmds  = vk::PipelineStageFlagBits2KHR::eNone;
+				vk::AccessFlags2KHR        dstAccessForPrevCmds = vk::AccessFlagBits2KHR::eNone;
+				vk::PipelineStageFlags2KHR srcStageForSubsCmds  = vk::PipelineStageFlagBits2KHR::eNone;
+				vk::AccessFlags2KHR        srcAccessForSubsCmds = vk::AccessFlagBits2KHR::eNone;
+
 				for (auto it = mNestedCommandsAndSyncInstructions.begin(); it != mNestedCommandsAndSyncInstructions.end(); ++it) {
 					if (std::holds_alternative<command::action_type_command>(*it)) {
-						mSyncHint.mDstForPreviousCmds = std::get<command::action_type_command>(*it).mSyncHint.mDstForPreviousCmds;
-						break;
+						if (std::get<command::action_type_command>(*it).mSyncHint.mDstForPreviousCmds.has_value()) {
+							dstStageForPrevCmds  |= std::get<command::action_type_command>(*it).mSyncHint.mDstForPreviousCmds.value().mStage;
+							dstAccessForPrevCmds |= std::get<command::action_type_command>(*it).mSyncHint.mDstForPreviousCmds.value().mAccess;
+						}
 					}
 				}
 
 				for (auto it = mNestedCommandsAndSyncInstructions.rbegin(); it != mNestedCommandsAndSyncInstructions.rend(); ++it) {
 					if (std::holds_alternative<command::action_type_command>(*it)) {
-						mSyncHint.mSrcForSubsequentCmds = std::get<command::action_type_command>(*it).mSyncHint.mSrcForSubsequentCmds;
-						break;
+						if (std::get<command::action_type_command>(*it).mSyncHint.mSrcForSubsequentCmds.has_value()) {
+							srcStageForSubsCmds  |= std::get<command::action_type_command>(*it).mSyncHint.mSrcForSubsequentCmds.value().mStage;
+							srcAccessForSubsCmds |= std::get<command::action_type_command>(*it).mSyncHint.mSrcForSubsequentCmds.value().mAccess;
+						}
 					}
 				}
+
+				mSyncHint.mDstForPreviousCmds   = { dstStageForPrevCmds, dstAccessForPrevCmds };
+				mSyncHint.mSrcForSubsequentCmds = { srcStageForSubsCmds, srcAccessForSubsCmds };
 			}
 
 			std::vector<any_owning_resource_t> mLifetimeHandledResources;
