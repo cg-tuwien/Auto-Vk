@@ -8610,7 +8610,7 @@ namespace avk
 					stage::ray_tracing_shader + access::acceleration_structure_read,
 					stage::ray_tracing_shader + access::none
 				},
-				{},
+				{}, // no resource-specific sync hints
 				[
 					lSbtHandle = aShaderBindingTableRef.mSbtBufferHandle,
 					lEntrySize = aShaderBindingTableRef.mSbtEntrySize,

@@ -310,7 +310,6 @@ namespace avk
 		template <typename PL, typename D>
 		inline static state_type_command push_constants(const PL& aPipelineLayoutTuple, const D& aData, std::optional<shader_type> aShaderStages = {})
 		{
-			auto layoutHandle = std::get<const vk::PipelineLayout>(aPipelineLayoutTuple);
 			auto dataSize = static_cast<uint32_t>(sizeof(aData));
 			std::optional<vk::ShaderStageFlags> stageFlags;
 			if (aShaderStages.has_value()) {
@@ -332,7 +331,7 @@ namespace avk
 
 			return state_type_command{
 				[
-					lLayoutHandle = std::get<const vk::PipelineLayout>(layoutHandle),
+					lLayoutHandle = std::get<const vk::PipelineLayout>(aPipelineLayoutTuple),
 					lStageFlags = stageFlags.value_or(vk::ShaderStageFlagBits::eAll),
 					lDataSize = dataSize,
 					lData = aData
@@ -350,7 +349,6 @@ namespace avk
 		template <typename PL, typename D>
 		inline static state_type_command push_constants(const PL& aPipelineLayoutTuple, const D* aDataPtr, std::optional<shader_type> aShaderStages = {})
 		{
-			auto layoutHandle = std::get<const vk::PipelineLayout>(aPipelineLayoutTuple);
 			auto dataSize = static_cast<uint32_t>(sizeof(*aDataPtr));
 			std::optional<vk::ShaderStageFlags> stageFlags;
 			if (aShaderStages.has_value()) {
@@ -372,7 +370,7 @@ namespace avk
 
 			return state_type_command{
 				[
-					lLayoutHandle = std::get<const vk::PipelineLayout>(layoutHandle),
+					lLayoutHandle = std::get<const vk::PipelineLayout>(aPipelineLayoutTuple),
 					lStageFlags = stageFlags.value_or(vk::ShaderStageFlagBits::eAll),
 					lDataSize = dataSize,
 					aDataPtr
@@ -632,6 +630,7 @@ namespace avk
 						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
 					}}
 				},
+				{}, // no resource-specific sync hints
 				[
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, 
@@ -727,6 +726,7 @@ namespace avk
 						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
 					}}
 				},
+				{}, // no resource-specific sync hints
 				[
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
@@ -803,6 +803,7 @@ namespace avk
 						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
 					}}
 				},
+				{}, // no resource-specific sync hints
 				[
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
@@ -884,6 +885,7 @@ namespace avk
 						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
 					}}
 				},
+				{}, // no resource-specific sync hints
 				[
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
@@ -944,7 +946,6 @@ namespace avk
 		action_type_command trace_rays(
 			vk::Extent3D aRaygenDimensions,
 			const shader_binding_table_ref& aShaderBindingTableRef,
-			const root& aRoot,
 #if VK_HEADER_VERSION >= 162
 			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
 			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
@@ -967,6 +968,12 @@ namespace avk
 
 		// End of recursive variadic template handling
 		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS) { /* We're done here. */ }
+
+		// Looks like we need to forward-declare these two:
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_hit_group_at_index& aHitGroupAtIndex, const Ts&... args);
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_miss_group_at_index& aMissGroupAtIndex, const Ts&... args);
 
 		// Add a specific config setting to the trace rays call
 		template <typename... Ts>
