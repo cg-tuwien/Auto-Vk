@@ -18,14 +18,11 @@ namespace avk
 		framebuffer_t& operator=(const framebuffer_t&) = delete;
 		~framebuffer_t() = default;
 
-		avk::resource_reference<const renderpass_t> get_renderpass() const { return avk::const_referenced(mRenderpass); }
+		renderpass get_renderpass() const { return mRenderpass; }
 		const auto& image_views() const { return mImageViews; } // TODO: Probably remove this?!
-		avk::resource_reference<const image_t> image_at(size_t i) const { return avk::const_referenced(mImageViews[i]->get_image()); }
-		avk::resource_reference<const image_view_t> image_view_at(size_t i) const { return avk::const_referenced(mImageViews[i]); }
-		avk::resource_reference<renderpass_t> get_renderpass() { return avk::referenced(mRenderpass); }
+		const image_t& image_at(size_t i) const { return mImageViews[i]->get_image(); }
+		image_view image_view_at(size_t i) const { return mImageViews[i]; }
 		auto& image_views() { return mImageViews; } // TODO: Probably remove this?!
-		avk::resource_reference<image_t> image_at(size_t i) { return avk::referenced(mImageViews[i]->get_image()); }
-		avk::resource_reference<image_view_t> image_view_at(size_t i) { return avk::referenced(mImageViews[i]); }
 		const auto& create_info() const	{ return mCreateInfo; }
 		auto& create_info()				{ return mCreateInfo; }
 		auto handle() const { return mFramebuffer.get(); }

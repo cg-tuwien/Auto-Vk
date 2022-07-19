@@ -16,7 +16,7 @@ namespace avk
 		graphics_pipeline_t& operator=(const graphics_pipeline_t&) = delete;
 		~graphics_pipeline_t() = default;
 
-		[[nodiscard]] resource_reference<const renderpass_t> get_renderpass() const { return const_referenced(mRenderPass); }
+		[[nodiscard]] renderpass get_renderpass() const { return mRenderPass; }
 		auto renderpass_handle() const { return mRenderPass->handle(); }
 		auto subpass_id() const { return mSubpassIndex; }
 		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }

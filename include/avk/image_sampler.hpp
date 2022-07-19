@@ -24,14 +24,11 @@ namespace avk
 		image_sampler_t& operator=(const image_sampler_t&) = delete;
 		~image_sampler_t() = default;
 
-		[[nodiscard]] avk::resource_reference<const image_view_t> get_image_view() const	{ return avk::const_referenced(mImageView); }
-		[[nodiscard]] avk::resource_reference<image_view_t> get_image_view()				{ return avk::referenced(mImageView); }
-		[[nodiscard]] avk::resource_reference<const sampler_t> get_sampler() const			{ return avk::const_referenced(mSampler); }
-		[[nodiscard]] avk::resource_reference<sampler_t> get_sampler()						{ return avk::referenced(mSampler); }
-		[[nodiscard]] avk::resource_reference<const image_t> get_image() const				{ return avk::const_referenced(mImageView->get_image()); }
-		[[nodiscard]] avk::resource_reference<image_t> get_image()							{ return avk::referenced(mImageView->get_image()); }
+		[[nodiscard]] image_view     get_image_view() const	{ return mImageView; }
+		[[nodiscard]] sampler        get_sampler()    const { return mSampler; }
+		[[nodiscard]] const image_t& get_image()      const	{ return mImageView->get_image(); }
 		auto view_handle() const				{ return mImageView->handle(); }
-		auto image_handle() const					{ return mImageView->get_image().handle(); }
+		auto image_handle() const				{ return mImageView->get_image().handle(); }
 		auto sampler_handle() const				{ return mSampler->handle(); }
 		/** Gets the width of the image */
 		uint32_t width() const { return mImageView->get_image().width(); }

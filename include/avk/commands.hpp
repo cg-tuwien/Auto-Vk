@@ -66,14 +66,16 @@ namespace avk
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}, mSpecificData{} {}
 
 			// Constructs an image memory barrier:
-			sync_type_command(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::image_t> aImage, vk::ImageSubresourceRange aSubresourceRange)
+			sync_type_command(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, const avk::image_t& aImage, vk::ImageSubresourceRange aSubresourceRange)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}
-				, mSpecificData{ image_sync_info{ aImage->handle(), aSubresourceRange, std::optional<avk::layout::image_layout_transition>{} } } {}
+				, mSpecificData{ image_sync_info{ aImage.handle(), aSubresourceRange, std::optional<avk::layout::image_layout_transition>{} } } 
+			{}
 
 			// Constructs a buffer memory barrier:
-			sync_type_command(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, avk::resource_reference<const avk::buffer_t> aBuffer, vk::DeviceSize aOffset, vk::DeviceSize aSize)
+			sync_type_command(avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses, const avk::buffer_t& aBuffer, vk::DeviceSize aOffset, vk::DeviceSize aSize)
 				: mStages{ aStages }, mAccesses{ aAccesses }, mQueueFamilyOwnershipTransfer{}
-				, mSpecificData{ buffer_sync_info{ aBuffer->handle(), aOffset, aSize } } {}
+				, mSpecificData{ buffer_sync_info{ aBuffer.handle(), aOffset, aSize } } 
+			{}
 
 			// Adds memory access, potentially turning a execution barrier into a memory barrier.
 			sync_type_command& with_memory_access(avk::access::memory_dependency aMemoryAccess)
@@ -230,9 +232,9 @@ namespace avk
 		 *
 		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
 		 */
-		inline static sync_type_command image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
+		inline static sync_type_command image_memory_barrier(const avk::image_t& aImage, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
-			return sync_type_command{ aStages, aAccesses, aImage, aImage->entire_subresource_range() };
+			return sync_type_command{ aStages, aAccesses, aImage, aImage.entire_subresource_range() };
 		}
 
 		/**	Syntactic-sugary alternative to sync::image_memory_barrier, where stages and accesses can be passed as follows:
@@ -247,7 +249,7 @@ namespace avk
 		 *
 		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
 		 */
-		inline static sync_type_command image_memory_barrier(avk::resource_reference<const avk::image_t> aImage, avk::stage_and_access_dependency aDependency)
+		inline static sync_type_command image_memory_barrier(const avk::image_t& aImage, avk::stage_and_access_dependency aDependency)
 		{
 			return image_memory_barrier(aImage, aDependency.mSrc.mStage >> aDependency.mDst.mStage, aDependency.mSrc.mAccess >> aDependency.mDst.mAccess);
 		}
@@ -266,7 +268,7 @@ namespace avk
 		 *
 		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
 		 */
-		inline static sync_type_command buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
+		inline static sync_type_command buffer_memory_barrier(const avk::buffer_t& aBuffer, avk::stage::execution_dependency aStages, avk::access::memory_dependency aAccesses = avk::access::none >> avk::access::none)
 		{
 			return sync_type_command{ aStages, aAccesses, aBuffer, 0, VK_WHOLE_SIZE };
 		}
@@ -283,7 +285,7 @@ namespace avk
 		 *
 		 *	@return	An avk::sync::sync_type_command instance which contains all the relevant data for recording a memory barrier into a command buffer
 		 */
-		inline static sync_type_command buffer_memory_barrier(avk::resource_reference<const avk::buffer_t> aBuffer, avk::stage_and_access_dependency aDependency)
+		inline static sync_type_command buffer_memory_barrier(const avk::buffer_t& aBuffer, avk::stage_and_access_dependency aDependency)
 		{
 			return buffer_memory_barrier(aBuffer, aDependency.mSrc.mStage >> aDependency.mDst.mStage, aDependency.mSrc.mAccess >> aDependency.mDst.mAccess);
 		}
@@ -302,7 +304,7 @@ namespace avk
 			//state_type_command& operator=(state_type_command&&) noexcept = default;
 			//~state_type_command() = default;
 
-			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
+			using rec_fun = std::function<void(avk::command_buffer_t&)>;
 
 			rec_fun mFun;
 		};
@@ -335,8 +337,8 @@ namespace avk
 					lStageFlags = stageFlags.value_or(vk::ShaderStageFlagBits::eAll),
 					lDataSize = dataSize,
 					lData = aData
-				] (avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().pushConstants(
+				] (avk::command_buffer_t& cb) {
+					cb.handle().pushConstants(
 						lLayoutHandle,
 						lStageFlags,
 						0, // TODO: How to deal with offset?
@@ -374,8 +376,8 @@ namespace avk
 					lStageFlags = stageFlags.value_or(vk::ShaderStageFlagBits::eAll),
 					lDataSize = dataSize,
 					aDataPtr
-				] (avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().pushConstants(
+				] (avk::command_buffer_t& cb) {
+					cb.handle().pushConstants(
 						lLayoutHandle,
 						lStageFlags,
 						0, // TODO: How to deal with offset?
@@ -393,7 +395,7 @@ namespace avk
 			//action_type_command& operator=(action_type_command&&) noexcept = default;
 			//~action_type_command() = default;
 
-			using rec_fun = std::function<void(avk::resource_reference<avk::command_buffer_t>)>;
+			using rec_fun = std::function<void(avk::command_buffer_t&)>;
 
 			avk::sync::sync_hint mSyncHint = {};
 			std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> mResourceSpecificSyncHints;
@@ -488,9 +490,9 @@ namespace avk
 		/**	A utility function that creates an action_type_command which consists solely of custom commmands.
 		 *	@param	aCommandRecordingCallback	Must be convertible to action_type_command::rec_fun, which is
 		 *	                                    a function that takes one parameter of type
-		 *										avk::resource_reference<avk::command_buffer_t>, and returns void.
+		 *										avk::command_buffer_t&, and returns void.
 		 *
-		 *	@example                            custom_command([](avk::resource_reference<avk::command_buffer_t> cb) {
+		 *	@example                            custom_command([](avk::command_buffer_t& cb) {
 		 *	                                        cb->draw_vertices(1, 1, 0, 0);
 		 *                                      }
 		 */
@@ -504,29 +506,29 @@ namespace avk
 		}
 
 		/**	Begins a render pass for a given framebuffer
-		 *	@param	aRenderpass			Renderpass which shall begin
-		 *	@param	aFramebuffer		Framebuffer to use with the renderpass
+		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command)
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
 		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
 		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
 		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
 		 */
-		extern action_type_command begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<const framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+		extern action_type_command begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
 
 		/**	Ends a render pass
 		 */
 		extern action_type_command end_render_pass();
 
 		/**	Begins and ends a render pass for a given framebuffer, and supports some nested commands to be recorded in between
-		 *	@param	aRenderpass			Renderpass which shall begin
-		 *	@param	aFramebuffer		Framebuffer to use with the renderpass
+		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command)
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
 		 *	@param	aNestedCommands		Nested commands to be recorded between begin and end
 		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
 		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
 		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
 		 */
 		extern action_type_command render_pass(
-			avk::resource_reference<const avk::renderpass_t> aRenderpass,
-			avk::resource_reference<avk::framebuffer_t> aFramebuffer,
+			const renderpass_t& aRenderpass,
+			const framebuffer_t& aFramebuffer,
 			std::vector<recorded_commands_t> aNestedCommands = {},
 			vk::Offset2D aRenderAreaOffset = { 0, 0 }, 
 			std::optional<vk::Extent2D> aRenderAreaExtent = {}, 
@@ -540,18 +542,18 @@ namespace avk
 		/** Binds a graphics pipeline.
 		 *	@param	aPipeline	The graphics pipeline to bind
 		 */
-		extern state_type_command bind_pipeline(avk::resource_reference<const graphics_pipeline_t> aPipeline);
+		extern state_type_command bind_pipeline(const graphics_pipeline_t& aPipeline);
 
 		/** Binds a compute pipeline.
 		 *	@param	aPipeline	The graphics pipeline to bind
 		 */
-		extern state_type_command bind_pipeline(avk::resource_reference<const compute_pipeline_t> aPipeline);
+		extern state_type_command bind_pipeline(const compute_pipeline_t& aPipeline);
 
 #if VK_HEADER_VERSION >= 135
 		/** Binds a ray tracing pipeline.
 		 *	@param	aPipeline	The graphics pipeline to bind
 		 */
-		extern state_type_command bind_pipeline(avk::resource_reference<const ray_tracing_pipeline_t> aPipeline);
+		extern state_type_command bind_pipeline(const ray_tracing_pipeline_t& aPipeline);
 #endif 
 
 		/** Binds a graphics pipeline.
@@ -583,17 +585,17 @@ namespace avk
 		}
 
 		template <typename... Rest>
-		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, resource_reference<const buffer_t> aVertexBuffer, Rest... aRest)
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const buffer_t& aVertexBuffer, Rest... aRest)
 		{
-			*aHandlePtr = aVertexBuffer->handle();
+			*aHandlePtr = aVertexBuffer.handle();
 			*aOffsetPtr = 0;
 			bind_vertex_buffer(aHandlePtr + 1, aOffsetPtr + 1, aRest...);
 		}
 
 		template <typename... Rest>
-		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, std::tuple<resource_reference<const buffer_t>, size_t> aVertexBufferAndOffset, Rest... aRest)
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, std::tuple<const buffer_t&, size_t> aVertexBufferAndOffset, Rest... aRest)
 		{
-			*aHandlePtr = std::get<resource_reference<const buffer_t>>(aVertexBufferAndOffset)->handle();
+			*aHandlePtr = std::get<const buffer_t&>(aVertexBufferAndOffset).handle();
 			*aOffsetPtr = static_cast<vk::DeviceSize>(std::get<size_t>(aVertexBufferAndOffset));
 			bind_vertex_buffer(aHandlePtr + 1, aOffsetPtr + 1, aRest...);
 		}
@@ -611,7 +613,7 @@ namespace avk
 		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
+		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
 
 			constexpr size_t N = 1 + sizeof...(aFurtherBuffers);
@@ -635,12 +637,12 @@ namespace avk
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, 
 					aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
-				](avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().bindVertexBuffers(
+				](avk::command_buffer_t& cb) {
+					cb.handle().bindVertexBuffers(
 						0u, // TODO: Should the first binding really always be 0?
 						static_cast<uint32_t>(N), handles.data(), offsets.data()
 					);
-					cb->handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
+					cb.handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
 				}
 			};
 		}
@@ -660,10 +662,10 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
+		action_type_command draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
-			const auto& vertexMeta = aVertexBuffer->template meta<avk::vertex_buffer_meta>();
-			return draw_vertices(static_cast<uint32_t>(vertexMeta.num_elements()), aNumberOfInstances, aFirstVertex, aFirstInstance, std::move(aVertexBuffer), std::move(aFurtherBuffers)...);
+			const auto& vertexMeta = aVertexBuffer.template meta<avk::vertex_buffer_meta>();
+			return draw_vertices(static_cast<uint32_t>(vertexMeta.num_elements()), aNumberOfInstances, aFirstVertex, aFirstInstance, aVertexBuffer, std::move(aFurtherBuffers)...);
 		}
 		
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
@@ -681,9 +683,9 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
+		action_type_command draw_vertices(const buffer_t& aVertexBuffer, Bfrs... aFurtherBuffers)
 		{
-			return draw_vertices(1u, 0u, 0u, std::move(aVertexBuffer), std::move(aFurtherBuffers)...);
+			return draw_vertices(1u, 0u, 0u, aVertexBuffer, std::move(aFurtherBuffers)...);
 		}
 
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -700,14 +702,14 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, Bfrs... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
 			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
 
-			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t) : indexType = vk::IndexType::eUint16; break;
@@ -731,15 +733,15 @@ namespace avk
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
 					lNumElemments = static_cast<uint32_t>(indexMeta.num_elements()),
-					lIndexBufferHandle = aIndexBuffer->handle(),
+					lIndexBufferHandle = aIndexBuffer.handle(),
 					aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance
-				](avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().bindVertexBuffers(
+				](avk::command_buffer_t& cb) {
+					cb.handle().bindVertexBuffers(
 						0u, // TODO: Should the first binding really always be 0?
 						lBindingCount, handles.data(), offsets.data()
 					);
-					cb->handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
-					cb->handle().drawIndexed(lNumElemments, aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
+					cb.handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb.handle().drawIndexed(lNumElemments, aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 				}
 			};
 		}
@@ -756,9 +758,9 @@ namespace avk
 		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(avk::resource_reference<const buffer_t> aIndexBuffer, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed(const buffer_t& aIndexBuffer, Bfrs... aVertexBuffers)
 		{
-			return draw_indexed(std::move(aIndexBuffer), 1u, 0u, 0u, 0u, std::move(aVertexBuffers) ...);
+			return draw_indexed(aIndexBuffer, 1u, 0u, 0u, 0u, std::move(aVertexBuffers) ...);
 		}
 
 		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -777,14 +779,14 @@ namespace avk
 		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, Bfrs... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
 			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
 
-			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
@@ -807,16 +809,16 @@ namespace avk
 				[
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
-					lParametersBufferHandle = aParametersBuffer->handle(),
-					lIndexBufferHandle = aIndexBuffer->handle(),
+					lParametersBufferHandle = aParametersBuffer.handle(),
+					lIndexBufferHandle = aIndexBuffer.handle(),
 					aNumberOfDraws, aParametersOffset, aParametersStride
-				](avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().bindVertexBuffers(
+				](avk::command_buffer_t& cb) {
+					cb.handle().bindVertexBuffers(
 						0u, // TODO: Should the first binding really always be 0?
 						lBindingCount, handles.data(), offsets.data()
 					);
-					cb->handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
-					cb->handle().drawIndexedIndirect(lParametersBufferHandle, aParametersOffset, aNumberOfDraws, aParametersStride);
+					cb.handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb.handle().drawIndexedIndirect(lParametersBufferHandle, aParametersOffset, aNumberOfDraws, aParametersStride);
 				}
 			};
 		}
@@ -835,9 +837,9 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, Bfrs... aVertexBuffers)
 		{
-			return draw_indexed_indirect(std::move(aParametersBuffer), std::move(aIndexBuffer), aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aVertexBuffers) ...);
+			return draw_indexed_indirect(aParametersBuffer, aIndexBuffer, aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aVertexBuffers) ...);
 		}
 
 #if defined(VK_VERSION_1_2)
@@ -859,14 +861,14 @@ namespace avk
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, avk::resource_reference<const buffer_t> aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect_count(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aMaxNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const buffer_t& aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, Bfrs... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
 			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
 
-			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t) : indexType = vk::IndexType::eUint16; break;
@@ -889,17 +891,17 @@ namespace avk
 				[
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
-					lIndexBufferHandle = aIndexBuffer->handle(),
-					lParametersBufferHandle = aParametersBuffer->handle(),
-					lDrawCountBufferHandle = aDrawCountBuffer->handle(),
+					lIndexBufferHandle = aIndexBuffer.handle(),
+					lParametersBufferHandle = aParametersBuffer.handle(),
+					lDrawCountBufferHandle = aDrawCountBuffer.handle(),
 					aParametersOffset, aDrawCountOffset, aMaxNumberOfDraws, aParametersStride
-				](avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().bindVertexBuffers(
+				](avk::command_buffer_t& cb) {
+					cb.handle().bindVertexBuffers(
 						0u, // TODO: Should the first binding really always be 0?
 						lBindingCount, handles.data(), offsets.data()
 					);
-					cb->handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
-					cb->handle().drawIndexedIndirectCount(lParametersBufferHandle, aParametersOffset, lDrawCountBufferHandle, aDrawCountOffset, aMaxNumberOfDraws, aParametersStride);
+					cb.handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb.handle().drawIndexedIndirectCount(lParametersBufferHandle, aParametersOffset, lDrawCountBufferHandle, aDrawCountOffset, aMaxNumberOfDraws, aParametersStride);
 				}
 			};
 		}
@@ -922,9 +924,9 @@ namespace avk
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, avk::resource_reference<const buffer_t> aDrawCountBuffer, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect_count(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aMaxNumberOfDraws, const buffer_t& aDrawCountBuffer, Bfrs... aVertexBuffers)
 		{
-			return draw_indexed_indirect_count(std::move(aParametersBuffer), std::move(aIndexBuffer), aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aDrawCountBuffer), vk::DeviceSize{ 0 }, std::move(aVertexBuffers) ...);
+			return draw_indexed_indirect_count(aParametersBuffer, aIndexBuffer, aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aDrawCountBuffer, vk::DeviceSize{ 0 }, std::move(aVertexBuffers) ...);
 		}
 #endif
 
@@ -1082,48 +1084,27 @@ namespace avk
 
 	struct semaphore_wait_info
 	{
-		avk::resource_reference<const avk::semaphore_t> mWaitSemaphore;
+		avk::resource_argument<avk::semaphore_t> mWaitSemaphore;
 		avk::stage::pipeline_stage_flags mDstStage;
 	};
 
-	inline semaphore_wait_info operator>> (avk::resource_reference<const avk::semaphore_t> a, avk::stage::pipeline_stage_flags b)
+	inline semaphore_wait_info operator>> (avk::resource_argument<avk::semaphore_t> a, avk::stage::pipeline_stage_flags b)
 	{
-		return semaphore_wait_info{ a, b };
-	}
-
-	struct semaphore_wait_info_owning
-	{
-		avk::resource_ownership<avk::semaphore_t> mWaitSemaphore;
-		avk::stage::pipeline_stage_flags mDstStage;
-	};
-
-	inline semaphore_wait_info_owning operator>> (avk::resource_ownership<avk::semaphore_t> a, avk::stage::pipeline_stage_flags b)
-	{
-		return semaphore_wait_info_owning{ std::move(a), b };
+		return semaphore_wait_info{ std::move(a), b };
 	}
 
 
 	struct semaphore_signal_info
 	{
 		avk::stage::pipeline_stage_flags mSrcStage;
-		avk::resource_reference<const avk::semaphore_t> mSignalSemaphore;
+		avk::resource_argument<avk::semaphore_t> mSignalSemaphore;
 	};
 
-	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags a, avk::resource_reference<const avk::semaphore_t> b)
+	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags a, avk::resource_argument<avk::semaphore_t> b)
 	{
-		return semaphore_signal_info{ a, b };
+		return semaphore_signal_info{ a, std::move(b) };
 	}
 
-	struct semaphore_signal_info_owning
-	{
-		avk::stage::pipeline_stage_flags mSrcStage;
-		avk::resource_ownership<avk::semaphore_t> mSignalSemaphore;
-	};
-
-	inline semaphore_signal_info_owning operator>> (avk::stage::pipeline_stage_flags a, avk::resource_ownership<avk::semaphore_t> b)
-	{
-		return semaphore_signal_info_owning{ a, std::move(b) };
-	}
 
 	class recorded_command_buffer;
 
@@ -1132,14 +1113,14 @@ namespace avk
 	class submission_data final
 	{
 	public:
-		submission_data(const root* aRoot, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const queue* aQueue, const avk::recorded_command_buffer* aDangerousRecordedCommandBufferPointer = nullptr)
+		submission_data(const root* aRoot, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const queue* aQueue, const avk::recorded_command_buffer* aDangerousRecordedCommandBufferPointer = nullptr)
 			: mRoot{ aRoot }
 			, mCommandBufferToSubmit{ std::move(aCommandBuffer) }
 			, mQueueToSubmitTo{ aQueue }
 			, mSubmissionCount{ 0u }
 			, mDangerousRecordedCommandBufferPointer{ aDangerousRecordedCommandBufferPointer }
 		{}
-		submission_data(const root* aRoot, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, semaphore_wait_info aSemaphoreWaitInfo, const avk::recorded_command_buffer* aDangerousRecordedCommandBufferPointer = nullptr)
+		submission_data(const root* aRoot, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, semaphore_wait_info aSemaphoreWaitInfo, const avk::recorded_command_buffer* aDangerousRecordedCommandBufferPointer = nullptr)
 			: mRoot{ aRoot }
 			, mCommandBufferToSubmit{ std::move(aCommandBuffer) }
 			, mQueueToSubmitTo{ nullptr }
@@ -1158,7 +1139,7 @@ namespace avk
 		submission_data& submit_to(const queue* aQueue);
 		submission_data& waiting_for(avk::semaphore_wait_info aWaitInfo);
 		submission_data& signaling_upon_completion(semaphore_signal_info aSignalInfo);
-		submission_data& signaling_upon_completion(avk::resource_reference<avk::fence_t> aFence);
+		submission_data& signaling_upon_completion(avk::resource_argument<avk::fence_t> aFence);
 
 		bool is_sane() const { return nullptr != mRoot; }
 
@@ -1170,11 +1151,11 @@ namespace avk
 
 	private:
 		const root* mRoot = nullptr;
-		avk::resource_reference<avk::command_buffer_t> mCommandBufferToSubmit;
+		avk::resource_argument<avk::command_buffer_t> mCommandBufferToSubmit;
 		const queue* mQueueToSubmitTo;
 		std::vector<semaphore_wait_info> mSemaphoreWaits;
 		std::vector<semaphore_signal_info> mSemaphoreSignals;
-		std::optional<avk::resource_reference<avk::fence_t>> mFence;
+		std::optional<avk::resource_argument<avk::fence_t>> mFence;
 		uint32_t mSubmissionCount;
 		const avk::recorded_command_buffer* mDangerousRecordedCommandBufferPointer;
 	};
@@ -1186,7 +1167,7 @@ namespace avk
 	{
 	public:
 		// The constructor performs all the parsing, therefore, there's no std::vector<recorded_commands_t> member.
-		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_reference<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer = nullptr);
+		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer = nullptr);
 		
 		recorded_command_buffer(const recorded_command_buffer&) = default;
 		recorded_command_buffer(recorded_command_buffer&&) noexcept = default;
@@ -1208,7 +1189,7 @@ namespace avk
 
 	private:
 		const root* mRoot;
-		avk::resource_reference<avk::command_buffer_t> mCommandBufferToRecordInto;
+		avk::resource_argument<avk::command_buffer_t> mCommandBufferToRecordInto;
 		const avk::recorded_commands* mDangerousRecordedComandsPointer;
 	};
 
@@ -1232,7 +1213,7 @@ namespace avk
 		recorded_commands& handle_lifetime_of(any_owning_resource_t aResource);
 
 		std::vector<recorded_commands_t> and_store();
-		recorded_command_buffer into_command_buffer(avk::resource_reference<avk::command_buffer_t> aCommandBuffer);
+		recorded_command_buffer into_command_buffer(avk::resource_argument<avk::command_buffer_t> aCommandBuffer);
 
 		const auto& recorded_commands_and_sync_instructions() const { return mRecordedCommandsAndSyncInstructions; }
 

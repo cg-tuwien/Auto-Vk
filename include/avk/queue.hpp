@@ -135,35 +135,7 @@ namespace avk
 		const auto& handle() const { return mQueue; }
 		const auto* handle_ptr() const { return &mQueue; }
 
-		/** TODO */
-		void submit_with_semaphore(resource_reference<semaphore_t> aSemaphoreToSignal, resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores = {});
-
-		/** TODO */
-		semaphore submit_with_semaphore(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores = {});
-		
-		/** TODO */
-		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphore);
-
-		// TODO: temporarily removed default parameter settings for aWaitSemaphores as it can get mixed with the above call (std::optional)
-		void submit(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_reference<semaphore_t>> aWaitSemaphores);
-		
-		/** TODO */
-		void submit(std::vector<resource_reference<command_buffer_t>> aCommandBuffers);
-
-		/** TODO */
-		fence submit_with_fence(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
-		
-		/** TODO */
-		fence submit_with_fence(std::vector<resource_reference<command_buffer_t>> aCommandBuffers, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
-
-		/** TODO */
-		semaphore submit_and_handle_with_semaphore(resource_ownership<command_buffer_t> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
-		semaphore submit_and_handle_with_semaphore(std::optional<resource_ownership<command_buffer_t>> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
-		
-		/** TODO */
-		semaphore submit_and_handle_with_semaphore(std::vector<resource_ownership<command_buffer_t>> aCommandBuffers, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores = {});
-
-		avk::submission_data submit(avk::resource_reference<avk::command_buffer_t> aCommandBuffer) const;
+		avk::submission_data submit(avk::command_buffer_t& aCommandBuffer) const;
 
 		bool is_prepared() const;
 		
