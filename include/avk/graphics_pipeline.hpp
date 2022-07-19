@@ -111,18 +111,4 @@ namespace avk
 	};
 	
 	using graphics_pipeline = avk::owning_resource<graphics_pipeline_t>;
-	
-	template <>
-	inline void command_buffer_t::bind_pipeline<resource_reference<const graphics_pipeline_t>>(resource_reference<const graphics_pipeline_t> aPipelineRef)
-	{
-		handle().bindPipeline(vk::PipelineBindPoint::eGraphics, aPipelineRef->handle());
-	}
-
-	template <>
-	inline void command_buffer_t::bind_descriptors<std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*>>
-		(std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
-	{
-		bind_descriptors(vk::PipelineBindPoint::eGraphics, std::get<const graphics_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aDescriptorSets));
-	}
-
 }

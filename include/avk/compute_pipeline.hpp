@@ -58,17 +58,4 @@ namespace avk
 	};
 	
 	using compute_pipeline = avk::owning_resource<compute_pipeline_t>;
-
-	template <>
-	inline void command_buffer_t::bind_pipeline<resource_reference<const compute_pipeline_t>>(resource_reference<const compute_pipeline_t> aPipelineRef)
-	{
-		handle().bindPipeline(vk::PipelineBindPoint::eCompute, aPipelineRef->handle());
-	}
-
-	template <>
-	inline void command_buffer_t::bind_descriptors<std::tuple<const compute_pipeline_t*,  const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*>>
-		(std::tuple<const compute_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
-	{
-		bind_descriptors(vk::PipelineBindPoint::eCompute, std::get<const compute_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aDescriptorSets));
-	}
 }

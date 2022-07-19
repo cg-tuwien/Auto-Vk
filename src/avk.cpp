@@ -1266,168 +1266,6 @@ namespace avk
 		}
 	}
 
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(avk::pipeline_stage aValue)
-	{
-		vk::PipelineStageFlags result;
-		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (avk::is_included(aValue, avk::pipeline_stage::top_of_pipe					)) { result |= vk::PipelineStageFlagBits::eTopOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::draw_indirect					)) { result |= vk::PipelineStageFlagBits::eDrawIndirect					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_input					)) { result |= vk::PipelineStageFlagBits::eVertexInput					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_shader					)) { result |= vk::PipelineStageFlagBits::eVertexShader					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_control_shader	)) { result |= vk::PipelineStageFlagBits::eTessellationControlShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_evaluation_shader)) { result |= vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::geometry_shader				)) { result |= vk::PipelineStageFlagBits::eGeometryShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_shader				)) { result |= vk::PipelineStageFlagBits::eFragmentShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::early_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::late_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eLateFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::color_attachment_output		)) { result |= vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
-		if (avk::is_included(aValue, avk::pipeline_stage::compute_shader				)) { result |= vk::PipelineStageFlagBits::eComputeShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transfer						)) { result |= vk::PipelineStageFlagBits::eTransfer						; }
-		if (avk::is_included(aValue, avk::pipeline_stage::bottom_of_pipe				)) { result |= vk::PipelineStageFlagBits::eBottomOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::host							)) { result |= vk::PipelineStageFlagBits::eHost							; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_graphics			)) { result |= vk::PipelineStageFlagBits::eAllGraphics					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_commands					)) { result |= vk::PipelineStageFlagBits::eAllCommands					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transform_feedback			)) { result |= vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::conditional_rendering			)) { result |= vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
-#else
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
-		return result;
-	}
-
-	vk::PipelineStageFlagBits to_vk_pipeline_stage_flag_bits(avk::pipeline_stage aValue)
-	{
-		if (avk::is_included(aValue, avk::pipeline_stage::top_of_pipe					)) { return vk::PipelineStageFlagBits::eTopOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::draw_indirect					)) { return vk::PipelineStageFlagBits::eDrawIndirect					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_input					)) { return vk::PipelineStageFlagBits::eVertexInput					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_shader					)) { return vk::PipelineStageFlagBits::eVertexShader					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_control_shader	)) { return vk::PipelineStageFlagBits::eTessellationControlShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_evaluation_shader)) { return vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::geometry_shader				)) { return vk::PipelineStageFlagBits::eGeometryShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_shader				)) { return vk::PipelineStageFlagBits::eFragmentShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::early_fragment_tests			)) { return vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::late_fragment_tests			)) { return vk::PipelineStageFlagBits::eLateFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::color_attachment_output		)) { return vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
-		if (avk::is_included(aValue, avk::pipeline_stage::compute_shader				)) { return vk::PipelineStageFlagBits::eComputeShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transfer						)) { return vk::PipelineStageFlagBits::eTransfer						; }
-		if (avk::is_included(aValue, avk::pipeline_stage::bottom_of_pipe				)) { return vk::PipelineStageFlagBits::eBottomOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::host							)) { return vk::PipelineStageFlagBits::eHost							; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_graphics					)) { return vk::PipelineStageFlagBits::eAllGraphics					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_commands					)) { return vk::PipelineStageFlagBits::eAllCommands					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transform_feedback			)) { return vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::conditional_rendering			)) { return vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { return vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
-#else
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { return vk::PipelineStageFlagBits::eCommandProcessNVX			; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::shading_rate_image			)) { return vk::PipelineStageFlagBits::eShadingRateImageNV			; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::ray_tracing_shaders			)) { return vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::acceleration_structure_build	)) { return vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::task_shader					)) { return vk::PipelineStageFlagBits::eTaskShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::mesh_shader					)) { return vk::PipelineStageFlagBits::eMeshShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { return vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
-
-		throw avk::runtime_error("unknown pipeline_stage");
-	}
-
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<avk::pipeline_stage> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_vk_pipeline_stage_flags(aValue.value());
-		}
-		return vk::PipelineStageFlags{};
-	}
-
-	vk::AccessFlags to_vk_access_flags(avk::memory_access aValue)
-	{
-		vk::AccessFlags result;
-		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (avk::is_included(aValue, avk::memory_access::indirect_command_data_read_access			)) { result |= vk::AccessFlagBits::eIndirectCommandRead; }
-		if (avk::is_included(aValue, avk::memory_access::index_buffer_read_access					)) { result |= vk::AccessFlagBits::eIndexRead; }
-		if (avk::is_included(aValue, avk::memory_access::vertex_buffer_read_access					)) { result |= vk::AccessFlagBits::eVertexAttributeRead; }
-		if (avk::is_included(aValue, avk::memory_access::uniform_buffer_read_access					)) { result |= vk::AccessFlagBits::eUniformRead; }
-		if (avk::is_included(aValue, avk::memory_access::input_attachment_read_access				)) { result |= vk::AccessFlagBits::eInputAttachmentRead; }
-		if (avk::is_included(aValue, avk::memory_access::shader_buffers_and_images_read_access		)) { result |= vk::AccessFlagBits::eShaderRead; }
-		if (avk::is_included(aValue, avk::memory_access::shader_buffers_and_images_write_access		)) { result |= vk::AccessFlagBits::eShaderWrite; }
-		if (avk::is_included(aValue, avk::memory_access::color_attachment_read_access				)) { result |= vk::AccessFlagBits::eColorAttachmentRead; }
-		if (avk::is_included(aValue, avk::memory_access::color_attachment_write_access				)) { result |= vk::AccessFlagBits::eColorAttachmentWrite; }
-		if (avk::is_included(aValue, avk::memory_access::depth_stencil_attachment_read_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentRead; }
-		if (avk::is_included(aValue, avk::memory_access::depth_stencil_attachment_write_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; }
-		if (avk::is_included(aValue, avk::memory_access::transfer_read_access						)) { result |= vk::AccessFlagBits::eTransferRead; }
-		if (avk::is_included(aValue, avk::memory_access::transfer_write_access						)) { result |= vk::AccessFlagBits::eTransferWrite; }
-		if (avk::is_included(aValue, avk::memory_access::host_read_access							)) { result |= vk::AccessFlagBits::eHostRead; }
-		if (avk::is_included(aValue, avk::memory_access::host_write_access							)) { result |= vk::AccessFlagBits::eHostWrite; }
-		if (avk::is_included(aValue, avk::memory_access::any_read_access							)) { result |= vk::AccessFlagBits::eMemoryRead; }
-		if (avk::is_included(aValue, avk::memory_access::any_write_access					 		)) { result |= vk::AccessFlagBits::eMemoryWrite; }
-		if (avk::is_included(aValue, avk::memory_access::transform_feedback_write_access			)) { result |= vk::AccessFlagBits::eTransformFeedbackWriteEXT; }
-		if (avk::is_included(aValue, avk::memory_access::transform_feedback_counter_read_access		)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterReadEXT; }
-		if (avk::is_included(aValue, avk::memory_access::transform_feedback_counter_write_access	)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterWriteEXT; }
-		if (avk::is_included(aValue, avk::memory_access::conditional_rendering_predicate_read_access)) { result |= vk::AccessFlagBits::eConditionalRenderingReadEXT; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
-#else
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
-#endif
-		if (avk::is_included(aValue, avk::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
-		if (avk::is_included(aValue, avk::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
-		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
-#endif
-		if (avk::is_included(aValue, avk::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
-
-		return result;
-	}
-
-	vk::AccessFlags to_vk_access_flags(std::optional<avk::memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_vk_access_flags(aValue.value());
-		}
-		return vk::AccessFlags{};
-	}
-
-	avk::memory_access to_memory_access(avk::read_memory_access aValue)
-	{
-		return static_cast<avk::memory_access>(aValue);
-	}
-
-	std::optional<avk::memory_access> to_memory_access(std::optional<avk::read_memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_memory_access(aValue.value());
-		}
-		return {};
-	}
-
-	avk::memory_access to_memory_access(avk::write_memory_access aValue)
-	{
-		return static_cast<avk::memory_access>(aValue);
-	}
-
-	std::optional<avk::memory_access> to_memory_access(std::optional<avk::write_memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_memory_access(aValue.value());
-		}
-		return {};
-	}
-
 	filter_mode to_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
 	{
 		if (aMipMappingAvailable) {
@@ -2990,139 +2828,6 @@ namespace avk
 		mState = command_buffer_state::finished_recording;
 	}
 
-	void command_buffer_t::begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<const framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
-	{
-		const auto firstAttachmentsSize = aFramebuffer->image_view_at(0)->get_image().create_info().extent;
-		const auto& clearValues = aRenderpass->clear_values();
-		auto renderPassBeginInfo = vk::RenderPassBeginInfo()
-			.setRenderPass(aRenderpass->handle())
-			.setFramebuffer(aFramebuffer->handle())
-			.setRenderArea(vk::Rect2D()
-				.setOffset(vk::Offset2D{ aRenderAreaOffset.x, aRenderAreaOffset.y })
-				.setExtent(aRenderAreaExtent.has_value()
-							? vk::Extent2D{ aRenderAreaExtent.value() }
-							: vk::Extent2D{ firstAttachmentsSize.width,  firstAttachmentsSize.height }
-					)
-				)
-			.setClearValueCount(static_cast<uint32_t>(clearValues.size()))
-			.setPClearValues(clearValues.data());
-
-		// TODO: Use beginRenderPass2KHR!
-		
-		mSubpassContentsState = aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers;
-		mCommandBuffer->beginRenderPass(renderPassBeginInfo, mSubpassContentsState);
-		// 2nd parameter: how the drawing commands within the render pass will be provided. It can have one of two values [7]:
-		//  - VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded in the primary command buffer itself and no secondary command buffers will be executed.
-		//  - VK_SUBPASS_CONTENTS_SECONDARY_command_buffer_tS : The render pass commands will be executed from secondary command buffers.
-	}
-
-	void command_buffer_t::next_subpass()
-	{
-		mCommandBuffer->nextSubpass(mSubpassContentsState);
-	}
-
-	void command_buffer_t::establish_execution_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage), // Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage), // Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{}, // TODO: support dependency flags
-			{},	{}, {} // no memory barriers
-		);
-	}
-
-	void command_buffer_t::establish_global_memory_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage),				// Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage),				// Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{},								// TODO: support dependency flags
-			{ vk::MemoryBarrier{								// Establish a global memory barrier, ...
-				to_vk_access_flags(aSrcAccessToBeMadeAvailable),//  ... making memory from these access types available (after aSrcStage),
-				to_vk_access_flags(aDstAccessToBeMadeVisible)	//  ... and for these access types visible (before aDstStage)
-			}},
-			{}, {} // no buffer/image memory barriers
-		);
-	}
-
-	void command_buffer_t::establish_global_memory_barrier_rw(pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
-	{
-		establish_global_memory_barrier(aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
-	}
-
-	void command_buffer_t::establish_image_memory_barrier(const image_t& aImage, avk::layout::image_layout aSrcLayout, avk::layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage),						// Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage),						// Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{},										// TODO: support dependency flags
-			{}, {},														// no global memory barriers, no buffer memory barriers
-			{
-				vk::ImageMemoryBarrier{
-					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
-					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
-					aSrcLayout.mLayout, aDstLayout.mLayout,				// Transition for the former to the latter
-					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,	// TODO: Support queue family ownership transfer
-					aImage.handle(),
-					aImage.entire_subresource_range()					// TODO: Support different subresource ranges
-				}
-			}
-		);
-	}
-
-	void command_buffer_t::establish_image_memory_barrier_rw(const image_t& aImage, avk::layout::image_layout aSrcLayout, avk::layout::image_layout aDstLayout, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
-	{
-		establish_image_memory_barrier(aImage, aSrcLayout, aDstLayout, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
-	}
-
-	void command_buffer_t::establish_buffer_memory_barrier(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage),						// Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage),						// Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{},										// TODO: support dependency flags
-			{},
-			{
-				vk::BufferMemoryBarrier{
-					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
-					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
-					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-					aBuffer.handle(),
-					0, aBuffer.meta_at_index<buffer_meta>().total_size()
-				}
-			},
-			{}
-		);
-	}
-
-	void command_buffer_t::establish_buffer_memory_barrier_rw(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
-	{
-		establish_buffer_memory_barrier(aBuffer, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
-	}
-	
-	void command_buffer_t::copy_image(const image_t& aSource, const vk::Image& aDestination)
-	{ // TODO: fix this hack after the RTX-VO!
-		auto fullImageOffset = vk::Offset3D(0, 0, 0);
-		auto fullImageExtent = aSource.create_info().extent;
-		auto halfImageOffset = vk::Offset3D(0, 0, 0); //vk::Offset3D(pSource.mInfo.extent.width / 2, 0, 0);
-		auto halfImageExtent = vk::Extent3D(aSource.create_info().extent.width, aSource.create_info().extent.height, aSource.create_info().extent.depth);
-		auto offset = halfImageOffset;
-		auto extent = halfImageExtent;
-
-		auto copyInfo = vk::ImageCopy()
-			.setSrcSubresource(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0u, 0u, 1u))
-			.setSrcOffset(offset)
-			.setDstSubresource(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0u, 0u, 1u))
-			.setDstOffset(offset)
-			.setExtent(extent);
-		mCommandBuffer->copyImage(aSource.handle(), vk::ImageLayout::eTransferSrcOptimal, aDestination, vk::ImageLayout::eTransferDstOptimal, { copyInfo });
-	}
-
-	void command_buffer_t::end_render_pass() const
-	{
-		mCommandBuffer->endRenderPass();
-	}
-
 	void command_buffer_t::bind_descriptors(vk::PipelineBindPoint aBindingPoint, vk::PipelineLayout aLayoutHandle, std::vector<descriptor_set> aDescriptorSets)
 	{
 		if (aDescriptorSets.size() == 0) {
@@ -3161,35 +2866,6 @@ namespace avk
 			descIdx += count;
 		}
 	}
-
-#if VK_HEADER_VERSION >= 135
-	void command_buffer_t::trace_rays(
-		vk::Extent3D aRaygenDimensions,
-		const shader_binding_table_ref& aShaderBindingTableRef,
-		const root& aRoot,
-#if VK_HEADER_VERSION >= 162
-		const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef,
-		const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef,
-		const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef,
-		const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef
-
-#else
-		const vk::StridedBufferRegionKHR& aRaygenSbtRef,
-		const vk::StridedBufferRegionKHR& aRaymissSbtRef,
-		const vk::StridedBufferRegionKHR& aRayhitSbtRef,
-		const vk::StridedBufferRegionKHR& aCallableSbtRef
-#endif
-	)
-	{
-		const auto sbtHandle = aShaderBindingTableRef.mSbtBufferHandle;
-		const auto entrySize = aShaderBindingTableRef.mSbtEntrySize;
-		handle().traceRaysKHR(
-			&aRaygenSbtRef, &aRaymissSbtRef, &aRayhitSbtRef, &aCallableSbtRef,
-			aRaygenDimensions.width, aRaygenDimensions.height, aRaygenDimensions.depth,
-			aRoot.dispatch_loader_ext()
-		);
-	}
-#endif
 #pragma endregion
 
 #pragma region compute pipeline definitions
@@ -5721,44 +5397,6 @@ namespace avk
 		}
 
 		return result;
-	}
-#pragma endregion
-
-#pragma region memory access definitions
-	read_memory_access::operator memory_access() const
-	{
-		validate_or_throw();
-		return mMemoryAccess;
-	}
-
-	memory_access read_memory_access::value() const
-	{
-		return operator memory_access();
-	}
-
-	void read_memory_access::validate_or_throw() const
-	{
-		if (!is_read_access(mMemoryAccess)) {
-			throw avk::runtime_error("The access flag represented by this instance of read_memory_access is not a read-type access flag.");
-		}
-	}
-
-	write_memory_access::operator memory_access() const
-	{
-		validate_or_throw();
-		return mMemoryAccess;
-	}
-
-	memory_access write_memory_access::value() const
-	{
-		return operator memory_access();
-	}
-
-	void write_memory_access::validate_or_throw() const
-	{
-		if (is_read_access(mMemoryAccess)) {
-			throw avk::runtime_error("The access flag represented by this instance of write_memory_access is not a write-type access flag.");
-		}
 	}
 #pragma endregion
 
@@ -8866,6 +8504,7 @@ namespace avk
 			};
 		}
 
+#if VK_HEADER_VERSION >= 135
 		state_type_command bind_pipeline(avk::resource_reference<const ray_tracing_pipeline_t> aPipeline)
 		{
 			return state_type_command{
@@ -8876,23 +8515,58 @@ namespace avk
 				}
 			};
 		}
+#endif
 
-		state_type_command bind_descriptors(avk::resource_reference<const graphics_pipeline_t> aPipeline, std::vector<descriptor_set> aDescriptorSets)
+		state_type_command bind_descriptors(std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
 		{
 			return state_type_command{
 				[
-					lLayoutHandle = aPipeline->layout_handle(),
+					lLayoutHandle = std::get<const graphics_pipeline_t*>(aPipelineLayout)->layout_handle(),
 					lDescriptorSets = std::move(aDescriptorSets)
 				] (avk::resource_reference<avk::command_buffer_t> cb) {
 					cb->bind_descriptors(
-						vk::PipelineBindPoint::eGraphics, 
-						lLayoutHandle, 
+						vk::PipelineBindPoint::eGraphics,
+						lLayoutHandle,
 						lDescriptorSets // Attention: Copy! => Potentially expensive?! TODO: What was the reason for bind_descriptors requiring std::vector<descriptor_set> being passed by value?
 					);
 				}
 			};
 		}
-		
+
+		state_type_command bind_descriptors(std::tuple<const compute_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
+		{
+			return state_type_command{
+				[
+					lLayoutHandle = std::get<const compute_pipeline_t*>(aPipelineLayout)->layout_handle(),
+					lDescriptorSets = std::move(aDescriptorSets)
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->bind_descriptors(
+						vk::PipelineBindPoint::eCompute,
+						lLayoutHandle,
+						lDescriptorSets // Attention: Copy! => Potentially expensive?! TODO: What was the reason for bind_descriptors requiring std::vector<descriptor_set> being passed by value?
+					);
+				}
+			};
+		}
+
+#if VK_HEADER_VERSION >= 135
+		state_type_command bind_descriptors(std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
+		{
+			return state_type_command{
+				[
+					lLayoutHandle = std::get<const ray_tracing_pipeline_t*>(aPipelineLayout)->layout_handle(),
+					lDescriptorSets = std::move(aDescriptorSets)
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->bind_descriptors(
+						vk::PipelineBindPoint::eRayTracingKHR,
+						lLayoutHandle,
+						lDescriptorSets // Attention: Copy! => Potentially expensive?! TODO: What was the reason for bind_descriptors requiring std::vector<descriptor_set> being passed by value?
+					);
+				}
+			};
+		}
+#endif 
+
 		action_type_command draw(uint32_t aVertexCount, uint32_t aInstanceCount, uint32_t aFirstVertex, uint32_t aFirstInstance)
 		{
 			return action_type_command{
@@ -8912,6 +8586,49 @@ namespace avk
 				}
 			};
 		}
+
+#if VK_HEADER_VERSION >= 135
+		action_type_command trace_rays(
+			vk::Extent3D aRaygenDimensions,
+			const shader_binding_table_ref& aShaderBindingTableRef,
+#if VK_HEADER_VERSION >= 162
+			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef,
+			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef,
+			const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef,
+			const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef
+
+#else
+			const vk::StridedBufferRegionKHR& aRaygenSbtRef,
+			const vk::StridedBufferRegionKHR& aRaymissSbtRef,
+			const vk::StridedBufferRegionKHR& aRayhitSbtRef,
+			const vk::StridedBufferRegionKHR& aCallableSbtRef
+#endif
+		)
+		{
+			return action_type_command{
+				avk::sync::sync_hint {
+					stage::ray_tracing_shader + access::acceleration_structure_read,
+					stage::ray_tracing_shader + access::none
+				},
+				{},
+				[
+					lSbtHandle = aShaderBindingTableRef.mSbtBufferHandle,
+					lEntrySize = aShaderBindingTableRef.mSbtEntrySize,
+					lRaygenSbtRef = aRaygenSbtRef,
+					lRaymissSbtRef = aRaymissSbtRef,
+					lRayhitSbtRef = aRayhitSbtRef,
+					lCallableSbtRef = aCallableSbtRef,
+					aRaygenDimensions
+				](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().traceRaysKHR(
+						&lRaygenSbtRef, &lRaymissSbtRef, &lRayhitSbtRef, &lCallableSbtRef,
+						aRaygenDimensions.width, aRaygenDimensions.height, aRaygenDimensions.depth,
+						cb->root_ptr()->dispatch_loader_ext()
+					);
+				}
+			};
+		}
+#endif
 	}
 
 	submission_data::submission_data(submission_data&& aOther) noexcept

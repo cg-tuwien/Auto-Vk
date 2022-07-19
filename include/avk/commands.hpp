@@ -307,16 +307,82 @@ namespace avk
 			rec_fun mFun;
 		};
 
-		template <typename P, typename T>
-		inline static state_type_command push_constants(const P& aPipeline, const T& aPushConstants, vk::ShaderStageFlags aStageFlags = vk::ShaderStageFlagBits::eAll)
+		template <typename PL, typename D>
+		inline static state_type_command push_constants(const PL& aPipelineLayoutTuple, const D& aData, std::optional<shader_type> aShaderStages = {})
 		{
+			auto layoutHandle = std::get<const vk::PipelineLayout>(aPipelineLayoutTuple);
+			auto dataSize = static_cast<uint32_t>(sizeof(aData));
+			std::optional<vk::ShaderStageFlags> stageFlags;
+			if (aShaderStages.has_value()) {
+				stageFlags = to_vk_shader_stages(aShaderStages.value());
+			}
+			if (!stageFlags.has_value()) {
+				auto pcRanges = std::get<const std::vector<vk::PushConstantRange>*>(aPipelineLayoutTuple);
+				for (auto& r : *pcRanges) {
+					if (r.size == dataSize) {
+						stageFlags = r.stageFlags;
+						break;
+					}
+					// TODO: How to deal with push constants of same size and multiple vk::PushConstantRanges??
+				}
+				if (!stageFlags.has_value()) {
+					AVK_LOG_WARNING("No vk::PushConstantRange entry found that matches the dataSize[" + std::to_string(dataSize) + "]");
+				}
+			}
+
 			return state_type_command{
 				[
-					lLayoutHandle = aPipeline->layout_handle(),
-					lPushConstants = aPushConstants,
-					lStageFlags = aStageFlags
+					lLayoutHandle = std::get<const vk::PipelineLayout>(layoutHandle),
+					lStageFlags = stageFlags.value_or(vk::ShaderStageFlagBits::eAll),
+					lDataSize = dataSize,
+					lData = aData
 				] (avk::resource_reference<avk::command_buffer_t> cb) {
-					cb->handle().pushConstants(lLayoutHandle, lStageFlags, 0, sizeof(lPushConstants), &lPushConstants);
+					cb->handle().pushConstants(
+						lLayoutHandle,
+						lStageFlags,
+						0, // TODO: How to deal with offset?
+						lDataSize,
+						&lData);
+				}
+			};
+		};
+
+		template <typename PL, typename D>
+		inline static state_type_command push_constants(const PL& aPipelineLayoutTuple, const D* aDataPtr, std::optional<shader_type> aShaderStages = {})
+		{
+			auto layoutHandle = std::get<const vk::PipelineLayout>(aPipelineLayoutTuple);
+			auto dataSize = static_cast<uint32_t>(sizeof(*aDataPtr));
+			std::optional<vk::ShaderStageFlags> stageFlags;
+			if (aShaderStages.has_value()) {
+				stageFlags = to_vk_shader_stages(aShaderStages.value());
+			}
+			if (!stageFlags.has_value()) {
+				auto pcRanges = std::get<const std::vector<vk::PushConstantRange>*>(aPipelineLayoutTuple);
+				for (auto& r : *pcRanges) {
+					if (r.size == dataSize) {
+						stageFlags = r.stageFlags;
+						break;
+					}
+					// TODO: How to deal with push constants of same size and multiple vk::PushConstantRanges??
+				}
+				if (!stageFlags.has_value()) {
+					AVK_LOG_WARNING("No vk::PushConstantRange entry found that matches the dataSize[" + std::to_string(dataSize) + "]");
+				}
+			}
+
+			return state_type_command{
+				[
+					lLayoutHandle = std::get<const vk::PipelineLayout>(layoutHandle),
+					lStageFlags = stageFlags.value_or(vk::ShaderStageFlagBits::eAll),
+					lDataSize = dataSize,
+					aDataPtr
+				] (avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().pushConstants(
+						lLayoutHandle,
+						lStageFlags,
+						0, // TODO: How to deal with offset?
+						lDataSize,
+						aDataPtr);
 				}
 			};
 		};
@@ -483,15 +549,32 @@ namespace avk
 		 */
 		extern state_type_command bind_pipeline(avk::resource_reference<const compute_pipeline_t> aPipeline);
 
+#if VK_HEADER_VERSION >= 135
 		/** Binds a ray tracing pipeline.
 		 *	@param	aPipeline	The graphics pipeline to bind
 		 */
 		extern state_type_command bind_pipeline(avk::resource_reference<const ray_tracing_pipeline_t> aPipeline);
+#endif 
 
 		/** Binds a graphics pipeline.
-		 *	@param	aPipeline	The graphics pipeline to bind
+		 *	@param	aPipelineLayout		The layout of the pipeline to bind descriptors to
+		 *	@param	aDescriptorSets		The descriptor sets to be bound
 		 */
-		extern state_type_command bind_descriptors(avk::resource_reference<const graphics_pipeline_t> aPipeline, std::vector<descriptor_set> aDescriptorSets);
+		extern state_type_command bind_descriptors(std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets);
+
+		/** Binds a graphics pipeline.
+		 *	@param	aPipelineLayout		The layout of the pipeline to bind descriptors to
+		 *	@param	aDescriptorSets		The descriptor sets to be bound
+		 */
+		extern state_type_command bind_descriptors(std::tuple<const compute_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets);
+
+#if VK_HEADER_VERSION >= 135
+		/** Binds a graphics pipeline.
+		 *	@param	aPipelineLayout		The layout of the pipeline to bind descriptors to
+		 *	@param	aDescriptorSets		The descriptor sets to be bound
+		 */
+		extern state_type_command bind_descriptors(std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets);
+#endif
 
 		extern action_type_command draw(uint32_t aVertexCount, uint32_t aInstanceCount, uint32_t aFirstVertex, uint32_t aFirstInstance);
 
@@ -516,7 +599,94 @@ namespace avk
 			*aOffsetPtr = static_cast<vk::DeviceSize>(std::get<size_t>(aVertexBufferAndOffset));
 			bind_vertex_buffer(aHandlePtr + 1, aOffsetPtr + 1, aRest...);
 		}
+
+		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *  @param  aNumberOfVertices   Number of vertices to draw
+		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
+		 *								to get the number of vertices to draw.
+		 *	@param	aNumberOfInstances	Number of instances to draw
+		 *	@param	aFirstVertex		Offset to the first vertex
+		 *	@param	aFirstInstance		The ID of the first instance
+		 *	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
+		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
+		{
+
+			constexpr size_t N = 1 + sizeof...(aFurtherBuffers);
+			std::array<vk::Buffer, N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffer, aFurtherBuffers...);
+
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // DESTINATION dependencies for previous commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // SOURCE dependencies for subsequent commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				[
+					lBindingCount = static_cast<uint32_t>(N),
+					handles, offsets, 
+					aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
+				](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().bindVertexBuffers(
+						0u, // TODO: Should the first binding really always be 0?
+						static_cast<uint32_t>(N), handles.data(), offsets.data()
+					);
+					cb->handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
+				}
+			};
+		}
+
+		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *   Number of vertices is automatically determined from the vertex buffer
+		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
+		 *								to get the number of vertices to draw.
+		 *	@param	aNumberOfInstances	Number of instances to draw
+		 *	@param	aFirstVertex		Offset to the first vertex
+		 *	@param	aFirstInstance		The ID of the first instance
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
+		{
+			const auto& vertexMeta = aVertexBuffer->template meta<avk::vertex_buffer_meta>();
+			return draw_vertices(static_cast<uint32_t>(vertexMeta.num_elements()), aNumberOfInstances, aFirstVertex, aFirstInstance, std::move(aVertexBuffer), std::move(aFurtherBuffers)...);
+		}
 		
+		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *  Number of vertices is automatically determined from the vertex buffer
+		 *	Number of instances is set to 1.
+		 *	Offset to the first vertex is set to 0.
+		 *	The ID of the first instance is set to 0.
+		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
+		 *								to get the number of vertices to draw.
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_vertices(avk::resource_reference<const buffer_t> aVertexBuffer, Bfrs... aFurtherBuffers)
+		{
+			return draw_vertices(1u, 0u, 0u, std::move(aVertexBuffer), std::move(aFurtherBuffers)...);
+		}
+
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
@@ -591,6 +761,314 @@ namespace avk
 			return draw_indexed(std::move(aIndexBuffer), 1u, 0u, 0u, 0u, std::move(aVertexBuffers) ...);
 		}
 
+		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfDraws		Number of draws to execute
+		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
+		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *
+		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, Bfrs... aVertexBuffers)
+		{
+			constexpr size_t N = sizeof...(aVertexBuffers);
+			std::array<vk::Buffer, N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
+
+			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
+			vk::IndexType indexType;
+			switch (indexMeta.sizeof_one_element()) {
+				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
+				case sizeof(uint32_t): indexType = vk::IndexType::eUint32; break;
+				default: AVK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
+			}
+
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // DESTINATION dependencies for previous commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // SOURCE dependencies for subsequent commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				[
+					lBindingCount = static_cast<uint32_t>(N),
+					handles, offsets, indexType,
+					lParametersBufferHandle = aParametersBuffer->handle(),
+					lIndexBufferHandle = aIndexBuffer->handle(),
+					aNumberOfDraws, aParametersOffset, aParametersStride
+				](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().bindVertexBuffers(
+						0u, // TODO: Should the first binding really always be 0?
+						lBindingCount, handles.data(), offsets.data()
+					);
+					cb->handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb->handle().drawIndexedIndirect(lParametersBufferHandle, aParametersOffset, aNumberOfDraws, aParametersStride);
+				}
+			};
+		}
+
+		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	The parameter offset is set to 0.
+		 *	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfDraws		Number of draws to execute
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed_indirect(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aNumberOfDraws, Bfrs... aVertexBuffers)
+		{
+			return draw_indexed_indirect(std::move(aParametersBuffer), std::move(aIndexBuffer), aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aVertexBuffers) ...);
+		}
+
+#if defined(VK_VERSION_1_2)
+		/**	Perform an indexed indirect count draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
+		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
+		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
+		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
+		 *	@param	aDrawCountOffset	Byte offset into the draw count buffer where the actual draw count is located
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *
+		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, avk::resource_reference<const buffer_t> aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, Bfrs... aVertexBuffers)
+		{
+			constexpr size_t N = sizeof...(aVertexBuffers);
+			std::array<vk::Buffer, N> handles;
+			std::array<vk::DeviceSize, N> offsets;
+			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
+
+			const auto& indexMeta = aIndexBuffer->template meta<avk::index_buffer_meta>();
+			vk::IndexType indexType;
+			switch (indexMeta.sizeof_one_element()) {
+				case sizeof(uint16_t) : indexType = vk::IndexType::eUint16; break;
+					case sizeof(uint32_t) : indexType = vk::IndexType::eUint32; break;
+					default: AVK_LOG_ERROR("The given size[" + std::to_string(indexMeta.sizeof_one_element()) + "] does not correspond to a valid vk::IndexType"); break;
+			}
+
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // DESTINATION dependencies for previous commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // SOURCE dependencies for subsequent commands:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				[
+					lBindingCount = static_cast<uint32_t>(N),
+					handles, offsets, indexType,
+					lIndexBufferHandle = aIndexBuffer->handle(),
+					lParametersBufferHandle = aParametersBuffer->handle(),
+					lDrawCountBufferHandle = aDrawCountBuffer->handle(),
+					aParametersOffset, aDrawCountOffset, aMaxNumberOfDraws, aParametersStride
+				](avk::resource_reference<avk::command_buffer_t> cb) {
+					cb->handle().bindVertexBuffers(
+						0u, // TODO: Should the first binding really always be 0?
+						lBindingCount, handles.data(), offsets.data()
+					);
+					cb->handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb->handle().drawIndexedIndirectCount(lParametersBufferHandle, aParametersOffset, lDrawCountBufferHandle, aDrawCountOffset, aMaxNumberOfDraws, aParametersStride);
+				}
+			};
+		}
+
+		/**	Perform an indexed indirect count draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	The parameter offset is set to 0.
+		 *	The parameter stride is set to sizeof(vk::DrawIndexedIndirectCommand).
+		 *   The draw count offset is set to 0.
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
+		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass resource_reference<const buffer_t> types!
+		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
+		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *
+		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed_indirect_count(avk::resource_reference<const buffer_t> aParametersBuffer, avk::resource_reference<const buffer_t> aIndexBuffer, uint32_t aMaxNumberOfDraws, avk::resource_reference<const buffer_t> aDrawCountBuffer, Bfrs... aVertexBuffers)
+		{
+			return draw_indexed_indirect_count(std::move(aParametersBuffer), std::move(aIndexBuffer), aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aDrawCountBuffer), vk::DeviceSize{ 0 }, std::move(aVertexBuffers) ...);
+		}
+#endif
+
+#if VK_HEADER_VERSION >= 135
+		/**	Issue a trace rays call.
+		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
+		 *	@param	aShaderBindingTableRef		Reference to the shader binding table (SBT) to be used for this trace rays call.
+		 *	@param	aRaygenSbtRef				Offset, stride, and size about which SBT entries to use for the ray generation shaders.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *	@param	aRaymissSbtRef				Offset, stride, and size about which SBT entries to use for the miss shaders.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *	@param	aRayhitSbtRef				Offset, stride, and size about which SBT entries to use for the (triangle|procedural) hit groups.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *	@param	aCallableSbtRef				Offset, stride, and size about which SBT entries to use for the callable shaders.
+		 *										The `.buffer` member must be set to `aShaderBindingTableRef.mSbtBufferHandle`.
+		 *
+		 *	Hint: You can display information about the shader binding table and its groups via `ray_tracing_pipeline_t::print_shader_binding_table_groups`
+		 */
+		action_type_command trace_rays(
+			vk::Extent3D aRaygenDimensions,
+			const shader_binding_table_ref& aShaderBindingTableRef,
+			const root& aRoot,
+#if VK_HEADER_VERSION >= 162
+			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
+			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
+			const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 },
+			const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 }
+
+#else
+			const vk::StridedBufferRegionKHR & aRaygenSbtRef = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 },
+			const vk::StridedBufferRegionKHR & aRaymissSbtRef = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 },
+			const vk::StridedBufferRegionKHR & aRayhitSbtRef = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 },
+			const vk::StridedBufferRegionKHR & aCallableSbtRef = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 }
+#endif
+		);
+
+#if VK_HEADER_VERSION >= 162
+#define STRIDED_REGION_PARAMS vk::StridedDeviceAddressRegionKHR& aRaygen, vk::StridedDeviceAddressRegionKHR& aRaymiss, vk::StridedDeviceAddressRegionKHR& aRayhit, vk::StridedDeviceAddressRegionKHR& aCallable
+#else
+#define STRIDED_REGION_PARAMS vk::StridedBufferRegionKHR& aRaygen, vk::StridedBufferRegionKHR& aRaymiss, vk::StridedBufferRegionKHR& aRayhit, vk::StridedBufferRegionKHR& aCallable
+#endif
+
+		// End of recursive variadic template handling
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS) { /* We're done here. */ }
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_raygen_group_at_index& aRaygenGroupAtIndex, const Ts&... args)
+		{
+			aRaygen
+#if VK_HEADER_VERSION >= 162
+				.setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				.setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
+				.setStride(aShaderBindingTableRef.mSbtEntrySize)
+				.setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mRaygenGroupsInfo[aRaygenGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_miss_group_at_index& aMissGroupAtIndex, const Ts&... args)
+		{
+			aRaymiss
+#if VK_HEADER_VERSION >= 162
+				.setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				.setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
+				.setStride(aShaderBindingTableRef.mSbtEntrySize)
+				.setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mMissGroupsInfo[aMissGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_hit_group_at_index& aHitGroupAtIndex, const Ts&... args)
+		{
+			aRayhit
+#if VK_HEADER_VERSION >= 162
+				.setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				.setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
+				.setStride(aShaderBindingTableRef.mSbtEntrySize)
+				.setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mHitGroupsInfo[aHitGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+
+		// Add a specific config setting to the trace rays call
+		template <typename... Ts>
+		static void add_config(const shader_binding_table_ref& aShaderBindingTableRef, STRIDED_REGION_PARAMS, const using_callable_group_at_index& aCallableGroupAtIndex, const Ts&... args)
+		{
+			aCallable
+#if VK_HEADER_VERSION >= 162
+				.setDeviceAddress(aShaderBindingTableRef.mSbtBufferDeviceAddress + aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mByteOffset)
+#else
+				.setBuffer(aShaderBindingTableRef.mSbtBufferHandle)
+				.setOffset(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mByteOffset)
+#endif
+				.setStride(aShaderBindingTableRef.mSbtEntrySize)
+				.setSize(aShaderBindingTableRef.mSbtGroupsInfo.get().mCallableGroupsInfo[aCallableGroupAtIndex.mGroupIndex].mNumEntries * aShaderBindingTableRef.mSbtEntrySize);
+			add_config(aShaderBindingTableRef, aRaygen, aRaymiss, aRayhit, aCallable, args...);
+		}
+
+		/**	Issue a trace rays call.
+		 *
+		 *	First two parameters are mandatory explicitly:
+		 *	@param	aRaygenDimensions			Dimensions of the trace rays call. This can be the extent of a window's backbuffer
+		 *	@param	aShaderBindingTableRef		Reference to the shader binding table to be used for this trace rays call.
+		 *
+		 *	Further parameters are mandatory implicitly - i.e. there must be at least some information given about which
+		 *	shader binding table entries to be used from the given shader binding table during this trace rays call.
+		 *	@param args							Possible values:
+		 *											- using_raygen_group_at_index
+		 *											- using_miss_group_at_index
+		 *											- using_hit_group_at_index
+		 *											- using_callable_group_at_index
+		 *
+		 *	Hint: You can display information about the shader binding table and its groups via `ray_tracing_pipeline_t::print_shader_binding_table_groups`
+		 */
+		template <typename... Ts>
+		action_type_command trace_rays(vk::Extent3D aRaygenDimensions, const shader_binding_table_ref& aShaderBindingTableRef, const Ts&... args)
+		{
+			// 1. GATHER CONFIG
+#if VK_HEADER_VERSION >= 162
+			auto raygen = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 };
+			auto raymiss = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 };
+			auto rayhit = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 };
+			auto callable = vk::StridedDeviceAddressRegionKHR{ 0, 0, 0 };
+#else
+			auto raygen = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 };
+			auto raymiss = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 };
+			auto rayhit = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 };
+			auto callable = vk::StridedBufferRegionKHR{ nullptr, 0, 0, 0 };
+#endif
+			add_config(aShaderBindingTableRef, raygen, raymiss, rayhit, callable, args...);
+
+			// 2. TRACE. RAYS.
+			return trace_rays(aRaygenDimensions, aShaderBindingTableRef, raygen, raymiss, rayhit, callable);
+		}
+#endif
 	}
 
 

@@ -220,7 +220,6 @@ namespace avk
 #include <avk/buffer_view.hpp>
 #include <avk/vertex_index_buffer_pair.hpp>
 #include <avk/subpass_dependency.hpp>
-#include <avk/renderpass_sync.hpp>
 #include <avk/renderpass.hpp>
 #include <avk/framebuffer.hpp>
 
