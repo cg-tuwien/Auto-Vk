@@ -544,10 +544,10 @@ namespace avk
 			throw avk::logic_error("This owning_resource is uninitialized, i.e. std::monostate.");
 		}
 
-		//[[nodiscard]] const T& as_const_reference() const
-		//{
-		//	return get();
-		//}
+		[[nodiscard]] const T& as_reference() const
+		{
+			return get();
+		}
 
 		[[nodiscard]] T& as_reference()
 		{
@@ -582,33 +582,35 @@ namespace avk
 	// A type for passing resources as arguments. Can be used to express that
 	// ownership shall be passed along with it, or only a reference to it.
 	template <typename T>
-	class resource_argument : public std::variant<T*, owning_resource<T>>
+	class resource_argument : public std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>
 	{
 	public:
 		// The type of the resource:
 		using value_type = T;
 		
 		// Cast the this-pointer to what it is: a std::variant-pointer (and to const)
-		const std::variant<T*, owning_resource<T>>* this_as_variant() const noexcept
+		const std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>* this_as_variant() const noexcept
 		{
-			return static_cast<std::variant<T*, owning_resource<T>>*>(this);
+			return static_cast<const std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>*>(this);
 		}
 
 		// Cast the this-pointer to what it is: a std::variant-pointer
-		std::variant<T*, owning_resource<T>>* this_as_variant() noexcept
+		std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>* this_as_variant() noexcept
 		{
-			return static_cast<std::variant<T*, owning_resource<T>>*>(this);
+			return static_cast<std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>*>(this);
 		}
 		
+		resource_argument(const T& aResource) noexcept 
+			: std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>{ std::cref(aResource) }
+		{ }
+
 		resource_argument(T& aResource) noexcept
-		{
-			*this_as_variant() = &aResource;
-		}
+			: std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>{ std::ref(aResource) }
+		{ }
 
 		resource_argument(owning_resource<T> aResource) noexcept
-		{
-			*this_as_variant() = std::move(aResource);
-		}
+			: std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>{ std::move(aResource) }
+		{ }
 
 		resource_argument(resource_argument&&) noexcept = default;
 		resource_argument(const resource_argument& aOther) = default;
@@ -616,35 +618,53 @@ namespace avk
 		resource_argument& operator=(const resource_argument&) = default;
 		~resource_argument() = default;
 
-		bool is_ownership() {
+		bool is_ownership() const {
 			return std::holds_alternative<owning_resource<T>>(*this_as_variant());
 		}
 
-		bool is_reference() {
+		bool is_reference() const {
 			return !is_ownership();
 		}
 
 		// Get a reference to the owned resource T
 		T& get()
 		{
-			if (is_reference()) {
-				assert(std::holds_alternative<T*>(*this_as_variant()));
-				return *std::get<T*>(*this_as_variant());
+			if (is_ownership()) {
+				return std::get<owning_resource<T>>(*this_as_variant()).get();
 			}
-			assert(is_ownership());
-			return std::get<owning_resource<T>>(*this_as_variant()).as_reference();
+			if (std::holds_alternative<std::reference_wrapper<T>>(*this_as_variant())) {
+				return std::get<std::reference_wrapper<T>>(*this_as_variant());
+			}
+			else {
+				throw avk::logic_error("The resource of type '" + std::string(typeid(T).name()) + "' is stored as const reference. Cannot return it as non-const reference. Use ::get_const_reference instead!");
+			}
 		}
 
-		// Access the resource by returning a reference to it
-		T& operator*()
+		// Get a reference to the owned resource T
+		const T& get_const_reference() const
 		{
-			return get();
+			if (is_ownership()) {
+				return std::get<owning_resource<T>>(*this_as_variant()).get();
+			}
+			if (std::holds_alternative<std::reference_wrapper<T>>(*this_as_variant())) {
+				return std::get<std::reference_wrapper<T>>(*this_as_variant());
+			}
+			else {
+				assert(std::holds_alternative<std::reference_wrapper<const T>>(*this_as_variant()));
+				return std::get<std::reference_wrapper<const T>>(*this_as_variant());
+			}
 		}
 
-		// Access the resource by returning its address
-		T* operator->()
+		// Access the resource by returning a const reference to it
+		const T& operator*() const
 		{
-			return &get();
+			return get_const_reference();
+		}
+
+		// Access the resource by returning its address to const
+		const T* operator->() const
+		{
+			return &get_const_reference();
 		}
 
 		// Get the ownership, i.e. the owned resource:

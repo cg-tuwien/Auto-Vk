@@ -585,7 +585,7 @@ namespace avk
 		}
 
 		template <typename... Rest>
-		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const buffer_t& aVertexBuffer, Rest... aRest)
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const buffer_t& aVertexBuffer, const Rest&... aRest)
 		{
 			*aHandlePtr = aVertexBuffer.handle();
 			*aOffsetPtr = 0;
@@ -593,7 +593,7 @@ namespace avk
 		}
 
 		template <typename... Rest>
-		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, std::tuple<const buffer_t&, size_t> aVertexBufferAndOffset, Rest... aRest)
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const std::tuple<const buffer_t&, size_t>& aVertexBufferAndOffset, const Rest&... aRest)
 		{
 			*aHandlePtr = std::get<const buffer_t&>(aVertexBufferAndOffset).handle();
 			*aOffsetPtr = static_cast<vk::DeviceSize>(std::get<size_t>(aVertexBufferAndOffset));
@@ -613,7 +613,7 @@ namespace avk
 		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, Bfrs... aFurtherBuffers)
+		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
 		{
 
 			constexpr size_t N = 1 + sizeof...(aFurtherBuffers);
@@ -662,10 +662,10 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, Bfrs... aFurtherBuffers)
+		action_type_command draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
 		{
 			const auto& vertexMeta = aVertexBuffer.template meta<avk::vertex_buffer_meta>();
-			return draw_vertices(static_cast<uint32_t>(vertexMeta.num_elements()), aNumberOfInstances, aFirstVertex, aFirstInstance, aVertexBuffer, std::move(aFurtherBuffers)...);
+			return draw_vertices(static_cast<uint32_t>(vertexMeta.num_elements()), aNumberOfInstances, aFirstVertex, aFirstInstance, aVertexBuffer, aFurtherBuffers...);
 		}
 		
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
@@ -683,9 +683,9 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(const buffer_t& aVertexBuffer, Bfrs... aFurtherBuffers)
+		action_type_command draw_vertices(const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
 		{
-			return draw_vertices(1u, 0u, 0u, aVertexBuffer, std::move(aFurtherBuffers)...);
+			return draw_vertices(1u, 0u, 0u, aVertexBuffer, aFurtherBuffers...);
 		}
 
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -702,7 +702,7 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
@@ -758,9 +758,9 @@ namespace avk
 		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(const buffer_t& aIndexBuffer, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed(const buffer_t& aIndexBuffer, const Bfrs&... aVertexBuffers)
 		{
-			return draw_indexed(aIndexBuffer, 1u, 0u, 0u, 0u, std::move(aVertexBuffers) ...);
+			return draw_indexed(aIndexBuffer, 1u, 0u, 0u, 0u, aVertexBuffers...);
 		}
 
 		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -779,7 +779,7 @@ namespace avk
 		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const Bfrs&... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
@@ -837,9 +837,9 @@ namespace avk
 		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, const Bfrs&... aVertexBuffers)
 		{
-			return draw_indexed_indirect(aParametersBuffer, aIndexBuffer, aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), std::move(aVertexBuffers) ...);
+			return draw_indexed_indirect(aParametersBuffer, aIndexBuffer, aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aVertexBuffers...);
 		}
 
 #if defined(VK_VERSION_1_2)
@@ -861,7 +861,7 @@ namespace avk
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect_count(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aMaxNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const buffer_t& aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect_count(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aMaxNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const buffer_t& aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, const Bfrs&... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
@@ -924,9 +924,9 @@ namespace avk
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect_count(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aMaxNumberOfDraws, const buffer_t& aDrawCountBuffer, Bfrs... aVertexBuffers)
+		action_type_command draw_indexed_indirect_count(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aMaxNumberOfDraws, const buffer_t& aDrawCountBuffer, const Bfrs&... aVertexBuffers)
 		{
-			return draw_indexed_indirect_count(aParametersBuffer, aIndexBuffer, aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aDrawCountBuffer, vk::DeviceSize{ 0 }, std::move(aVertexBuffers) ...);
+			return draw_indexed_indirect_count(aParametersBuffer, aIndexBuffer, aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aDrawCountBuffer, vk::DeviceSize{ 0 }, aVertexBuffers...);
 		}
 #endif
 
@@ -1178,7 +1178,7 @@ namespace avk
 		template <typename T>
 		recorded_command_buffer& handling_lifetime_of(T&& aResource)
 		{
-			mCommandBufferToRecordInto->handle_lifetime_of(any_owning_resource_t{ std::move(aResource) });
+			mCommandBufferToRecordInto.get().handle_lifetime_of(any_owning_resource_t{ std::move(aResource) });
 			return *this;
 		}
 

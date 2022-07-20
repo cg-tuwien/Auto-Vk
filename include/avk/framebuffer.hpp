@@ -18,7 +18,8 @@ namespace avk
 		framebuffer_t& operator=(const framebuffer_t&) = delete;
 		~framebuffer_t() = default;
 
-		renderpass get_renderpass() const { return mRenderpass; }
+		[[nodiscard]] avk::renderpass renderpass() const { return mRenderpass; }
+		[[nodiscard]] const avk::renderpass_t& renderpass_reference() const { return mRenderpass.get(); }
 		const auto& image_views() const { return mImageViews; } // TODO: Probably remove this?!
 		const image_t& image_at(size_t i) const { return mImageViews[i]->get_image(); }
 		image_view image_view_at(size_t i) const { return mImageViews[i]; }
@@ -28,7 +29,7 @@ namespace avk
 		auto handle() const { return mFramebuffer.get(); }
 
 	private:
-		renderpass mRenderpass;
+		avk::renderpass mRenderpass;
 		std::vector<image_view> mImageViews;
 		vk::FramebufferCreateInfo mCreateInfo;
 		vk::UniqueHandle<vk::Framebuffer, DISPATCH_LOADER_CORE_TYPE> mFramebuffer;

@@ -16,7 +16,8 @@ namespace avk
 		graphics_pipeline_t& operator=(const graphics_pipeline_t&) = delete;
 		~graphics_pipeline_t() = default;
 
-		[[nodiscard]] renderpass get_renderpass() const { return mRenderPass; }
+		[[nodiscard]] renderpass renderpass() const { return mRenderPass; }
+		[[nodiscard]] const renderpass_t& renderpass_reference() const { return mRenderPass.get(); }
 		auto renderpass_handle() const { return mRenderPass->handle(); }
 		auto subpass_id() const { return mSubpassIndex; }
 		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }
@@ -68,7 +69,7 @@ namespace avk
 		const auto& handle() const { return mPipeline.get(); }
 		
 	private:
-		renderpass mRenderPass;
+		avk::renderpass mRenderPass;
 		uint32_t mSubpassIndex;
 		// The vertex input data:
 		std::vector<vk::VertexInputBindingDescription> mOrderedVertexInputBindingDescriptions;

@@ -3993,7 +3993,7 @@ namespace avk
 		}
 
 		return create_framebuffer(
-			create_renderpass_from_template(aTemplate.get_renderpass().as_reference()),
+			create_renderpass_from_template(aTemplate.renderpass_reference()),
 			std::move(imageViews),
 			aTemplate.mCreateInfo.width,
 			aTemplate.mCreateInfo.height,
@@ -4251,7 +4251,7 @@ namespace avk
 			.setPAttachments(aPreparedPipeline.mBlendingConfigsForColorAttachments.data());
 
 		aPreparedPipeline.mMultisampleStateCreateInfo
-			.setRasterizationSamples(aPreparedPipeline.get_renderpass()->num_samples_for_subpass(aPreparedPipeline.subpass_id()))
+			.setRasterizationSamples(aPreparedPipeline.renderpass_reference().num_samples_for_subpass(aPreparedPipeline.subpass_id()))
 			.setPSampleMask(nullptr);
 
 		aPreparedPipeline.mDynamicStateCreateInfo
@@ -7902,9 +7902,9 @@ namespace avk
 		, mCommandBufferToRecordInto{ std::move(aCommandBuffer) }
 		, mDangerousRecordedComandsPointer{ aDangerousRecordedCommandsPointer }
 	{
-		mCommandBufferToRecordInto->begin_recording();
+		mCommandBufferToRecordInto.get().begin_recording();
 		record_into_command_buffer(mCommandBufferToRecordInto.get(), mRoot->dispatch_loader_ext(), aRecordedCommandsAndSyncInstructions);
-		mCommandBufferToRecordInto->end_recording();
+		mCommandBufferToRecordInto.get().end_recording();
 	}
 
 	recorded_commands::recorded_commands(const root* aRoot, std::vector<recorded_commands_t> aRecordedCommandsAndSyncInstructions)
