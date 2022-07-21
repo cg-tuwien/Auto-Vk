@@ -9,8 +9,55 @@ namespace avk
 	 */
 	struct attachment
 	{
+		/**	Declare multisampled format and usages of an attachment across all subpasses:
+		 *	@param	aFormatAndSamples	Multisampled format definition: A tuple with the format of the attachment in its first element, and with the number of samples in its second element.
+		 *	@param	aLoadOp				What shall happen to the contents of the attachment during begin_renderpass?
+		 *                              Possible values in namespace avk::on_load::
+		 *	@param	aUsageInSubpasses	How is this attachment being used in the different subpasses of a renderpass?
+		 *                              Possible values in namespace avk::usage::
+		 *                              Usages for different subpasses can be defined by concatenating them using operator>>.
+		 *                              Example 1: avk::usage::color(0) >> avk::usage::input(5) // Indicates that this attachment is used as color attachment at location=0 in the first subpass,
+		 *                                                                                      // and as input attachment at location=5 in the second subpass
+		 *                              Example 2: usage::unused >> usage::color(0)+usage::resolve_to(3) // Indicates that this attachment is unused in the first subpass,
+		 *                                                                                               // and used as color attachment at location=0 in the second subpass.
+		 *                                                                                               // Additionally, at the end of the second subpass, its contents are resolved into the attachment at index 3.
+		 *	@param	aStoreOp			What shall happen to the contents of the attachment at end_renderpass?
+		 *                              Possible values in namespace avk::on_store::
+		 */
 		static attachment declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp);
+
+		/**	Declare format and usages of an attachment across all subpasses:
+		 *	@param	aFormat				The format of the attachment
+		 *	@param	aLoadOp				What shall happen to the contents of the attachment during begin_renderpass?
+		 *                              Possible values in namespace avk::on_load::
+		 *	@param	aUsageInSubpasses	How is this attachment being used in the different subpasses of a renderpass?
+		 *                              Possible values in namespace avk::usage::
+		 *                              Usages for different subpasses can be defined by concatenating them using operator>>.
+		 *                              Example 1: avk::usage::color(0) >> avk::usage::input(5) // Indicates that this attachment is used as color attachment at location=0 in the first subpass,
+		 *                                                                                      // and as input attachment at location=5 in the second subpass
+		 *                              Example 2: usage::unused >> usage::color(0)+usage::resolve_to(3) // Indicates that this attachment is unused in the first subpass,
+		 *                                                                                               // and used as color attachment at location=0 in the second subpass.
+		 *                                                                                               // Additionally, at the end of the second subpass, its contents are resolved into the attachment at index 3.
+		 *	@param	aStoreOp			What shall happen to the contents of the attachment at end_renderpass?
+		 *                              Possible values in namespace avk::on_store::
+		 */
 		static attachment declare(vk::Format aFormat, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp);
+
+		/**	Declare format and usages of an attachment across all subpasses:
+		 *	@param	aImageView			The format of the attachment is copied from the given image view.
+		 *	@param	aLoadOp				What shall happen to the contents of the attachment during begin_renderpass?
+		 *                              Possible values in namespace avk::on_load::
+		 *	@param	aUsageInSubpasses	How is this attachment being used in the different subpasses of a renderpass?
+		 *                              Possible values in namespace avk::usage::
+		 *                              Usages for different subpasses can be defined by concatenating them using operator>>.
+		 *                              Example 1: avk::usage::color(0) >> avk::usage::input(5) // Indicates that this attachment is used as color attachment at location=0 in the first subpass,
+		 *                                                                                      // and as input attachment at location=5 in the second subpass
+		 *                              Example 2: usage::unused >> usage::color(0)+usage::resolve_to(3) // Indicates that this attachment is unused in the first subpass,
+		 *                                                                                               // and used as color attachment at location=0 in the second subpass.
+		 *                                                                                               // Additionally, at the end of the second subpass, its contents are resolved into the attachment at index 3.
+		 *	@param	aStoreOp			What shall happen to the contents of the attachment at end_renderpass?
+		 *                              Possible values in namespace avk::on_store::
+		 */
 		static attachment declare_for(const image_view_t& aImageView, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp);
 
 		attachment& set_clear_color(std::array<float, 4> aColor)					{ mColorClearValue = aColor; return *this; }

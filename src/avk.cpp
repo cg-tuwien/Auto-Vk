@@ -7516,7 +7516,6 @@ namespace avk
 	) {
 		assert(aStartIndex >= 0);
 		assert(aStartIndex < static_cast<int>(aRecordedCommandsAndSyncInstructions.size()));
-		assert(!std::holds_alternative<command::action_type_command>(aRecordedCommandsAndSyncInstructions[aStartIndex]));
 		assert(aNumSteps >= 0);
 		assert(aStepDirection == -1 || aStepDirection == 1);
 		
