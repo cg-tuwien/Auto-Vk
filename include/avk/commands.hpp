@@ -1314,7 +1314,7 @@ namespace avk
 		}
 
 		// TODO: Comment
-		template <typename C, typename F1, typename F2>
+		template <typename C, typename F1>
 		inline static avk::recorded_commands_t conditional(C aCondition, F1 aPositive)
 		{
 			if (aCondition()) {

@@ -85,6 +85,7 @@ namespace avk
 				// Maybe add queues to an already existing family:
 				if (pos != std::end(createInfos) && pos->queueFamilyIndex == it->family_index()) {
 					assert (priorities[targetIndex].size() > 0);
+					pos->queueCount += 1u;
 					for (uint32_t i = 0; i <= it->queue_index(); ++i) {
 						if (priorities[targetIndex].size() <= i) {
 							priorities[targetIndex].push_back(it->priority());
