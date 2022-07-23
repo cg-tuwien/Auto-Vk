@@ -210,7 +210,7 @@ namespace avk
 		 *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
 		 *  @param aMetaDataIndex	Index of the buffer metadata to use (for determining the buffer size)
 		 */
-		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex);
+		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex) const;
 
 		// TODO: Maybe the following overload could be re-enabled after command/commands refactoring?!
 		///** Fill buffer with data according to the meta data of the given type Meta.
@@ -232,7 +232,7 @@ namespace avk
 		*  @param aOffsetInBytes	Offset from the start of the buffer (data will be copied to bufferstart + aOffset)
 		*  @param aDataSizeInBytes	Number of bytes to copy
 		*/
-		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes);
+		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes) const;
 
 		/** Read data from buffer back to the CPU-side, into some given memory.
 		 *	@param	aDataPtr		Target memory where to write read-back data into

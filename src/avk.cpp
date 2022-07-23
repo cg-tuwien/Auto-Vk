@@ -2461,14 +2461,14 @@ namespace avk
 		return result;
 	}
 
-	avk::command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex)
+	avk::command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex) const
 	{
 		const auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		const auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
 		return fill(aDataPtr, aMetaDataIndex, 0u, bufferSize);
 	}
 
-	command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes)
+	command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes) const
 	{
 		auto dstOffset = static_cast<vk::DeviceSize>(aOffsetInBytes);
 		auto dataSize = static_cast<vk::DeviceSize>(aDataSizeInBytes);
