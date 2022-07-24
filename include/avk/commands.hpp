@@ -928,6 +928,8 @@ namespace avk
 		{
 			return draw_indexed_indirect_count(aParametersBuffer, aIndexBuffer, aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aDrawCountBuffer, vk::DeviceSize{ 0 }, aVertexBuffers...);
 		}
+
+		action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
 #endif
 
 #if VK_HEADER_VERSION >= 135
@@ -1113,10 +1115,10 @@ namespace avk
 	class submission_data final
 	{
 	public:
-		submission_data(const root* aRoot, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const queue* aQueue, const avk::recorded_command_buffer* aDangerousRecordedCommandBufferPointer = nullptr)
+		submission_data(const root* aRoot, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const queue& aQueue, const avk::recorded_command_buffer* aDangerousRecordedCommandBufferPointer = nullptr)
 			: mRoot{ aRoot }
 			, mCommandBufferToSubmit{ std::move(aCommandBuffer) }
-			, mQueueToSubmitTo{ aQueue }
+			, mQueueToSubmitTo{ &aQueue }
 			, mSubmissionCount{ 0u }
 			, mDangerousRecordedCommandBufferPointer{ aDangerousRecordedCommandBufferPointer }
 		{}
@@ -1136,7 +1138,7 @@ namespace avk
 
 		submission_data&& store_for_now() noexcept;
 
-		submission_data& submit_to(const queue* aQueue);
+		submission_data& submit_to(const queue& aQueue);
 		submission_data& waiting_for(avk::semaphore_wait_info aWaitInfo);
 		submission_data& signaling_upon_completion(semaphore_signal_info aSignalInfo);
 		submission_data& signaling_upon_completion(avk::resource_argument<avk::fence_t> aFence);
@@ -1183,7 +1185,7 @@ namespace avk
 		}
 
 		submission_data then_waiting_for(avk::semaphore_wait_info aWaitInfo);
-		submission_data then_submit_to(const queue* aQueue);
+		submission_data then_submit_to(const queue& aQueue);
 
 		const auto* recorded_commands_ptr() const { return mDangerousRecordedComandsPointer; }
 

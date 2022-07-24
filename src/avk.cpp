@@ -1327,6 +1327,71 @@ namespace avk
 		}
 		throw avk::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
 	}
+
+	std::tuple<vk::ImageUsageFlags, vk::ImageTiling, vk::ImageCreateFlags> to_vk_image_properties(avk::image_usage aImageUsage)
+	{
+		std::tuple<vk::ImageUsageFlags, vk::ImageTiling, vk::ImageCreateFlags> result{ {}, {}, {} };
+		if ((aImageUsage & image_usage::transfer_source) == image_usage::transfer_source) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eTransferSrc;
+		}
+		if ((aImageUsage & image_usage::transfer_destination) == image_usage::transfer_destination) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eTransferDst;
+		}
+		if ((aImageUsage & image_usage::sampled) == image_usage::sampled) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eSampled;
+		}
+		if ((aImageUsage & image_usage::shader_storage) == image_usage::shader_storage) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eStorage;
+		}
+		if ((aImageUsage & image_usage::color_attachment) == image_usage::color_attachment) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eColorAttachment;
+		}
+		if ((aImageUsage & image_usage::depth_stencil_attachment) == image_usage::depth_stencil_attachment) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+		}
+		if ((aImageUsage & image_usage::input_attachment) == image_usage::input_attachment) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eInputAttachment;
+		}
+		if ((aImageUsage & image_usage::shading_rate_image) == image_usage::shading_rate_image) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eShadingRateImageNV;
+		}
+		if ((aImageUsage & image_usage::read_only) == image_usage::read_only) {
+			// No corresponding flags
+			// TODO: image_usage::read_only should probably be removed from enum struct image_usage! Used to be used to automatically determine suitable layouts in previous framework versions.
+		}
+		if ((aImageUsage & image_usage::presentable) == image_usage::presentable) {
+			// No corresponding flags
+			// TODO: image_usage::presentable should probably be removed from enum struct image_usage! Used to be used to automatically determine suitable layouts in previous framework versions.
+		}
+		if ((aImageUsage & image_usage::shared_presentable) == image_usage::shared_presentable) {
+			// No corresponding flags
+			// TODO: image_usage::shared_presentable should probably be removed from enum struct image_usage! Used to be used to automatically determine suitable layouts in previous framework versions.
+		}
+		if ((aImageUsage & image_usage::tiling_optimal) == image_usage::tiling_optimal) {
+			std::get<vk::ImageTiling>(result) = vk::ImageTiling::eOptimal;
+		}
+		if ((aImageUsage & image_usage::tiling_linear) == image_usage::tiling_linear) {
+			std::get<vk::ImageTiling>(result) = vk::ImageTiling::eLinear;
+		}
+		if ((aImageUsage & image_usage::sparse_memory_binding) == image_usage::sparse_memory_binding) {
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eSparseBinding;
+		}
+		if ((aImageUsage & image_usage::cube_compatible) == image_usage::cube_compatible){
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eCubeCompatible;
+		}
+		if ((aImageUsage & image_usage::is_protected) == image_usage::is_protected) {
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eProtected;
+		}
+		if ((aImageUsage & image_usage::mip_mapped) == image_usage::mip_mapped) {
+			// No corresponding flags
+			// TODO: image_usage::mip_mapped should probably be removed from enum struct image_usage! 
+		}
+		if ((aImageUsage & image_usage::mutable_format) == image_usage::mutable_format) {
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eMutableFormat;
+		}
+		return result;
+	}
+
 #pragma endregion
 
 #pragma region attachment definitions
@@ -5459,7 +5524,7 @@ namespace avk
 		case queue_selection_preference::specialized_queue:
 			{
 				vk::QueueFlags forbiddenFlags = {};
-				for (auto f : queueTypes) { // TODO: Maybe a differend loosening order would be better?
+				for (auto f : queueTypes) { // TODO: Maybe a different loosening order would be better?
 					forbiddenFlags |= f;
 				}
 				forbiddenFlags &= ~aRequiredFlags;
@@ -5545,7 +5610,7 @@ namespace avk
 
 	avk::submission_data queue::submit(avk::command_buffer_t& aCommandBuffer) const
 	{
-		return avk::submission_data(mRoot, aCommandBuffer, this);
+		return avk::submission_data(mRoot, aCommandBuffer, *this);
 	}
 
 	bool queue::is_prepared() const
@@ -7891,7 +7956,7 @@ namespace avk
 		return submission_data{ mRoot, mCommandBufferToRecordInto, std::move(aWaitInfo) };
 	}
 
-	submission_data recorded_command_buffer::then_submit_to(const queue* aQueue)
+	submission_data recorded_command_buffer::then_submit_to(const queue& aQueue)
 	{
 		return submission_data{ mRoot, mCommandBufferToRecordInto, aQueue, this };
 	}
@@ -8196,7 +8261,27 @@ namespace avk
 				},
 				{},
 				[aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance](avk::command_buffer_t& cb) {
-					cb.handle().draw(aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance);
+					cb.handle().draw(aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance, cb.root_ptr()->dispatch_loader_core());
+				}
+			};
+		}
+
+		action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ)
+		{
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderSampledRead | vk::AccessFlagBits2KHR::eShaderStorageRead | vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}}
+				},
+				{},
+				[aGroupCountX, aGroupCountY, aGroupCountZ](avk::command_buffer_t& cb) {
+					cb.handle().dispatch(aGroupCountX, aGroupCountY, aGroupCountZ, cb.root_ptr()->dispatch_loader_core());
 				}
 			};
 		}
@@ -8289,9 +8374,9 @@ namespace avk
 		}
 	}
 
-	submission_data& submission_data::submit_to(const queue* aQueue)
+	submission_data& submission_data::submit_to(const queue& aQueue)
 	{
-		mQueueToSubmitTo = aQueue;
+		mQueueToSubmitTo = &aQueue;
 		return *this;
 	}
 

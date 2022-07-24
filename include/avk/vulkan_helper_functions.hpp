@@ -39,5 +39,7 @@ namespace avk
 	extern filter_mode to_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable);
 	
 	extern vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info);
+
+	extern std::tuple<vk::ImageUsageFlags, vk::ImageTiling, vk::ImageCreateFlags> to_vk_image_properties(avk::image_usage aImageUsage);
 	
 }
