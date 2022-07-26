@@ -1292,18 +1292,18 @@ namespace avk
 
 		// TODO: Comment
 		template <typename T, typename F>
-		inline static std::vector<avk::recorded_commands_t> one_for_each(T aCollection, F aGenerator)
+		inline static std::vector<avk::recorded_commands_t> one_for_each(const T& aCollection, F aGenerator)
 		{
 			std::vector<avk::recorded_commands_t> result;
 			for (const auto& element : aCollection) {
-				result.push_back(std::move(aGenerator(element)));
+				result.push_back(aGenerator(element));
 			}
 			return result;
 		}
 
 		// TODO: Comment
 		template <typename T, typename F>
-		inline static std::vector<avk::recorded_commands_t> many_for_each(T aCollection, F aGenerator)
+		inline static std::vector<avk::recorded_commands_t> many_for_each(const T& aCollection, F aGenerator)
 		{
 			std::vector<avk::recorded_commands_t> result;
 			for (const auto& element : aCollection) {
