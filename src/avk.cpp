@@ -1590,8 +1590,6 @@ namespace avk
 #if VK_HEADER_VERSION >= 162
 		std::vector<vk::AccelerationStructureBuildRangeInfoKHR> buildRangeInfos;
 		buildRangeInfos.reserve(aGeometries.size());
-		std::vector<vk::AccelerationStructureBuildRangeInfoKHR*> buildRangeInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
-		buildRangeInfoPtrs.reserve(aGeometries.size());
 #else
 		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
 		buildOffsetInfos.reserve(aGeometries.size());
@@ -1635,7 +1633,7 @@ namespace avk
 				.setPrimitiveOffset(0u)
 				.setFirstVertex(0u)
 				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-			buildRangeInfoPtrs.emplace_back(&bri);
+			//buildRangeInfoPtrs.emplace_back(&bri);
 #else
 			auto& boi = buildOffsetInfos.emplace_back()
 				.setPrimitiveCount(static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3u)
@@ -1685,35 +1683,30 @@ namespace avk
 				lAccStructureGeometries = std::move(accStructureGeometries),
 				lBuildGeometryInfos = std::move(buildGeometryInfos),
 				lBuildRangeInfos = std::move(buildRangeInfos),
-				lBuildRangeInfoPtrs = std::move(buildRangeInfoPtrs),
+				//lBuildRangeInfoPtrs = std::move(buildRangeInfoPtrs),
 				lLifetimeHandledBuffers = std::move(lifetimeHandledBuffers)
 			] (avk::command_buffer_t& cb) mutable {
 				// It requires pointer to a pointer => set here, inside the lambda:
 				const auto* pointerToAnArray = lAccStructureGeometries.data();
 				lBuildGeometryInfos[0].setPpGeometries(&pointerToAnArray);
-				// Actually, after the moves, all the pointers should still be intact!
-#ifdef _DEBUG
-				// But let's check in DEBUG mode:
-				for (size_t i = 0; i < lBuildRangeInfoPtrs.size(); ++i) {
-					if (lBuildRangeInfoPtrs[i] != &lBuildRangeInfos[i]) {
-						AVK_LOG_WARNING("Strange: lBuildRangeInfoPtrs[" + std::to_string(i) + "] != &lBuildRangeInfos[" + std::to_string(i) + "] after having moved lBuildRangeInfos.");
-						lBuildRangeInfoPtrs[i] = &lBuildRangeInfos[i]; // fixed, but still strange; And in RELEASE mode it won't be fixed.
-					}
+
+				std::vector<vk::AccelerationStructureBuildRangeInfoKHR*> buildRangeInfoPtrs{ lBuildRangeInfos.size() }; // Points to elements inside buildOffsetInfos... just... because!
+				for (size_t i = 0; i < lBuildRangeInfos.size(); ++i) {
+					buildRangeInfoPtrs[i] = &lBuildRangeInfos[i];
 				}
-#endif
 
 #if VK_HEADER_VERSION >= 162
 				cb.handle().buildAccelerationStructuresKHR(
 					static_cast<uint32_t>(lBuildGeometryInfos.size()),
 					lBuildGeometryInfos.data(),
-					lBuildRangeInfoPtrs.data(),
+					buildRangeInfoPtrs.data(),
 					lRoot->dispatch_loader_ext()
 				);
 #else
 				cb.handle().buildAccelerationStructureKHR(
 					static_cast<uint32_t>(lBuildGeometryInfos.size()),
 					lBuildGeometryInfos.data(),
-					lBuildRangeInfoPtrs.data(),
+					buildRangeInfoPtrs.data(),
 					lRoot->dispatch_loader_ext()
 				);
 #endif
