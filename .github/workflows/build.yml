@@ -146,7 +146,7 @@ jobs:
         # Execute the build.  You can specify a specific target with "--target <NAME>"
         run: cmake --build .
 
-  windows:
+  windows-latest:
     name: ${{ matrix.config.name }} using VulkanSDK version ${{ matrix.vulkan-sdk }}
     runs-on: windows-latest
     env:
@@ -200,7 +200,7 @@ jobs:
           $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
 
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
-          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC ${{ runner.workspace }}/${{ github.event.repository.name }} -G "Visual Studio 16 2019" -A x64
+          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC ${{ runner.workspace }}/${{ github.event.repository.name }} -G "Visual Studio 17 2022" -A x64
 
       - name: Build
         shell: bash
