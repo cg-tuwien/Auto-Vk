@@ -60,50 +60,50 @@ namespace avk
 		/** Build this top level acceleration structure using a vector of geometry instances.
 		 *
 		 *	@param	aGeometryInstances	Vector of geometry instances that will be used for creating the top-level acceleration structure.
-		 *	@param	aScratchBuffer		Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer		Optional buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *								vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *								If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler		Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		void build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		avk::command::action_type_command build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer = {});
 
 		/** Update this top level acceleration structure using a vector of geometry instances.
 		 *
 		 *	@param	aGeometryInstances	Vector of geometry instances that will be used for creating the top-level acceleration structure.
-		 *	@param	aScratchBuffer		Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer		Optional buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *								vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *								If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler		Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		void update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		avk::command::action_type_command update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer = {});
 		
 		/** Build this top level acceleration structure using a vector of geometry instances.
 		 *
 		 *	@param	aGeometryInstancesBuffer	Buffer containing one or multiple geometry instances. The buffer must have the appropriate
 		 *										meta data set, which is geometry_instance_buffer_meta.
-		 *	@param	aScratchBuffer				Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer				Optional buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *										vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *										If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler				Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		void build(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		avk::command::action_type_command build(const buffer& aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer = {});
 
 		/** Build this top level acceleration structure using a vector of geometry instances.
 		 *
 		 *	@param	aGeometryInstancesBuffer	Buffer containing one or multiple geometry instances. The buffer must have the appropriate
 		 *										meta data set, which is geometry_instance_buffer_meta.
-		 *	@param	aScratchBuffer				Optional reference to a buffer to be used as scratch buffer. It must have the buffer usage flags
+		 *	@param	aScratchBuffer				Optional buffer to be used as scratch buffer. It must have the buffer usage flags
 		 *										vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR set.
 		 *										If no scratch buffer is supplied, one will be created internally.
-		 *	@param	aSyncHandler				Sync handler which is to be deprecated
+		 *	@return	Command which represents the actions to be executed for this build.
 		 */
-		void update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer = {}, sync aSyncHandler = sync::wait_idle());
+		avk::command::action_type_command update(const buffer& aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer = {});
 		
 	private:
 		enum struct tlas_action { build, update };
-		std::optional<command_buffer> build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction);
-		std::optional<command_buffer> build_or_update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction);
-		buffer_t& get_and_possibly_create_scratch_buffer();
+		avk::command::action_type_command build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction);
+		avk::command::action_type_command build_or_update(avk::resource_argument<avk::buffer_t> aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction);
+		avk::buffer get_and_possibly_create_scratch_buffer();
 
 #if VK_HEADER_VERSION >= 162
 		vk::DeviceSize mMemoryRequirementsForAccelerationStructure;

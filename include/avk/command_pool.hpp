@@ -34,10 +34,12 @@ namespace avk
 		std::vector<command_buffer> alloc_command_buffers(uint32_t aCount, vk::CommandBufferUsageFlags aUsageFlags = {}, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
 			
 		command_buffer alloc_command_buffer(vk::CommandBufferUsageFlags aUsageFlags = {}, vk::CommandBufferLevel aLevel = vk::CommandBufferLevel::ePrimary);
-		
+
+		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
+
 	private:
-		uint32_t mQueueFamilyIndex;
 		const root* mRoot;
+		uint32_t mQueueFamilyIndex;
 		vk::CommandPoolCreateInfo mCreateInfo;
 		std::shared_ptr<vk::UniqueHandle<vk::CommandPool, DISPATCH_LOADER_CORE_TYPE>> mCommandPool;
 	};

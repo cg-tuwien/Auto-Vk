@@ -116,7 +116,7 @@ namespace avk
 				}; 
 			}
 
-			static viewport_depth_scissors_config from_framebuffer(resource_reference<const framebuffer_t> aFramebuffer);
+			static viewport_depth_scissors_config from_framebuffer(const framebuffer_t& aFramebuffer);
 
 			/** Enables dynamic viewport and scissors. */
 			static viewport_depth_scissors_config dynamic(bool aDynamicViewport = true, bool aDynamicScissors = true)
@@ -247,6 +247,7 @@ namespace avk
 			static depth_clamp_bias config_nothing_special() { return { false, false, 0.0f, 0.0f, 0.0f, false }; }
 			static depth_clamp_bias config_enable_depth_bias(float pConstantFactor, float pBiasClamp, float pSlopeFactor) { return { false, true, pConstantFactor, pBiasClamp, pSlopeFactor, false }; }
 			static depth_clamp_bias config_enable_clamp_and_depth_bias(float pConstantFactor, float pBiasClamp, float pSlopeFactor) { return { true, true, pConstantFactor, pBiasClamp, pSlopeFactor, false }; }
+			static depth_clamp_bias config_enable_clamp() { return { true, false, 0.0f, 0.0f, 0.0f, false }; }
 			static depth_clamp_bias dynamic() { return { false, true, 0.0f, 0.0f, 0.0f, true }; } // also sets depth bias to enabled, otherwise this would be pointless
 
 			auto is_clamp_to_frustum_enabled() const { return mClampDepthToFrustum; }
@@ -585,6 +586,12 @@ namespace avk
 		{
 			return per_sample_shading_config { true, aMinFractionOfSamplesShaded };
 		}
+
+		struct subpass_index
+		{
+			subpass_index(uint32_t subpassIndex) : mSubpassIndex{ subpassIndex } {}
+			uint32_t mSubpassIndex;
+		};
 	}
 
 	// Forward declare that the graphics_pipeline_t class for the context_specificaFunction
@@ -636,9 +643,20 @@ namespace avk
 
 	// Add a complete render pass to the pipeline config
 	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, renderpass aRenderPass, uint32_t aSubpass, Ts... args)
+	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, renderpass aRenderPass, cfg::subpass_index aSubpassIndex, Ts... args)
 	{
-		aConfig.mRenderPassSubpass = std::move(std::make_tuple(std::move(aRenderPass), aSubpass));
+		aConfig.mRenderPassSubpass = std::move(std::make_tuple(std::move(aRenderPass), aSubpassIndex.mSubpassIndex));
+		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
+	}
+	
+	// Specify a subpass index (which only makes sense if a renderpass is specified, too)
+	template <typename... Ts>
+	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::subpass_index aSubpassIndex, Ts... args)
+	{
+		if (!aConfig.mRenderPassSubpass.has_value()) {
+			aConfig.mRenderPassSubpass.emplace();
+		}
+		std::get<uint32_t>(*aConfig.mRenderPassSubpass) = aSubpassIndex.mSubpassIndex;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
@@ -646,7 +664,11 @@ namespace avk
 	template <typename... Ts>
 	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, renderpass aRenderPass, Ts... args)
 	{
-		aConfig.mRenderPassSubpass = std::move(std::make_tuple(std::move(aRenderPass), 0u)); // Default to the first subpass if none is specified
+		if (!aConfig.mRenderPassSubpass.has_value()) {
+			aConfig.mRenderPassSubpass.emplace();
+			std::get<uint32_t>(*aConfig.mRenderPassSubpass) = 0u; // Default to the first subpass if none is specified
+		}
+		std::get<renderpass>(*aConfig.mRenderPassSubpass) = std::move(aRenderPass);
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
@@ -759,6 +781,14 @@ namespace avk
 	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_clamp_bias aDepthSettings, Ts... args)
 	{
 		aConfig.mDepthClampBiasConfig = aDepthSettings;
+		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
+	}
+
+	// Sets depth bounds config in the pipeline config
+	template <typename... Ts>
+	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::depth_bounds aDepthBounds, Ts... args)
+	{
+		aConfig.mDepthBoundsConfig = aDepthBounds;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 

@@ -19,11 +19,6 @@ namespace avk
 		semaphore_t& operator=(const semaphore_t&) = delete;
 		~semaphore_t();
 
-		/**	Stage where to wait for this semaphore, i.e. stage which the following operation has to wait for.
-		 *	The default value is `vk::PipelineStageFlagBits::eAllCommands`
-		 */
-		semaphore_t& set_semaphore_wait_stage(vk::PipelineStageFlags _Stage);
-
 		/** Set a custom deleter function.
 		 *	This is often used for resource cleanup, e.g. a buffer which can be deleted when this semaphore is destroyed.
 		 */
@@ -46,28 +41,23 @@ namespace avk
 			return *this;
 		}
 
+		semaphore_t& handle_lifetime_of(any_owning_resource_t aResource);
+
 		const auto& create_info() const	{ return mCreateInfo; }
 		auto& create_info()				{ return mCreateInfo; }
 		const auto& handle() const { return mSemaphore.get(); }
 		const auto* handle_addr() const { return &mSemaphore.get(); }
-		
-		/**	Gets the stage which the subsequent command shall wait for.
-		 *	If no stage has been set, the default value is `vk::PipelineStageFlagBits::eAllCommands`.
-		 */
-		auto semaphore_wait_stage() const { return mSemaphoreWaitStageForNextCommand; }
-		/** Gets the address of the `semaphore_wait_stage`. */
-		const auto* semaphore_wait_stage_addr() const { return &mSemaphoreWaitStageForNextCommand; }
 
 	private:
 		// The semaphore config struct:
 		vk::SemaphoreCreateInfo mCreateInfo;
 		// The semaphore handle:
 		vk::UniqueHandle<vk::Semaphore, DISPATCH_LOADER_CORE_TYPE> mSemaphore;
-		// Info for the next command, at which stage the semaphore wait should occur.
-		vk::PipelineStageFlags mSemaphoreWaitStageForNextCommand;
 
 		/** A custom deleter function called upon destruction of this semaphore */
 		std::optional<avk::unique_function<void()>> mCustomDeleter;
+
+		std::vector<any_owning_resource_t> mLifetimeHandledResources;
 	};
 
 	// Typedef for a variable representing an owner of a semaphore

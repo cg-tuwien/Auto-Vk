@@ -16,7 +16,8 @@ namespace avk
 		graphics_pipeline_t& operator=(const graphics_pipeline_t&) = delete;
 		~graphics_pipeline_t() = default;
 
-		[[nodiscard]] resource_reference<const renderpass_t> get_renderpass() const { return const_referenced(mRenderPass); }
+		[[nodiscard]] renderpass renderpass() const { return mRenderPass; }
+		[[nodiscard]] const renderpass_t& renderpass_reference() const { return mRenderPass.get(); }
 		auto renderpass_handle() const { return mRenderPass->handle(); }
 		auto subpass_id() const { return mSubpassIndex; }
 		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }
@@ -68,7 +69,7 @@ namespace avk
 		const auto& handle() const { return mPipeline.get(); }
 		
 	private:
-		renderpass mRenderPass;
+		avk::renderpass mRenderPass;
 		uint32_t mSubpassIndex;
 		// The vertex input data:
 		std::vector<vk::VertexInputBindingDescription> mOrderedVertexInputBindingDescriptions;
@@ -111,18 +112,4 @@ namespace avk
 	};
 	
 	using graphics_pipeline = avk::owning_resource<graphics_pipeline_t>;
-	
-	template <>
-	inline void command_buffer_t::bind_pipeline<resource_reference<const graphics_pipeline_t>>(resource_reference<const graphics_pipeline_t> aPipelineRef)
-	{
-		handle().bindPipeline(vk::PipelineBindPoint::eGraphics, aPipelineRef->handle());
-	}
-
-	template <>
-	inline void command_buffer_t::bind_descriptors<std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*>>
-		(std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
-	{
-		bind_descriptors(vk::PipelineBindPoint::eGraphics, std::get<const graphics_pipeline_t*>(aPipelineLayout)->layout_handle(), std::move(aDescriptorSets));
-	}
-
 }

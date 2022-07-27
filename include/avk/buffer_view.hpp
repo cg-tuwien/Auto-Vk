@@ -10,7 +10,7 @@ namespace avk
 	 *	determined which meta data is the right one to be used to infer the
 	 *	descriptor type. This helper class solves this problem.
 	 */
-	class buffer_view_descriptor
+	class buffer_view_descriptor_info
 	{
 		friend class buffer_view_t;
 		
@@ -72,14 +72,14 @@ namespace avk
 		}
 
 		/**	Search for the given meta data of type Meta, and build a
-		 *	buffer_view_descriptor instance with descriptor info and
+		 *	buffer_view_descriptor_info instance with descriptor info and
 		 *	descriptor type set.
 		 */
 		template <typename Meta>
 		auto get_buffer_view_descriptor() const
 		{
 			if (std::holds_alternative<buffer>(mBuffer)) {
-				buffer_view_descriptor result;
+				buffer_view_descriptor_info result;
 				result.mDescriptorInfo = std::get<buffer>(mBuffer)->descriptor_info();
 				result.mDescriptorType = std::get<buffer>(mBuffer)->meta<Meta>().descriptor_type().value();
 				result.mBufferViewHandle = view_handle();
@@ -88,9 +88,9 @@ namespace avk
 			throw avk::runtime_error("Which descriptor type?");
 		}
 
-		/** Get a buffer_view_descriptor for binding this buffer as a uniform texel buffer view. */
+		/** Get a buffer_view_descriptor_info for binding this buffer as a uniform texel buffer view. */
 		auto as_uniform_texel_buffer_view() const { return get_buffer_view_descriptor<uniform_texel_buffer_meta>(); }
-		/** Get a buffer_view_descriptor for binding this buffer as a storage texel buffer view. */
+		/** Get a buffer_view_descriptor_info for binding this buffer as a storage texel buffer view. */
 		auto as_storage_texel_buffer_view() const { return get_buffer_view_descriptor<storage_texel_buffer_meta>(); }
 
 	private:

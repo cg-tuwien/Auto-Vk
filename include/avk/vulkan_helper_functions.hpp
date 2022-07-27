@@ -32,23 +32,14 @@ namespace avk
 
 	extern vk::LogicOp to_vk_logic_operation(cfg::blending_logic_operation aValue);
 
-	extern vk::AttachmentLoadOp to_vk_load_op(avk::on_load aValue);
+	extern vk::AttachmentLoadOp to_vk_load_op(avk::on_load_behavior aValue);
 
-	extern vk::AttachmentStoreOp to_vk_store_op(avk::on_store aValue);
-
-	extern vk::PipelineStageFlags to_vk_pipeline_stage_flags(avk::pipeline_stage aValue);
-	extern vk::PipelineStageFlagBits to_vk_pipeline_stage_flag_bits(avk::pipeline_stage aValue);
-	extern vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<avk::pipeline_stage> aValue);
-
-	extern vk::AccessFlags to_vk_access_flags(avk::memory_access aValue);
-	extern vk::AccessFlags to_vk_access_flags(std::optional<avk::memory_access> aValue);
-	extern memory_access to_memory_access(avk::read_memory_access aValue);
-	extern std::optional<avk::memory_access> to_memory_access(std::optional<avk::read_memory_access> aValue);
-	extern memory_access to_memory_access(avk::write_memory_access aValue);
-	extern std::optional<avk::memory_access> to_memory_access(std::optional<avk::write_memory_access> aValue);
+	extern vk::AttachmentStoreOp to_vk_store_op(avk::on_store_behavior aValue);
 
 	extern filter_mode to_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable);
 	
 	extern vk::ImageViewType to_image_view_type(const vk::ImageCreateInfo& info);
+
+	extern std::tuple<vk::ImageUsageFlags, vk::ImageTiling, vk::ImageCreateFlags> to_vk_image_properties(avk::image_usage aImageUsage);
 	
 }

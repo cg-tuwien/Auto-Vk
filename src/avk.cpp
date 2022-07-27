@@ -115,10 +115,10 @@ namespace avk
 		auto memProperties = aPhysicalDevice.getMemoryProperties();
 
 		const auto deviceName = std::string(static_cast<const char*>(aPhysicalDevice.getProperties().deviceName));
-		AVK_LOG_INFO("========== MEMORY PROPERTIES OF DEVICE '" + deviceName + "'");
+		AVK_LOG_INFO("========== MEMORY PROPERTIES OF DEVICE '" + deviceName + "'  ");
 		AVK_LOG_INFO("-------------------------------------------------------------");
-		AVK_LOG_INFO(" HEAP TYPES:");
-		AVK_LOG_INFO(" heap-idx |               bytes | heap flags");
+		AVK_LOG_INFO(" HEAP TYPES:                                                 ");
+		AVK_LOG_INFO(" heap-idx |               bytes | heap flags                 ");
 		AVK_LOG_INFO("-------------------------------------------------------------");
 		for (auto i = 0u; i < memProperties.memoryHeapCount; ++i) {
 			std::string heapIndex =  "        " + std::to_string(i);
@@ -133,11 +133,14 @@ namespace avk
 				heapSize =  heapSize.substr(heapSize.length() - 19);
 			}
 			std::string heapFlags = vk::to_string(memProperties.memoryHeaps[i].flags);
-			AVK_LOG_INFO(heapIndex + " | " + heapSize + " | " + heapFlags);
+			auto combined = heapIndex + " | " + heapSize + " | " + heapFlags;
+			auto spacesToAdd = static_cast<int>(std::string("                                                             ").size()) - static_cast<int>(combined.size());
+			combined += std::string("                                                             ").substr(0, std::max(0, spacesToAdd));
+			AVK_LOG_INFO(combined);
 		}
 		AVK_LOG_INFO("=============================================================");
-		AVK_LOG_INFO(" MEMORY TYPES:");
-		AVK_LOG_INFO(" mem-idx | heap-idx | memory propety flags");
+		AVK_LOG_INFO(" MEMORY TYPES:                                               ");
+		AVK_LOG_INFO(" mem-idx | heap-idx | memory propety flags                   ");
 		AVK_LOG_INFO("-------------------------------------------------------------");
 		for (auto i = 0u; i < memProperties.memoryTypeCount; ++i) {
 			std::string memIndex =  "       " + std::to_string(i);
@@ -145,7 +148,10 @@ namespace avk
 			std::string heapIndex = "        " + std::to_string(memProperties.memoryTypes[i].heapIndex);
 			heapIndex = heapIndex.substr(heapIndex.length() - 9);
 			std::string propFlags = vk::to_string(memProperties.memoryTypes[i].propertyFlags);
-			AVK_LOG_INFO(memIndex + " | " + heapIndex + " | " + propFlags);
+			auto combined = memIndex + " | " + heapIndex + " | " + propFlags;
+			auto spacesToAdd = static_cast<int>(std::string("                                                             ").size()) - static_cast<int>(combined.size());
+			combined += std::string("                                                             ").substr(0, std::max(0, spacesToAdd));
+			AVK_LOG_INFO(combined);
 		}
 		AVK_LOG_INFO("=============================================================");
 
@@ -618,6 +624,16 @@ namespace avk
 		return it != twoComponentFormats.end();
 	}
 
+	bool is_int_format(const vk::Format& aImageFormat)
+	{
+		return is_int8_format(aImageFormat) || is_int16_format(aImageFormat) || is_int32_format(aImageFormat);
+	}
+
+	bool is_uint_format(const vk::Format& aImageFormat)
+	{
+		return is_uint8_format(aImageFormat) || is_uint16_format(aImageFormat) || is_uint32_format(aImageFormat);
+	}
+
 	bool is_3component_format(const vk::Format& aImageFormat)
 	{
 		static std::set<vk::Format> threeCompFormat = {
@@ -750,9 +766,7 @@ namespace avk
 			vk::Format::eBc2UnormBlock,
 			vk::Format::eBc3UnormBlock,
 			vk::Format::eBc4UnormBlock,
-			vk::Format::eBc4SnormBlock,
 			vk::Format::eBc5UnormBlock,
-			vk::Format::eBc5SnormBlock,
 			vk::Format::eBc7UnormBlock,
 		};
 		auto it = std::find(std::begin(unormFormats), std::end(unormFormats), aImageFormat);
@@ -772,7 +786,9 @@ namespace avk
 			vk::Format::eR16Snorm,
 			vk::Format::eR16G16Snorm,
 			vk::Format::eR16G16B16Snorm,
-			vk::Format::eR16G16B16A16Snorm
+			vk::Format::eR16G16B16A16Snorm,
+			vk::Format::eBc4SnormBlock,
+			vk::Format::eBc5SnormBlock,
 		};
 		auto it = std::find(std::begin(snormFormats), std::end(snormFormats), aImageFormat);
 		return it != snormFormats.end();
@@ -1224,193 +1240,30 @@ namespace avk
 		}
 	}
 
-	vk::AttachmentLoadOp to_vk_load_op(on_load aValue)
+	vk::AttachmentLoadOp to_vk_load_op(on_load_behavior aValue)
 	{
 		switch (aValue) {
-		case on_load::dont_care:
+		case on_load_behavior::dont_care:
 			return vk::AttachmentLoadOp::eDontCare;
-		case on_load::clear:
+		case on_load_behavior::clear:
 			return vk::AttachmentLoadOp::eClear;
-		case on_load::load:
+		case on_load_behavior::load:
 			return vk::AttachmentLoadOp::eLoad;
 		default:
 			throw std::invalid_argument("Invalid attachment load operation.");
 		}
 	}
 
-	vk::AttachmentStoreOp to_vk_store_op(on_store aValue)
+	vk::AttachmentStoreOp to_vk_store_op(on_store_behavior aValue)
 	{
 		switch (aValue) {
-		case on_store::dont_care:
+		case on_store_behavior::dont_care:
 			return vk::AttachmentStoreOp::eDontCare;
-		case on_store::store:
-		case on_store::store_in_presentable_format:
+		case on_store_behavior::store:
 			return vk::AttachmentStoreOp::eStore;
 		default:
 			throw std::invalid_argument("Invalid attachment store operation.");
 		}
-	}
-
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(avk::pipeline_stage aValue)
-	{
-		vk::PipelineStageFlags result;
-		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (avk::is_included(aValue, avk::pipeline_stage::top_of_pipe					)) { result |= vk::PipelineStageFlagBits::eTopOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::draw_indirect					)) { result |= vk::PipelineStageFlagBits::eDrawIndirect					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_input					)) { result |= vk::PipelineStageFlagBits::eVertexInput					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_shader					)) { result |= vk::PipelineStageFlagBits::eVertexShader					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_control_shader	)) { result |= vk::PipelineStageFlagBits::eTessellationControlShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_evaluation_shader)) { result |= vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::geometry_shader				)) { result |= vk::PipelineStageFlagBits::eGeometryShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_shader				)) { result |= vk::PipelineStageFlagBits::eFragmentShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::early_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::late_fragment_tests			)) { result |= vk::PipelineStageFlagBits::eLateFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::color_attachment_output		)) { result |= vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
-		if (avk::is_included(aValue, avk::pipeline_stage::compute_shader				)) { result |= vk::PipelineStageFlagBits::eComputeShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transfer						)) { result |= vk::PipelineStageFlagBits::eTransfer						; }
-		if (avk::is_included(aValue, avk::pipeline_stage::bottom_of_pipe				)) { result |= vk::PipelineStageFlagBits::eBottomOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::host							)) { result |= vk::PipelineStageFlagBits::eHost							; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_graphics			)) { result |= vk::PipelineStageFlagBits::eAllGraphics					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_commands					)) { result |= vk::PipelineStageFlagBits::eAllCommands					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transform_feedback			)) { result |= vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::conditional_rendering			)) { result |= vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
-#else
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { result |= vk::PipelineStageFlagBits::eCommandProcessNVX			; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::shading_rate_image			)) { result |= vk::PipelineStageFlagBits::eShadingRateImageNV			; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::ray_tracing_shaders			)) { result |= vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::acceleration_structure_build	)) { result |= vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::task_shader					)) { result |= vk::PipelineStageFlagBits::eTaskShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::mesh_shader					)) { result |= vk::PipelineStageFlagBits::eMeshShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { result |= vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
-		return result;
-	}
-
-	vk::PipelineStageFlagBits to_vk_pipeline_stage_flag_bits(avk::pipeline_stage aValue)
-	{
-		if (avk::is_included(aValue, avk::pipeline_stage::top_of_pipe					)) { return vk::PipelineStageFlagBits::eTopOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::draw_indirect					)) { return vk::PipelineStageFlagBits::eDrawIndirect					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_input					)) { return vk::PipelineStageFlagBits::eVertexInput					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::vertex_shader					)) { return vk::PipelineStageFlagBits::eVertexShader					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_control_shader	)) { return vk::PipelineStageFlagBits::eTessellationControlShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::tessellation_evaluation_shader)) { return vk::PipelineStageFlagBits::eTessellationEvaluationShader	; }
-		if (avk::is_included(aValue, avk::pipeline_stage::geometry_shader				)) { return vk::PipelineStageFlagBits::eGeometryShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_shader				)) { return vk::PipelineStageFlagBits::eFragmentShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::early_fragment_tests			)) { return vk::PipelineStageFlagBits::eEarlyFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::late_fragment_tests			)) { return vk::PipelineStageFlagBits::eLateFragmentTests			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::color_attachment_output		)) { return vk::PipelineStageFlagBits::eColorAttachmentOutput		; }
-		if (avk::is_included(aValue, avk::pipeline_stage::compute_shader				)) { return vk::PipelineStageFlagBits::eComputeShader				; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transfer						)) { return vk::PipelineStageFlagBits::eTransfer						; }
-		if (avk::is_included(aValue, avk::pipeline_stage::bottom_of_pipe				)) { return vk::PipelineStageFlagBits::eBottomOfPipe					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::host							)) { return vk::PipelineStageFlagBits::eHost							; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_graphics					)) { return vk::PipelineStageFlagBits::eAllGraphics					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::all_commands					)) { return vk::PipelineStageFlagBits::eAllCommands					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::transform_feedback			)) { return vk::PipelineStageFlagBits::eTransformFeedbackEXT			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::conditional_rendering			)) { return vk::PipelineStageFlagBits::eConditionalRenderingEXT		; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { return vk::PipelineStageFlagBits::eCommandPreprocessNV			; }
-#else
-		if (avk::is_included(aValue, avk::pipeline_stage::command_preprocess			)) { return vk::PipelineStageFlagBits::eCommandProcessNVX			; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::shading_rate_image			)) { return vk::PipelineStageFlagBits::eShadingRateImageNV			; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::pipeline_stage::ray_tracing_shaders			)) { return vk::PipelineStageFlagBits::eRayTracingShaderKHR			; }
-		if (avk::is_included(aValue, avk::pipeline_stage::acceleration_structure_build	)) { return vk::PipelineStageFlagBits::eAccelerationStructureBuildKHR; }
-#endif
-		if (avk::is_included(aValue, avk::pipeline_stage::task_shader					)) { return vk::PipelineStageFlagBits::eTaskShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::mesh_shader					)) { return vk::PipelineStageFlagBits::eMeshShaderNV					; }
-		if (avk::is_included(aValue, avk::pipeline_stage::fragment_density_process		)) { return vk::PipelineStageFlagBits::eFragmentDensityProcessEXT	; }
-
-		throw avk::runtime_error("unknown pipeline_stage");
-	}
-
-	vk::PipelineStageFlags to_vk_pipeline_stage_flags(std::optional<avk::pipeline_stage> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_vk_pipeline_stage_flags(aValue.value());
-		}
-		return vk::PipelineStageFlags{};
-	}
-
-	vk::AccessFlags to_vk_access_flags(avk::memory_access aValue)
-	{
-		vk::AccessFlags result;
-		// TODO: This might be a bit expensive. Is there a different possible solution to this?
-		if (avk::is_included(aValue, avk::memory_access::indirect_command_data_read_access			)) { result |= vk::AccessFlagBits::eIndirectCommandRead; }
-		if (avk::is_included(aValue, avk::memory_access::index_buffer_read_access					)) { result |= vk::AccessFlagBits::eIndexRead; }
-		if (avk::is_included(aValue, avk::memory_access::vertex_buffer_read_access					)) { result |= vk::AccessFlagBits::eVertexAttributeRead; }
-		if (avk::is_included(aValue, avk::memory_access::uniform_buffer_read_access					)) { result |= vk::AccessFlagBits::eUniformRead; }
-		if (avk::is_included(aValue, avk::memory_access::input_attachment_read_access				)) { result |= vk::AccessFlagBits::eInputAttachmentRead; }
-		if (avk::is_included(aValue, avk::memory_access::shader_buffers_and_images_read_access		)) { result |= vk::AccessFlagBits::eShaderRead; }
-		if (avk::is_included(aValue, avk::memory_access::shader_buffers_and_images_write_access		)) { result |= vk::AccessFlagBits::eShaderWrite; }
-		if (avk::is_included(aValue, avk::memory_access::color_attachment_read_access				)) { result |= vk::AccessFlagBits::eColorAttachmentRead; }
-		if (avk::is_included(aValue, avk::memory_access::color_attachment_write_access				)) { result |= vk::AccessFlagBits::eColorAttachmentWrite; }
-		if (avk::is_included(aValue, avk::memory_access::depth_stencil_attachment_read_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentRead; }
-		if (avk::is_included(aValue, avk::memory_access::depth_stencil_attachment_write_access		)) { result |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; }
-		if (avk::is_included(aValue, avk::memory_access::transfer_read_access						)) { result |= vk::AccessFlagBits::eTransferRead; }
-		if (avk::is_included(aValue, avk::memory_access::transfer_write_access						)) { result |= vk::AccessFlagBits::eTransferWrite; }
-		if (avk::is_included(aValue, avk::memory_access::host_read_access							)) { result |= vk::AccessFlagBits::eHostRead; }
-		if (avk::is_included(aValue, avk::memory_access::host_write_access							)) { result |= vk::AccessFlagBits::eHostWrite; }
-		if (avk::is_included(aValue, avk::memory_access::any_read_access							)) { result |= vk::AccessFlagBits::eMemoryRead; }
-		if (avk::is_included(aValue, avk::memory_access::any_write_access					 		)) { result |= vk::AccessFlagBits::eMemoryWrite; }
-		if (avk::is_included(aValue, avk::memory_access::transform_feedback_write_access			)) { result |= vk::AccessFlagBits::eTransformFeedbackWriteEXT; }
-		if (avk::is_included(aValue, avk::memory_access::transform_feedback_counter_read_access		)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterReadEXT; }
-		if (avk::is_included(aValue, avk::memory_access::transform_feedback_counter_write_access	)) { result |= vk::AccessFlagBits::eTransformFeedbackCounterWriteEXT; }
-		if (avk::is_included(aValue, avk::memory_access::conditional_rendering_predicate_read_access)) { result |= vk::AccessFlagBits::eConditionalRenderingReadEXT; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandPreprocessReadNV; }
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandPreprocessWriteNV; }
-#else
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_read_access				)) { result |= vk::AccessFlagBits::eCommandProcessReadNVX; }
-		if (avk::is_included(aValue, avk::memory_access::command_preprocess_write_access			)) { result |= vk::AccessFlagBits::eCommandProcessWriteNVX; }
-#endif
-		if (avk::is_included(aValue, avk::memory_access::color_attachment_noncoherent_read_access	)) { result |= vk::AccessFlagBits::eColorAttachmentReadNoncoherentEXT; }
-		if (avk::is_included(aValue, avk::memory_access::shading_rate_image_read_access				)) { result |= vk::AccessFlagBits::eShadingRateImageReadNV; }
-#if VK_HEADER_VERSION >= 135
-		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_read_access			)) { result |= vk::AccessFlagBits::eAccelerationStructureReadKHR; }
-		if (avk::is_included(aValue, avk::memory_access::acceleration_structure_write_access		)) { result |= vk::AccessFlagBits::eAccelerationStructureWriteKHR; }
-#endif
-		if (avk::is_included(aValue, avk::memory_access::fragment_density_map_attachment_read_access)) { result |= vk::AccessFlagBits::eFragmentDensityMapReadEXT; }
-
-		return result;
-	}
-
-	vk::AccessFlags to_vk_access_flags(std::optional<avk::memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_vk_access_flags(aValue.value());
-		}
-		return vk::AccessFlags{};
-	}
-
-	avk::memory_access to_memory_access(avk::read_memory_access aValue)
-	{
-		return static_cast<avk::memory_access>(aValue);
-	}
-
-	std::optional<avk::memory_access> to_memory_access(std::optional<avk::read_memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_memory_access(aValue.value());
-		}
-		return {};
-	}
-
-	avk::memory_access to_memory_access(avk::write_memory_access aValue)
-	{
-		return static_cast<avk::memory_access>(aValue);
-	}
-
-	std::optional<avk::memory_access> to_memory_access(std::optional<avk::write_memory_access> aValue)
-	{
-		if (aValue.has_value()) {
-			return to_memory_access(aValue.value());
-		}
-		return {};
 	}
 
 	filter_mode to_filter_mode(float aVulkanAnisotropy, bool aMipMappingAvailable)
@@ -1474,10 +1327,75 @@ namespace avk
 		}
 		throw avk::runtime_error("It might be that the implementation of to_image_view_type(const vk::ImageCreateInfo& info) is incomplete. Please complete it!");
 	}
+
+	std::tuple<vk::ImageUsageFlags, vk::ImageTiling, vk::ImageCreateFlags> to_vk_image_properties(avk::image_usage aImageUsage)
+	{
+		std::tuple<vk::ImageUsageFlags, vk::ImageTiling, vk::ImageCreateFlags> result{ {}, {}, {} };
+		if ((aImageUsage & image_usage::transfer_source) == image_usage::transfer_source) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eTransferSrc;
+		}
+		if ((aImageUsage & image_usage::transfer_destination) == image_usage::transfer_destination) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eTransferDst;
+		}
+		if ((aImageUsage & image_usage::sampled) == image_usage::sampled) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eSampled;
+		}
+		if ((aImageUsage & image_usage::shader_storage) == image_usage::shader_storage) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eStorage;
+		}
+		if ((aImageUsage & image_usage::color_attachment) == image_usage::color_attachment) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eColorAttachment;
+		}
+		if ((aImageUsage & image_usage::depth_stencil_attachment) == image_usage::depth_stencil_attachment) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+		}
+		if ((aImageUsage & image_usage::input_attachment) == image_usage::input_attachment) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eInputAttachment;
+		}
+		if ((aImageUsage & image_usage::shading_rate_image) == image_usage::shading_rate_image) {
+			std::get<vk::ImageUsageFlags>(result) |= vk::ImageUsageFlagBits::eShadingRateImageNV;
+		}
+		if ((aImageUsage & image_usage::read_only) == image_usage::read_only) {
+			// No corresponding flags
+			// TODO: image_usage::read_only should probably be removed from enum struct image_usage! Used to be used to automatically determine suitable layouts in previous framework versions.
+		}
+		if ((aImageUsage & image_usage::presentable) == image_usage::presentable) {
+			// No corresponding flags
+			// TODO: image_usage::presentable should probably be removed from enum struct image_usage! Used to be used to automatically determine suitable layouts in previous framework versions.
+		}
+		if ((aImageUsage & image_usage::shared_presentable) == image_usage::shared_presentable) {
+			// No corresponding flags
+			// TODO: image_usage::shared_presentable should probably be removed from enum struct image_usage! Used to be used to automatically determine suitable layouts in previous framework versions.
+		}
+		if ((aImageUsage & image_usage::tiling_optimal) == image_usage::tiling_optimal) {
+			std::get<vk::ImageTiling>(result) = vk::ImageTiling::eOptimal;
+		}
+		if ((aImageUsage & image_usage::tiling_linear) == image_usage::tiling_linear) {
+			std::get<vk::ImageTiling>(result) = vk::ImageTiling::eLinear;
+		}
+		if ((aImageUsage & image_usage::sparse_memory_binding) == image_usage::sparse_memory_binding) {
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eSparseBinding;
+		}
+		if ((aImageUsage & image_usage::cube_compatible) == image_usage::cube_compatible){
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eCubeCompatible;
+		}
+		if ((aImageUsage & image_usage::is_protected) == image_usage::is_protected) {
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eProtected;
+		}
+		if ((aImageUsage & image_usage::mip_mapped) == image_usage::mip_mapped) {
+			// No corresponding flags
+			// TODO: image_usage::mip_mapped should probably be removed from enum struct image_usage! 
+		}
+		if ((aImageUsage & image_usage::mutable_format) == image_usage::mutable_format) {
+			std::get<vk::ImageCreateFlags>(result) |= vk::ImageCreateFlagBits::eMutableFormat;
+		}
+		return result;
+	}
+
 #pragma endregion
 
 #pragma region attachment definitions
-	attachment attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp)
+	attachment attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		return attachment{
 			std::get<vk::Format>(aFormatAndSamples),
@@ -1490,20 +1408,16 @@ namespace avk
 		};
 	}
 
-	attachment attachment::declare(vk::Format aFormat, on_load aLoadOp, usage_desc aUsageInSubpasses, on_store aStoreOp)
+	attachment attachment::declare(vk::Format aFormat, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
 		return declare({aFormat, vk::SampleCountFlagBits::e1}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
 	}
 
-	attachment attachment::declare_for(resource_reference<const image_view_t> aImageView, avk::on_load aLoadOp, avk::usage_desc aUsageInSubpasses, avk::on_store aStoreOp)
+	attachment attachment::declare_for(const image_view_t& aImageView, attachment_load_config aLoadOp, avk::subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
-		const auto& imageConfig = aImageView->get_image().create_info();
+		const auto& imageConfig = aImageView.get_image().create_info();
 		const auto format = imageConfig.format;
-		const std::optional<image_usage> imageUsage = aImageView->get_image().usage_config();
 		auto result = declare({format, imageConfig.samples}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
-		if (imageUsage.has_value()) {
-			result.set_image_usage_hint(imageUsage.value());
-		}
 		return result;
 	}
 #pragma endregion
@@ -1580,7 +1494,7 @@ namespace avk
 		result.mBuildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 			.setFlags(result.mFlags)
-			.setGeometryCount(result.mAccStructureGeometries.size())
+			.setGeometryCount(static_cast<uint32_t>(result.mAccStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray);
 #else
 		result.mGeometryInfos.reserve(aGeometryDescriptions.size());
@@ -1622,7 +1536,7 @@ namespace avk
 		return result;
 	}
 
-	buffer_t& bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
+	avk::buffer bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
@@ -1639,17 +1553,33 @@ namespace avk
 #endif
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
+			mScratchBuffer->enable_shared_ownership();
 		}
 		assert(mScratchBuffer.has_value());
-		return mScratchBuffer.value().get();
+		return mScratchBuffer.value();
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::build_or_update(std::vector<vertex_index_buffer_pair> aGeometries, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction)
 	{
-		// TODO: into avk::commands
-
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
+		std::vector<avk::buffer> lifetimeHandledBuffers;
+		lifetimeHandledBuffers.push_back(std::move( // Scratch buffer is always the first in the vector
+			aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer())
+		));
+		auto getScratchBuffer = [&]() { return lifetimeHandledBuffers.front(); };
+
+		// Construct before, then pass to the action_type_command:
+		std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> resSpecificSyncHints;
+		resSpecificSyncHints.push_back( // For the scratch buffer
+			std::make_tuple(getScratchBuffer()->handle(), avk::sync::sync_hint{
+				// As the specification has it:
+				//   Accesses to the acceleration structure scratch buffers as identified by the VkAccelerationStructureBuildGeometryInfoKHR::scratchData buffer device addresses must be synchronized with the 
+				//   VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR or VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
+				stage::acceleration_structure_build + (access::acceleration_structure_read | access::acceleration_structure_write),
+				stage::acceleration_structure_build +                                        access::acceleration_structure_write
+			})
+		);
+		// Later, also fill in the dependencies for ALL the buffers referenced by aGeometries.
 
 		std::vector<vk::AccelerationStructureGeometryKHR> accStructureGeometries;
 		accStructureGeometries.reserve(aGeometries.size());
@@ -1660,8 +1590,6 @@ namespace avk
 #if VK_HEADER_VERSION >= 162
 		std::vector<vk::AccelerationStructureBuildRangeInfoKHR> buildRangeInfos;
 		buildRangeInfos.reserve(aGeometries.size());
-		std::vector<vk::AccelerationStructureBuildRangeInfoKHR*> buildRangeInfoPtrs; // Points to elements inside buildOffsetInfos... just... because!
-		buildRangeInfoPtrs.reserve(aGeometries.size());
 #else
 		std::vector<vk::AccelerationStructureBuildOffsetInfoKHR> buildOffsetInfos;
 		buildOffsetInfos.reserve(aGeometries.size());
@@ -1670,9 +1598,9 @@ namespace avk
 #endif
 
 		for (auto& pair : aGeometries) {
-			auto vertexBuffer = pair.vertex_buffer();
+			auto& vertexBuffer = pair.vertex_buffer();
 			const auto& vertexBufferMeta = vertexBuffer->meta<vertex_buffer_meta>();
-			auto indexBuffer = pair.index_buffer();
+			auto& indexBuffer = pair.index_buffer();
 			const auto& indexBufferMeta = indexBuffer->meta<index_buffer_meta>();
 
 			if (vertexBufferMeta.member_descriptions().size() == 0) {
@@ -1705,7 +1633,7 @@ namespace avk
 				.setPrimitiveOffset(0u)
 				.setFirstVertex(0u)
 				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-			buildRangeInfoPtrs.emplace_back(&bri);
+			//buildRangeInfoPtrs.emplace_back(&bri);
 #else
 			auto& boi = buildOffsetInfos.emplace_back()
 				.setPrimitiveCount(static_cast<uint32_t>(indexBufferMeta.num_elements()) / 3u)
@@ -1714,9 +1642,23 @@ namespace avk
 				.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
 			buildOffsetInfoPtrs.emplace_back(&boi);
 #endif
+
+			// Create sync hint for each one of the buffers
+			// As the specification has it:
+			//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stageand an access type of VK_ACCESS_SHADER_READ_BIT:
+			resSpecificSyncHints.push_back(std::make_tuple(vertexBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+			resSpecificSyncHints.push_back(std::make_tuple(indexBuffer->handle(),  avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+
+			// See if we must handle the lifetime of the two buffers:
+			if (vertexBuffer.is_ownership()) {
+				lifetimeHandledBuffers.push_back(std::move(vertexBuffer.get_ownership()));
+			}
+			if (indexBuffer.is_ownership()) {
+				lifetimeHandledBuffers.push_back(std::move(indexBuffer.get_ownership()));
+			}
 		}
 
-		const auto* pointerToAnArray = accStructureGeometries.data();
+		//const auto* pointerToAnArray = accStructureGeometries.data();
 
 		buildGeometryInfos.emplace_back()
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
@@ -1730,47 +1672,68 @@ namespace avk
 			.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle())
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
-			.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
+			//.setPpGeometries(&pointerToAnArray)
+			.setScratchData(vk::DeviceOrHostAddressKHR{ getScratchBuffer()->device_address() });
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::acceleration_structure_build, read_memory_access{memory_access::acceleration_structure_read_access});
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
+			std::move(resSpecificSyncHints),
+			[
+				lRoot = mRoot,
+				lAccStructureGeometries = std::move(accStructureGeometries),
+				lBuildGeometryInfos = std::move(buildGeometryInfos),
+				lBuildRangeInfos = std::move(buildRangeInfos),
+				//lBuildRangeInfoPtrs = std::move(buildRangeInfoPtrs),
+				lLifetimeHandledBuffers = std::move(lifetimeHandledBuffers)
+			] (avk::command_buffer_t& cb) mutable {
+				// It requires pointer to a pointer => set here, inside the lambda:
+				const auto* pointerToAnArray = lAccStructureGeometries.data();
+				lBuildGeometryInfos[0].setPpGeometries(&pointerToAnArray);
+
+				std::vector<vk::AccelerationStructureBuildRangeInfoKHR*> buildRangeInfoPtrs{ lBuildRangeInfos.size() }; // Points to elements inside buildOffsetInfos... just... because!
+				for (size_t i = 0; i < lBuildRangeInfos.size(); ++i) {
+					buildRangeInfoPtrs[i] = &lBuildRangeInfos[i];
+				}
 
 #if VK_HEADER_VERSION >= 162
-		commandBuffer.handle().buildAccelerationStructuresKHR(
-			static_cast<uint32_t>(buildGeometryInfos.size()),
-			buildGeometryInfos.data(),
-			buildRangeInfoPtrs.data(),
-			mRoot->dispatch_loader_ext()
-		);
+				cb.handle().buildAccelerationStructuresKHR(
+					static_cast<uint32_t>(lBuildGeometryInfos.size()),
+					lBuildGeometryInfos.data(),
+					buildRangeInfoPtrs.data(),
+					lRoot->dispatch_loader_ext()
+				);
 #else
-		commandBuffer.handle().buildAccelerationStructureKHR(
-			static_cast<uint32_t>(buildGeometryInfos.size()),
-			buildGeometryInfos.data(),
-			buildOffsetInfoPtrs.data(),
-			mRoot->dispatch_loader_ext()
-		);
+				cb.handle().buildAccelerationStructureKHR(
+					static_cast<uint32_t>(lBuildGeometryInfos.size()),
+					lBuildGeometryInfos.data(),
+					buildRangeInfoPtrs.data(),
+					lRoot->dispatch_loader_ext()
+				);
 #endif
 
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
+				// Take care of the the buffers' lifetimes:
+				for (auto& b : lLifetimeHandledBuffers) {
+					let_it_handle_lifetime_of(cb, b);
+				}
+			}
+		};
 
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::build(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<avk::buffer> aScratchBuffer)
 	{
-		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
+		return build_or_update(aGeometries, std::move(aScratchBuffer), blas_action::build);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::update(const std::vector<vertex_index_buffer_pair>& aGeometries, std::optional<avk::buffer> aScratchBuffer)
 	{
-		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
+		return build_or_update(aGeometries, std::move(aScratchBuffer), blas_action::update);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::build_or_update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction)
 	{
 		// Create buffer for the AABBs:
 		auto aabbDataBuffer = root::create_buffer(
@@ -1778,25 +1741,37 @@ namespace avk
 			memory_usage::device, {},
 			aabb_buffer_meta::create_from_data(aGeometries)
 		);
-		aabbDataBuffer->fill(aGeometries.data(), 0, sync::wait_idle()); // TODO: Do not use wait_idle!
-		// TODO: Probably better to NOT create an entirely new buffer at every invocation ^^
+		// TODO: ^ Probably better to NOT create an entirely new buffer at every invocation ^^
 
-		auto result = build_or_update(aabbDataBuffer, aScratchBuffer, std::move(aSyncHandler), aBuildAction);
-		if (result.has_value()) {
-			// Handle lifetime:
-			result.value()->set_custom_deleter([lOwnedAabbBuffer = std::move(aabbDataBuffer)](){});
-		}
-		else {
-			AVK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
-			mRoot->device().waitIdle();
-		}
+		auto result = avk::command::action_type_command{};
+		result.mNestedCommandsAndSyncInstructions.push_back(aabbDataBuffer->fill(aGeometries.data(), 0));
+		result.mNestedCommandsAndSyncInstructions.push_back(sync::buffer_memory_barrier(aabbDataBuffer.as_reference(), stage::auto_stage >> stage::auto_stage, access::auto_access >> access::auto_access));
+		result.mNestedCommandsAndSyncInstructions.push_back(build_or_update(std::move(aabbDataBuffer), std::move(aScratchBuffer), aBuildAction));
+		result.infer_sync_hint_from_nested_commands();
+		
 		return result;
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build_or_update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, blas_action aBuildAction)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::build_or_update(resource_argument<buffer_t> aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer, blas_action aBuildAction)
 	{
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
+		avk::buffer scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
+
+		// Construct before, then pass to the action_type_command:
+		std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> resSpecificSyncHints;
+		resSpecificSyncHints.push_back( // For the scratch buffer
+			std::make_tuple(scratchBuffer->handle(), avk::sync::sync_hint{
+				// As the specification has it:
+				//   Accesses to the acceleration structure scratch buffers as identified by the VkAccelerationStructureBuildGeometryInfoKHR::scratchData buffer device addresses must be synchronized with the 
+				//   VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR or VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
+				stage::acceleration_structure_build + (access::acceleration_structure_read | access::acceleration_structure_write),
+				stage::acceleration_structure_build + access::acceleration_structure_write
+				})
+		);
+		// Let's additionally also fill the dependencies for the geometries buffer:
+		// As the specification has it:
+		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometriesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
 
 		const auto& aabbMeta = aGeometriesBuffer->meta<aabb_buffer_meta>();
 		auto startAddress = aGeometriesBuffer->device_address();
@@ -1820,7 +1795,7 @@ namespace avk
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-		vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &buildRangeInfo;
+		//vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &buildRangeInfo;
 #else
 		auto buildOffsetInfo = vk::AccelerationStructureBuildOffsetInfoKHR{}
 			.setPrimitiveCount(static_cast<uint32_t>(aabbMeta.num_elements()))
@@ -1830,7 +1805,7 @@ namespace avk
 		vk::AccelerationStructureBuildOffsetInfoKHR* buildOffsetInfoPtr = &buildOffsetInfo;
 #endif
 
-		const auto* pointerToAnArray = &accStructureGeometry;
+		//const auto* pointerToAnArray = &accStructureGeometry;
 
 		auto buildGeometryInfos = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
@@ -1844,54 +1819,70 @@ namespace avk
 			.setSrcAccelerationStructure(aBuildAction == blas_action::build ? nullptr : acceleration_structure_handle()) // TODO: support different src acceleration structure?!
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(1u)
-			.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
+			//.setPpGeometries(&pointerToAnArray)
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::acceleration_structure_build, read_memory_access{memory_access::acceleration_structure_read_access});
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
+			std::move(resSpecificSyncHints),
+			[
+				lRoot = mRoot,
+				lScratchBuffer = std::move(scratchBuffer),
+				lGeometriesBuffer = aGeometriesBuffer.move_ownership_or_get_empty(),
+				lAccStructureGeometry = std::move(accStructureGeometry),
+				lBuildGeometryInfos = std::move(buildGeometryInfos),
+				lBuildRangeInfo = std::move(buildRangeInfo)
+			] (avk::command_buffer_t& cb) mutable {
+				// Set all the config pointers here inside the lambda:
+				vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &lBuildRangeInfo;
+				const auto* pointerToAnArray = &lAccStructureGeometry;
+				lBuildGeometryInfos.setPpGeometries(&pointerToAnArray);
 
 #if VK_HEADER_VERSION >= 162
-		commandBuffer.handle().buildAccelerationStructuresKHR(
-			1u,
-			&buildGeometryInfos,
-			&buildRangeInfoPtr,
-			mRoot->dispatch_loader_ext()
-		);
+				cb.handle().buildAccelerationStructuresKHR(
+					1u,
+					&lBuildGeometryInfos,
+					&buildRangeInfoPtr,
+					lRoot->dispatch_loader_ext()
+				);
 #else
-		commandBuffer.handle().buildAccelerationStructureKHR(
-			1u,
-			&buildGeometryInfos,
-			&buildOffsetInfoPtr,
-			mRoot->dispatch_loader_ext()
-		);
+				cb.handle().buildAccelerationStructureKHR(
+					1u,
+					&lBuildGeometryInfos,
+					&buildRangeInfoPtr,
+					lRoot->dispatch_loader_ext()
+				);
 #endif
 
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
+				// Take care of the buffers' lifetimes:
+				let_it_handle_lifetime_of(cb, lScratchBuffer);
+				let_it_handle_lifetime_of(cb, lGeometriesBuffer);
+			}
+		};
 
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::build(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer)
 	{
-		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
+		return build_or_update(aGeometries, std::move(aScratchBuffer), blas_action::build);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::update(const std::vector<VkAabbPositionsKHR>& aGeometries, std::optional<avk::buffer> aScratchBuffer)
 	{
-		return build_or_update(aGeometries, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
+		return build_or_update(aGeometries, std::move(aScratchBuffer), blas_action::update);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::build(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::build(const buffer& aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer)
 	{
-		return build_or_update(aGeometriesBuffer, aScratchBuffer, std::move(aSyncHandler), blas_action::build);
+		return build_or_update(aGeometriesBuffer, std::move(aScratchBuffer), blas_action::build);
 	}
 
-	std::optional<command_buffer> bottom_level_acceleration_structure_t::update(const buffer& aGeometriesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command bottom_level_acceleration_structure_t::update(const buffer& aGeometriesBuffer, std::optional<avk::buffer> aScratchBuffer)
 	{
-		return build_or_update(aGeometriesBuffer, aScratchBuffer, std::move(aSyncHandler), blas_action::update);
+		return build_or_update(aGeometriesBuffer, std::move(aScratchBuffer), blas_action::update);
 	}
 
 
@@ -1928,7 +1919,7 @@ namespace avk
 		result.mBuildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
 			.setFlags(result.mFlags)
-			.setGeometryCount(result.mAccStructureGeometries.size())
+			.setGeometryCount(static_cast<uint32_t>(result.mAccStructureGeometries.size()))
 			.setPpGeometries(&pointerToAnArray);
 #else
 		// 2. Assemble info about the TOP LEVEL acceleration structure and the set its geometry
@@ -1964,7 +1955,7 @@ namespace avk
 		return result;
 	}
 	
-	buffer_t& top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
+	avk::buffer top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
 			mScratchBuffer = root::create_buffer(
@@ -1985,10 +1976,10 @@ namespace avk
 			);
 		}
 		assert(mScratchBuffer.has_value());
-		return mScratchBuffer.value().get();
+		return mScratchBuffer.value();
 	}
 
-	std::optional<command_buffer> top_level_acceleration_structure_t::build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction)
+	avk::command::action_type_command top_level_acceleration_structure_t::build_or_update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction)
 	{
 		auto geomInstances = convert_for_gpu_usage(aGeometryInstances);
 
@@ -2002,25 +1993,36 @@ namespace avk
 #endif
 			geometry_instance_buffer_meta::create_from_data(geomInstances)
 		);
-		geomInstBuffer->fill(geomInstances.data(), 0, sync::not_required());
 
-		auto result = build_or_update(geomInstBuffer, aScratchBuffer, std::move(aSyncHandler), aBuildAction);
-
-		if (result.has_value()) {
-			// Handle lifetime:
-			result.value()->set_custom_deleter([lOwnedAabbBuffer = std::move(geomInstBuffer)](){});
-		}
-		else {
-			AVK_LOG_INFO("Sorry for this mDevice::waitIdle call :( It will be gone after command/commands-refactoring");
-			mRoot->device().waitIdle();
-		}
+		auto result = avk::command::action_type_command{};
+		result.mNestedCommandsAndSyncInstructions.push_back(geomInstBuffer->fill(geomInstances.data(), 0));
+		result.mNestedCommandsAndSyncInstructions.push_back(sync::buffer_memory_barrier(geomInstBuffer.as_reference(), stage::auto_stage >> stage::auto_stage, access::auto_access >> access::auto_access));
+		result.mNestedCommandsAndSyncInstructions.push_back(build_or_update(std::move(geomInstBuffer), aScratchBuffer, aBuildAction));
+		result.infer_sync_hint_from_nested_commands();
+		
 		return result;
 	}
 
-	std::optional<command_buffer> top_level_acceleration_structure_t::build_or_update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler, tlas_action aBuildAction)
+	avk::command::action_type_command top_level_acceleration_structure_t::build_or_update(avk::resource_argument<avk::buffer_t> aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer, tlas_action aBuildAction)
 	{
 		// Set the aScratchBuffer parameter to an internal scratch buffer, if none has been passed:
-		buffer_t& scratchBuffer = aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer());
+		avk::buffer scratchBuffer = std::move(aScratchBuffer.value_or(get_and_possibly_create_scratch_buffer()));
+
+		// Construct before, then pass to the action_type_command:
+		std::vector<std::tuple<std::variant<vk::Image, vk::Buffer>, avk::sync::sync_hint>> resSpecificSyncHints;
+		resSpecificSyncHints.push_back( // For the scratch buffer
+			std::make_tuple(scratchBuffer->handle(), avk::sync::sync_hint{
+				// As the specification has it:
+				//   Accesses to the acceleration structure scratch buffers as identified by the VkAccelerationStructureBuildGeometryInfoKHR::scratchData buffer device addresses must be synchronized with the 
+				//   VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR or VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
+				stage::acceleration_structure_build + (access::acceleration_structure_read | access::acceleration_structure_write),
+				stage::acceleration_structure_build + access::acceleration_structure_write
+			})
+		);
+		// Let's additionally also fill the dependencies for the geometries buffer:
+		// As the specification has it:
+		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometryInstancesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
 
 		const auto& metaData = aGeometryInstancesBuffer->meta<geometry_instance_buffer_meta>();
 		auto startAddress = aGeometryInstancesBuffer->device_address();
@@ -2049,7 +2051,7 @@ namespace avk
 			.setPrimitiveOffset(0u)
 			.setFirstVertex(0u)
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
-		vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &bri;
+		//vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &bri;
 #else
 		auto boi = vk::AccelerationStructureBuildOffsetInfoKHR{}
 			// For geometries of type VK_GEOMETRY_TYPE_INSTANCES_KHR, primitiveCount is the number of acceleration
@@ -2061,9 +2063,7 @@ namespace avk
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
 		vk::AccelerationStructureBuildOffsetInfoKHR* buildOffsetInfoPtr = &boi;
 #endif
-
-		const auto* pointerToAnArray = &accStructureGeometries;
-
+		
 		auto buildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
 			.setFlags(mFlags)
@@ -2076,53 +2076,72 @@ namespace avk
 			.setSrcAccelerationStructure(aBuildAction == tlas_action::build ? nullptr : acceleration_structure_handle())
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(1u) // TODO: Correct?
-			.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer.device_address() });
+			//.setPpGeometries(&pointerToAnArray)
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::acceleration_structure_build, read_memory_access{memory_access::acceleration_structure_read_access});
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
+			std::move(resSpecificSyncHints),
+			[
+				lRoot = mRoot,
+				lScratchBuffer = std::move(scratchBuffer),
+				lAccStructureGeometries = std::move(accStructureGeometries),
+				lBuildGeometryInfo = std::move(buildGeometryInfo),
+				lBuildRangeInfo = std::move(bri),
+				lGeometryInstancesBuffer = aGeometryInstancesBuffer.move_ownership_or_get_empty()
+			] (avk::command_buffer_t& cb) mutable {
+				// It requires pointer to a pointer => set here, inside the lambda:
+				vk::AccelerationStructureBuildRangeInfoKHR* buildRangeInfoPtr = &lBuildRangeInfo;
+
+				// Set pointer to acceleration structure geometries here:
+				const auto* pointerToAnArray = &lAccStructureGeometries;
+				lBuildGeometryInfo.setPpGeometries(&pointerToAnArray);
 
 #if VK_HEADER_VERSION >= 162
-		commandBuffer.handle().buildAccelerationStructuresKHR(
-			1u,
-			&buildGeometryInfo,
-			&buildRangeInfoPtr,
-			mRoot->dispatch_loader_ext()
-		);
+				cb.handle().buildAccelerationStructuresKHR(
+					1u,
+					&lBuildGeometryInfo,
+					&buildRangeInfoPtr,
+					lRoot->dispatch_loader_ext()
+				);
 #else
-		commandBuffer.handle().buildAccelerationStructureKHR(
-			1u,
-			&buildGeometryInfo,
-			&buildOffsetInfoPtr,
-			mRoot->dispatch_loader_ext()
-		);
+				cb.handle().buildAccelerationStructureKHR(
+					1u,
+					&buildGeometryInfo,
+					&buildOffsetInfoPtr,
+					lRoot->dispatch_loader_ext()
+				);
 #endif
 
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::acceleration_structure_build, write_memory_access{memory_access::acceleration_structure_write_access});
+				// Take care of the scratch buffer's lifetime:
+				let_it_handle_lifetime_of(cb, lScratchBuffer);
+				let_it_handle_lifetime_of(cb, lGeometryInstancesBuffer);
+			}
+		};
 
-		return aSyncHandler.submit_and_sync();
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
-	void top_level_acceleration_structure_t::build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command top_level_acceleration_structure_t::build(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer)
 	{
-		build_or_update(aGeometryInstances, aScratchBuffer, std::move(aSyncHandler), tlas_action::build);
+		return build_or_update(aGeometryInstances, std::move(aScratchBuffer), tlas_action::build);
 	}
 
-	void top_level_acceleration_structure_t::build(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command top_level_acceleration_structure_t::build(const buffer& aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer)
 	{
-		build_or_update(aGeometryInstancesBuffer, aScratchBuffer, std::move(aSyncHandler), tlas_action::build);
+		return build_or_update(aGeometryInstancesBuffer, std::move(aScratchBuffer), tlas_action::build);
 	}
 
-	void top_level_acceleration_structure_t::update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command top_level_acceleration_structure_t::update(const std::vector<geometry_instance>& aGeometryInstances, std::optional<avk::buffer> aScratchBuffer)
 	{
-		build_or_update(aGeometryInstances, aScratchBuffer, std::move(aSyncHandler), tlas_action::update);
+		return build_or_update(aGeometryInstances, std::move(aScratchBuffer), tlas_action::update);
 	}
 
-	void top_level_acceleration_structure_t::update(const buffer& aGeometryInstancesBuffer, std::optional<std::reference_wrapper<buffer_t>> aScratchBuffer, sync aSyncHandler)
+	avk::command::action_type_command top_level_acceleration_structure_t::update(const buffer& aGeometryInstancesBuffer, std::optional<avk::buffer> aScratchBuffer)
 	{
-		build_or_update(aGeometryInstancesBuffer, aScratchBuffer, std::move(aSyncHandler), tlas_action::update);
+		return build_or_update(aGeometryInstancesBuffer, std::move(aScratchBuffer), tlas_action::update);
 	}
 #endif
 #pragma endregion
@@ -2133,16 +2152,16 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_t*>>(mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_t*>>(mResourcePtr).size()); }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_descriptor*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr).size()); }
 
 		//                                                                         vvv There can only be ONE pNext (at least I think so) vvv
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return 1u; }
 
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr))    { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_sampled_image*>>   (mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_input_attachment*>>(mResourcePtr).size()); }
-		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_storage_image*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr))    { return static_cast<uint32_t>(std::get<std::vector<const image_view_as_storage_image*>>   (mResourcePtr).size()); }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const sampler_t*>>(mResourcePtr).size()); }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const image_sampler_t*>>(mResourcePtr).size()); }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return static_cast<uint32_t>(std::get<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr).size()); }
 
 		return 1u;
 	}
@@ -2152,11 +2171,11 @@ namespace avk
 		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
 
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) {
-			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_t*>(mResourcePtr)->descriptor_info());
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) {
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_as_sampled_image*>(mResourcePtr)->descriptor_info());
 		}
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) {
 			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_view_as_input_attachment*>(mResourcePtr)->descriptor_info());
@@ -2167,20 +2186,20 @@ namespace avk
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) {
 			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const sampler_t*>(mResourcePtr)->descriptor_info());
 		}
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) {
-			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const image_sampler_t*>(mResourcePtr)->descriptor_info());
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) {
+			return aDescriptorSet.store_image_info(mLayoutBinding.binding, std::get<const combined_image_sampler_descriptor_info*>(mResourcePtr)->descriptor_info());
 		}
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
 
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) {
-			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_t*>>(mResourcePtr)));
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) {
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)));
 		}
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) {
 			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)));
@@ -2191,8 +2210,8 @@ namespace avk
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) {
 			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const sampler_t*>>(mResourcePtr)));
 		}
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) {
-			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const image_sampler_t*>>(mResourcePtr)));
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) {
+			return aDescriptorSet.store_image_infos(mLayoutBinding.binding, gather_image_infos(std::get<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)));
 		}
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
@@ -2207,14 +2226,14 @@ namespace avk
 			return aDescriptorSet.store_buffer_info(mLayoutBinding.binding, std::get<const buffer_descriptor*>(mResourcePtr)->descriptor_info());
 		}
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) {
@@ -2224,14 +2243,14 @@ namespace avk
 			return aDescriptorSet.store_buffer_infos(mLayoutBinding.binding, gather_buffer_infos(std::get<std::vector<const buffer_descriptor*>>(mResourcePtr)));
 		}
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
 	}
@@ -2241,7 +2260,7 @@ namespace avk
 		if (std::holds_alternative<const buffer_t*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_descriptor*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 #if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) {
@@ -2249,17 +2268,17 @@ namespace avk
 		}
 #endif
 
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_descriptor*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 #if VK_HEADER_VERSION >= 135
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) {
@@ -2267,11 +2286,11 @@ namespace avk
 		}
 #endif
 
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
 	}
@@ -2284,16 +2303,16 @@ namespace avk
 		if (std::holds_alternative<const buffer_view_t*>(mResourcePtr)) {
 			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_t*>(mResourcePtr)->view_handle());
 		}
-		if (std::holds_alternative<const buffer_view_descriptor*>(mResourcePtr)) {
-			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_descriptor*>(mResourcePtr)->view_handle());
+		if (std::holds_alternative<const buffer_view_descriptor_info*>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_view(mLayoutBinding.binding, std::get<const buffer_view_descriptor_info*>(mResourcePtr)->view_handle());
 		}
 
 		if (std::holds_alternative<const top_level_acceleration_structure_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_view_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const image_view_as_sampled_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_input_attachment*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const image_view_as_storage_image*>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<const sampler_t*>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<const image_sampler_t*>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<const combined_image_sampler_descriptor_info*>(mResourcePtr)) { return nullptr; }
 
 
 		if (std::holds_alternative<std::vector<const buffer_t*>>(mResourcePtr)) { return nullptr; }
@@ -2302,16 +2321,16 @@ namespace avk
 		if (std::holds_alternative<std::vector<const buffer_view_t*>>(mResourcePtr)) {
 			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_t*>>(mResourcePtr)));
 		}
-		if (std::holds_alternative<std::vector<const buffer_view_descriptor*>>(mResourcePtr)) {
-			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_descriptor*>>(mResourcePtr)));
+		if (std::holds_alternative<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)) {
+			return aDescriptorSet.store_buffer_views(mLayoutBinding.binding, gather_buffer_views(std::get<std::vector<const buffer_view_descriptor_info*>>(mResourcePtr)));
 		}
 
 		if (std::holds_alternative<std::vector<const top_level_acceleration_structure_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_view_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const image_view_as_sampled_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_input_attachment*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const image_view_as_storage_image*>>(mResourcePtr)) { return nullptr; }
 		if (std::holds_alternative<std::vector<const sampler_t*>>(mResourcePtr)) { return nullptr; }
-		if (std::holds_alternative<std::vector<const image_sampler_t*>>(mResourcePtr)) { return nullptr; }
+		if (std::holds_alternative<std::vector<const combined_image_sampler_descriptor_info*>>(mResourcePtr)) { return nullptr; }
 
 		throw runtime_error("Some holds_alternative calls are not implemented.");
 	}
@@ -2500,28 +2519,50 @@ namespace avk
 		return result;
 	}
 
-	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler)
+	avk::command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex) const
 	{
-		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
-		return fill(aDataPtr, aMetaDataIndex, 0u, bufferSize, std::move(aSyncHandler));
+		const auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
+		const auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
+		return fill(aDataPtr, aMetaDataIndex, 0u, bufferSize);
 	}
 
-	std::optional<command_buffer> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes, sync aSyncHandler)
+	command::action_type_command buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes) const
 	{
+		auto dstOffset = static_cast<vk::DeviceSize>(aOffsetInBytes);
 		auto dataSize = static_cast<vk::DeviceSize>(aDataSizeInBytes);
-		auto memProps = memory_properties();
+		const auto memProps = memory_properties();
 
 #ifdef _DEBUG
 		const auto& metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-		assert(aOffsetInBytes + aDataSizeInBytes <= metaData.total_size()); // The fill operation would write beyond the buffer's size.
+		assert(dstOffset + dataSize <= metaData.total_size()); // The fill operation would write beyond the buffer's size.
 #endif
+
+		// Prepare a result which defines no sync hints and no instructions to be executed for some cases:
+		auto actionTypeCommand = command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(handle(), avk::sync::sync_hint{
+					stage::none + access::none, // No need to wait on anything nor to make anything available
+					// Set defaults for the host-visible-only case, overwrite them for device buffers further down:
+					stage::none + access::none, // <-- This is okay for host-visible buffers, because the queue submit transfers the memory
+				})
+			}
+		};
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		// #0: Sanity check
+		if (dataSize == 0) {
+			// Nothing to do here
+			return actionTypeCommand;
+		}
 
 		// #1: Is our memory accessible from the CPU-SIDE?
 		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
 			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
-			memcpy(static_cast<uint8_t *>(mapped.get()) + aOffsetInBytes, aDataPtr, dataSize);
-			return {};
+			// Memcpy doesn't have to wait on anything, no sync required.
+			memcpy(static_cast<uint8_t *>(mapped.get()) + dstOffset, aDataPtr, dataSize);
+			// Since this is a host-write, no need for any barrier, because of implicit host write guarantee.
+			return actionTypeCommand;
 		}
 
 		// #2: Otherwise, it must be on the GPU-SIDE!
@@ -2535,34 +2576,38 @@ namespace avk
 			// If dataSize is zero, skip staging buffer creation and the copy command, but still
 			// process the synchronization calls, as user code may rely on those.
 
-			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
+			auto stagingBuffer = root::create_buffer(
+				*mRoot,
+				AVK_STAGING_BUFFER_MEMORY_USAGE,
+				vk::BufferUsageFlagBits::eTransferSrc,
+				generic_buffer_meta::create_from_size(dataSize)
+			);
+			stagingBuffer.enable_shared_ownership(); // TODO: Why does it not work WITHOUT shared_ownership? (Fails when assigning it to mBeginFun)
+			stagingBuffer->fill(aDataPtr, 0); // Recurse into the other if-branch
 
-			// Sync before:
-			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+			// Whatever comes after must synchronize with the device-local copy:
+			std::get<avk::sync::sync_hint>(actionTypeCommand.mResourceSpecificSyncHints.front()).mSrcForSubsequentCmds = stage::copy + access::transfer_write;
+			actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+						
+			actionTypeCommand.mBeginFun = [
+				lRoot = mRoot,
+				lOwnedStagingBuffer = std::move(stagingBuffer),
+				lDstBufferHandle = handle(),
+				dstOffset, dataSize
+			](avk::command_buffer_t& cb) mutable {
+				//const auto copyRegion = vk::BufferCopy2KHR{ 0u, 0u, dataSize };
+				//const auto copyBufferInfo = vk::CopyBufferInfo2KHR{ lOwnedStagingBuffer->handle(), lDstBufferHandle, 1u, &copyRegion };
+				//cb.handle().copyBuffer2KHR(&copyBufferInfo);
+				// TODO: No idea why copyBuffer2KHR fails with an access violation
 
-			if (dataSize != 0) {
-				auto stagingBuffer = root::create_buffer(
-					*mRoot,
-					AVK_STAGING_BUFFER_MEMORY_USAGE,
-					vk::BufferUsageFlagBits::eTransferSrc,
-					generic_buffer_meta::create_from_size(dataSize)
-				);
-				stagingBuffer->fill(aDataPtr, 0, sync::wait_idle()); // Recurse into the other if-branch
-
-				// Operation:
-				copy_buffer_to_another(avk::referenced(stagingBuffer), avk::referenced(*this), 0, static_cast<vk::DeviceSize>(aOffsetInBytes), dataSize, sync::with_barriers_into_existing_command_buffer(commandBuffer, {}, {}));
+				const auto copyRegion = vk::BufferCopy{ 0u, 0u, dataSize };
+				cb.handle().copyBuffer(lOwnedStagingBuffer->handle(), lDstBufferHandle, 1u, &copyRegion, lRoot->dispatch_loader_core());
 
 				// Take care of the lifetime handling of the stagingBuffer, it might still be in use when this method returns:
-				commandBuffer.set_custom_deleter([
-					lOwnedStagingBuffer{ std::move(stagingBuffer) }
-				]() { /* Nothing to do here, the buffers' destructors will do the cleanup, the lambda is just storing it. */ });
-			}
+				cb.handle_lifetime_of(std::move(lOwnedStagingBuffer));
+			};
 
-			// Sync after:
-			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-			// Finish him:
-			return aSyncHandler.submit_and_sync();
+			return actionTypeCommand;
 		}
 	}
 
@@ -2593,7 +2638,7 @@ namespace avk
 	//				vk::BufferUsageFlagBits::eTransferSrc,
 	//				generic_buffer_meta::create_from_size(bufferSize)
 	//			);
-	//			stagingBuffer->fill(aDataPtr, 0, sync::wait_idle()); // Recurse into the other if-branch
+	//			stagingBuffer->fill(aDataPtr, 0, old_sync::wait_idle()); // Recurse into the other if-branch
 
 	//			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
 	//			// Sync before:
@@ -2620,7 +2665,7 @@ namespace avk
 	//	}, pipeline_stage::transfer, memory_access::transfer_write_access);
 	//}
 
-	std::optional<command_buffer> buffer_t::read(void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler) const
+	avk::command::action_type_command buffer_t::read_into(void* aDataPtr, size_t aMetaDataIndex) const
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
 		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
@@ -2639,40 +2684,52 @@ namespace avk
 
 			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
 			// "somewhat temporary" means that it can not be deleted in this function, but only
-			//						after the transfer operation has completed => handle via avk::sync!
-			auto stagingBuffer = root::create_buffer(
+			//						after the transfer operation has completed => handle via avk::old_sync!
+			auto stagingBuffer = root::create_buffer( // Need it in shared ownership (default), because we do not know how often the user of this function will execute the commands
 				*mRoot,
-				AVK_STAGING_BUFFER_MEMORY_USAGE,
+				AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE,
 				vk::BufferUsageFlagBits::eTransferDst,
-				generic_buffer_meta::create_from_size(bufferSize));
+				generic_buffer_meta::create_from_size(bufferSize)
+			);
+
 			// TODO: Creating a staging buffer in every read()-call is probably not optimal. => Think about alternative ways!
 
-			// TODO: What about queue ownership?! If not the queue_selection_strategy::prefer_everything_on_single_queue strategy is being applied, it could very well be that this fails.
-			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-			// Sync before:
-			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+			auto actionTypeCommand = avk::command::action_type_command{
+				{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+				{
+					std::make_tuple(handle(), avk::sync::sync_hint{
+						stage::copy + access::transfer_read,
+						stage::copy + access::none
+					})
+					// No need for any dependencies for the staging buffer
+				},
+				[
+					lBufferSize = bufferSize,
+					lBufferHandle = handle(),
+					lStagingBuffer = std::move(stagingBuffer),
+					aMetaDataIndex, aDataPtr
+				] (avk::command_buffer_t& cb) {
+					auto copyRegion = vk::BufferCopy{}
+						.setSrcOffset(0u)
+						.setDstOffset(0u)
+						.setSize(lBufferSize);
+					cb.handle().copyBuffer(lBufferHandle, lStagingBuffer->handle(), { copyRegion });
 
-			// Operation:
-			auto copyRegion = vk::BufferCopy{}
-				.setSrcOffset(0u)
-				.setDstOffset(0u)
-				.setSize(bufferSize);
-			commandBuffer.handle().copyBuffer(handle(), stagingBuffer->handle(), { copyRegion });
+					// Don't need to handle ownership here, because we're storing it in the post execution handler
 
-			// Sync after:
-			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+					cb.set_post_execution_handler([
+						lStagingBuffer, // enabled shared ownership anyways, so just pass by value
+						aMetaDataIndex,
+						aDataPtr
+					]() {
+						lStagingBuffer->read_into(aDataPtr, aMetaDataIndex); // This one will return an empty action_type_command{}
+					});
+				}
+			};
 
-			// Take care of the stagingBuffer's lifetime handling and also of reading the data for this branch:
-			commandBuffer.set_custom_deleter([
-				lOwnedStagingBuffer{ std::move(stagingBuffer) },
-				aMetaDataIndex,
-				aDataPtr
-			]() {
-				lOwnedStagingBuffer->read(aDataPtr, aMetaDataIndex, sync::not_required()); // TODO: not sure about that sync
-			});
+			actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 
-			// Finish him:
-			return aSyncHandler.submit_and_sync();
+			return actionTypeCommand;
 		}
 	}
 #pragma endregion
@@ -2702,10 +2759,10 @@ namespace avk
 		throw avk::runtime_error("Which descriptor type?");
 	}
 
-	buffer_view root::create_buffer_view(resource_ownership<buffer_t> aBufferToOwn, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
+	buffer_view root::create_buffer_view(buffer aBufferToOwn, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation)
 	{
 		buffer_view_t result;
-		result.mBuffer = aBufferToOwn.own(); // moved
+		result.mBuffer = std::move(aBufferToOwn);
 		finish_configuration(result, aViewFormat, std::move(aAlterConfigBeforeCreation));
 		return result;
 	}
@@ -2749,15 +2806,17 @@ namespace avk
 		std::transform(std::begin(tmp), std::end(tmp),
 			std::back_inserter(buffers),
 			// ...transform them into `ak::command_buffer_t` objects:
-			[lUsageFlags = aUsageFlags, poolPtr = mCommandPool](auto& vkCb) -> command_buffer {
+			[lUsageFlags = aUsageFlags, poolPtr = mCommandPool, lRoot = mRoot](auto& vkCb) -> command_buffer {
 				command_buffer_t result;
 				result.mBeginInfo = vk::CommandBufferBeginInfo()
 					.setFlags(lUsageFlags)
 					.setPInheritanceInfo(nullptr);
 				result.mCommandBuffer = std::move(vkCb);
 				result.mCommandPool = std::move(poolPtr);
+				result.mRoot = lRoot;
 				return result;
 			});
+
 		return buffers;
 	}
 
@@ -2779,6 +2838,13 @@ namespace avk
 			(*mCustomDeleter)();
 			mCustomDeleter.reset();
 		}
+		mLifetimeHandledResources.clear();
+	}
+
+	void command_buffer_t::reset()
+	{
+		prepare_for_reuse();
+		handle().reset();
 	}
 
 	command_buffer_t::~command_buffer_t()
@@ -2791,6 +2857,14 @@ namespace avk
 		// Destroy the dependant instance before destroying myself
 		// ^ This is ensured by the order of the members
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
+	}
+
+	command_buffer_t& command_buffer_t::handle_lifetime_of(any_owning_resource_t aResource)
+	{
+
+
+		mLifetimeHandledResources.push_back(std::move(aResource));
+		return *this;
 	}
 
 	void command_buffer_t::invoke_post_execution_handler() const
@@ -2810,170 +2884,6 @@ namespace avk
 	{
 		mCommandBuffer->end();
 		mState = command_buffer_state::finished_recording;
-	}
-
-	void command_buffer_t::begin_render_pass_for_framebuffer(resource_reference<const renderpass_t> aRenderpass, resource_reference<framebuffer_t> aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
-	{
-		const auto firstAttachmentsSize = aFramebuffer->image_view_at(0)->get_image().create_info().extent;
-		const auto& clearValues = aRenderpass->clear_values();
-		auto renderPassBeginInfo = vk::RenderPassBeginInfo()
-			.setRenderPass(aRenderpass->handle())
-			.setFramebuffer(aFramebuffer->handle())
-			.setRenderArea(vk::Rect2D()
-				.setOffset(vk::Offset2D{ aRenderAreaOffset.x, aRenderAreaOffset.y })
-				.setExtent(aRenderAreaExtent.has_value()
-							? vk::Extent2D{ aRenderAreaExtent.value() }
-							: vk::Extent2D{ firstAttachmentsSize.width,  firstAttachmentsSize.height }
-					)
-				)
-			.setClearValueCount(static_cast<uint32_t>(clearValues.size()))
-			.setPClearValues(clearValues.data());
-
-		mSubpassContentsState = aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers;
-		mCommandBuffer->beginRenderPass(renderPassBeginInfo, mSubpassContentsState);
-		// 2nd parameter: how the drawing commands within the render pass will be provided. It can have one of two values [7]:
-		//  - VK_SUBPASS_CONTENTS_INLINE: The render pass commands will be embedded in the primary command buffer itself and no secondary command buffers will be executed.
-		//  - VK_SUBPASS_CONTENTS_SECONDARY_command_buffer_tS : The render pass commands will be executed from secondary command buffers.
-
-		// Sorry, but have to do this:
-#ifdef _DEBUG
-		bool hadToEnable = false;
-#endif
-		std::vector<avk::image_view> imageViews;
-		for (auto& view : aFramebuffer->image_views()) {
-			if (!view.is_shared_ownership_enabled()) { // TODO: Make layout transitions explicit and get rid of this
-				view.enable_shared_ownership();
-#ifdef _DEBUG
-				hadToEnable = true;
-#endif
-			}
-			imageViews.push_back(view);
-		}
-#ifdef _DEBUG
-		if (hadToEnable) {
-			AVK_LOG_DEBUG("Had to enable shared ownership on all the framebuffers' views in command_buffer_t::begin_render_pass_for_framebuffer, fyi.");
-		}
-#endif
-		set_post_execution_handler([lAttachmentDescs = aRenderpass->attachment_descriptions(), lImageViews = std::move(imageViews)] () {
-			const auto n = lImageViews.size();
-			for (size_t i = 0; i < n; ++i) {
-				// I think, the const_cast is justified here:
-				const_cast<image_t&>(lImageViews[i]->get_image()).set_current_layout(lAttachmentDescs[i].finalLayout);
-			}
-		});
-	}
-
-	void command_buffer_t::next_subpass()
-	{
-		mCommandBuffer->nextSubpass(mSubpassContentsState);
-	}
-
-	void command_buffer_t::establish_execution_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage), // Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage), // Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{}, // TODO: support dependency flags
-			{},	{}, {} // no memory barriers
-		);
-	}
-
-	void command_buffer_t::establish_global_memory_barrier(pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage),				// Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage),				// Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{},								// TODO: support dependency flags
-			{ vk::MemoryBarrier{								// Establish a global memory barrier, ...
-				to_vk_access_flags(aSrcAccessToBeMadeAvailable),//  ... making memory from these access types available (after aSrcStage),
-				to_vk_access_flags(aDstAccessToBeMadeVisible)	//  ... and for these access types visible (before aDstStage)
-			}},
-			{}, {} // no buffer/image memory barriers
-		);
-	}
-
-	void command_buffer_t::establish_global_memory_barrier_rw(pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
-	{
-		establish_global_memory_barrier(aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
-	}
-
-	void command_buffer_t::establish_image_memory_barrier(image_t& aImage, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage),						// Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage),						// Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{},										// TODO: support dependency flags
-			{}, {},														// no global memory barriers, no buffer memory barriers
-			{
-				vk::ImageMemoryBarrier{
-					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
-					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
-					aImage.current_layout(), aImage.target_layout(),	// Transition for the former to the latter
-					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,	// TODO: Support queue family ownership transfer
-					aImage.handle(),
-					aImage.entire_subresource_range()					// TODO: Support different subresource ranges
-				}
-			}
-		);
-		aImage.set_current_layout(aImage.target_layout()); // Just optimistically set it
-	}
-
-	void command_buffer_t::establish_image_memory_barrier_rw(image_t& aImage, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
-	{
-		establish_image_memory_barrier(aImage, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
-	}
-
-	void command_buffer_t::establish_buffer_memory_barrier(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<memory_access> aSrcAccessToBeMadeAvailable, std::optional<memory_access> aDstAccessToBeMadeVisible)
-	{
-		mCommandBuffer->pipelineBarrier(
-			to_vk_pipeline_stage_flags(aSrcStage),						// Up to which stage to execute before making memory available
-			to_vk_pipeline_stage_flags(aDstStage),						// Which stage has to wait until memory has been made visible
-			vk::DependencyFlags{},										// TODO: support dependency flags
-			{},
-			{
-				vk::BufferMemoryBarrier{
-					to_vk_access_flags(aSrcAccessToBeMadeAvailable),	// After the aSrcStage, make this memory available
-					to_vk_access_flags(aDstAccessToBeMadeVisible),		// Before the aDstStage, make this memory visible
-					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-					aBuffer.handle(),
-					0, aBuffer.meta_at_index<buffer_meta>().total_size()
-				}
-			},
-			{}
-		);
-	}
-
-	void command_buffer_t::establish_buffer_memory_barrier_rw(buffer_t& aBuffer, pipeline_stage aSrcStage, pipeline_stage aDstStage, std::optional<write_memory_access> aSrcAccessToBeMadeAvailable, std::optional<read_memory_access> aDstAccessToBeMadeVisible)
-	{
-		establish_buffer_memory_barrier(aBuffer, aSrcStage, aDstStage, to_memory_access(aSrcAccessToBeMadeAvailable), to_memory_access(aDstAccessToBeMadeVisible));
-	}
-
-	void command_buffer_t::establish(const pipeline_barrier_data& aBarrierData)
-	{
-		aBarrierData.make_barrier(*this);
-	}
-
-	void command_buffer_t::copy_image(const image_t& aSource, const vk::Image& aDestination)
-	{ // TODO: fix this hack after the RTX-VO!
-		auto fullImageOffset = vk::Offset3D(0, 0, 0);
-		auto fullImageExtent = aSource.create_info().extent;
-		auto halfImageOffset = vk::Offset3D(0, 0, 0); //vk::Offset3D(pSource.mInfo.extent.width / 2, 0, 0);
-		auto halfImageExtent = vk::Extent3D(aSource.create_info().extent.width, aSource.create_info().extent.height, aSource.create_info().extent.depth);
-		auto offset = halfImageOffset;
-		auto extent = halfImageExtent;
-
-		auto copyInfo = vk::ImageCopy()
-			.setSrcSubresource(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0u, 0u, 1u))
-			.setSrcOffset(offset)
-			.setDstSubresource(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0u, 0u, 1u))
-			.setDstOffset(offset)
-			.setExtent(extent);
-		mCommandBuffer->copyImage(aSource.handle(), vk::ImageLayout::eTransferSrcOptimal, aDestination, vk::ImageLayout::eTransferDstOptimal, { copyInfo });
-	}
-
-	void command_buffer_t::end_render_pass()
-	{
-		mCommandBuffer->endRenderPass();
 	}
 
 	void command_buffer_t::bind_descriptors(vk::PipelineBindPoint aBindingPoint, vk::PipelineLayout aLayoutHandle, std::vector<descriptor_set> aDescriptorSets)
@@ -3014,35 +2924,6 @@ namespace avk
 			descIdx += count;
 		}
 	}
-
-#if VK_HEADER_VERSION >= 135
-	void command_buffer_t::trace_rays(
-		vk::Extent3D aRaygenDimensions,
-		const shader_binding_table_ref& aShaderBindingTableRef,
-		const root& aRoot,
-#if VK_HEADER_VERSION >= 162
-		const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef,
-		const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef,
-		const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef,
-		const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef
-
-#else
-		const vk::StridedBufferRegionKHR& aRaygenSbtRef,
-		const vk::StridedBufferRegionKHR& aRaymissSbtRef,
-		const vk::StridedBufferRegionKHR& aRayhitSbtRef,
-		const vk::StridedBufferRegionKHR& aCallableSbtRef
-#endif
-	)
-	{
-		const auto sbtHandle = aShaderBindingTableRef.mSbtBufferHandle;
-		const auto entrySize = aShaderBindingTableRef.mSbtEntrySize;
-		handle().traceRaysKHR(
-			&aRaygenSbtRef, &aRaymissSbtRef, &aRayhitSbtRef, &aCallableSbtRef,
-			aRaygenDimensions.width, aRaygenDimensions.height, aRaygenDimensions.depth,
-			aRoot.dispatch_loader_ext()
-		);
-	}
-#endif
 #pragma endregion
 
 #pragma region compute pipeline definitions
@@ -3146,17 +3027,17 @@ namespace avk
 		return result;
 	}
 
-	compute_pipeline root::create_compute_pipeline_from_template(resource_reference<const compute_pipeline_t> aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
+	compute_pipeline root::create_compute_pipeline_from_template(const compute_pipeline_t& aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		compute_pipeline_t result;
-		result.mPipelineCreateFlags			= aTemplate->mPipelineCreateFlags;
-		result.mShader						= create_shader_from_template(aTemplate->mShader);
-		result.mShaderStageCreateInfo		= aTemplate->mShaderStageCreateInfo;
-		result.mSpecializationInfo			= aTemplate->mSpecializationInfo;
-		result.mBasePipelineIndex			= aTemplate->mBasePipelineIndex;
-		result.mAllDescriptorSetLayouts		= create_set_of_descriptor_set_layouts_from_template(aTemplate->mAllDescriptorSetLayouts);
-		result.mPushConstantRanges			= aTemplate->mPushConstantRanges;
-		result.mPipelineLayoutCreateInfo	= aTemplate->mPipelineLayoutCreateInfo;
+		result.mPipelineCreateFlags			= aTemplate.mPipelineCreateFlags;
+		result.mShader						= create_shader_from_template(aTemplate.mShader);
+		result.mShaderStageCreateInfo		= aTemplate.mShaderStageCreateInfo;
+		result.mSpecializationInfo			= aTemplate.mSpecializationInfo;
+		result.mBasePipelineIndex			= aTemplate.mBasePipelineIndex;
+		result.mAllDescriptorSetLayouts		= create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
+		result.mPushConstantRanges			= aTemplate.mPushConstantRanges;
+		result.mPipelineLayoutCreateInfo	= aTemplate.mPipelineLayoutCreateInfo;
 
 		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
@@ -3370,7 +3251,7 @@ namespace avk
 			aName = "Descriptor Cache #" + std::to_string(sDescCacheId++);
 		}
 
-		descriptor_cache result;
+		descriptor_cache_t result;
 		result.mName = std::move(aName);
 		result.mRoot = this;
 		return result;
@@ -3510,7 +3391,7 @@ namespace avk
 
 #pragma region standard descriptor set
 
-	const descriptor_set_layout& descriptor_cache::get_or_alloc_layout(descriptor_set_layout aPreparedLayout)
+	const descriptor_set_layout& descriptor_cache_t::get_or_alloc_layout(descriptor_set_layout aPreparedLayout)
 	{
 		const auto it = mLayouts.find(aPreparedLayout);
 		if (mLayouts.end() != it) {
@@ -3525,7 +3406,7 @@ namespace avk
 		return *result.first;
 	}
 
-	std::optional<descriptor_set> descriptor_cache::get_descriptor_set_from_cache(const descriptor_set& aPreparedSet)
+	std::optional<descriptor_set> descriptor_cache_t::get_descriptor_set_from_cache(const descriptor_set& aPreparedSet)
 	{
 		const auto it = mSets.find(aPreparedSet);
 		if (mSets.end() != it) {
@@ -3537,7 +3418,7 @@ namespace avk
 		return {};
 	}
 
-	std::vector<descriptor_set> descriptor_cache::alloc_new_descriptor_sets(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts, std::vector<descriptor_set> aPreparedSets)
+	std::vector<descriptor_set> descriptor_cache_t::alloc_new_descriptor_sets(const std::vector<std::reference_wrapper<const descriptor_set_layout>>& aLayouts, std::vector<descriptor_set> aPreparedSets)
 	{
 		assert(aLayouts.size() == aPreparedSets.size());
 
@@ -3604,9 +3485,11 @@ namespace avk
 					AVK_LOG_INFO("Trying again with doubled size requirements...");
 					allocRequest = allocRequest.multiply_size_requirements(2u);
 					poolToTry = get_descriptor_pool_for_layouts(allocRequest);
+					break;
 				default:
 					AVK_LOG_INFO("Trying again with new pool..."); // and possibly doubled size requirements, depending on whether maxTries is 2 or 0
 					poolToTry = get_descriptor_pool_for_layouts(allocRequest, true);
+					break;
 				}
 			}
 		}
@@ -3641,13 +3524,13 @@ namespace avk
 		return result;
 	}
 
-	void descriptor_cache::cleanup()
+	void descriptor_cache_t::cleanup()
 	{
 		mSets.clear();
 		mLayouts.clear();
 	}
 
-	std::shared_ptr<descriptor_pool> descriptor_cache::get_descriptor_pool_for_layouts(const descriptor_alloc_request& aAllocRequest, bool aRequestNewPool)
+	std::shared_ptr<descriptor_pool> descriptor_cache_t::get_descriptor_pool_for_layouts(const descriptor_alloc_request& aAllocRequest, bool aRequestNewPool)
 	{
 		// We'll allocate the pools per (thread and name)
 		auto tId = std::this_thread::get_id();
@@ -3819,7 +3702,7 @@ namespace avk
 		mPool.get()->mDescriptorPool.getOwner().updateDescriptorSets(static_cast<uint32_t>(mOrderedDescriptorDataWrites.size()), mOrderedDescriptorDataWrites.data(), 0u, nullptr);
 	}
 
-	std::vector<descriptor_set> descriptor_cache::get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings)
+	std::vector<descriptor_set> descriptor_cache_t::get_or_create_descriptor_sets(std::initializer_list<binding_data> aBindings)
 	{
 		std::vector<binding_data> orderedBindings;
 		uint32_t minSetId = std::numeric_limits<uint32_t>::max();
@@ -3892,7 +3775,7 @@ namespace avk
 		return cachedSets;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::ImageView aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::ImageView aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -3924,7 +3807,7 @@ namespace avk
 		return numDeleted;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::Buffer aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::Buffer aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -3956,7 +3839,7 @@ namespace avk
 		return numDeleted;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::Sampler aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::Sampler aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -3988,7 +3871,7 @@ namespace avk
 		return numDeleted;
 	}
 
-	int descriptor_cache::remove_sets_with_handle(vk::BufferView aHandle)
+	int descriptor_cache_t::remove_sets_with_handle(vk::BufferView aHandle)
 	{
 		int numDeleted = 0;
 		auto it = std::begin(mSets);
@@ -4035,9 +3918,9 @@ namespace avk
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
 	}
 
-	fence_t& fence_t::set_designated_queue(queue& _Queue)
+	fence_t& fence_t::handle_lifetime_of(any_owning_resource_t aResource)
 	{
-		mQueue = &_Queue;
+		mLifetimeHandledResources.push_back(std::move(aResource));
 		return *this;
 	}
 
@@ -4084,7 +3967,7 @@ namespace avk
 #pragma endregion
 
 #pragma region framebuffer definitions
-	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<resource_ownership<image_view_t>>& aImageViews)
+	void root::check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<image_view>& aImageViews)
 	{
 		if (aAttachments.size() != aImageViews.size()) {
 			throw avk::runtime_error("Incomplete config for framebuffer creation: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
@@ -4096,21 +3979,14 @@ namespace avk
 			if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
 				AVK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
 			}
-			// TODO: Maybe further checks?
-			if (!a.mImageUsageHintBefore.has_value() && !a.mImageUsageHintAfter.has_value()) {
-				a.mImageUsageHintAfter = a.mImageUsageHintBefore = v->get_image().usage_config();
-			}
 		}
 	}
 
-	framebuffer root::create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		framebuffer_t result;
-		result.mRenderpass = aRenderpass.own(); // move
-		result.mImageViews.reserve(aImageViews.size());
-		for (auto& iv : aImageViews) {
-			result.mImageViews.emplace_back(iv.own()); // move
-		}
+		result.mRenderpass = std::move(aRenderpass);
+		result.mImageViews = std::move(aImageViews);
 
 		std::vector<vk::ImageView> imageViewHandles;
 		for (const auto& iv : result.mImageViews) {
@@ -4132,83 +4008,61 @@ namespace avk
 		}
 
 		result.mFramebuffer = device().createFramebufferUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
-
-		// Set the right layouts for the images:
-		const auto n = result.mImageViews.size();
-		const auto& attDescs = result.mRenderpass->attachment_descriptions();
-		for (size_t i = 0; i < n; ++i) {
-			result.mImageViews[i]->get_image().transition_to_layout(attDescs[i].initialLayout);
-		}
-
 		return result;
 	}
 
-	framebuffer root::create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
-			owned(create_renderpass(std::move(aAttachments))),
+			create_renderpass(std::move(aAttachments)),
 			std::move(aImageViews),
 			aWidth, aHeight,
 			std::move(aAlterConfigBeforeCreation)
 		);
 	}
 
-	framebuffer root::create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		assert(!aImageViews.empty());
 		auto extent = aImageViews.front()->get_image().create_info().extent;
 		return create_framebuffer(std::move(aRenderpass), std::move(aImageViews), extent.width, extent.height, std::move(aAlterConfigBeforeCreation));
 	}
 
-	framebuffer root::create_framebuffer(std::vector<avk::attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
+	framebuffer root::create_framebuffer(std::vector<avk::attachment> aAttachments, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation)
 	{
 		check_and_config_attachments_based_on_views(aAttachments, aImageViews);
 		return create_framebuffer(
-			owned(create_renderpass(std::move(aAttachments))),
+			create_renderpass(std::move(aAttachments)),
 			std::move(aImageViews),
 			std::move(aAlterConfigBeforeCreation)
 		);
 	}
 
-	framebuffer root::create_framebuffer_from_template(resource_reference<const framebuffer_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation,
+	framebuffer root::create_framebuffer_from_template(const framebuffer_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation,
 		std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation)
 	{
-		const auto& templateImageViews = aTemplate->image_views();
-		std::vector<resource_ownership<avk::image_view_t>> imageViews;
+		const auto& templateImageViews = aTemplate.image_views();
+		std::vector<image_view> imageViews;
 
 		for (auto& imView : templateImageViews)	{
-			auto imageView = create_image_view_from_template(imView, aAlterImageConfigBeforeCreation, aAlterImageViewConfigBeforeCreation);
+			auto imageView = create_image_view_from_template(*imView, aAlterImageConfigBeforeCreation, aAlterImageViewConfigBeforeCreation);
 			imageViews.emplace_back(std::move(imageView));
 		}
 
 		return create_framebuffer(
-			owned(create_renderpass_from_template(aTemplate->get_renderpass())),
+			create_renderpass_from_template(aTemplate.renderpass_reference()),
 			std::move(imageViews),
-			aTemplate.get().mCreateInfo.width,
-			aTemplate.get().mCreateInfo.height,
+			aTemplate.mCreateInfo.width,
+			aTemplate.mCreateInfo.height,
 			aAlterFramebufferConfigBeforeCreation
 		);
-	}
-
-	std::optional<command_buffer> framebuffer_t::initialize_attachments(sync aSync)
-	{
-		aSync.establish_barrier_before_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
-
-		const size_t n = mImageViews.size();
-		assert (n == mRenderpass->attachment_descriptions().size());
-		for (size_t i = 0; i < n; ++i) {
-			mImageViews[i]->get_image().transition_to_layout(mRenderpass->attachment_descriptions()[i].finalLayout, sync::auxiliary_with_barriers(aSync, {}, {}));
-		}
-
-		aSync.establish_barrier_after_the_operation(pipeline_stage::transfer, {}); // TODO: Don't use transfer after barrier-stage-refactoring
-		return aSync.submit_and_sync();
 	}
 #pragma endregion
 
 #pragma region geometry instance definitions
 #if VK_HEADER_VERSION >= 135
-	geometry_instance root::create_geometry_instance(resource_reference<const bottom_level_acceleration_structure_t> aBlas)
+	geometry_instance root::create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas)
 	{
 		// glm::mat4 mTransform;
 		// uint32_t mInstanceCustomIndex;
@@ -4223,7 +4077,7 @@ namespace avk
 			0xff,
 			0,
 			vk::GeometryInstanceFlagsKHR(),
-			aBlas->device_address()
+			aBlas.device_address()
 		};
 	}
 
@@ -4405,10 +4259,10 @@ namespace avk
 
 	namespace cfg
 	{
-		viewport_depth_scissors_config viewport_depth_scissors_config::from_framebuffer(resource_reference<const framebuffer_t> aFramebuffer)
+		viewport_depth_scissors_config viewport_depth_scissors_config::from_framebuffer(const framebuffer_t& aFramebuffer)
 		{
-			const auto width = aFramebuffer->create_info().width;
-			const auto height = aFramebuffer->create_info().height;
+			const auto width = aFramebuffer.create_info().width;
+			const auto height = aFramebuffer.create_info().height;
 			return viewport_depth_scissors_config{
 				std::array<float, 2>{{ 0.0f, 0.0f }},
 				std::array<float, 2>{{ static_cast<float>(width), static_cast<float>(height)  }},
@@ -4455,6 +4309,7 @@ namespace avk
 			.setPAttachments(aPreparedPipeline.mBlendingConfigsForColorAttachments.data());
 
 		aPreparedPipeline.mMultisampleStateCreateInfo
+			.setRasterizationSamples(aPreparedPipeline.renderpass_reference().num_samples_for_subpass(aPreparedPipeline.subpass_id()))
 			.setPSampleMask(nullptr);
 
 		aPreparedPipeline.mDynamicStateCreateInfo
@@ -4773,53 +4628,8 @@ namespace avk
 		// 10. Multisample state
 		// TODO: Can the settings be inferred from the renderpass' color attachments (as they are right now)? If they can't, how to handle this situation?
 		{ /////////////////// TODO: FIX this section (after renderpass refactoring)
-			vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
-
-			// See what is configured in the render pass
-			auto colorAttConfigs = (*result.mRenderPass).color_attachments_for_subpass(result.subpass_id())
-				| std::views::filter([](const vk::AttachmentReference& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-				| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& colorAttachment) { return rp.attachment_descriptions()[colorAttachment.attachment]; });
-
-			for (const vk::AttachmentDescription& config: colorAttConfigs) {
-				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
-				numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
-			}
-
-#if defined(_DEBUG)
-			for (const vk::AttachmentDescription& config: colorAttConfigs) {
-				if (config.samples != numSamples) {
-					AVK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
-				}
-			}
-#endif
-
-			if (vk::SampleCountFlagBits::e1 == numSamples) {
-				auto depthAttConfigs = (*result.mRenderPass).depth_stencil_attachments_for_subpass(result.subpass_id())
-					| std::views::filter([](const vk::AttachmentReference& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-					| std::views::transform([&rp = (*result.mRenderPass)](const vk::AttachmentReference& depthStencilAttachment) { return rp.attachment_descriptions()[depthStencilAttachment.attachment]; });
-
-				for (const vk::AttachmentDescription& config: depthAttConfigs) {
-					typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
-					numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
-				}
-
-#if defined(_DEBUG)
-					for (const vk::AttachmentDescription& config: depthAttConfigs) {
-						if (config.samples != numSamples) {
-							AVK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
-						}
-					}
-#endif
-
-#if defined(_DEBUG)
-					for (const vk::AttachmentDescription& config: colorAttConfigs) {
-						if (config.samples != numSamples) {
-							AVK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
-						}
-					}
-#endif
-			}
-
+			vk::SampleCountFlagBits numSamples = (*result.mRenderPass).num_samples_for_subpass(result.subpass_id());
+			
 			// Evaluate and set the PER SAMPLE shading configuration:
 			auto perSample = aConfig.mPerSampleShading.value_or(per_sample_shading_config{ false, 1.0f });
 
@@ -4921,44 +4731,38 @@ namespace avk
 		return result;
 	}
 
-	graphics_pipeline root::create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, renderpass aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		graphics_pipeline_t result;
+		result.mRenderPass = std::move(aNewRenderpass);
+		result.mSubpassIndex = aSubpassIndex.value_or(cfg::subpass_index{ aTemplate.mSubpassIndex }).mSubpassIndex;
 
-		if (aTemplate->mRenderPass.is_shared_ownership_enabled()) {
-			result.mRenderPass							= aTemplate->mRenderPass								;
-		}
-		else {
-			result.mRenderPass = create_renderpass_from_template(const_referenced(aTemplate->mRenderPass), {});
-		}
+		result.mOrderedVertexInputBindingDescriptions	= aTemplate.mOrderedVertexInputBindingDescriptions;
+		result.mVertexInputAttributeDescriptions		= aTemplate.mVertexInputAttributeDescriptions	   ;
+		result.mPipelineVertexInputStateCreateInfo		= aTemplate.mPipelineVertexInputStateCreateInfo   ;
+		result.mInputAssemblyStateCreateInfo			= aTemplate.mInputAssemblyStateCreateInfo		   ;
 
-		result.mSubpassIndex							= aTemplate->mSubpassIndex						   ;
-		result.mOrderedVertexInputBindingDescriptions	= aTemplate->mOrderedVertexInputBindingDescriptions;
-		result.mVertexInputAttributeDescriptions		= aTemplate->mVertexInputAttributeDescriptions	   ;
-		result.mPipelineVertexInputStateCreateInfo		= aTemplate->mPipelineVertexInputStateCreateInfo   ;
-		result.mInputAssemblyStateCreateInfo			= aTemplate->mInputAssemblyStateCreateInfo		   ;
-
-		for (const auto& shdr : aTemplate->mShaders) {
+		for (const auto& shdr : aTemplate.mShaders) {
 			result.mShaders.push_back(create_shader_from_template(shdr));
 		}
 
-		result.mShaderStageCreateInfos					= aTemplate->mShaderStageCreateInfos					;
-		result.mSpecializationInfos						= aTemplate->mSpecializationInfos				   ;
-		result.mViewports								= aTemplate->mViewports							   ;
-		result.mScissors								= aTemplate->mScissors							   ;
-		result.mViewportStateCreateInfo					= aTemplate->mViewportStateCreateInfo			   ;
-		result.mRasterizationStateCreateInfo			= aTemplate->mRasterizationStateCreateInfo		   ;
-		result.mDepthStencilConfig						= aTemplate->mDepthStencilConfig						;
-		result.mBlendingConfigsForColorAttachments		= aTemplate->mBlendingConfigsForColorAttachments   ;
-		result.mColorBlendStateCreateInfo				= aTemplate->mColorBlendStateCreateInfo			   ;
-		result.mMultisampleStateCreateInfo				= aTemplate->mMultisampleStateCreateInfo				;
-		result.mDynamicStateEntries						= aTemplate->mDynamicStateEntries				   ;
-		result.mDynamicStateCreateInfo					= aTemplate->mDynamicStateCreateInfo					;
+		result.mShaderStageCreateInfos					= aTemplate.mShaderStageCreateInfos					;
+		result.mSpecializationInfos						= aTemplate.mSpecializationInfos				   ;
+		result.mViewports								= aTemplate.mViewports							   ;
+		result.mScissors								= aTemplate.mScissors							   ;
+		result.mViewportStateCreateInfo					= aTemplate.mViewportStateCreateInfo			   ;
+		result.mRasterizationStateCreateInfo			= aTemplate.mRasterizationStateCreateInfo		   ;
+		result.mDepthStencilConfig						= aTemplate.mDepthStencilConfig						;
+		result.mBlendingConfigsForColorAttachments		= aTemplate.mBlendingConfigsForColorAttachments   ;
+		result.mColorBlendStateCreateInfo				= aTemplate.mColorBlendStateCreateInfo			   ;
+		result.mMultisampleStateCreateInfo				= aTemplate.mMultisampleStateCreateInfo				;
+		result.mDynamicStateEntries						= aTemplate.mDynamicStateEntries				   ;
+		result.mDynamicStateCreateInfo					= aTemplate.mDynamicStateCreateInfo					;
 
-		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate->mAllDescriptorSetLayouts);
+		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
 
-		result.mPushConstantRanges						= aTemplate->mPushConstantRanges						;
-		result.mPipelineTessellationStateCreateInfo		= aTemplate->mPipelineTessellationStateCreateInfo  ;
+		result.mPushConstantRanges						= aTemplate.mPushConstantRanges						;
+		result.mPipelineTessellationStateCreateInfo		= aTemplate.mPipelineTessellationStateCreateInfo  ;
 
 		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		// These uniform values (Anm.: passed to shaders) need to be specified during pipeline creation by creating a VkPipelineLayout object. [4]
@@ -4975,6 +4779,18 @@ namespace avk
 
 		rewire_config_and_create_graphics_pipeline(result);
 		return result;
+	}
+
+	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	{
+		renderpass renderpassForPipeline;
+		if (aTemplate.mRenderPass.is_shared_ownership_enabled()) {
+			renderpassForPipeline = aTemplate.mRenderPass;
+		}
+		else {
+			renderpassForPipeline = create_renderpass_from_template(*aTemplate.mRenderPass, {});
+		}
+		return create_graphics_pipeline_from_template(aTemplate, std::move(renderpassForPipeline), std::nullopt, std::move(aAlterConfigBeforeCreation));
 	}
 
 	renderpass root::replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass)
@@ -4996,8 +4812,6 @@ namespace avk
 		if (std::holds_alternative<vk::Image>(aOther.mImage)) {
 			mCreateInfo = aOther.mCreateInfo;
 			mImage = std::get<vk::Image>(aOther.mImage);
-			mTargetLayout = aOther.mTargetLayout;
-			mCurrentLayout = aOther.mCurrentLayout;
 			mImageUsage = aOther.mImageUsage;
 			mAspectFlags = aOther.mAspectFlags;
 		}
@@ -5006,29 +4820,28 @@ namespace avk
 		}
 	}
 
-	image root::create_image_from_template(resource_reference<const image_t> aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation)
+	image root::create_image_from_template(const image_t& aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation)
 	{
 		image_t result;
-		result.mCreateInfo = aTemplate->mCreateInfo;
-		result.mTargetLayout = aTemplate->mTargetLayout;
-		result.mCurrentLayout = vk::ImageLayout::eUndefined;
-		result.mImageUsage = aTemplate->mImageUsage;
-		result.mAspectFlags = aTemplate->mAspectFlags;
+		result.mRoot = aTemplate.mRoot;
+		result.mCreateInfo = aTemplate.mCreateInfo;
+		result.mImageUsage = aTemplate.mImageUsage;
+		result.mAspectFlags = aTemplate.mAspectFlags;
 
-		if (std::holds_alternative<vk::Image>(aTemplate->mImage)) {
+		if (std::holds_alternative<vk::Image>(aTemplate.mImage)) {
 			// If the template is a wrapped image, there's not a lot we can do.
 			//result.mImage = std::get<vk::Image>(aTemplate.mImage);
 			return result;
 		}
 
-		assert(!std::holds_alternative<std::monostate>(aTemplate->mImage));
+		assert(!std::holds_alternative<std::monostate>(aTemplate.mImage));
 
 		// Maybe alter the config?!
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mImage = AVK_MEM_IMAGE_HANDLE{ memory_allocator(), aTemplate->memory_properties(), result.mCreateInfo };
+		result.mImage = AVK_MEM_IMAGE_HANDLE{ memory_allocator(), aTemplate.memory_properties(), result.mCreateInfo };
 
 		return result;
 	}
@@ -5091,6 +4904,7 @@ namespace avk
 		}
 
 		image_t result;
+		result.mRoot = this;
 		result.mCreateInfo = vk::ImageCreateInfo()
 			.setImageType(vk::ImageType::e2D) // TODO: Support 3D textures
 			.setExtent(vk::Extent3D(static_cast<uint32_t>(aWidth), static_cast<uint32_t>(aHeight), 1u))
@@ -5103,8 +4917,6 @@ namespace avk
 			.setSharingMode(vk::SharingMode::eExclusive) // TODO: Not sure yet how to handle this one, Exclusive should be the default, though.
 			.setSamples(samples)
 			.setFlags(imageCreateFlags);
-		result.mTargetLayout = targetLayout;
-		result.mCurrentLayout = vk::ImageLayout::eUndefined;
 		result.mImageUsage = aImageUsage;
 		result.mAspectFlags = aspectFlags;
 
@@ -5175,10 +4987,9 @@ namespace avk
 		auto [imageUsage, targetLayout, imageTiling, imageCreateFlags] = determine_usage_layout_tiling_flags_based_on_image_usage(aImageUsage);
 
 		image_t result;
+		result.mRoot = this;
 		result.mCreateInfo = aImageCreateInfo;
 		result.mImage = aImageToWrap;
-		result.mTargetLayout = targetLayout;
-		result.mCurrentLayout = vk::ImageLayout::eUndefined;
 		result.mImageUsage = aImageUsage;
 		result.mAspectFlags = aImageAspectFlags;
 		return result;
@@ -5193,136 +5004,117 @@ namespace avk
 		};
 	}
 
-	std::optional<command_buffer> image_t::transition_to_layout(std::optional<vk::ImageLayout> aTargetLayout, sync aSyncHandler)
-	{
-		const auto curLayout = current_layout();
-		const auto trgLayout = aTargetLayout.value_or(target_layout());
-		mTargetLayout = trgLayout;
-
-		if (curLayout == trgLayout) {
-			return {}; // done (:
-		}
-		if (vk::ImageLayout::eUndefined == trgLayout || vk::ImageLayout::ePreinitialized == trgLayout) {
-			AVK_LOG_VERBOSE("Won't transition into layout " + vk::to_string(trgLayout));
-			return {}; // Won't do it!
-		}
-
-		// Not done => perform a transition via an image memory barrier inside a command buffer
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		aSyncHandler.establish_barrier_before_the_operation(
-			pipeline_stage::transfer,	// Just use the transfer stage to create an execution dependency chain
-			read_memory_access{memory_access::transfer_read_access}
-		);
-
-		// An image's layout is tranformed by the means of an image memory barrier:
-		commandBuffer.establish_image_memory_barrier(*this,
-			pipeline_stage::transfer, pipeline_stage::transfer,				// Execution dependency chain
-			std::optional<memory_access>{}, std::optional<memory_access>{}	// There should be no need to make any memory available or visible... the image should be available already (see above)
-		); // establish_image_memory_barrier ^ will set the mCurrentLayout to mTargetLayout
-
-		aSyncHandler.establish_barrier_after_the_operation(
-			pipeline_stage::transfer,	// The end of the execution dependency chain
-			write_memory_access{memory_access::transfer_write_access}
-		);
-		return aSyncHandler.submit_and_sync();
-	}
-
-
-	std::optional<command_buffer> image_t::generate_mip_maps(sync aSyncHandler)
+	avk::command::action_type_command image_t::generate_mip_maps(avk::layout::image_layout_transition aLayoutTransition)
 	{
 		if (create_info().mipLevels <= 1u) {
 			return {};
 		}
+		
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(handle(), avk::sync::sync_hint{
+					stage::transfer + (access::transfer_read | access::transfer_write), // This one is actually only here to establish a dependency chain to the first image layout transition
+					stage::transfer +                          access::transfer_write   // This one as well
+				})
+			},
+			[
+				lRoot = root_ptr(),
+				lImageHandle = handle(),
+				lArrayLayers = create_info().arrayLayers,
+				lWidth = static_cast<int32_t>(width()),
+				lHeight = static_cast<int32_t>(height()),
+				lAspectFlags = mAspectFlags,
+				lMipLevels = create_info().mipLevels,
+				aLayoutTransition
+			](avk::command_buffer_t& cb) {
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{ memory_access::transfer_read_access }); // Make memory visible
+				auto w = lWidth;
+				auto h = lHeight;
 
-		const auto originalLayout = current_layout();
-		const auto targetLayout = target_layout();
+				for (uint32_t l = 0u; l < lArrayLayers; ++l) {
+					
+					std::array layoutTransitions = { // during the loop, we'll use 1 or 2 of these
+						vk::ImageMemoryBarrier{
+							vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferWrite | vk::AccessFlagBits::eTransferRead, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
+							aLayoutTransition.mOld.mLayout, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, lImageHandle, vk::ImageSubresourceRange{ lAspectFlags, 0u, 1u, l, 1u }},
+						vk::ImageMemoryBarrier{
+							vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferWrite | vk::AccessFlagBits::eTransferRead, // This is the first mip-level we're going to write to
+							aLayoutTransition.mOld.mLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, lImageHandle, vk::ImageSubresourceRange{ lAspectFlags, 1u, 1u, l, 1u }},
+						vk::ImageMemoryBarrier{} // To be used in loop
+					};
 
-		for (uint32_t l = 0u; l < create_info().arrayLayers; ++l) {
+					cb.handle().pipelineBarrier(
+						vk::PipelineStageFlagBits::eTransfer,
+						vk::PipelineStageFlagBits::eTransfer,
+						vk::DependencyFlags{},
+						0u, nullptr,
+						0u, nullptr,
+						2u /* initially, only 2 required */, layoutTransitions.data()
+					);
 
-			auto w = static_cast<int32_t>(width());
-			auto h = static_cast<int32_t>(height());
+					for (uint32_t i = 1u; i < lMipLevels; ++i) {
 
-			std::array layoutTransitions = { // during the loop, we'll use 1 or 2 of these
-				vk::ImageMemoryBarrier{
-					{}, {}, // Memory is available AND already visible for transfer read because that has been established in establish_barrier_before_the_operation above.
-					originalLayout, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 0u, 1u, l, 1u }},
-				vk::ImageMemoryBarrier{
-					{}, vk::AccessFlagBits::eTransferWrite, // This is the first mip-level we're going to write to
-					originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, 1u, 1u, l, 1u }},
-				vk::ImageMemoryBarrier{} // To be used in loop
-			};
+						cb.handle().blitImage(
+							lImageHandle, vk::ImageLayout::eTransferSrcOptimal,
+							lImageHandle, vk::ImageLayout::eTransferDstOptimal,
+							{ vk::ImageBlit{
+								vk::ImageSubresourceLayers{ lAspectFlags, i - 1, l, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w                , h                , 1 } },
+								vk::ImageSubresourceLayers{ lAspectFlags, i    , l, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w > 1 ? w / 2 : 1, h > 1 ? h / 2 : 1, 1 } }
+							  }
+							},
+							vk::Filter::eLinear
+						);
 
-			commandBuffer.handle().pipelineBarrier(
-				vk::PipelineStageFlagBits::eTransfer,
-				vk::PipelineStageFlagBits::eTransfer,
-				vk::DependencyFlags{},
-				0u, nullptr,
-				0u, nullptr,
-				2u /* initially, only 2 required */, layoutTransitions.data()
-			);
+						// mip-level  i-1  is done:
+						layoutTransitions[0] = vk::ImageMemoryBarrier{
+							{}, {}, // Blit Read -> Done
+							vk::ImageLayout::eTransferSrcOptimal, aLayoutTransition.mNew.mLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, lImageHandle, vk::ImageSubresourceRange{ lAspectFlags, i - 1, 1u, l, 1u } };
+						// mip-level   i   has been transfer destination, but is going to be transfer source:
+						layoutTransitions[1] = vk::ImageMemoryBarrier{
+							vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead, // Blit Write -> Blit Read
+							vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, lImageHandle, vk::ImageSubresourceRange{ lAspectFlags, i, 1u, l, 1u } };
+						// mip-level  i+1  is entering the game:
+						layoutTransitions[2] = vk::ImageMemoryBarrier{
+							{}, vk::AccessFlagBits::eTransferWrite, // make visible to Blit Write
+							aLayoutTransition.mOld.mLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, lImageHandle, vk::ImageSubresourceRange{ lAspectFlags, i + 1, 1u, l, 1u } };
 
-			for (uint32_t i = 1u; i < create_info().mipLevels; ++i) {
+						uint32_t numBarriersRequired = std::min(3u, lMipLevels - i + 1);
+						if (lMipLevels - 1 == i) {
+							layoutTransitions[1].newLayout = aLayoutTransition.mNew.mLayout; // Last one => done
+						}
 
-				commandBuffer.handle().blitImage(
-					handle(), vk::ImageLayout::eTransferSrcOptimal,
-					handle(), vk::ImageLayout::eTransferDstOptimal,
-					{ vk::ImageBlit{
-						vk::ImageSubresourceLayers{ mAspectFlags, i - 1, l, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w      , h      , 1 } },
-						vk::ImageSubresourceLayers{ mAspectFlags, i  , l, 1u }, { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ w > 1 ? w / 2 : 1, h > 1 ? h / 2 : 1, 1 } }
-					  }
-					},
-					vk::Filter::eLinear
-				);
+						cb.handle().pipelineBarrier(
+							vk::PipelineStageFlagBits::eTransfer,
+							vk::PipelineStageFlagBits::eTransfer, // Dependency from previous BLIT to subsequent BLIT
+							vk::DependencyFlags{},
+							0u, nullptr,
+							0u, nullptr,
+							numBarriersRequired, layoutTransitions.data()
+						);
 
-				// mip-level  i-1  is done:
-				layoutTransitions[0] = vk::ImageMemoryBarrier{
-					{}, {}, // Blit Read -> Done
-					vk::ImageLayout::eTransferSrcOptimal, targetLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i - 1, 1u, l, 1u } };
-				// mip-level   i   has been transfer destination, but is going to be transfer source:
-				layoutTransitions[1] = vk::ImageMemoryBarrier{
-					vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead, // Blit Write -> Blit Read
-					vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i, 1u, l, 1u } };
-				// mip-level  i+1  is entering the game:
-				layoutTransitions[2] = vk::ImageMemoryBarrier{
-					{}, vk::AccessFlagBits::eTransferWrite, // make visible to Blit Write
-					originalLayout, vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, handle(), vk::ImageSubresourceRange{ mAspectFlags, i + 1, 1u, l, 1u } };
-
-				uint32_t numBarriersRequired = std::min(3u, create_info().mipLevels - i + 1);
-				if (create_info().mipLevels - 1 == i) {
-					layoutTransitions[1].newLayout = targetLayout; // Last one => done
+						w = w > 1 ? w / 2 : 1;
+						h = h > 1 ? h / 2 : 1;
+					}
 				}
-
-				commandBuffer.handle().pipelineBarrier(
-					vk::PipelineStageFlagBits::eTransfer,
-					vk::PipelineStageFlagBits::eTransfer, // Dependency from previous BLIT to subsequent BLIT
-					vk::DependencyFlags{},
-					0u, nullptr,
-					0u, nullptr,
-					numBarriersRequired, layoutTransitions.data()
-				);
-
-				w = w > 1 ? w / 2 : 1;
-				h = h > 1 ? h / 2 : 1;
 			}
-		}
+		};
 
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{ memory_access::transfer_write_access });
-		return aSyncHandler.submit_and_sync();
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 #pragma endregion
 
 #pragma region image view definitions
-	image_view root::create_image_view_from_template(resource_reference<const image_view_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation)
+	image_view root::create_image_view_from_template(const image_view_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation)
 	{
 		image_view_t result;
 
 		// Transfer ownership:
-		if (std::holds_alternative<image>(aTemplate->mImage)) {
-			auto& im = std::get<image>(aTemplate->mImage);
-			result.mImage = create_image_from_template(const_referenced(im), std::move(aAlterImageConfigBeforeCreation));
+		if (std::holds_alternative<image>(aTemplate.mImage)) {
+			auto& im = std::get<image>(aTemplate.mImage);
+			result.mImage = create_image_from_template(*im, std::move(aAlterImageConfigBeforeCreation));
 			if (im.is_shared_ownership_enabled()) {
 				std::get<image>(result.mImage).enable_shared_ownership();
 			}
@@ -5331,13 +5123,13 @@ namespace avk
 			AVK_LOG_ERROR("Can not create an image_view from a template which wraps an image_t.");
 		}
 
-		result.mCreateInfo = aTemplate->mCreateInfo;
+		result.mCreateInfo = aTemplate.mCreateInfo;
 		result.mCreateInfo.setImage(result.get_image().handle());
 		result.mCreateInfo.subresourceRange
 			.setLevelCount(result.get_image().create_info().mipLevels)
 			.setLayerCount(result.get_image().create_info().arrayLayers);
 
-		result.mUsageInfo = aTemplate->mUsageInfo;
+		result.mUsageInfo = aTemplate.mUsageInfo;
 
 		// Maybe alter the config?!
 		if (aAlterImageViewConfigBeforeCreation) {
@@ -5345,20 +5137,17 @@ namespace avk
 		}
 
 		result.mImageView = device().createImageViewUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
-		result.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(result.handle())
-			.setImageLayout(result.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
 
 		return result;
 	}
 
 
-	image_view root::create_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_image_view(avk::image aImage, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 
 		// Transfer ownership:
-		result.mImage = aImageToOwn.own();
+		result.mImage = std::move(aImage);
 
 		// What's the format of the image view?
 		if (!aViewFormat.has_value()) {
@@ -5370,12 +5159,12 @@ namespace avk
 		return result;
 	}
 
-	image_view root::create_depth_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_depth_image_view(avk::image aImage, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 
 		// Transfer ownership:
-		result.mImage = aImageToOwn.own();
+		result.mImage = std::move(aImage);
 
 		// What's the format of the image view?
 		if (!aViewFormat.has_value()) {
@@ -5387,12 +5176,12 @@ namespace avk
 		return result;
 	}
 
-	image_view root::create_stencil_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
+	image_view root::create_stencil_image_view(avk::image aImage, std::optional<vk::Format> aViewFormat, std::optional<avk::image_usage> aImageViewUsage, std::function<void(image_view_t&)> aAlterConfigBeforeCreation)
 	{
 		image_view_t result;
 
 		// Transfer ownership:
-		result.mImage = aImageToOwn.own();
+		result.mImage = std::move(aImage);
 
 		// What's the format of the image view?
 		if (!aViewFormat.has_value()) {
@@ -5470,9 +5259,6 @@ namespace avk
 		}
 
 		aImageView.mImageView = device().createImageViewUnique(aImageView.mCreateInfo, nullptr, dispatch_loader_core());
-		aImageView.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(aImageView.handle())
-			.setImageLayout(aImageView.get_image().target_layout()); // TODO: Better use the image's current layout or its target layout?
 	}
 #pragma endregion
 
@@ -5615,18 +5401,11 @@ namespace avk
 		return result;
 	}
 
-	image_sampler root::create_image_sampler(resource_ownership<image_view_t> aImageView, resource_ownership<sampler_t> aSampler)
+	image_sampler root::create_image_sampler(image_view aImageView, sampler aSampler)
 	{
 		image_sampler_t result;
-		result.mImageView = aImageView.own();
-		result.mSampler = aSampler.own();
-
-		result.mDescriptorInfo = vk::DescriptorImageInfo{}
-			.setImageView(result.view_handle())
-			.setSampler(result.sampler_handle());
-		result.mDescriptorInfo.setImageLayout(result.mImageView->get_image().target_layout());
-
-		result.mDescriptorType = vk::DescriptorType::eCombinedImageSampler;
+		result.mImageView = std::move(aImageView);
+		result.mSampler = std::move(aSampler);
 		return result;
 	}
 #pragma endregion
@@ -5676,44 +5455,6 @@ namespace avk
 		}
 
 		return result;
-	}
-#pragma endregion
-
-#pragma region memory access definitions
-	read_memory_access::operator memory_access() const
-	{
-		validate_or_throw();
-		return mMemoryAccess;
-	}
-
-	memory_access read_memory_access::value() const
-	{
-		return operator memory_access();
-	}
-
-	void read_memory_access::validate_or_throw() const
-	{
-		if (!is_read_access(mMemoryAccess)) {
-			throw avk::runtime_error("The access flag represented by this instance of read_memory_access is not a read-type access flag.");
-		}
-	}
-
-	write_memory_access::operator memory_access() const
-	{
-		validate_or_throw();
-		return mMemoryAccess;
-	}
-
-	memory_access write_memory_access::value() const
-	{
-		return operator memory_access();
-	}
-
-	void write_memory_access::validate_or_throw() const
-	{
-		if (is_read_access(mMemoryAccess)) {
-			throw avk::runtime_error("The access flag represented by this instance of write_memory_access is not a write-type access flag.");
-		}
 	}
 #pragma endregion
 
@@ -5776,7 +5517,7 @@ namespace avk
 		case queue_selection_preference::specialized_queue:
 			{
 				vk::QueueFlags forbiddenFlags = {};
-				for (auto f : queueTypes) { // TODO: Maybe a differend loosening order would be better?
+				for (auto f : queueTypes) { // TODO: Maybe a different loosening order would be better?
 					forbiddenFlags |= f;
 				}
 				forbiddenFlags &= ~aRequiredFlags;
@@ -5832,14 +5573,13 @@ namespace avk
 	}
 
 	queue queue::prepare(
-		vk::PhysicalDevice aPhysicalDevice,
-		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader,
+		avk::root* aRoot,
 		uint32_t aQueueFamilyIndex,
 		uint32_t aQueueIndex,
 		float aQueuePriority
 	)
 	{
-		auto queueFamilies = aPhysicalDevice.getQueueFamilyProperties();
+		auto queueFamilies = aRoot->physical_device().getQueueFamilyProperties();
 		if (queueFamilies.size() <= aQueueFamilyIndex) {
 			throw avk::runtime_error("Invalid queue family index in queue::prepare");
 		}
@@ -5848,434 +5588,27 @@ namespace avk
 		}
 
 		queue result;
+		result.mRoot = aRoot;
 		result.mQueueFamilyIndex = aQueueFamilyIndex;
 		result.mQueueIndex = aQueueIndex;
 		result.mPriority = aQueuePriority;
-		result.mPhysicalDevice = aPhysicalDevice;
-		result.mDevice = nullptr;
 		result.mQueue = nullptr;
-		result.mDispatchLoader = &aDispatchLoader;
 		return result;
 	}
 
-	void queue::assign_handle(vk::Device aDevice)
+	void queue::assign_handle()
 	{
-		mDevice = aDevice;
-		mQueue = aDevice.getQueue(mQueueFamilyIndex, mQueueIndex);
+		mQueue = mRoot->device().getQueue(mQueueFamilyIndex, mQueueIndex);
 	}
 
-
-
-
-	void queue::submit_with_semaphore(resource_reference<semaphore_t> aSemaphoreToSignal, resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores)
+	avk::submission_data queue::submit(avk::command_buffer_t& aCommandBuffer) const
 	{
-		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
-
-		auto submitInfo = vk::SubmitInfo{}
-			.setCommandBufferCount(1u)
-			.setPCommandBuffers(aCommandBuffer->handle_ptr())
-			.setSignalSemaphoreCount(1u)
-			.setPSignalSemaphores(aSemaphoreToSignal->handle_addr());
-		if (aWaitSemaphores.has_value()) {
-			submitInfo
-				.setWaitSemaphoreCount(1u)
-				.setPWaitSemaphores(aWaitSemaphores->get().handle_addr())
-				.setPWaitDstStageMask(aWaitSemaphores->get().semaphore_wait_stage_addr());
-		}
-
-		handle().submit({ submitInfo },  nullptr);
-		aCommandBuffer->invoke_post_execution_handler();
-
-		aCommandBuffer->mState = command_buffer_state::submitted;
+		return avk::submission_data(mRoot, aCommandBuffer, *this);
 	}
 
-	semaphore queue::submit_with_semaphore(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphores)
+	bool queue::is_prepared() const
 	{
-		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
-
-		auto sem = root::create_semaphore(mDevice, *mDispatchLoader);
-
-		auto submitInfo = vk::SubmitInfo{}
-			.setCommandBufferCount(1u)
-			.setPCommandBuffers(aCommandBuffer->handle_ptr())
-			.setSignalSemaphoreCount(1u)
-			.setPSignalSemaphores(sem->handle_addr());
-		if (aWaitSemaphores.has_value()) {
-			submitInfo
-				.setWaitSemaphoreCount(1u)
-				.setPWaitSemaphores(aWaitSemaphores->get().handle_addr())
-				.setPWaitDstStageMask(aWaitSemaphores->get().semaphore_wait_stage_addr());
-		}
-
-		handle().submit({ submitInfo },  nullptr);
-		aCommandBuffer->invoke_post_execution_handler();
-
-		aCommandBuffer->mState = command_buffer_state::submitted;
-
-		return sem;
-	}
-
-	void queue::submit(resource_reference<command_buffer_t> aCommandBuffer, std::optional<resource_reference<semaphore_t>> aWaitSemaphore)
-	{
-		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
-
-		auto submitInfo = vk::SubmitInfo{}
-			.setCommandBufferCount(1u)
-			.setPCommandBuffers(aCommandBuffer->handle_ptr());
-		if (aWaitSemaphore.has_value()) {
-			submitInfo
-				.setWaitSemaphoreCount(1u)
-				.setPWaitSemaphores(aWaitSemaphore->get().handle_addr())
-				.setPWaitDstStageMask(aWaitSemaphore->get().semaphore_wait_stage_addr());
-		}
-
-		handle().submit({ submitInfo },  nullptr);
-		aCommandBuffer->invoke_post_execution_handler();
-
-		aCommandBuffer->mState = command_buffer_state::submitted;
-	}
-
-	void queue::submit(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_reference<semaphore_t>> aWaitSemaphores)
-	{
-		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
-
-		auto submitInfo = vk::SubmitInfo{}
-			.setCommandBufferCount(1u)
-			.setPCommandBuffers(aCommandBuffer->handle_ptr());
-
-		std::vector<vk::Semaphore> waitSemHandles;
-		std::vector<vk::PipelineStageFlags> waitSemStages;
-		if (!aWaitSemaphores.empty()) {
-			for (auto& ws : aWaitSemaphores) {
-				waitSemHandles.push_back(ws.get().handle());
-				waitSemStages.push_back(ws.get().semaphore_wait_stage());
-			}
-			assert (waitSemHandles.size() == waitSemStages.size());
-			submitInfo
-				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemHandles.size()))
-				.setPWaitSemaphores(waitSemHandles.data())
-				.setPWaitDstStageMask(waitSemStages.data());
-		}
-
-		handle().submit({ submitInfo },  nullptr);
-		aCommandBuffer->invoke_post_execution_handler();
-
-		aCommandBuffer->mState = command_buffer_state::submitted;
-	}
-
-	// The code between these two ^ and v is mostly copied... I know. It avoids the usage of an unneccessary
-	// temporary vector in single command buffer-case. Should, however, probably be refactored.
-	void queue::submit(std::vector<resource_reference<command_buffer_t>> aCommandBuffers)
-	{
-		std::vector<vk::CommandBuffer> handles;
-		handles.reserve(aCommandBuffers.size());
-		for (auto& cb : aCommandBuffers) {
-			assert(cb.get().state() >= command_buffer_state::finished_recording);
-			handles.push_back(cb->handle());
-		}
-
-		const auto submitInfo = vk::SubmitInfo{}
-			.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
-			.setPCommandBuffers(handles.data());
-
-		handle().submit({ submitInfo }, nullptr);
-		for (auto& cb : aCommandBuffers) {
-			cb.get().invoke_post_execution_handler();
-
-			cb.get().mState = command_buffer_state::submitted;
-		}
-	}
-
-	fence queue::submit_with_fence(resource_reference<command_buffer_t> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores)
-	{
-		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
-
-		auto fen = root::create_fence(mDevice, *mDispatchLoader);
-
-		if (0 == aWaitSemaphores.size()) {
-			// Optimized route for 0 _WaitSemaphores
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(1u)
-				.setPCommandBuffers(aCommandBuffer->handle_ptr())
-				.setWaitSemaphoreCount(0u)
-				.setPWaitSemaphores(nullptr)
-				.setPWaitDstStageMask(nullptr)
-				.setSignalSemaphoreCount(0u)
-				.setPSignalSemaphores(nullptr);
-
-			handle().submit({ submitInfo }, fen->handle());
-			aCommandBuffer->invoke_post_execution_handler();
-
-			aCommandBuffer->mState = command_buffer_state::submitted;
-		}
-		else {
-			// Also set the wait semaphores and take care of their lifetimes
-			std::vector<vk::Semaphore> waitSemaphoreHandles;
-			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
-			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
-			waitDstStageMasks.reserve(aWaitSemaphores.size());
-
-			for (const auto& semaphoreDependency : aWaitSemaphores) {
-				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
-			}
-
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(1u)
-				.setPCommandBuffers(aCommandBuffer->handle_ptr())
-				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
-				.setPWaitSemaphores(waitSemaphoreHandles.data())
-				.setPWaitDstStageMask(waitDstStageMasks.data())
-				.setSignalSemaphoreCount(0u)
-				.setPSignalSemaphores(nullptr);
-
-			handle().submit({ submitInfo }, fen->handle());
-			aCommandBuffer->invoke_post_execution_handler();
-
-			aCommandBuffer->mState = command_buffer_state::submitted;
-
-			// TODO: Use ranges
-			std::vector<semaphore> ownedSemaphores;
-			for (auto& e : aWaitSemaphores) {
-				ownedSemaphores.push_back(e.own());
-			}
-
-			fen->set_custom_deleter([
-				lOwnedWaitSemaphores = std::move(ownedSemaphores)
-			](){});
-		}
-
-		return fen;
-	}
-
-	fence queue::submit_with_fence(std::vector<resource_reference<command_buffer_t>> aCommandBuffers, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores)
-	{
-		std::vector<vk::CommandBuffer> handles;
-		handles.reserve(aCommandBuffers.size());
-		for (auto& cb : aCommandBuffers) {
-			assert(cb->state() >= command_buffer_state::finished_recording);
-			handles.push_back(cb->handle());
-		}
-
-		auto fen = root::create_fence(mDevice, *mDispatchLoader);
-
-		if (aWaitSemaphores.empty()) {
-			// Optimized route for 0 _WaitSemaphores
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
-				.setPCommandBuffers(handles.data())
-				.setWaitSemaphoreCount(0u)
-				.setPWaitSemaphores(nullptr)
-				.setPWaitDstStageMask(nullptr)
-				.setSignalSemaphoreCount(0u)
-				.setPSignalSemaphores(nullptr);
-
-			handle().submit({ submitInfo }, fen->handle());
-			for (auto& cb : aCommandBuffers) {
-				cb.get().invoke_post_execution_handler();
-
-				cb.get().mState = command_buffer_state::submitted;
-			}
-		}
-		else {
-			// Also set the wait semaphores and take care of their lifetimes
-			std::vector<vk::Semaphore> waitSemaphoreHandles;
-			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
-			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
-			waitDstStageMasks.reserve(aWaitSemaphores.size());
-
-			for (const auto& semaphoreDependency : aWaitSemaphores) {
-				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
-			}
-
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
-				.setPCommandBuffers(handles.data())
-				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
-				.setPWaitSemaphores(waitSemaphoreHandles.data())
-				.setPWaitDstStageMask(waitDstStageMasks.data())
-				.setSignalSemaphoreCount(0u)
-				.setPSignalSemaphores(nullptr);
-
-			handle().submit({ submitInfo }, fen->handle());
-			for (auto& cb : aCommandBuffers) {
-				cb.get().invoke_post_execution_handler();
-
-				cb.get().mState = command_buffer_state::submitted;
-			}
-
-			// TODO: Use ranges
-			std::vector<semaphore> ownedSemaphores;
-			for (auto& e : aWaitSemaphores) {
-				ownedSemaphores.push_back(e.own());
-			}
-
-			fen->set_custom_deleter([
-				lOwnedWaitSemaphores{ std::move(ownedSemaphores) }
-			](){});
-		}
-
-		return fen;
-	}
-
-	semaphore queue::submit_and_handle_with_semaphore(resource_ownership<command_buffer_t> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores)
-	{
-		assert(aCommandBuffer->state() >= command_buffer_state::finished_recording);
-
-		// Create a semaphore which can, or rather, MUST be used to wait for the results
-		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice, *mDispatchLoader);
-
-		if (aWaitSemaphores.empty()) {
-			// Optimized route for 0 _WaitSemaphores
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(1u)
-				.setPCommandBuffers(aCommandBuffer->handle_ptr())
-				.setWaitSemaphoreCount(0u)
-				.setPWaitSemaphores(nullptr)
-				.setPWaitDstStageMask(nullptr)
-				.setSignalSemaphoreCount(1u)
-				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
-
-			handle().submit({ submitInfo }, nullptr);
-			aCommandBuffer->invoke_post_execution_handler();
-
-			aCommandBuffer->mState = command_buffer_state::submitted;
-
-			signalWhenCompleteSemaphore->set_custom_deleter([
-				lOwnedCommandBuffer{ std::move(aCommandBuffer) } // Take care of the command_buffer's lifetime.. OMG!
-			](){});
-		}
-		else {
-			// Also set the wait semaphores and take care of their lifetimes
-			std::vector<vk::Semaphore> waitSemaphoreHandles;
-			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
-			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
-			waitDstStageMasks.reserve(aWaitSemaphores.size());
-
-			for (const auto& semaphoreDependency : aWaitSemaphores) {
-				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
-			}
-
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(1u)
-				.setPCommandBuffers(aCommandBuffer->handle_ptr())
-				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
-				.setPWaitSemaphores(waitSemaphoreHandles.data())
-				.setPWaitDstStageMask(waitDstStageMasks.data())
-				.setSignalSemaphoreCount(1u)
-				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
-
-			handle().submit({ submitInfo }, nullptr);
-			aCommandBuffer->invoke_post_execution_handler();
-
-			aCommandBuffer->mState = command_buffer_state::submitted;
-
-			// TODO: Use ranges
-			std::vector<semaphore> ownedSemaphores;
-			for (auto& e : aWaitSemaphores) {
-				ownedSemaphores.push_back(e.own());
-			}
-
-			signalWhenCompleteSemaphore->set_custom_deleter([
-				lOwnedWaitSemaphores{ std::move(ownedSemaphores) },
-				lOwnedCommandBuffer{ aCommandBuffer.own() } // Take care of the command_buffer's lifetime.. OMG!
-			](){});
-		}
-
-		return signalWhenCompleteSemaphore;
-	}
-
-	semaphore queue::submit_and_handle_with_semaphore(std::optional<resource_ownership<command_buffer_t>> aCommandBuffer, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores)
-	{
-		if (!aCommandBuffer.has_value()) {
-			throw avk::runtime_error("std::optional<command_buffer> submitted and it has no value.");
-		}
-		return submit_and_handle_with_semaphore(std::move(aCommandBuffer.value()), std::move(aWaitSemaphores));
-	}
-
-	// The code between these two ^ and v is mostly copied... I know. It avoids the usage of an unneccessary
-	// temporary vector in single command buffer-case. Should, however, probably be refactored.
-	semaphore queue::submit_and_handle_with_semaphore(std::vector<resource_ownership<command_buffer_t>> aCommandBuffers, std::vector<resource_ownership<semaphore_t>> aWaitSemaphores)
-	{
-		std::vector<vk::CommandBuffer> handles;
-		handles.reserve(aCommandBuffers.size());
-		for (auto& cb : aCommandBuffers) {
-			assert(cb->state() >= command_buffer_state::finished_recording);
-			handles.push_back(cb->handle());
-		}
-
-		// Create a semaphore which can, or rather, MUST be used to wait for the results
-		auto signalWhenCompleteSemaphore = root::create_semaphore(mDevice, *mDispatchLoader);
-
-		if (aWaitSemaphores.empty()) {
-			// Optimized route for 0 _WaitSemaphores
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
-				.setPCommandBuffers(handles.data())
-				.setWaitSemaphoreCount(0u)
-				.setPWaitSemaphores(nullptr)
-				.setPWaitDstStageMask(nullptr)
-				.setSignalSemaphoreCount(1u)
-				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
-
-			handle().submit({ submitInfo }, nullptr);
-			for (auto& cb : aCommandBuffers) {
-				cb->invoke_post_execution_handler();
-
-				cb->mState = command_buffer_state::submitted;
-			}
-
-			signalWhenCompleteSemaphore->set_custom_deleter([
-				lOwnedCommandBuffer{ std::move(aCommandBuffers) } // Take care of the command_buffer's lifetime.. OMG!
-			](){});
-		}
-		else {
-			// Also set the wait semaphores and take care of their lifetimes
-			std::vector<vk::Semaphore> waitSemaphoreHandles;
-			waitSemaphoreHandles.reserve(aWaitSemaphores.size());
-			std::vector<vk::PipelineStageFlags> waitDstStageMasks;
-			waitDstStageMasks.reserve(aWaitSemaphores.size());
-
-			for (const auto& semaphoreDependency : aWaitSemaphores) {
-				waitSemaphoreHandles.push_back(semaphoreDependency->handle());
-				waitDstStageMasks.push_back(semaphoreDependency->semaphore_wait_stage());
-			}
-
-			const auto submitInfo = vk::SubmitInfo{}
-				.setCommandBufferCount(static_cast<uint32_t>(handles.size()))
-				.setPCommandBuffers(handles.data())
-				.setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphoreHandles.size()))
-				.setPWaitSemaphores(waitSemaphoreHandles.data())
-				.setPWaitDstStageMask(waitDstStageMasks.data())
-				.setSignalSemaphoreCount(1u)
-				.setPSignalSemaphores(signalWhenCompleteSemaphore->handle_addr());
-
-			handle().submit({ submitInfo }, nullptr);
-			for (auto& cb : aCommandBuffers) {
-				cb->invoke_post_execution_handler();
-
-				cb->mState = command_buffer_state::submitted;
-			}
-
-			// TODO: Use ranges
-			std::vector<command_buffer> ownedCommandBuffers;
-			for (auto& e : aCommandBuffers) {
-				ownedCommandBuffers.push_back(e.own());
-			}
-			std::vector<semaphore> ownedSemaphores;
-			for (auto& e : aWaitSemaphores) {
-				ownedSemaphores.push_back(e.own());
-			}
-
-			signalWhenCompleteSemaphore->set_custom_deleter([
-				lOwnedWaitSemaphores{ std::move(ownedSemaphores) },
-				lOwnedCommandBuffer{ std::move(aCommandBuffers) } // Take care of the command_buffer's lifetime.. OMG!
-			](){});
-		}
-
-		return signalWhenCompleteSemaphore;
+		return nullptr != mRoot && static_cast<bool>(mRoot->physical_device());
 	}
 #pragma endregion
 
@@ -6829,22 +6162,22 @@ namespace avk
 		return result;
 	}
 
-	ray_tracing_pipeline root::create_ray_tracing_pipeline_from_template(resource_reference<const ray_tracing_pipeline_t> aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
+	ray_tracing_pipeline root::create_ray_tracing_pipeline_from_template(const ray_tracing_pipeline_t& aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		ray_tracing_pipeline_t result;
 
-		result.mPipelineCreateFlags						= aTemplate->mPipelineCreateFlags;
-		for (const auto& shdr : aTemplate->mShaders) {
+		result.mPipelineCreateFlags						= aTemplate.mPipelineCreateFlags;
+		for (const auto& shdr : aTemplate.mShaders) {
 			result.mShaders.push_back(create_shader_from_template(shdr));
 		}
-		result.mShaderStageCreateInfos					= aTemplate->mShaderStageCreateInfos;
-		result.mSpecializationInfos						= aTemplate->mSpecializationInfos;
-		result.mShaderGroupCreateInfos					= aTemplate->mShaderGroupCreateInfos;
-		result.mShaderBindingTableGroupsInfo			= aTemplate->mShaderBindingTableGroupsInfo;
-		result.mMaxRecursionDepth						= aTemplate->mMaxRecursionDepth;
-		result.mBasePipelineIndex						= aTemplate->mBasePipelineIndex;
-		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate->mAllDescriptorSetLayouts);
-		result.mPushConstantRanges						= aTemplate->mPushConstantRanges;
+		result.mShaderStageCreateInfos					= aTemplate.mShaderStageCreateInfos;
+		result.mSpecializationInfos						= aTemplate.mSpecializationInfos;
+		result.mShaderGroupCreateInfos					= aTemplate.mShaderGroupCreateInfos;
+		result.mShaderBindingTableGroupsInfo			= aTemplate.mShaderBindingTableGroupsInfo;
+		result.mMaxRecursionDepth						= aTemplate.mMaxRecursionDepth;
+		result.mBasePipelineIndex						= aTemplate.mBasePipelineIndex;
+		result.mAllDescriptorSetLayouts = create_set_of_descriptor_set_layouts_from_template(aTemplate.mAllDescriptorSetLayouts);
+		result.mPushConstantRanges						= aTemplate.mPushConstantRanges;
 
 		auto descriptorSetLayoutHandles = result.mAllDescriptorSetLayouts.layout_handles();
 		result.mPipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo{}
@@ -6853,8 +6186,8 @@ namespace avk
 			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size()))
 			.setPPushConstantRanges(result.mPushConstantRanges.data());
 
-		result.mShaderGroupBaseAlignment				= aTemplate->mShaderGroupBaseAlignment;
-		result.mShaderGroupHandleSize					= aTemplate->mShaderGroupHandleSize;
+		result.mShaderGroupBaseAlignment				= aTemplate.mShaderGroupBaseAlignment;
+		result.mShaderGroupHandleSize					= aTemplate.mShaderGroupHandleSize;
 
 		result.mRoot = this;
 
@@ -7004,17 +6337,18 @@ namespace avk
 	struct subpass_desc_helper
 	{
 		size_t mSubpassId;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificInputLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedInputLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificInputLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedInputLocations;
 		int mInputMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificColorLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedColorLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificColorLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedColorLocations;
 		int mColorMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificDepthStencilLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedDepthStencilLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedDepthStencilLocations;
 		int mDepthStencilMaxLoc;
-		std::map<uint32_t, vk::AttachmentReference> mSpecificResolveLocations;
-		std::queue<vk::AttachmentReference> mUnspecifiedResolveLocations;
+		std::map<uint32_t, vk::AttachmentReference2KHR> mSpecificColorResolveLocations;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedColorResolveLocations;
+		std::queue<vk::SubpassDescriptionDepthStencilResolve> mUnspecifiedDepthStencilResolveData;
+		std::queue<vk::AttachmentReference2KHR> mUnspecifiedDepthStencilResolveRefs;
 		std::vector<uint32_t> mPreserveAttachments;
 	};
 
@@ -7028,7 +6362,15 @@ namespace avk
 		for (size_t i = 0; i < nSubpasses; ++i) {
 			auto& b = aRenderpass.mSubpassData[i];
 
-			aRenderpass.mSubpasses.push_back(vk::SubpassDescription()
+			assert(b.mOrderedDepthStencilResolveAttachmentRefs.size() == b.mOrderedDepthStencilResolveAttachmentData.size());
+			const auto nDepthStencilResolve = b.mOrderedDepthStencilResolveAttachmentRefs.size();
+			for (size_t ids = 0; ids < nDepthStencilResolve; ++ids) {
+				b.mOrderedDepthStencilResolveAttachmentData[ids].setPDepthStencilResolveAttachment(
+					&b.mOrderedDepthStencilResolveAttachmentRefs[ids]
+				);
+			}
+
+			aRenderpass.mSubpasses.push_back(vk::SubpassDescription2KHR{}
 				// pipelineBindPoint must be VK_PIPELINE_BIND_POINT_GRAPHICS [1] because subpasses are only relevant for graphics at the moment
 				.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
 				.setColorAttachmentCount(static_cast<uint32_t>(b.mOrderedColorAttachmentRefs.size()))
@@ -7036,21 +6378,101 @@ namespace avk
 				// If pResolveAttachments is not NULL, each of its elements corresponds to a color attachment
 				//  (the element in pColorAttachments at the same index), and a multisample resolve operation
 				//  is defined for each attachment. [1]
-				.setPResolveAttachments(b.mOrderedResolveAttachmentRefs.size() == 0 ? nullptr : b.mOrderedResolveAttachmentRefs.data())
+				.setPResolveAttachments(b.mOrderedColorResolveAttachmentRefs.empty() ? nullptr : b.mOrderedColorResolveAttachmentRefs.data())
 				// If pDepthStencilAttachment is NULL, or if its attachment index is VK_ATTACHMENT_UNUSED, it
 				//  indicates that no depth/stencil attachment will be used in the subpass. [1]
-				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.size() == 0 ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
+				.setPDepthStencilAttachment(b.mOrderedDepthStencilAttachmentRefs.empty() ? nullptr : &b.mOrderedDepthStencilAttachmentRefs[0])
 				// The following two attachment types are probably totally irrelevant if we only have one subpass
 				.setInputAttachmentCount(static_cast<uint32_t>(b.mOrderedInputAttachmentRefs.size()))
 				.setPInputAttachments(b.mOrderedInputAttachmentRefs.data())
 				.setPreserveAttachmentCount(static_cast<uint32_t>(b.mPreserveAttachments.size()))
-				.setPPreserveAttachments(b.mPreserveAttachments.data()));
+				.setPPreserveAttachments(b.mPreserveAttachments.data())
+				// Add depth/stencil resolve attachment:
+				.setPNext(b.mOrderedDepthStencilResolveAttachmentData.empty() ? nullptr : b.mOrderedDepthStencilResolveAttachmentData.data())
+			);				
 		}
 	}
 
-	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+
+	/**	Creates memory barrier data which is appropriate for the given subpass dependency.
+	 *	@param	aSubpassDependency	Subpass dependency to create memory barrier data for.
+	 *	@return	Memory barrier data including stage and access masks.
+	 */
+	static inline vk::MemoryBarrier2KHR get_memory_barrier_for_subpass_dependency(const subpass_dependency& aSubpassDependency)
+	{
+		const bool srcStageIsAuto = std::holds_alternative<avk::stage::auto_stage_t>(aSubpassDependency.mStages.mSrc);
+		const bool dstStageIsAuto = std::holds_alternative<avk::stage::auto_stage_t>(aSubpassDependency.mStages.mDst);
+		const bool srcAccessIsAuto = std::holds_alternative<avk::access::auto_access_t>(aSubpassDependency.mAccesses.mSrc);
+		const bool dstAccessIsAuto = std::holds_alternative<avk::access::auto_access_t>(aSubpassDependency.mAccesses.mDst);
+
+		return vk::MemoryBarrier2KHR{}
+			.setSrcStageMask(srcStageIsAuto
+				? vk::PipelineStageFlags2KHR{
+					VK_SUBPASS_EXTERNAL == aSubpassDependency.mIndices.mSrc
+					? vk::PipelineStageFlagBits2KHR::eAllCommands // TODO: Try to determine tighter stage mask; needs more information about external commands, though
+					: vk::PipelineStageFlagBits2KHR::eAllGraphics
+				}
+				: std::get<vk::PipelineStageFlags2KHR>(aSubpassDependency.mStages.mSrc)
+			)
+			.setDstStageMask(dstStageIsAuto
+				? vk::PipelineStageFlags2KHR{
+					VK_SUBPASS_EXTERNAL == aSubpassDependency.mIndices.mDst
+					? vk::PipelineStageFlagBits2KHR::eAllCommands // TODO: Try to determine tighter stage mask; needs more information about external commands, though
+					: vk::PipelineStageFlagBits2KHR::eAllGraphics
+				}
+				: std::get<vk::PipelineStageFlags2KHR>(aSubpassDependency.mStages.mDst)
+			)
+			.setSrcAccessMask(srcAccessIsAuto
+				? vk::AccessFlags2KHR{ vk::AccessFlagBits2KHR::eMemoryWrite }  // TODO: Try to determine tighter access mask; needs more information about external commands, though
+				: std::get<vk::AccessFlags2KHR>(aSubpassDependency.mAccesses.mSrc)
+			)
+			.setDstAccessMask(dstAccessIsAuto
+				? vk::AccessFlags2KHR{ vk::AccessFlagBits2KHR::eMemoryWrite }  // TODO: Try to determine tighter access mask; needs more information about external commands, though
+				: std::get<vk::AccessFlags2KHR>(aSubpassDependency.mAccesses.mDst)
+			);
+	}
+
+	std::tuple<std::vector<vk::SubpassDependency2KHR>, std::vector<vk::MemoryBarrier2KHR>> root::compile_subpass_dependencies(const renderpass_t& aRenderpass)
+	{
+		const auto numSubpassesFirst = aRenderpass.mSubpassData.size();
+		assert(numSubpassesFirst > 0);
+
+		// And construct the actual dependency-info from it:
+		std::vector<vk::SubpassDependency2KHR> subpassDependencies2;
+		std::vector<vk::MemoryBarrier2KHR> memoryBarriers2;
+
+		// Just turn them all into subpass dependencies:
+		for (auto& subDep : aRenderpass.mSubpassDependencies) {
+			subpassDependencies2.push_back(vk::SubpassDependency2KHR{}
+				.setSrcSubpass(subDep.mIndices.mSrc).setDstSubpass(subDep.mIndices.mDst) // If a VkMemoryBarrier2 is included in the pNext chain, srcStageMask, dstStageMask, srcAccessMask, and dstAccessMask parameters are ignored.
+				.setPNext(nullptr) // !!! ATTENTION: This will have to be set by the user of this function to point to the appropriate vk::MemoryBarrier2KHR{} !!!
+			);
+			memoryBarriers2.push_back(get_memory_barrier_for_subpass_dependency(subDep));
+		}
+
+		assert(subpassDependencies2.size() == memoryBarriers2.size());
+
+		return std::make_tuple(std::move(subpassDependencies2), std::move(memoryBarriers2));
+	}
+
+	void root::rewire_subpass_dependencies(std::vector<vk::SubpassDependency2KHR>& aAlignedSubpassDependencies, std::vector<vk::MemoryBarrier2KHR>& aAlignedMemoryBarriers)
+	{
+		// Set pNext pointers in every vk::SubpassDependency2KHR
+		for (size_t i = 0; i < aAlignedSubpassDependencies.size(); ++i) {
+			aAlignedSubpassDependencies[i].setPNext(&aAlignedMemoryBarriers[i]);
+			//aAlignedSubpassDependencies[i]
+			//	.setPNext(nullptr)
+			//	.setSrcStageMask(aAlignedMemoryBarriers[i].srcStageMask == vk::PipelineStageFlagBits2KHR::eNone ? (vk::PipelineStageFlags)vk::PipelineStageFlagBits::eTopOfPipe : (vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].srcStageMask)
+			//	.setSrcAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].srcAccessMask)
+			//	.setDstStageMask(aAlignedMemoryBarriers[i].dstStageMask == vk::PipelineStageFlagBits2KHR::eNone ? (vk::PipelineStageFlags)vk::PipelineStageFlagBits::eBottomOfPipe : (vk::PipelineStageFlags)(VkPipelineStageFlags)(VkPipelineStageFlags2KHR)aAlignedMemoryBarriers[i].dstStageMask)
+			//	.setDstAccessMask((vk::AccessFlags)(VkAccessFlags)(VkAccessFlags2KHR)aAlignedMemoryBarriers[i].dstAccessMask);
+		}
+	}
+
+	renderpass root::create_renderpass(std::vector<avk::attachment> aAttachments, subpass_dependencies aSubpassDependencies, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
+		result.mRoot = this;
 
 		std::vector<subpass_desc_helper> subpasses;
 
@@ -7073,134 +6495,114 @@ namespace avk
 
 		result.mAttachmentDescriptions.reserve(aAttachments.size());
 		for (const auto& a : aAttachments) {
-			// Try to infer initial and final image layouts (If this isn't cool => user must use aAlterConfigBeforeCreation)
-			vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
-			vk::ImageLayout finalLayout = vk::ImageLayout::eUndefined;
+			//// Try to infer initial and final image layouts (If this isn't cool => user must use aAlterConfigBeforeCreation)
+			//vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
+			//vk::ImageLayout finalLayout = vk::ImageLayout::eUndefined;
 
-			const auto isLoad = avk::on_load::load == a.mLoadOperation;
-			const auto isClear = avk::on_load::clear == a.mLoadOperation;
-			const auto isStore  = avk::on_store::store == a.mStoreOperation || avk::on_store::store_in_presentable_format == a.mStoreOperation;
-			const auto makePresentable = avk::on_store::store_in_presentable_format == a.mStoreOperation;
+			const auto isLoad = avk::on_load_behavior::load == a.mLoadOperation.mLoadBehavior;
+			const auto isClear = avk::on_load_behavior::clear == a.mLoadOperation.mLoadBehavior;
+			const auto isStore  = avk::on_store_behavior::store == a.mStoreOperation.mStoreBehavior;
 
 			const auto hasSeparateStencilLoad = a.mStencilLoadOperation.has_value();
 			const auto hasSeparateStencilStore = a.mStencilStoreOperation.has_value();
-			const auto isStencilLoad = avk::on_load::load == a.get_stencil_load_op();
-			const auto isStencilClear = avk::on_load::clear == a.get_stencil_load_op();
-			const auto isStencilStore  = avk::on_store::store == a.get_stencil_store_op() || avk::on_store::store_in_presentable_format == a.get_stencil_store_op();
-			const auto makeStencilPresentable = avk::on_store::store_in_presentable_format == a.get_stencil_store_op();
+			const auto isStencilLoad = avk::on_load_behavior::load == a.get_stencil_load_op().mLoadBehavior;
+			const auto isStencilClear = avk::on_load_behavior::clear == a.get_stencil_load_op().mLoadBehavior;
+			const auto isStencilStore  = avk::on_store_behavior::store == a.get_stencil_store_op().mStoreBehavior;
 			const auto hasStencilComponent = has_stencil_component(a.format());
 
-			bool initialLayoutFixed = false;
-			auto firstUsage = a.get_first_color_depth_input();
-			if (firstUsage.as_input()) {
-				if (isLoad) {
-					initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-					initialLayoutFixed = true;
-				}
-				if (isClear) {
-					initialLayoutFixed = true;
-				}
-			}
-			if (firstUsage.as_color()) { // this potentially overwrites the above
-				if (isLoad) {
-					initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
-					initialLayoutFixed = true;
-				}
-				if (isClear) {
-					initialLayoutFixed = true;
-				}
-			}
-			if (firstUsage.as_depth_stencil()) {
-				if (isLoad) {
-					initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-					{
-						// TODO: Set other depth/stencil-specific formats
-						//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
-						//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
-						//       - vk::ImageLayout::eDepthReadOnlyOptimal
-						//       - vk::ImageLayout::eStencilAttachmentOptimal
-						//       - vk::ImageLayout::eStencilReadOnlyOptimal
-					}
-					initialLayoutFixed = true;
-				}
-				if (isClear) {
-					initialLayoutFixed = true;
-				}
-			}
-			if (!initialLayoutFixed) {
-				if (a.mImageUsageHintBefore.has_value()) {
-					// If we detect the image usage to be more generic, we should change the layout to something more generic
-					if (avk::has_flag(a.mImageUsageHintBefore.value(), avk::image_usage::sampled)) {
-						initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-					}
-					if (avk::has_flag(a.mImageUsageHintBefore.value(), avk::image_usage::shader_storage)) {
-						initialLayout = vk::ImageLayout::eGeneral;
-					}
-				}
-			}
+			const auto attachmentAspect = is_depth_format(a.format())
+				? vk::ImageAspectFlagBits::eDepth
+				: vk::ImageAspectFlagBits::eColor;
 
-			auto lastUsage = a.get_last_color_depth_input();
-			if (lastUsage.as_input()) {
-				finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-			}
-			if (lastUsage.as_color()) { // This potentially overwrites the above
-				finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
-			}
-			if (lastUsage.as_depth_stencil()) {
-				finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-				{
-					// TODO: Set other depth/stencil-specific formats
-					//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
-					//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
-					//       - vk::ImageLayout::eDepthReadOnlyOptimal
-					//       - vk::ImageLayout::eStencilAttachmentOptimal
-					//       - vk::ImageLayout::eStencilReadOnlyOptimal
-				}
-			}
-			if (isStore && vk::ImageLayout::eUndefined == finalLayout) {
-				if (a.is_used_as_color_attachment()) {
-					finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
-				}
-				else if (a.is_used_as_depth_stencil_attachment()) {
-					finalLayout = vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal;
-				}
-				else if (a.is_used_as_input_attachment()) {
-					finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-				}
-			}
-			if (a.mImageUsageHintAfter.has_value()) {
-				// If we detect the image usage to be more generic, we should change the layout to something more generic
-				if (avk::has_flag(a.mImageUsageHintAfter.value(), avk::image_usage::sampled)) {
-					finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-				}
-				if (avk::has_flag(a.mImageUsageHintAfter.value(), avk::image_usage::shader_storage)) {
-					finalLayout = vk::ImageLayout::eGeneral;
-				}
-			}
-			if (vk::ImageLayout::eUndefined == finalLayout) {
-				// We can just guess:
-				finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-			}
+			//bool initialLayoutFixed = false;
+			//auto firstUsage = a.get_first_color_depth_input();
+			//if (firstUsage.as_input()) {
+			//	if (isLoad) {
+			//		initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//		initialLayoutFixed = true;
+			//	}
+			//	if (isClear) {
+			//		initialLayoutFixed = true;
+			//	}
+			//}
+			//if (firstUsage.as_color()) { // this potentially overwrites the above
+			//	if (isLoad) {
+			//		initialLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			//		initialLayoutFixed = true;
+			//	}
+			//	if (isClear) {
+			//		initialLayoutFixed = true;
+			//	}
+			//}
+			//if (firstUsage.as_depth_stencil()) {
+			//	if (isLoad) {
+			//		initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+			//		{
+			//			// TODO: Set other depth/stencil-specific formats
+			//			//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
+			//			//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
+			//			//       - vk::ImageLayout::eDepthReadOnlyOptimal
+			//			//       - vk::ImageLayout::eStencilAttachmentOptimal
+			//			//       - vk::ImageLayout::eStencilReadOnlyOptimal
+			//		}
+			//		initialLayoutFixed = true;
+			//	}
+			//	if (isClear) {
+			//		initialLayoutFixed = true;
+			//	}
+			//}
 
-			if (a.shall_be_presentable()) {
-				finalLayout = vk::ImageLayout::ePresentSrcKHR;
-			}
+			//auto lastUsage = a.get_last_color_depth_input();
+			//if (lastUsage.as_input()) {
+			//	finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//}
+			//if (lastUsage.as_color()) { // This potentially overwrites the above
+			//	finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			//}
+			//if (lastUsage.as_depth_stencil()) {
+			//	finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+			//	{
+			//		// TODO: Set other depth/stencil-specific formats
+			//		//       - vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal
+			//		//       - vk::ImageLayout::eDepthStencilReadOnlyOptimal
+			//		//       - vk::ImageLayout::eDepthReadOnlyOptimal
+			//		//       - vk::ImageLayout::eStencilAttachmentOptimal
+			//		//       - vk::ImageLayout::eStencilReadOnlyOptimal
+			//	}
+			//}
+			//if (isStore && vk::ImageLayout::eUndefined == finalLayout) {
+			//	if (a.is_used_as_color_attachment()) {
+			//		finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
+			//	}
+			//	else if (a.is_used_as_depth_stencil_attachment()) {
+			//		finalLayout = vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal;
+			//	}
+			//	else if (a.is_used_as_input_attachment()) {
+			//		finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//	}
+			//}
+			//if (vk::ImageLayout::eUndefined == finalLayout) {
+			//	// We can just guess:
+			//	finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+			//}
 
-			if (!initialLayoutFixed && isLoad) {
-				initialLayout = finalLayout;
-			}
-			// ^^^ I have no idea what I'm assuming ^^^
+			//if (a.shall_be_presentable()) {
+			//	finalLayout = vk::ImageLayout::ePresentSrcKHR;
+			//}
+
+			//if (!initialLayoutFixed && isLoad) {
+			//	initialLayout = finalLayout;
+			//}
+			//// ^^^ I have no idea what I'm assuming ^^^
 
 			// 1. Create the attachment descriptions
-			result.mAttachmentDescriptions.push_back(vk::AttachmentDescription{}
+			auto& newAttachmentDesc = result.mAttachmentDescriptions.emplace_back(vk::AttachmentDescription2KHR{}
 				.setFormat(a.format())
 				.setSamples(a.sample_count())
-				.setLoadOp(to_vk_load_op(a.mLoadOperation))
-				.setStoreOp(to_vk_store_op(a.mStoreOperation))
-				.setStencilLoadOp(to_vk_load_op(a.get_stencil_load_op()))
-				.setStencilStoreOp(to_vk_store_op(a.get_stencil_store_op()))
-				.setInitialLayout(initialLayout)
-				.setFinalLayout(finalLayout)
+				.setLoadOp(to_vk_load_op(a.mLoadOperation.mLoadBehavior))
+				.setStoreOp(to_vk_store_op(a.mStoreOperation.mStoreBehavior))
+				.setStencilLoadOp(to_vk_load_op(a.get_stencil_load_op().mLoadBehavior))
+				.setStencilStoreOp(to_vk_store_op(a.get_stencil_store_op().mStoreBehavior))
 			);
 
 			const auto attachmentIndex = static_cast<uint32_t>(result.mAttachmentDescriptions.size() - 1); // Index of this attachment as used in the further subpasses
@@ -7229,9 +6631,21 @@ namespace avk
 			}
 			assert(result.mAttachmentDescriptions.size() == result.mClearValues.size());
 
+			// Now go over all the sub passes and remember initial and final layouts along the way
+			std::optional<vk::ImageLayout> initialLayout{};
+			std::optional<vk::ImageLayout> finalLayout{};
+			auto useLayout = [&initialLayout, &finalLayout](vk::ImageLayout aLayout) {
+				if (!initialLayout.has_value()) {
+					initialLayout = aLayout;
+				}
+				finalLayout = aLayout;
+				return aLayout;
+			};
+
 			for (size_t i = 0; i < nSubpasses; ++i) {
 				auto& sp = subpasses[i];
 				auto subpassUsage = a.mSubpassUsages.get_subpass_usage(i);
+				auto subpassAspect = static_cast<bool>(subpassUsage.mAspectToBeUsed) ? subpassUsage.mAspectToBeUsed : vk::ImageAspectFlags{ attachmentAspect };
 				if (subpassUsage.as_input()) {
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment
 					if (subpassUsage.has_input_location()) {
@@ -7239,12 +6653,19 @@ namespace avk
 						if (sp.mSpecificInputLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for an input attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificInputLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal};
+						sp.mSpecificInputLocations[loc] = vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal))
+							.setAspectMask(subpassAspect);
 						sp.mInputMaxLoc = std::max(sp.mInputMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for an input attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eShaderReadOnlyOptimal});
+						sp.mUnspecifiedInputLocations.push(vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eShaderReadOnlyOptimal))
+							.setAspectMask(subpassAspect)
+						);
 					}
 				}
 				if (subpassUsage.as_color()) {
@@ -7254,37 +6675,77 @@ namespace avk
 						if (sp.mSpecificColorLocations.count(loc) != 0) {
 							throw avk::runtime_error("Layout location " + std::to_string(loc) + " is used multiple times for a color attachments in subpass " + std::to_string(i) + ". This is not allowed.");
 						}
-						sp.mSpecificColorLocations[loc] =	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal};
-						sp.mSpecificResolveLocations[loc] =	 vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal};
+						sp.mSpecificColorLocations[loc] =	vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect);
+						sp.mSpecificColorResolveLocations[loc] =	vk::AttachmentReference2KHR{}
+							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect);
 						sp.mColorMaxLoc = std::max(sp.mColorMaxLoc, loc);
 					}
 					else {
 						AVK_LOG_WARNING("No layout location is specified for a color attachment in subpass " + std::to_string(i) + ". This might be problematic. Consider declaring it 'unused'.");
-						sp.mUnspecifiedColorLocations.push(	 vk::AttachmentReference{attachmentIndex,									vk::ImageLayout::eColorAttachmentOptimal});
-						sp.mUnspecifiedResolveLocations.push(vk::AttachmentReference{resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED,	vk::ImageLayout::eColorAttachmentOptimal});
+						sp.mUnspecifiedColorLocations.push(vk::AttachmentReference2KHR{}
+							.setAttachment(attachmentIndex)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect)
+						);
+						sp.mUnspecifiedColorResolveLocations.push(vk::AttachmentReference2KHR{}
+							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
+							.setLayout(useLayout(vk::ImageLayout::eColorAttachmentOptimal))
+							.setAspectMask(subpassAspect)
+						);
 					}
 				}
 				if (subpassUsage.as_depth_stencil()) {
-					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment // TODO: Support depth/stencil resolve by using VkSubpassDescription2
-					//if (hasLoc) { // Depth/stencil attachments have no location... have they?
-					//	if (sp.mSpecificDepthStencilLocations.count(loc) != 0) {
-					//		throw avk::runtime_error(fmt::format("Layout location {} is used multiple times for a depth/stencil attachments in subpass {}. This is not allowed.", loc, i));
-					//	}
-					//	sp.mSpecificDepthStencilLocations[loc] = vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal};
-					//	sp.mDepthStencilMaxLoc = std::max(sp.mDepthStencilMaxLoc, loc);
-					//}
-					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference{attachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal});
+					auto resolve = subpassUsage.has_resolve();
+					sp.mUnspecifiedDepthStencilLocations.push(vk::AttachmentReference2KHR{}
+						.setAttachment(attachmentIndex)
+						.setLayout(useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal))
+						.setAspectMask(subpassAspect)
+					);
+					if (resolve) {
+						sp.mUnspecifiedDepthStencilResolveData.push(vk::SubpassDescriptionDepthStencilResolve{}
+							.setDepthResolveMode(  static_cast<bool>(subpassUsage.mResolveModeDepth)   ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(subpassUsage.mResolveModeDepth)  ) : vk::ResolveModeFlagBits::eSampleZero)
+							.setStencilResolveMode(static_cast<bool>(subpassUsage.mResolveModeStencil) ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(subpassUsage.mResolveModeStencil)) : vk::ResolveModeFlagBits::eSampleZero)
+							// pDepthStencilResolveAttachment to be set later to aligned vector   vvv   never forgetti!
+						);
+						sp.mUnspecifiedDepthStencilResolveRefs.push(vk::AttachmentReference2KHR{}
+							.setAttachment(resolve ? subpassUsage.resolve_target_index() : VK_ATTACHMENT_UNUSED)
+							.setLayout(useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal))
+							.setAspectMask(subpassAspect)
+						);
+					}
 				}
 				if (subpassUsage.as_preserve()) {
 					assert(!subpassUsage.has_resolve() || subpassUsage.as_color()); // Can not resolve input attachments, it's fine if it's also used as color attachment
 					assert(!subpassUsage.as_input() && !subpassUsage.as_color() && !subpassUsage.as_depth_stencil()); // Makes no sense to preserve and use as something else
 					sp.mPreserveAttachments.push_back(attachmentIndex);
 				}
+				if (subpassUsage.as_unused()) {
+					for (const auto& aaaarr : aAttachments) {
+						if (aaaarr.mSubpassUsages.get_subpass_usage(i).resolve_target_index() == attachmentIndex) { // Talkin 'bout me, bro?
+							if (aaaarr.mSubpassUsages.get_subpass_usage(i).as_color()) {
+								useLayout(vk::ImageLayout::eColorAttachmentOptimal);
+							}
+							else if (aaaarr.mSubpassUsages.get_subpass_usage(i).as_depth_stencil()) {
+								useLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+							}
+						}
+					}
+				}
 			}
+
+			// Now that we have found all the subpass data => set initial and final layouts
+			newAttachmentDesc
+				.setInitialLayout(a.mLoadOperation.mPreviousLayout.has_value() ? a.mLoadOperation.mPreviousLayout.value().mLayout : initialLayout.value_or(vk::ImageLayout::eUndefined))
+				.setFinalLayout(  a.mStoreOperation.mTargetLayout.has_value()  ? a.mStoreOperation.mTargetLayout.value().mLayout  : finalLayout.value_or(  vk::ImageLayout::eUndefined));
 		}
 
 		// 3. Fill all the vectors in the right order:
-		const auto unusedAttachmentRef = vk::AttachmentReference().setAttachment(VK_ATTACHMENT_UNUSED);
+		const auto unusedAttachmentRef = vk::AttachmentReference2KHR{}.setAttachment(VK_ATTACHMENT_UNUSED);
 		result.mSubpassData.reserve(numSubpassesFirst);
 		for (size_t i = 0; i < numSubpassesFirst; ++i) {
 			auto& a = subpasses[i];
@@ -7310,45 +6771,48 @@ namespace avk
 			for (int loc = 0; loc <= a.mColorMaxLoc || !a.mUnspecifiedColorLocations.empty(); ++loc) {
 				if (a.mSpecificColorLocations.count(loc) > 0) {
 					assert (a.mSpecificColorLocations.count(loc) == 1);
-					assert (a.mSpecificResolveLocations.count(loc) == 1);
+					assert (a.mSpecificColorResolveLocations.count(loc) == 1);
 					b.mOrderedColorAttachmentRefs.push_back(a.mSpecificColorLocations[loc]);
-					b.mOrderedResolveAttachmentRefs.push_back(a.mSpecificResolveLocations[loc]);
+					b.mOrderedColorResolveAttachmentRefs.push_back(a.mSpecificColorResolveLocations[loc]);
 				}
 				else {
 					if (!a.mUnspecifiedColorLocations.empty()) {
-						assert(a.mUnspecifiedColorLocations.size() == a.mUnspecifiedResolveLocations.size());
+						assert(a.mUnspecifiedColorLocations.size() == a.mUnspecifiedColorResolveLocations.size());
 						b.mOrderedColorAttachmentRefs.push_back(a.mUnspecifiedColorLocations.front());
 						a.mUnspecifiedColorLocations.pop();
-						b.mOrderedResolveAttachmentRefs.push_back(a.mUnspecifiedResolveLocations.front());
-						a.mUnspecifiedResolveLocations.pop();
+						b.mOrderedColorResolveAttachmentRefs.push_back(a.mUnspecifiedColorResolveLocations.front());
+						a.mUnspecifiedColorResolveLocations.pop();
 					}
 					else {
 						b.mOrderedColorAttachmentRefs.push_back(unusedAttachmentRef);
-						b.mOrderedResolveAttachmentRefs.push_back(unusedAttachmentRef);
+						b.mOrderedColorResolveAttachmentRefs.push_back(unusedAttachmentRef);
 					}
 				}
 			}
 			// DEPTH/STENCIL ATTACHMENTS
 			for (int loc = 0; loc <= a.mDepthStencilMaxLoc || !a.mUnspecifiedDepthStencilLocations.empty(); ++loc) {
-				if (a.mSpecificDepthStencilLocations.count(loc) > 0) {
-					assert (a.mSpecificDepthStencilLocations.count(loc) == 1);
-					b.mOrderedDepthStencilAttachmentRefs.push_back(a.mSpecificDepthStencilLocations[loc]);
+				if (!a.mUnspecifiedDepthStencilLocations.empty()) {
+					b.mOrderedDepthStencilAttachmentRefs.push_back(a.mUnspecifiedDepthStencilLocations.front());
+					a.mUnspecifiedDepthStencilLocations.pop();
+					if (!a.mUnspecifiedDepthStencilResolveRefs.empty()) {
+						assert(a.mUnspecifiedDepthStencilResolveRefs.size() == a.mUnspecifiedDepthStencilResolveData.size());
+						b.mOrderedDepthStencilResolveAttachmentRefs.push_back(a.mUnspecifiedDepthStencilResolveRefs.front());
+						a.mUnspecifiedDepthStencilResolveRefs.pop();
+						b.mOrderedDepthStencilResolveAttachmentData.push_back(a.mUnspecifiedDepthStencilResolveData.front());
+						a.mUnspecifiedDepthStencilResolveData.pop();
+					}
 				}
 				else {
-					if (!a.mUnspecifiedDepthStencilLocations.empty()) {
-						b.mOrderedDepthStencilAttachmentRefs.push_back(a.mUnspecifiedDepthStencilLocations.front());
-						a.mUnspecifiedDepthStencilLocations.pop();
-					}
-					else {
-						b.mOrderedDepthStencilAttachmentRefs.push_back(unusedAttachmentRef);
-					}
+					b.mOrderedDepthStencilAttachmentRefs.push_back(unusedAttachmentRef);
 				}
 			}
 			b.mPreserveAttachments = std::move(a.mPreserveAttachments);
 
 			// SOME SANITY CHECKS:
-			// - The resolve attachments must either be empty or there must be a entry for each color attachment
-			assert(b.mOrderedResolveAttachmentRefs.empty() || b.mOrderedResolveAttachmentRefs.size() == b.mOrderedColorAttachmentRefs.size());
+			// - The color resolve attachments must either be empty or there must be a entry for each color attachment
+			assert(b.mOrderedColorResolveAttachmentRefs.empty() || b.mOrderedColorResolveAttachmentRefs.size() == b.mOrderedColorAttachmentRefs.size());
+			// - The depth/stencil resolve attachments must either be empty or there must be a entry for each depth/stencil attachment
+			assert(b.mOrderedDepthStencilResolveAttachmentRefs.empty() || b.mOrderedDepthStencilResolveAttachmentRefs.size() == b.mOrderedDepthStencilAttachmentRefs.size());
 			// - There must not be more than 1 depth/stencil attachements
 			assert(b.mOrderedDepthStencilAttachmentRefs.size() <= 1);
 		}
@@ -7359,106 +6823,27 @@ namespace avk
 		// 4. Now we can fill the subpass description
 		rewire_subpass_descriptions(result);
 
-		// ======== Regarding Subpass Dependencies ==========
-		// At this point, we can not know how a subpass shall
-		// be synchronized exactly with whatever comes before
-		// and whatever comes after.
-		//  => Let's establish very (overly) cautious dependencies to ensure correctness, but user can set more tight sync via the callback
-
-		const uint32_t firstSubpassId = 0u;
-		const uint32_t lastSubpassId = static_cast<uint32_t>(numSubpassesFirst - 1);
-		const auto addDependency = [&result](renderpass_sync& rps){
-			result.mSubpassDependencies.push_back(vk::SubpassDependency()
-				// Between which two subpasses is this dependency:
-				.setSrcSubpass(rps.source_vk_subpass_id())
-				.setDstSubpass(rps.destination_vk_subpass_id())
-				// Which stage from whatever comes before are we waiting on, and which operations from whatever comes before are we waiting on:
-				.setSrcStageMask(to_vk_pipeline_stage_flags(rps.mSourceStage))
-				.setSrcAccessMask(to_vk_access_flags(to_memory_access(rps.mSourceMemoryDependency)))
-				// Which stage and which operations of our subpass ZERO shall wait:
-				.setDstStageMask(to_vk_pipeline_stage_flags(rps.mDestinationStage))
-				.setDstAccessMask(to_vk_access_flags(rps.mDestinationMemoryDependency))
-			);
-		};
-
-		{
-			renderpass_sync syncBefore {renderpass_sync::sExternal, static_cast<int>(firstSubpassId),
-				pipeline_stage::all_commands,			memory_access::any_write_access,
-				pipeline_stage::all_graphics,	        memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access
-			};
-			// Let the user modify this sync
-			if (aSync) {
-				aSync(syncBefore);
-			}
-			assert(syncBefore.source_vk_subpass_id() == VK_SUBPASS_EXTERNAL);
-			assert(syncBefore.destination_vk_subpass_id() == 0u);
-			addDependency(syncBefore);
-		}
-
-		// Iterate over all combinations of [id, id] and [id, id+1]
-		for (auto i = firstSubpassId, j = firstSubpassId; j <= lastSubpassId; i += (j-i), j += static_cast<uint32_t>(i==j)) {
-
-			// Default to ALL_GRAPHICS -> ALL_GRAPHICS sync between different sub passes,
-			// but default to NO SYNC for subpass self-dependencies, and leave them out if not set by the user
-			// (because subpass self-dependency rules have stricter rules to follow: https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies)
-			renderpass_sync syncBetween {static_cast<int>(i), static_cast<int>(j),
-				pipeline_stage::all_graphics,	memory_access::any_graphics_basic_write_access,
-				pipeline_stage::all_graphics,	memory_access::any_graphics_read_access | memory_access::any_graphics_basic_write_access,
-			};
-			if (i == j) {
-				syncBetween.mSourceStage = pipeline_stage::top_of_pipe;
-				syncBetween.mSourceMemoryDependency = std::nullopt;
-				syncBetween.mDestinationStage = pipeline_stage::bottom_of_pipe;
-				syncBetween.mDestinationMemoryDependency = std::nullopt;
-			}
-
-			// Let the user modify this sync
-			if (aSync) {
-				aSync(syncBetween);
-			}
-			assert(syncBetween.source_vk_subpass_id() == i);
-			assert(syncBetween.destination_vk_subpass_id() == j);
-
-			if (i != j // or else -- if it is a self dependency -- if the user has set some values:
-				|| syncBetween.mSourceStage != pipeline_stage::top_of_pipe
-				|| syncBetween.mSourceMemoryDependency.has_value()
-				|| syncBetween.mDestinationStage != pipeline_stage::bottom_of_pipe
-				|| syncBetween.mDestinationMemoryDependency.has_value()) {
-				addDependency(syncBetween);
-			}
-		}
-
-		{
-			renderpass_sync syncAfter {static_cast<int>(lastSubpassId), renderpass_sync::sExternal,
-				pipeline_stage::all_graphics,	        memory_access::any_graphics_basic_write_access,
-				pipeline_stage::all_commands,			memory_access::any_read_access
-			};
-			// Let the user modify this sync
-			if (aSync) {
-				aSync(syncAfter);
-			}
-			assert(syncAfter.source_vk_subpass_id() == lastSubpassId);
-			assert(syncAfter.destination_vk_subpass_id() == VK_SUBPASS_EXTERNAL);
-			addDependency(syncAfter);
-		}
-
-		assert(result.mSubpassDependencies.size() == numSubpassesFirst + 1);
+		// ======== Subpass Dependencies ==========
+		// Store whatever the user has passed to not lose any data:
+		result.mSubpassDependencies = std::move(aSubpassDependencies);
+		auto [subpassDependencies, memoryBarriers] = compile_subpass_dependencies(result);
+		rewire_subpass_dependencies(subpassDependencies, memoryBarriers);
 
 		// Finally, create the render pass
-		result.mCreateInfo = vk::RenderPassCreateInfo()
+		result.mCreateInfo = vk::RenderPassCreateInfo2KHR()
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
 			.setPSubpasses(result.mSubpasses.data())
-			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
-			.setPDependencies(result.mSubpassDependencies.data());
+			.setDependencyCount(static_cast<uint32_t>(subpassDependencies.size()))
+			.setPDependencies(subpassDependencies.data());
 
 		// Maybe alter the config?!
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
 
-		result.mRenderPass = device().createRenderPassUnique(result.mCreateInfo, nullptr, dispatch_loader_core());
+		result.mRenderPass = device().createRenderPass2KHRUnique(result.mCreateInfo, nullptr, dispatch_loader_ext());
 		return result;
 
 		// TODO: Support VkSubpassDescriptionDepthStencilResolveKHR in order to enable resolve-settings for the depth attachment (see [1] and [2] for more details)
@@ -7469,29 +6854,34 @@ namespace avk
 		// [3] https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VkPipelineStageFlagBits.html
 	}
 
-	renderpass root::create_renderpass_from_template(resource_reference<const renderpass_t> aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
+	renderpass root::create_renderpass_from_template(const renderpass_t& aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation)
 	{
 		renderpass_t result;
-		result.mAttachmentDescriptions = aTemplate->mAttachmentDescriptions;
-		result.mClearValues			   = aTemplate->mClearValues			  ;
-		result.mSubpassData			   = aTemplate->mSubpassData			  ;
+		result.mRoot                   = aTemplate.mRoot;
+		result.mAttachmentDescriptions = aTemplate.mAttachmentDescriptions;
+		result.mClearValues			   = aTemplate.mClearValues			  ;
+		result.mSubpassData			   = aTemplate.mSubpassData			  ;
 		rewire_subpass_descriptions(result); // this will set result.mSubpasses
-		result.mSubpassDependencies	   = aTemplate->mSubpassDependencies	  ;
+		result.mSubpassDependencies	   = aTemplate.mSubpassDependencies	  ;
 
 		// Maybe alter the config?!
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
 
+		auto [subpassDependencies, memoryBarriers] = compile_subpass_dependencies(result);
+		rewire_subpass_dependencies(subpassDependencies, memoryBarriers);
+
 		// Finally, create the render pass
-		auto createInfo = vk::RenderPassCreateInfo()
+		auto createInfo = vk::RenderPassCreateInfo2KHR{}
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
 			.setPSubpasses(result.mSubpasses.data())
-			.setDependencyCount(static_cast<uint32_t>(result.mSubpassDependencies.size()))
-			.setPDependencies(result.mSubpassDependencies.data());
-		result.mRenderPass = device().createRenderPassUnique(createInfo, nullptr, dispatch_loader_core());
+			.setDependencyCount(static_cast<uint32_t>(subpassDependencies.size()))
+			.setPDependencies(subpassDependencies.data());
+		
+		result.mRenderPass = device().createRenderPass2KHRUnique(createInfo, nullptr, dispatch_loader_ext());
 		return result;
 	}
 
@@ -7501,7 +6891,7 @@ namespace avk
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
 		return b.mOrderedInputAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedInputAttachmentRefs), std::end(b.mOrderedInputAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_color_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7510,7 +6900,7 @@ namespace avk
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
 		return b.mOrderedColorAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedColorAttachmentRefs), std::end(b.mOrderedColorAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_depth_stencil_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7519,7 +6909,7 @@ namespace avk
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
 		return b.mOrderedDepthStencilAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedDepthStencilAttachmentRefs), std::end(b.mOrderedDepthStencilAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_resolve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7527,8 +6917,8 @@ namespace avk
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		assert(aAttachmentIndex < mAttachmentDescriptions.size());
-		return b.mOrderedResolveAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedResolveAttachmentRefs), std::end(b.mOrderedResolveAttachmentRefs),
-			[aAttachmentIndex](const vk::AttachmentReference& ref) { return ref.attachment == aAttachmentIndex; });
+		return b.mOrderedColorResolveAttachmentRefs.end() != std::find_if(std::begin(b.mOrderedColorResolveAttachmentRefs), std::end(b.mOrderedColorResolveAttachmentRefs),
+			[aAttachmentIndex](const vk::AttachmentReference2KHR& ref) { return ref.attachment == aAttachmentIndex; });
 	}
 
 	bool renderpass_t::is_preserve_attachment(uint32_t aSubpassId, size_t aAttachmentIndex) const
@@ -7540,39 +6930,91 @@ namespace avk
 			[aAttachmentIndex](uint32_t idx) { return idx == aAttachmentIndex; });
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::input_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::input_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedInputAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::color_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::color_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedColorAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::depth_stencil_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::depth_stencil_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mOrderedDepthStencilAttachmentRefs;
 	}
 
-	const std::vector<vk::AttachmentReference>& renderpass_t::resolve_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<vk::AttachmentReference2KHR>& renderpass_t::resolve_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
-		return b.mOrderedResolveAttachmentRefs;
+		return b.mOrderedColorResolveAttachmentRefs;
 	}
 
-	const std::vector<uint32_t>& renderpass_t::preserve_attachments_for_subpass(uint32_t aSubpassId)
+	const std::vector<uint32_t>& renderpass_t::preserve_attachments_for_subpass(uint32_t aSubpassId) const
 	{
 		assert(aSubpassId < mSubpassData.size());
 		auto& b = mSubpassData[aSubpassId];
 		return b.mPreserveAttachments;
+	}
+
+	vk::SampleCountFlagBits renderpass_t::num_samples_for_subpass(uint32_t aSubpassId) const
+	{
+		vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
+
+		// See what is configured in the render pass
+		auto colorAttConfigs = color_attachments_for_subpass(aSubpassId)
+			| std::views::filter([](const vk::AttachmentReference2KHR& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+			| std::views::transform([this](const vk::AttachmentReference2KHR& colorAttachment) { return attachment_descriptions()[colorAttachment.attachment]; });
+
+		for (const vk::AttachmentDescription2KHR& config : colorAttConfigs) {
+			typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
+			numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
+		}
+
+#if defined(_DEBUG)
+		for (const vk::AttachmentDescription2KHR& config : colorAttConfigs) {
+			if (config.samples != numSamples) {
+				AVK_LOG_DEBUG("Not all of the color target attachments have the same number of samples configured, fyi. This might be fine, though.");
+			}
+		}
+#endif
+
+		if (vk::SampleCountFlagBits::e1 == numSamples) {
+			auto depthAttConfigs = depth_stencil_attachments_for_subpass(aSubpassId)
+				| std::views::filter([](const vk::AttachmentReference2KHR& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
+				| std::views::transform([this](const vk::AttachmentReference2KHR& depthStencilAttachment) { return attachment_descriptions()[depthStencilAttachment.attachment]; });
+
+			for (const vk::AttachmentDescription2KHR& config : depthAttConfigs) {
+				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
+				numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
+			}
+
+#if defined(_DEBUG)
+			for (const vk::AttachmentDescription2KHR& config : depthAttConfigs) {
+				if (config.samples != numSamples) {
+					AVK_LOG_DEBUG("Not all of the depth/stencil target attachments have the same number of samples configured, fyi. This might be fine, though.");
+				}
+			}
+#endif
+
+#if defined(_DEBUG)
+			for (const vk::AttachmentDescription2KHR& config : colorAttConfigs) {
+				if (config.samples != numSamples) {
+					AVK_LOG_DEBUG("Some of the color target attachments have different numbers of samples configured as the depth/stencil attachments, fyi. This might be fine, though.");
+				}
+			}
+#endif
+		}
+
+		return numSamples;
 	}
 #pragma endregion
 
@@ -7580,7 +7022,6 @@ namespace avk
 	semaphore_t::semaphore_t()
 		: mCreateInfo{}
 		, mSemaphore{}
-		, mSemaphoreWaitStageForNextCommand{ vk::PipelineStageFlagBits::eAllCommands }
 		, mCustomDeleter{}
 	{
 	}
@@ -7595,12 +7036,6 @@ namespace avk
 		// Destroy the dependant instance before destroying myself
 		// ^ This is ensured by the order of the members
 		//   See: https://isocpp.org/wiki/faq/dtors#calling-member-dtors
-	}
-
-	semaphore_t& semaphore_t::set_semaphore_wait_stage(vk::PipelineStageFlags _Stage)
-	{
-		mSemaphoreWaitStageForNextCommand = _Stage;
-		return *this;
 	}
 
 	semaphore root::create_semaphore(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
@@ -7620,6 +7055,12 @@ namespace avk
 	semaphore root::create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
 	{
 		return create_semaphore(device(), dispatch_loader_core(), std::move(aAlterConfigBeforeCreation));
+	}
+
+	semaphore_t& semaphore_t::handle_lifetime_of(any_owning_resource_t aResource)
+	{
+		mLifetimeHandledResources.push_back(std::move(aResource));
+		return *this;
 	}
 #pragma endregion
 
@@ -7717,219 +7158,161 @@ namespace avk
 #pragma endregion
 
 #pragma region vk_utils2 definitions
-	std::optional<command_buffer> copy_image_to_another(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<image_t> aDstImage, sync aSyncHandler, bool aRestoreSrcLayout, bool aRestoreDstLayout)
+	avk::command::action_type_command copy_image_to_another(avk::resource_argument<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, avk::resource_argument<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		const auto originalSrcLayout = aSrcImage->target_layout();
-		const auto originalDstLayout = aDstImage->target_layout();
+		auto actionTypeCommand = avk::command::action_type_command {
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcImage->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_read,  stage::copy + access::none           }),
+				std::make_tuple(aDstImage->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
+			},
+			[
+				lRoot = aSrcImage->root_ptr(),
+				lSrcHandle = aSrcImage->handle(),
+				lDstHandle = aDstImage->handle(),
+				aSrcImageLayout, aDstImageLayout, aImageAspectFlags,
+				lExtent = vk::Extent3D{ aSrcImage->width(), aSrcImage->height(), 1u }
+			](avk::command_buffer_t& cb) {
+				const vk::ImageCopy region {
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u}, vk::Offset3D{ 0, 0, 0 },
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, vk::Offset3D{ 0, 0, 0 }, lExtent
+				};
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+				cb.handle().copyImage(
+					lSrcHandle, aSrcImageLayout.mLayout,
+					lDstHandle, aDstImageLayout.mLayout,
+					1u, &region,
+					lRoot->dispatch_loader_core()
+				);
+			}
+		};
 
-		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto srcLayoutAfterBarrier = aSrcImage->current_layout();
-		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
-									//|| initialSrcLayout == vk::ImageLayout::eGeneral
-									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableSrcLayout) {
-			// Just make sure that is really is in target layout:
-			aSrcImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable src layout => must transform
-			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
+		if (aSrcImage.is_ownership() || aDstImage.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lSrcImage = aSrcImage.move_ownership_or_get_empty(),
+				lDstImage = aDstImage.move_ownership_or_get_empty()
+			](avk::command_buffer_t& cb) mutable {
+				let_it_handle_lifetime_of(cb, lSrcImage);
+				let_it_handle_lifetime_of(cb, lDstImage);
+			};
+		};
 
-		// Citing the specs: "dstImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto dstLayoutAfterBarrier = aDstImage->current_layout();
-		const bool suitableDstLayout = dstLayoutAfterBarrier == vk::ImageLayout::eTransferDstOptimal;
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eGeneral
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableDstLayout) {
-			// Just make sure that is really is in target layout:
-			aDstImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable dst layout => must transform
-			aDstImage->transition_to_layout(vk::ImageLayout::eTransferDstOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 
-		// Operation:
-		auto copyRegion = vk::ImageCopy{}
-			.setExtent(aSrcImage->create_info().extent) // TODO: Support different ranges/extents
-			.setSrcOffset({0, 0})
-			.setSrcSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aSrcImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u)
-			)
-			.setDstOffset({0, 0})
-			.setDstSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aDstImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u));
-
-		commandBuffer.handle().copyImage(
-			aSrcImage->handle(),
-			aSrcImage->current_layout(),
-			aDstImage->handle(),
-			aDstImage->current_layout(),
-			1u, &copyRegion);
-
-		if (aRestoreSrcLayout) { // => restore original layout of the src image
-			aSrcImage->transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		if (aRestoreDstLayout) { // => restore original layout of the dst image
-			aDstImage->transition_to_layout(originalDstLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> blit_image(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<image_t> aDstImage, sync aSyncHandler, bool aRestoreSrcLayout, bool aRestoreDstLayout)
+	avk::command::action_type_command blit_image(avk::resource_argument<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, avk::resource_argument<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags, vk::Filter aFilter)
 	{
-		const auto originalSrcLayout = aSrcImage->target_layout();
-		const auto originalDstLayout = aDstImage->target_layout();
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcImage->handle(), avk::sync::sync_hint{ stage::blit + access::transfer_read,  stage::blit + access::none           }),
+				std::make_tuple(aDstImage->handle(), avk::sync::sync_hint{ stage::blit + access::transfer_write, stage::blit + access::transfer_write })
+			},
+			[
+				lRoot = aSrcImage->root_ptr(),
+				lSrcHandle = aSrcImage->handle(),
+				lDstHandle = aDstImage->handle(),
+				aSrcImageLayout, aDstImageLayout, aImageAspectFlags, aFilter,
+				lExtent = vk::Extent3D{ aSrcImage->width(), aSrcImage->height(), 1u }
+			](avk::command_buffer_t& cb) {
+				const std::array srcOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lExtent.width), static_cast<int32_t>(lExtent.height), 1 }};
+				const std::array dstOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lExtent.width), static_cast<int32_t>(lExtent.height), 1 }};
+				const vk::ImageBlit region {
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, srcOffsets,
+					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, dstOffsets
+				};
 
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
+				cb.handle().blitImage(
+					lSrcHandle, aSrcImageLayout.mLayout,
+					lDstHandle, aDstImageLayout.mLayout,
+					1u, &region,
+					aFilter,
+					lRoot->dispatch_loader_core()
+				);
+			}
+		};
 
-		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto srcLayoutAfterBarrier = aSrcImage->current_layout();
-		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
-									//|| initialSrcLayout == vk::ImageLayout::eGeneral
-									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableSrcLayout) {
-			// Just make sure that is really is in target layout:
-			aSrcImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable src layout => must transform
-			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
+		if (aSrcImage.is_ownership() || aDstImage.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lSrcImage = aSrcImage.move_ownership_or_get_empty(),
+				lDstImage = aDstImage.move_ownership_or_get_empty()
+			](avk::command_buffer_t& cb) mutable {
+				let_it_handle_lifetime_of(cb, lSrcImage);
+				let_it_handle_lifetime_of(cb, lDstImage);
+			};
+		};
 
-		// Citing the specs: "dstImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto dstLayoutAfterBarrier = aDstImage->current_layout();
-		const bool suitableDstLayout = dstLayoutAfterBarrier == vk::ImageLayout::eTransferDstOptimal;
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eGeneral
-									//|| dstLayoutAfterBarrier == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableDstLayout) {
-			// Just make sure that is really is in target layout:
-			aDstImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable dst layout => must transform
-			aDstImage->transition_to_layout(vk::ImageLayout::eTransferDstOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 
-
-		std::array<vk::Offset3D, 2> srcOffsets = { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(aSrcImage->width()), static_cast<int32_t>(aSrcImage->height()), 1 } };
-		std::array<vk::Offset3D, 2> dstOffsets = { vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(aDstImage->width()), static_cast<int32_t>(aDstImage->height()), 1 } };
-
-		// Operation:
-		auto blitRegion = vk::ImageBlit{}
-			.setSrcSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aSrcImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u)
-			)
-			.setSrcOffsets(srcOffsets)
-			.setDstSubresource(vk::ImageSubresourceLayers{} // TODO: Add support for the other parameters
-				.setAspectMask(aDstImage->aspect_flags())
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u)
-				.setMipLevel(0u)
-			)
-			.setDstOffsets(dstOffsets);
-
-		commandBuffer.handle().blitImage(
-			aSrcImage->handle(),
-			aSrcImage->current_layout(),
-			aDstImage->handle(),
-			aDstImage->current_layout(),
-			1u, &blitRegion,
-			vk::Filter::eNearest); // TODO: Support other filters and everything
-
-		if (aRestoreSrcLayout) { // => restore original layout of the src image
-			aSrcImage->transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		if (aRestoreDstLayout) { // => restore original layout of the dst image
-			aDstImage->transition_to_layout(originalDstLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image_layer_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_image_layer_mip_level(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<image_t> aDstImage, uint32_t aDstLayer, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
 		auto extent = aDstImage->create_info().extent;
 		extent.width  = extent.width  > 1u ? extent.width  >> aDstLevel : 1u;
 		extent.height = extent.height > 1u ? extent.height >> aDstLevel : 1u;
 		extent.depth  = extent.depth  > 1u ? extent.depth  >> aDstLevel : 1u;
 
-		// Operation:
-		auto copyRegion = vk::BufferImageCopy()
-			.setBufferOffset(0)
-			// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
-			// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
-			.setBufferRowLength(0)
-			.setBufferImageHeight(0)
-			.setImageSubresource(vk::ImageSubresourceLayers()
-				.setAspectMask(aAspectFlagsOverride.value_or(aDstImage->aspect_flags())) // Used to be vk::ImageAspectFlagBits::eColor
-				.setMipLevel(aDstLevel)
-				.setBaseArrayLayer(aDstLayer)
-				.setLayerCount(1u))
-			.setImageOffset({ 0u, 0u, 0u })
-			.setImageExtent(extent);
-		commandBuffer.handle().copyBufferToImage(
-			aSrcBuffer->handle(),
-			aDstImage->handle(),
-			vk::ImageLayout::eTransferDstOptimal, // TODO: Should image layout transitions be handled somehow automatically or so? If not => Document that this function expects the image to be in eTransferDstOptimal Layout.
-			{ copyRegion });
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_read,  stage::copy + access::none           }),
+				std::make_tuple(aDstImage->handle(),  avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
+			},
+			[
+				lRoot = aSrcBuffer->root_ptr(),
+				lSrcHandle = aSrcBuffer->handle(),
+				lDstHandle = aDstImage->handle(),
+				aDstLayer, aDstLevel, aDstImageLayout, aImageAspectFlags,
+				extent
+			](avk::command_buffer_t& cb) {
+				// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
+				// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
+				const vk::BufferImageCopy region {
+					0, 0u, 0u,
+					vk::ImageSubresourceLayers{ aImageAspectFlags, aDstLevel, aDstLayer, 1u },
+					vk::Offset3D{ 0, 0, 0 }, extent
+				};
+				cb.handle().copyBufferToImage(
+					lSrcHandle, 
+					lDstHandle, aDstImageLayout.mLayout,
+					1u, &region,
+					lRoot->dispatch_loader_core()
+				);
+			}
+		};
 
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+		if (aSrcBuffer.is_ownership() || aDstImage.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lSrcBuffer = aSrcBuffer.move_ownership_or_get_empty(),
+				lDstImage = aDstImage.move_ownership_or_get_empty()
+			](avk::command_buffer_t& cb) mutable {
+				let_it_handle_lifetime_of(cb, lSrcBuffer);
+				let_it_handle_lifetime_of(cb, lDstImage);
+			};
+		};
 
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image_mip_level(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, uint32_t aDstLevel, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_image_mip_level(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<image_t> aDstImage, uint32_t aDstLevel, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		return copy_buffer_to_image_layer_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstLevel, aAspectFlagsOverride, std::move(aSyncHandler));
+		return copy_buffer_to_image_layer_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstLevel, aDstImageLayout, aImageAspectFlags);
 	}
 
-	std::optional<command_buffer> copy_buffer_to_image(resource_reference<const buffer_t> aSrcBuffer, resource_reference<image_t> aDstImage, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_image(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<image_t> aDstImage, avk::layout::image_layout aDstImageLayout, vk::ImageAspectFlags aImageAspectFlags)
 	{
-		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aAspectFlagsOverride, std::move(aSyncHandler));
+		return copy_buffer_to_image_mip_level(std::move(aSrcBuffer), std::move(aDstImage), 0u, aDstImageLayout, aImageAspectFlags);
 	}
 
-	std::optional<command_buffer> copy_buffer_to_another(avk::resource_reference<buffer_t> aSrcBuffer, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize, sync aSyncHandler)
+	avk::command::action_type_command copy_buffer_to_another(avk::resource_argument<buffer_t> aSrcBuffer, avk::resource_argument<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aSrcOffset, std::optional<vk::DeviceSize> aDstOffset, std::optional<vk::DeviceSize> aDataSize)
 	{
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-		vk::DeviceSize dataSize{0};
+		vk::DeviceSize dataSize{ 0 };
 		if (aDataSize.has_value()) {
 			dataSize = aDataSize.value();
 		}
@@ -7941,107 +7324,113 @@ namespace avk
 		{
 			const auto& metaDataSrc = aSrcBuffer->meta_at_index<buffer_meta>();
 			const auto& metaDataDst = aDstBuffer->meta_at_index<buffer_meta>();
-			assert (aSrcOffset.value_or(0) + dataSize <= metaDataSrc.total_size());
-			assert (aDstOffset.value_or(0) + dataSize <= metaDataDst.total_size());
-			assert (aSrcOffset.value_or(0) + dataSize <= metaDataDst.total_size());
+			assert(aSrcOffset.value_or(0) + dataSize <= metaDataSrc.total_size());
+			assert(aDstOffset.value_or(0) + dataSize <= metaDataDst.total_size());
+			assert(aSrcOffset.value_or(0) + dataSize <= metaDataDst.total_size());
 		}
 #endif
 
-		auto copyRegion = vk::BufferCopy{}
-			.setSrcOffset(aSrcOffset.value_or(0))
-			.setDstOffset(aDstOffset.value_or(0))
-			.setSize(dataSize);
-		commandBuffer.handle().copyBuffer(aSrcBuffer->handle(), aDstBuffer->handle(), 1u, &copyRegion);
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_read , stage::copy + access::none           }),
+				std::make_tuple(aDstBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
+			},
+			[
+				lRoot = aSrcBuffer->root_ptr(),
+				lSrcHandle = aSrcBuffer->handle(),
+				lDstHandle = aDstBuffer->handle(),
+				lSrcOffset = aSrcOffset.value_or(0),
+				lDstOffset = aDstOffset.value_or(0),
+				dataSize
+			](avk::command_buffer_t& cb) {
+				const vk::BufferCopy region {
+					lSrcOffset, lDstOffset, dataSize
+				};
+				cb.handle().copyBuffer(
+					lSrcHandle, 
+					lDstHandle,
+					1u, &region, 
+					lRoot->dispatch_loader_core()
+				);
+			}
+		};
 
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		if (aSrcBuffer.is_ownership() || aDstBuffer.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lSrcBuffer = aSrcBuffer.move_ownership_or_get_empty(),
+				lDstBuffer = aDstBuffer.move_ownership_or_get_empty()
+			](avk::command_buffer_t& cb) mutable {
+				let_it_handle_lifetime_of(cb, lSrcBuffer);
+				let_it_handle_lifetime_of(cb, lDstBuffer);
+			};
+		};
+
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> copy_image_mip_level_to_buffer(avk::resource_reference<image_t> aSrcImage, uint32_t aSrcLevel, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler, bool aRestoreSrcLayout)
+	avk::command::action_type_command copy_image_layer_mip_level_to_buffer(avk::resource_argument<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, uint32_t aSrcLayer, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_argument<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
-		const auto originalSrcLayout = aSrcImage->target_layout();
-
-		auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-		// Sync before:
-		aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-		// Citing the specs: "srcImageLayout must be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, or VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR"
-		const auto srcLayoutAfterBarrier = aSrcImage->current_layout();
-		const bool suitableSrcLayout = srcLayoutAfterBarrier == vk::ImageLayout::eTransferSrcOptimal; // For optimal performance, only allow eTransferSrcOptimal
-									//|| initialSrcLayout == vk::ImageLayout::eGeneral
-									//|| initialSrcLayout == vk::ImageLayout::eSharedPresentKHR;
-		if (suitableSrcLayout) {
-			// Just make sure that is really is in target layout:
-			aSrcImage->transition_to_layout({}, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-		else {
-			// Not a suitable src layout => must transform
-			aSrcImage->transition_to_layout(vk::ImageLayout::eTransferSrcOptimal, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
-
 		auto extent = aSrcImage->create_info().extent;
-		extent.width  = extent.width  > 1u ? extent.width  >> aSrcLevel : 1u;
+		extent.width = extent.width > 1u ? extent.width >> aSrcLevel : 1u;
 		extent.height = extent.height > 1u ? extent.height >> aSrcLevel : 1u;
-		extent.depth  = extent.depth  > 1u ? extent.depth  >> aSrcLevel : 1u;
+		extent.depth = extent.depth > 1u ? extent.depth >> aSrcLevel : 1u;
 
-		// Operation:
-		auto copyRegion = vk::BufferImageCopy()
-			.setBufferOffset(0)
-			.setBufferRowLength(0)
-			.setBufferImageHeight(0)
-			.setImageSubresource(vk::ImageSubresourceLayers()
-				.setAspectMask(aAspectFlagsOverride.value_or(aSrcImage->aspect_flags()))
-				.setMipLevel(aSrcLevel)
-				.setBaseArrayLayer(0u)
-				.setLayerCount(1u))
-			.setImageOffset({ 0u, 0u, 0u })
-			.setImageExtent(extent);
-		commandBuffer.handle().copyImageToBuffer(
-			aSrcImage->handle(),
-			vk::ImageLayout::eTransferSrcOptimal, // TODO: Should image layout transitions be handled somehow automatically or so? If not => Document that this function expects the image to be in eTransferSrcOptimal Layout.
-			aDstBuffer->handle(),
-			{ copyRegion });
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				std::make_tuple(aSrcImage->handle() , avk::sync::sync_hint{ stage::copy + access::transfer_read , stage::copy + access::none           }),
+				std::make_tuple(aDstBuffer->handle(), avk::sync::sync_hint{ stage::copy + access::transfer_write, stage::copy + access::transfer_write })
+			},
+			[
+				lRoot = aSrcImage->root_ptr(),
+				lSrcHandle = aSrcImage->handle(), aSrcImageLayout,
+				lDstHandle = aDstBuffer->handle(),
+				lDstOffset = aDstOffset.value_or(0),
+				aSrcLayer, aSrcLevel, aImageAspectFlags,
+				extent
+			](avk::command_buffer_t& cb) {
+				// The bufferRowLength and bufferImageHeight fields specify how the pixels are laid out in memory. For example, you could have some padding 
+				// bytes between rows of the image. Specifying 0 for both indicates that the pixels are simply tightly packed like they are in our case. [3]
+				const vk::BufferImageCopy region {
+					lDstOffset, 0u, 0u,
+					vk::ImageSubresourceLayers{ aImageAspectFlags, aSrcLevel, aSrcLayer, 1u },
+					vk::Offset3D{ 0, 0, 0 }, extent
+				};
+				cb.handle().copyImageToBuffer(
+					lSrcHandle, aSrcImageLayout.mLayout,
+					lDstHandle,
+					1u, &region, 
+					lRoot->dispatch_loader_ext()
+				);
+			}
+		};
 
-		if (aRestoreSrcLayout) { // => restore original layout of the src image
-			aSrcImage->transition_to_layout(originalSrcLayout, sync::auxiliary_with_barriers(aSyncHandler, {}, {}));
-		}
+		if (aSrcImage.is_ownership() || aDstBuffer.is_ownership()) {
+			actionTypeCommand.mEndFun = [
+				lSrcImage = aSrcImage.move_ownership_or_get_empty(),
+				lDstBuffer = aDstBuffer.move_ownership_or_get_empty()
+			](avk::command_buffer_t& cb) mutable {
+				let_it_handle_lifetime_of(cb, lSrcImage);
+				let_it_handle_lifetime_of(cb, lDstBuffer);
+			};
+		};
 
-		// Sync after:
-		aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 
-		// Finish him:
-		return aSyncHandler.submit_and_sync();
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> copy_image_to_buffer(avk::resource_reference<image_t> aSrcImage, avk::resource_reference<buffer_t> aDstBuffer, std::optional<vk::ImageAspectFlags> aAspectFlagsOverride, sync aSyncHandler, bool aRestoreSrcLayout)
+	avk::command::action_type_command copy_image_mip_level_to_buffer(avk::resource_argument<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, uint32_t aSrcLevel, vk::ImageAspectFlags aImageAspectFlags, avk::resource_argument<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
-		return copy_image_mip_level_to_buffer(std::move(aSrcImage), 0u, std::move(aDstBuffer), aAspectFlagsOverride, std::move(aSyncHandler), aRestoreSrcLayout);
+		return copy_image_layer_mip_level_to_buffer(std::move(aSrcImage), aSrcImageLayout, 0u, aSrcLevel, aImageAspectFlags, std::move(aDstBuffer), aDstOffset);
 	}
-#pragma endregion
 
-#pragma region pipeline_barrier_data definitions
-	void pipeline_barrier_data::make_barrier(command_buffer_t& aIntoCommandBuffer) const
+	avk::command::action_type_command copy_image_to_buffer(avk::resource_argument<image_t> aSrcImage, avk::layout::image_layout aSrcImageLayout, vk::ImageAspectFlags aImageAspectFlags, avk::resource_argument<buffer_t> aDstBuffer, std::optional<vk::DeviceSize> aDstOffset)
 	{
-		std::vector<vk::BufferMemoryBarrier> bmbs;
-		for (auto& data : mBufferMemoryBarriers) {
-			bmbs.emplace_back()
-				.setBuffer(data.mBufferRef->handle())
-				.setSrcQueueFamilyIndex(data.mSrcQueue.value()->family_index())
-				.setDstQueueFamilyIndex(data.mDstQueue.value()->family_index())
-				.setOffset(0)
-				.setSize(data.mBufferRef->meta_at_index<buffer_meta>().total_size());
-		}
-
-		aIntoCommandBuffer.handle().pipelineBarrier(
-			to_vk_pipeline_stage_flags(mSrcStage.value()),
-			to_vk_pipeline_stage_flags(mDstStage.value()),
-			vk::DependencyFlags{},										// TODO: support dependency flags
-			0u, nullptr,
-			static_cast<uint32_t>(bmbs.size()), bmbs.data(),
-			0u, nullptr
-		);
+		return copy_image_mip_level_to_buffer(std::move(aSrcImage), aSrcImageLayout, 0u, aImageAspectFlags, std::move(aDstBuffer), aDstOffset);
 	}
 #pragma endregion
 
@@ -8079,51 +7468,1024 @@ namespace avk
 		mQueryPool.getOwner().resetQueryPool(handle(), aFirstQueryIndex, aNumQueries.value_or(create_info().queryCount - aFirstQueryIndex));
 	}
 
-	std::optional<command_buffer> query_pool_t::reset(uint32_t aFirstQueryIndex, std::optional<uint32_t> aNumQueries, avk::sync aSync)
+	avk::command::action_type_command query_pool_t::reset(uint32_t aFirstQueryIndex, std::optional<uint32_t> aNumQueries)
 	{
-		auto& cmdBfr = aSync.get_or_create_command_buffer();
-		cmdBfr.handle().resetQueryPool(handle(), aFirstQueryIndex, aNumQueries.value_or(create_info().queryCount - aFirstQueryIndex));
-		return aSync.submit_and_sync();
+		return avk::command::action_type_command{
+			{}, {}, // Sync not applicable here, I guess
+			[
+				lHandle = handle(),
+				aFirstQueryIndex,
+				lNumQueries = aNumQueries.value_or(create_info().queryCount - aFirstQueryIndex)
+			](avk::command_buffer_t& cb) {
+				cb.handle().resetQueryPool(lHandle, aFirstQueryIndex, lNumQueries, cb.root_ptr()->dispatch_loader_core());
+			}
+		};
 	}
 
-	std::optional<command_buffer> query_pool_t::write_timestamp(uint32_t aQueryIndex, pipeline_stage aTimestampStage, sync aSync)
+	avk::command::action_type_command query_pool_t::write_timestamp(uint32_t aQueryIndex, stage::pipeline_stage_flags_precisely aTimestampStage)
 	{
-		typedef std::underlying_type<pipeline_stage>::type EnumType;
-		assert( std::bitset<32>{ static_cast<EnumType>(aTimestampStage) }.count() == 1 );
-
-		auto& cmdBfr = aSync.get_or_create_command_buffer();
-		cmdBfr.handle().writeTimestamp(to_vk_pipeline_stage_flag_bits(aTimestampStage), handle(), aQueryIndex);
-		return aSync.submit_and_sync();
+		return avk::command::action_type_command{
+			{ aTimestampStage + access::none, aTimestampStage + access::none }, // <-- Guess, that's fine. // TODO: Is it?
+			{}, 
+			[
+				lTimestampStage = aTimestampStage.mStage,
+				lHandle = handle(),
+				aQueryIndex
+			](avk::command_buffer_t& cb) {
+				cb.handle().writeTimestamp2KHR(lTimestampStage, lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_core());
+			}
+		};
 	}
 
-	std::optional<command_buffer> query_pool_t::begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags, sync aSync)
+	avk::command::action_type_command query_pool_t::begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags)
 	{
-		auto& cmdBfr = aSync.get_or_create_command_buffer();
-		cmdBfr.handle().beginQuery(handle(), aQueryIndex, aFlags);
-		return aSync.submit_and_sync();
+		return avk::command::action_type_command{
+			{}, {}, // Sync not applicable here, I guess
+			[
+				lHandle = handle(),
+				aQueryIndex,
+				aFlags
+			](avk::command_buffer_t& cb) {
+				cb.handle().beginQuery(lHandle, aQueryIndex, aFlags, cb.root_ptr()->dispatch_loader_core());
+			}
+		};
 	}
 
-	std::optional<command_buffer> query_pool_t::end_query(uint32_t aQueryIndex, sync aSync)
+	avk::command::action_type_command query_pool_t::end_query(uint32_t aQueryIndex)
 	{
-		auto& cmdBfr = aSync.get_or_create_command_buffer();
-		cmdBfr.handle().endQuery(handle(), aQueryIndex);
-		return aSync.submit_and_sync();
+		return avk::command::action_type_command{
+			{}, {}, // Sync not applicable here, I guess
+			[
+				lHandle = handle(),
+				aQueryIndex
+			](avk::command_buffer_t& cb) {
+				cb.handle().endQuery(lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_core());
+			}
+		};
 	}
 
-	std::optional<command_buffer> query_pool_t::copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, sync aSync)
+	avk::command::action_type_command query_pool_t::copy_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, const buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags)
 	{
-		const auto& meta = aBuffer.meta<query_results_buffer_meta>(aBufferMetaSkip);
-		const auto& member = meta.member_description(content_description::query_result);
+		auto actionTypeCommand = avk::command::action_type_command{
+			{}, // Define a resource-specific sync hint here and let the general sync hint be inferred afterwards (because it is supposed to be exactly the same)
+			{
+				// As per the specification:
+				//   vkCmdCopyQueryPoolResults is considered to be a transfer operation, and its writes to buffer memory must be
+				//   synchronized using VK_PIPELINE_STAGE_TRANSFER_BIT and VK_ACCESS_TRANSFER_WRITE_BIT before using the results.
+				std::make_tuple(aBuffer.handle(), avk::sync::sync_hint{
+					stage::transfer + access::transfer_write,
+					stage::transfer + access::transfer_write
+				})
+			},
+			[
+				lHandle = handle(),
+				aFirstQueryIndex, aNumQueries, aFlags,
+				lBufferHandle = aBuffer.handle(),
+				lMeta = aBuffer.meta<query_results_buffer_meta>(aBufferMetaSkip)
+			](avk::command_buffer_t& cb) {
+				cb.handle().copyQueryPoolResults(lHandle, aFirstQueryIndex, aNumQueries, lBufferHandle, lMeta.member_description(content_description::query_result).mOffset, lMeta.sizeof_one_element(), aFlags, cb.root_ptr()->dispatch_loader_core());
+			}
+		};
 
-		auto& cmdBfr = aSync.get_or_create_command_buffer();
-		cmdBfr.handle().copyQueryPoolResults(handle(), aFirstQueryIndex, aNumQueries, aBuffer.handle(), member.mOffset, meta.sizeof_one_element(), aFlags);
-		return aSync.submit_and_sync();
+		actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
+
+		return actionTypeCommand;
 	}
 
-	std::optional<command_buffer> query_pool_t::copy_result(uint32_t aFirstQueryIndex, buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags, sync aSync)
+	avk::command::action_type_command query_pool_t::copy_result(uint32_t aOnlyQueryIndex, const buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags)
 	{
-		return copy_results(aFirstQueryIndex, 1u, aBuffer, aBufferMetaSkip, aFlags, std::move(aSync));
+		return copy_results(aOnlyQueryIndex, 1u, aBuffer, aBufferMetaSkip, aFlags);
 	}
 #pragma endregion
+
+#pragma region commands and sync
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions);
+
+	template <typename T>
+	inline static T accumulate_sync_details(
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions,
+		const int aStartIndex,
+		uint32_t aNumSteps,
+		const int aStepDirection,
+		T aDefaultValue,
+		// If the following parameter is provided, it means that we are looking for sync-dependencies w.r.t. this resource only.
+		// If it is not, we are looking for ANY sync-dependencies (e.g., relevant for semaphore signals)
+		std::optional<std::variant<vk::Image, vk::Buffer>> aWrtResource 
+	) {
+		assert(aStartIndex >= 0);
+		assert(aStartIndex < static_cast<int>(aRecordedCommandsAndSyncInstructions.size()));
+		assert(aNumSteps >= 0);
+		assert(aStepDirection == -1 || aStepDirection == 1);
+		
+		T result{};
+
+		const int ub = static_cast<int>(aRecordedCommandsAndSyncInstructions.size());
+
+		// Doesn't make sense if aNumSteps is less than 1, but the user could pass it (e.g., thorugh stage::auto_stages(0)) => just max it:
+		aNumSteps = std::max(aNumSteps, 1u);
+		uint32_t accSoFar = 0; // This must become equal to aNumSteps, then we're done
+
+		for (int i = aStartIndex; i >= 0 && i < ub && accSoFar < aNumSteps; i += aStepDirection) {
+			if (std::holds_alternative<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i])) { // Only regard action_type_commands here!
+																											     // TODO: Do we also have to regard image layout transitions here????!?!?!?!
+				// We used the general sync hint, except if we are looking for a specific resource:
+				auto* syncHint = &std::get<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i]).mSyncHint;
+				if (aWrtResource.has_value()) {
+					// See if we can find a resource-specific one (otherwise do not regard this action_type_command):
+					syncHint = nullptr;
+					for (const auto& [res, resSyncHint] : std::get<command::action_type_command>(aRecordedCommandsAndSyncInstructions[i]).mResourceSpecificSyncHints) {
+						if (res == aWrtResource.value()) {
+							syncHint = &resSyncHint;
+							break;
+						}
+					}
+				}
+
+				if (nullptr == syncHint) {
+					continue;
+				}
+
+				switch (aStepDirection) {
+				case -1:
+					// Moving backwards, i.e. the previous command(s) "AFTER" values are relevant:
+					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
+						if (syncHint->mSrcForSubsequentCmds.has_value()) {
+							result |= syncHint->mSrcForSubsequentCmds.value().mStage;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
+					}
+					else if constexpr (std::is_same_v<T, vk::AccessFlags2KHR>) {
+						if (syncHint->mSrcForSubsequentCmds.has_value()) {
+							result |= syncHint->mSrcForSubsequentCmds.value().mAccess;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
+					}
+					else {
+						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
+					}
+					break;
+				case  1:
+					// Moving forwards, i.e. the subsequent command(s) "BEFORE" values are relevant:
+					if constexpr (std::is_same_v<T, vk::PipelineStageFlags2KHR>) {
+						if (syncHint->mDstForPreviousCmds.has_value()) {
+							result |= syncHint->mDstForPreviousCmds.value().mStage;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
+					}
+					else if constexpr (std::is_same_v<T, vk::AccessFlags2KHR>) {
+						if (syncHint->mDstForPreviousCmds.has_value()) {
+							result |= syncHint->mDstForPreviousCmds.value().mAccess;
+						}
+						else {
+							result |= aDefaultValue;
+						}
+						accSoFar += 1;
+					}
+					else {
+						throw avk::logic_error("Unsupported T in function accumulate_sync_details.");
+					}
+					break;
+				default:
+					throw avk::logic_error("Invalid value for aStepDirection.");
+				}
+			}
+		}
+
+		// If we were unable to find anything to sync with, just return the default:
+		if (0 == accSoFar) {
+			result = aDefaultValue;
+		}
+		return result;
+	}
+
+	// Internal helper function to assemble all the data for a barrier, based on:
+	//  - A given sync_type_command (aBarrierData)
+	//  - All the sync_hints of action_type_commands aRecordedCommandsAndSyncInstructions
+	template <typename T>
+	inline static T assemble_barrier_data(
+		const sync::sync_type_command& aBarrierData, 
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions,
+		int aRecordedStuffIndex
+	) {
+		// Sanity check: Does T and aBarrierData fit together?
+		assert(
+			   (std::is_same_v<T, vk::MemoryBarrier2KHR>       && (aBarrierData.is_global_execution_barrier() || aBarrierData.is_global_memory_barrier()))
+			|| (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>  && (aBarrierData.is_image_memory_barrier()                                               ))
+			|| (std::is_same_v<T, vk::BufferMemoryBarrier2KHR> && (aBarrierData.is_buffer_memory_barrier()                                              ))
+		);
+
+		if (!aRecordedCommandsAndSyncInstructions.empty()) {
+			assert(std::holds_alternative<sync::sync_type_command>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex]));
+			if (!std::holds_alternative<sync::sync_type_command>(aRecordedCommandsAndSyncInstructions[aRecordedStuffIndex])) {
+				throw avk::logic_error("The element at aRecordedStuffIndex[" + std::to_string(aRecordedStuffIndex) + "] is not of type sync_type_command.");
+			}
+		}
+
+		// We're definitely going to establish a barrier:
+		auto barrier = T{};
+
+		// The barrier can be restricted to a specific resource only, in which case, we should only accumulate
+		// sync data from relevant sync hints (i.e., relevant means: restricted to the same resource):
+		std::optional<std::variant<vk::Image, vk::Buffer>> restrictedToSpecificResource;
+		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>) {
+			restrictedToSpecificResource = aBarrierData.image_memory_barrier_data().mImage;
+		}
+		if constexpr (std::is_same_v<T, vk::BufferMemoryBarrier2KHR>) {
+			restrictedToSpecificResource = aBarrierData.buffer_memory_barrier_data().mBuffer;
+		}
+		
+		// Handle source stage:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setSrcStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& bFixedStage){
+				barrier.setSrcStageMask(bFixedStage);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::stage::auto_stage_t& bAutoStage){
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setSrcStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+				}
+				else {
+					// Gotta determine which stage:
+					barrier.setSrcStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<int>(bAutoStage),
+						/* before-wards: */ -1,
+						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+						restrictedToSpecificResource
+					));
+				}
+			},
+		}, aBarrierData.src_stage());
+
+		// Handle destination stage:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setDstStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::PipelineStageFlags2KHR& bFixedStage){
+				barrier.setDstStageMask(bFixedStage);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::stage::auto_stage_t& bAutoStage){
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setDstStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+				}
+				else {
+					// Gotta determine which stage:
+					barrier.setDstStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<int>(bAutoStage),
+						/* after-wards: */  1,
+						/* If we can't determine something specific, employ a heavy barrier to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+						restrictedToSpecificResource
+					));
+				}
+			},
+		}, aBarrierData.dst_stage());
+
+		// Handle source access:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::AccessFlags2KHR& bFixedAccess){
+				barrier.setSrcAccessMask(bFixedAccess);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::access::auto_access_t& bAutoAccess){
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eMemoryWrite);
+				}
+				else {
+					// Gotta determine which access:
+					barrier.setSrcAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<int>(bAutoAccess),
+						/* before-wards: */ -1,
+						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite,
+						restrictedToSpecificResource
+					));
+				}
+			},
+		}, aBarrierData.src_access());
+
+		// Handle destination access:
+		std::visit(lambda_overload{
+			[&barrier                                                            ](const std::monostate&){
+				barrier.setDstAccessMask(vk::AccessFlagBits2KHR::eNone);
+			},
+			[&barrier                                                            ](const vk::AccessFlags2KHR& bFixedAccess){
+				barrier.setDstAccessMask(bFixedAccess);
+			},
+			[&barrier, &aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex, &restrictedToSpecificResource](const avk::access::auto_access_t& bAutoAccess){
+				if (aRecordedCommandsAndSyncInstructions.empty()) {
+					barrier.setSrcAccessMask(vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead);
+				}
+				else {
+					// Gotta determine which access:
+					barrier.setDstAccessMask(accumulate_sync_details<vk::AccessFlags2KHR>(
+						aRecordedCommandsAndSyncInstructions, 
+						/* Start index: within std::vector<recorded_commands_t>: */ aRecordedStuffIndex,
+						/* How many steps to accumulate: */ static_cast<uint32_t>(bAutoAccess),
+						/* after-wards: */  1,
+						/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::AccessFlagBits2KHR::eMemoryWrite | vk::AccessFlagBits2KHR::eMemoryRead,
+						restrictedToSpecificResource
+					));
+				}
+			},
+		}, aBarrierData.dst_access());
+
+		// For T = vk::MemoryBarrier2KHR, we are done.
+		// But for image memory barriers or buffer memory barriers, there could be more sync data to be filled-in:
+		
+		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR>) {
+			auto imageSyncData = aBarrierData.image_memory_barrier_data();
+
+			barrier.setImage(imageSyncData.mImage);
+			barrier.setSubresourceRange(imageSyncData.mSubresourceRange);
+
+			// Specification goes like this:
+			// > When the old and new layout are equal, the layout values are ignored - data is preserved
+			// > no matter what values are specified, or what layout the image is currently in.
+			if (imageSyncData.mLayoutTransition.has_value()) {
+				barrier.setOldLayout(imageSyncData.mLayoutTransition.value().mOld.mLayout);
+				barrier.setNewLayout(imageSyncData.mLayoutTransition.value().mNew.mLayout);
+			}
+			// else leave both set to 0 which corresponds to eUndefined -> eUndefined, a.k.a. no layout transition
+		}
+
+		if constexpr (std::is_same_v<T, vk::BufferMemoryBarrier2KHR>) {
+			auto bufferSyncData = aBarrierData.buffer_memory_barrier_data();
+			barrier.setBuffer(bufferSyncData.mBuffer);
+			barrier.setOffset(bufferSyncData.mOffset);
+			barrier.setSize(bufferSyncData.mSize);
+		}
+
+		// For both, buffer memory barriers and image memory barriers, queue family o	wnership transfers are relevant:
+		if constexpr (std::is_same_v<T, vk::ImageMemoryBarrier2KHR> || std::is_same_v<T, vk::BufferMemoryBarrier2KHR>) {
+			auto qfot = aBarrierData.queue_family_ownership_transfer();
+			barrier.setSrcQueueFamilyIndex(qfot.has_value() ? qfot.value().mSrcQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED);
+			barrier.setDstQueueFamilyIndex(qfot.has_value() ? qfot.value().mDstQueueFamilyIndex : VK_QUEUE_FAMILY_IGNORED);
+		}
+
+		return barrier;
+	}
+
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const command::state_type_command& aStateCmd)
+	{
+		if (aStateCmd.mFun) {
+			aStateCmd.mFun(aCommandBuffer);
+		}
+	}
+
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const command::action_type_command& aActionCmd)
+	{
+		if (aActionCmd.mBeginFun) {
+			aActionCmd.mBeginFun(aCommandBuffer);
+		}
+		if (!aActionCmd.mNestedCommandsAndSyncInstructions.empty()) {
+			record_into_command_buffer(aCommandBuffer, aDispatchLoader, aActionCmd.mNestedCommandsAndSyncInstructions);
+		}
+		if (aActionCmd.mEndFun) {
+			aActionCmd.mEndFun(aCommandBuffer);
+		}
+	}
+
+	inline static void record_into_command_buffer(
+		command_buffer_t& aCommandBuffer, 
+		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, 
+		const sync::sync_type_command& aSyncCmd, 
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, 
+		int aRecordedStuffIndex)
+	{
+		if (aSyncCmd.is_global_execution_barrier() || aSyncCmd.is_global_memory_barrier()) {
+			auto barrier = assemble_barrier_data<vk::MemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
+			auto dependencyInfo = vk::DependencyInfoKHR{}
+				.setMemoryBarrierCount(1u)
+				.setPMemoryBarriers(&barrier);
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+		}
+		else if (aSyncCmd.is_image_memory_barrier()) {
+			auto barrier = assemble_barrier_data<vk::ImageMemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
+			auto dependencyInfo = vk::DependencyInfoKHR{}
+				.setImageMemoryBarrierCount(1u)
+				.setPImageMemoryBarriers(&barrier);
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+		}
+		else if (aSyncCmd.is_buffer_memory_barrier()) {
+			auto barrier = assemble_barrier_data<vk::BufferMemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
+			auto dependencyInfo = vk::DependencyInfoKHR{}
+				.setBufferMemoryBarrierCount(1u)
+				.setPBufferMemoryBarriers(&barrier);
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+		}
+	}
+
+
+	void command_buffer_t::record(const avk::command::state_type_command& aToBeRecorded)
+	{
+		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded);
+	}
+
+	void command_buffer_t::record(const avk::command::action_type_command& aToBeRecorded)
+	{
+		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded);
+	}
+
+	void command_buffer_t::record(const avk::sync::sync_type_command& aToBeRecorded)
+	{
+		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded, std::vector<recorded_commands_t>{}, 0);
+	}
+
+
+	struct recordee_visitors
+	{
+		void operator()(const command::state_type_command& vStateCmd) const {
+			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vStateCmd);
+		}
+		void operator()(const command::action_type_command& vActionCmd) const {
+			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vActionCmd);
+			
+		}
+		void operator()(const sync::sync_type_command& vSyncCmd) const {
+			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vSyncCmd, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
+		}
+
+		command_buffer_t& mCommandBuffer;
+		const DISPATCH_LOADER_EXT_TYPE& mDispatchLoaderExt;
+		const std::vector<recorded_commands_t>& mRecordedStuff;
+		int mCurrentIndexIntoRecordedStuff;
+	};
+	
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions)
+	{
+		recordee_visitors visitState{ aCommandBuffer, aDispatchLoader, aRecordedCommandsAndSyncInstructions, /* Current index: */ 0 };
+		
+		const int n = static_cast<int>(aRecordedCommandsAndSyncInstructions.size());
+		for (int i = 0; i < n; ++i) {
+			// Get current element:
+			auto& recordee = aRecordedCommandsAndSyncInstructions[i];
+			// Update current index:
+			visitState.mCurrentIndexIntoRecordedStuff = i;
+			// Handle current element:
+			std::visit(visitState, recordee);
+		}
+	}
+	
+	submission_data recorded_command_buffer::then_waiting_for(avk::semaphore_wait_info aWaitInfo)
+	{
+		return submission_data{ mRoot, mCommandBufferToRecordInto, std::move(aWaitInfo) };
+	}
+
+	submission_data recorded_command_buffer::then_submit_to(const queue& aQueue)
+	{
+		return submission_data{ mRoot, mCommandBufferToRecordInto, aQueue, this };
+	}
+
+	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer)
+		: mRoot{ aRoot }
+		, mCommandBufferToRecordInto{ std::move(aCommandBuffer) }
+		, mDangerousRecordedComandsPointer{ aDangerousRecordedCommandsPointer }
+	{
+		mCommandBufferToRecordInto.get().begin_recording();
+		record_into_command_buffer(mCommandBufferToRecordInto.get(), mRoot->dispatch_loader_ext(), aRecordedCommandsAndSyncInstructions);
+		mCommandBufferToRecordInto.get().end_recording();
+	}
+
+	recorded_commands::recorded_commands(const root* aRoot, std::vector<recorded_commands_t> aRecordedCommandsAndSyncInstructions)
+		: mRoot{ aRoot }
+		, mRecordedCommandsAndSyncInstructions{ std::move(aRecordedCommandsAndSyncInstructions) }
+	{
+		for (auto& recordee : mRecordedCommandsAndSyncInstructions) {
+			if (std::holds_alternative<avk::command::action_type_command>(recordee)) {
+				for (auto& lifetime : std::get<avk::command::action_type_command>(recordee).mLifetimeHandledResources) {
+					handle_lifetime_of(std::move(lifetime));
+				}
+				std::get<avk::command::action_type_command>(recordee).mLifetimeHandledResources.clear();
+			}
+		}
+	}
+	
+	recorded_commands& recorded_commands::move_into(std::vector<recorded_commands_t>& aTarget)
+	{
+		aTarget = std::move(mRecordedCommandsAndSyncInstructions);
+		return *this;
+	}
+
+	recorded_commands& recorded_commands::prepend_by(std::vector<recorded_commands_t>& aCommands)
+	{
+		mRecordedCommandsAndSyncInstructions.insert(std::begin(mRecordedCommandsAndSyncInstructions), std::begin(aCommands), std::end(aCommands));
+		return *this;
+	}
+
+	recorded_commands& recorded_commands::append_by(std::vector<recorded_commands_t>& aTarget)
+	{
+		mRecordedCommandsAndSyncInstructions.insert(std::end(mRecordedCommandsAndSyncInstructions), std::begin(aTarget), std::end(aTarget));
+		return *this;
+	}
+
+	recorded_commands& recorded_commands::handle_lifetime_of(any_owning_resource_t aResource)
+	{
+		mLifetimeHandledResources.push_back(std::move(aResource));
+		return *this;
+	}
+
+	std::vector<recorded_commands_t> recorded_commands::and_store()
+	{
+		return std::move(mRecordedCommandsAndSyncInstructions);
+	}
+
+	recorded_command_buffer recorded_commands::into_command_buffer(avk::resource_argument<avk::command_buffer_t> aCommandBuffer)
+	{
+		recorded_command_buffer result(mRoot, mRecordedCommandsAndSyncInstructions, std::move(aCommandBuffer), this);
+
+		for (int i = static_cast<int>(mLifetimeHandledResources.size() - 1); i > 0; --i) {
+			if (std::visit(lambda_overload{
+				[](const bottom_level_acceleration_structure& a) { return a.is_shared_ownership_enabled(); },
+				[](const buffer&                              a) { return a.is_shared_ownership_enabled(); },
+				[](const buffer_view&                         a) { return a.is_shared_ownership_enabled(); },
+				[](const command_buffer&                      a) { return a.is_shared_ownership_enabled(); },
+				[](const command_pool&                        a) { return a.is_shared_ownership_enabled(); },
+				[](const compute_pipeline&                    a) { return a.is_shared_ownership_enabled(); },
+				[](const fence&                               a) { return a.is_shared_ownership_enabled(); },
+				[](const framebuffer&                         a) { return a.is_shared_ownership_enabled(); },
+				[](const graphics_pipeline&                   a) { return a.is_shared_ownership_enabled(); },
+				[](const image&                               a) { return a.is_shared_ownership_enabled(); },
+				[](const image_sampler&                       a) { return a.is_shared_ownership_enabled(); },
+				[](const image_view&                          a) { return a.is_shared_ownership_enabled(); },
+				[](const query_pool&                          a) { return a.is_shared_ownership_enabled(); },
+				[](const ray_tracing_pipeline&                a) { return a.is_shared_ownership_enabled(); },
+				[](const renderpass&                          a) { return a.is_shared_ownership_enabled(); },
+				[](const sampler&                             a) { return a.is_shared_ownership_enabled(); },
+				[](const semaphore&                           a) { return a.is_shared_ownership_enabled(); },
+				[](const top_level_acceleration_structure&    a) { return a.is_shared_ownership_enabled(); }
+			}, mLifetimeHandledResources[i])) {
+				// Copy and possibly reuse in future:
+				result.handling_lifetime_of(mLifetimeHandledResources[i]);
+			}
+			else {
+				// Move and remove:
+				result.handling_lifetime_of(std::move(mLifetimeHandledResources[i]));
+				mLifetimeHandledResources.erase(std::begin(mLifetimeHandledResources) + i);
+			}
+		}
+
+		return result;
+	}
+
+	namespace command
+	{
+		action_type_command begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
+		{
+			return action_type_command{
+				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[
+					lRoot = aRenderpass.root_ptr(),
+					lExtent = aFramebuffer.image_view_at(0)->get_image().create_info().extent,
+					lClearValues = aRenderpass.clear_values(),
+					lRenderPassHandle = aRenderpass.handle(),
+					lFramebufferHandle = aFramebuffer.handle(),
+					aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline
+				](avk::command_buffer_t& cb) {
+					// TODO: make vk::SubpassContentscontents state explicit
+					cb.save_subpass_contents_state(aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers);
+
+					auto renderPassBeginInfo = vk::RenderPassBeginInfo()
+						.setRenderPass(lRenderPassHandle)
+						.setFramebuffer(lFramebufferHandle)
+						.setRenderArea(vk::Rect2D{}
+							.setOffset(vk::Offset2D{ aRenderAreaOffset.x, aRenderAreaOffset.y })
+							.setExtent(aRenderAreaExtent.has_value()
+										? vk::Extent2D{ aRenderAreaExtent.value() }
+										: vk::Extent2D{ lExtent.width, lExtent.height }
+								)
+							)
+						.setClearValueCount(static_cast<uint32_t>(lClearValues.size()))
+						.setPClearValues(lClearValues.data());
+
+					cb.handle().beginRenderPass2KHR(
+						renderPassBeginInfo,
+						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
+						lRoot->dispatch_loader_ext()
+					);
+				}
+			};
+		}
+
+		action_type_command end_render_pass()
+		{
+			return action_type_command{
+				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[](avk::command_buffer_t& cb) {
+					cb.handle().endRenderPass2KHR(vk::SubpassEndInfo{}, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+		}
+		
+		action_type_command render_pass(
+			const renderpass_t& aRenderpass,
+			const framebuffer_t& aFramebuffer,
+			std::vector<recorded_commands_t> aNestedCommands,
+			vk::Offset2D aRenderAreaOffset,
+			std::optional<vk::Extent2D> aRenderAreaExtent,
+			bool aSubpassesInline)
+		{
+			auto tmpBeginRenderPass = begin_render_pass_for_framebuffer(aRenderpass, aFramebuffer, aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline);
+			auto tmpEndRenderPass = end_render_pass();
+
+			return action_type_command{
+				// Define a sync hint that corresponds to the implicit subpass dependencies (see specification chapter 8.1)
+				avk::sync::sync_hint {
+					tmpBeginRenderPass.mSyncHint.mDstForPreviousCmds,
+					tmpEndRenderPass.mSyncHint.mSrcForSubsequentCmds
+				},
+				std::move(tmpBeginRenderPass.mResourceSpecificSyncHints),
+				std::move(tmpBeginRenderPass.mBeginFun),
+				std::move(aNestedCommands),
+				std::move(tmpEndRenderPass.mBeginFun)
+			};
+		}
+
+		action_type_command next_subpass(bool aSubpassesInline)
+		{
+			return action_type_command{
+				{}, {}, // Sync hints not applicable here, I guess
+				[aSubpassesInline](avk::command_buffer_t& cb) {
+					cb.handle().nextSubpass2KHR(
+						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
+						vk::SubpassEndInfo{},
+						cb.root_ptr()->dispatch_loader_ext()
+					);
+				}
+			};
+		}
+
+		state_type_command bind_pipeline(const graphics_pipeline_t& aPipeline)
+		{
+			return state_type_command{
+				[
+					lPipelineHandle = aPipeline.handle()
+				] (avk::command_buffer_t& cb) {
+					cb.handle().bindPipeline(vk::PipelineBindPoint::eGraphics, lPipelineHandle);
+				}
+			};
+		}
+
+		state_type_command bind_pipeline(const compute_pipeline_t& aPipeline)
+		{
+			return state_type_command{
+				[
+					lPipelineHandle = aPipeline.handle()
+				] (avk::command_buffer_t& cb) {
+					cb.handle().bindPipeline(vk::PipelineBindPoint::eCompute, lPipelineHandle);
+				}
+			};
+		}
+
+#if VK_HEADER_VERSION >= 135
+		state_type_command bind_pipeline(const ray_tracing_pipeline_t& aPipeline)
+		{
+			return state_type_command{
+				[
+					lPipelineHandle = aPipeline.handle()
+				] (avk::command_buffer_t& cb) {
+					cb.handle().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, lPipelineHandle);
+				}
+			};
+		}
+#endif
+
+		state_type_command bind_descriptors(std::tuple<const graphics_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
+		{
+			return state_type_command{
+				[
+					lLayoutHandle = std::get<const graphics_pipeline_t*>(aPipelineLayout)->layout_handle(),
+					lDescriptorSets = std::move(aDescriptorSets)
+				] (avk::command_buffer_t& cb) {
+					cb.bind_descriptors(
+						vk::PipelineBindPoint::eGraphics,
+						lLayoutHandle,
+						lDescriptorSets // Attention: Copy! => Potentially expensive?! TODO: What was the reason for bind_descriptors requiring std::vector<descriptor_set> being passed by value?
+					);
+				}
+			};
+		}
+
+		state_type_command bind_descriptors(std::tuple<const compute_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
+		{
+			return state_type_command{
+				[
+					lLayoutHandle = std::get<const compute_pipeline_t*>(aPipelineLayout)->layout_handle(),
+					lDescriptorSets = std::move(aDescriptorSets)
+				] (avk::command_buffer_t& cb) {
+					cb.bind_descriptors(
+						vk::PipelineBindPoint::eCompute,
+						lLayoutHandle,
+						lDescriptorSets // Attention: Copy! => Potentially expensive?! TODO: What was the reason for bind_descriptors requiring std::vector<descriptor_set> being passed by value?
+					);
+				}
+			};
+		}
+
+#if VK_HEADER_VERSION >= 135
+		state_type_command bind_descriptors(std::tuple<const ray_tracing_pipeline_t*, const vk::PipelineLayout, const std::vector<vk::PushConstantRange>*> aPipelineLayout, std::vector<descriptor_set> aDescriptorSets)
+		{
+			return state_type_command{
+				[
+					lLayoutHandle = std::get<const ray_tracing_pipeline_t*>(aPipelineLayout)->layout_handle(),
+					lDescriptorSets = std::move(aDescriptorSets)
+				] (avk::command_buffer_t& cb) {
+					cb.bind_descriptors(
+						vk::PipelineBindPoint::eRayTracingKHR,
+						lLayoutHandle,
+						lDescriptorSets // Attention: Copy! => Potentially expensive?! TODO: What was the reason for bind_descriptors requiring std::vector<descriptor_set> being passed by value?
+					);
+				}
+			};
+		}
+#endif 
+
+		action_type_command draw(uint32_t aVertexCount, uint32_t aInstanceCount, uint32_t aFirstVertex, uint32_t aFirstInstance)
+		{
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance](avk::command_buffer_t& cb) {
+					cb.handle().draw(aVertexCount, aInstanceCount, aFirstVertex, aFirstInstance, cb.root_ptr()->dispatch_loader_core());
+				}
+			};
+		}
+
+		action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ)
+		{
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderSampledRead | vk::AccessFlagBits2KHR::eShaderStorageRead | vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}}
+				},
+				{},
+				[aGroupCountX, aGroupCountY, aGroupCountZ](avk::command_buffer_t& cb) {
+					cb.handle().dispatch(aGroupCountX, aGroupCountY, aGroupCountZ, cb.root_ptr()->dispatch_loader_core());
+				}
+			};
+		}
+
+#if VK_HEADER_VERSION >= 135
+		action_type_command trace_rays(
+			vk::Extent3D aRaygenDimensions,
+			const shader_binding_table_ref& aShaderBindingTableRef,
+#if VK_HEADER_VERSION >= 162
+			const vk::StridedDeviceAddressRegionKHR& aRaygenSbtRef,
+			const vk::StridedDeviceAddressRegionKHR& aRaymissSbtRef,
+			const vk::StridedDeviceAddressRegionKHR& aRayhitSbtRef,
+			const vk::StridedDeviceAddressRegionKHR& aCallableSbtRef
+
+#else
+			const vk::StridedBufferRegionKHR& aRaygenSbtRef,
+			const vk::StridedBufferRegionKHR& aRaymissSbtRef,
+			const vk::StridedBufferRegionKHR& aRayhitSbtRef,
+			const vk::StridedBufferRegionKHR& aCallableSbtRef
+#endif
+		)
+		{
+			return action_type_command{
+				avk::sync::sync_hint {
+					stage::ray_tracing_shader + access::acceleration_structure_read,
+					stage::ray_tracing_shader + access::none
+				},
+				{}, // no resource-specific sync hints
+				[
+					lSbtHandle = aShaderBindingTableRef.mSbtBufferHandle,
+					lEntrySize = aShaderBindingTableRef.mSbtEntrySize,
+					lRaygenSbtRef = aRaygenSbtRef,
+					lRaymissSbtRef = aRaymissSbtRef,
+					lRayhitSbtRef = aRayhitSbtRef,
+					lCallableSbtRef = aCallableSbtRef,
+					aRaygenDimensions
+				](avk::command_buffer_t& cb) {
+					cb.handle().traceRaysKHR(
+						&lRaygenSbtRef, &lRaymissSbtRef, &lRayhitSbtRef, &lCallableSbtRef,
+						aRaygenDimensions.width, aRaygenDimensions.height, aRaygenDimensions.depth,
+						cb.root_ptr()->dispatch_loader_ext()
+					);
+				}
+			};
+		}
+#endif
+	}
+
+	submission_data::submission_data(submission_data&& aOther) noexcept
+		: mRoot{ std::move(aOther.mRoot) }
+		, mCommandBufferToSubmit{ std::move(aOther.mCommandBufferToSubmit) }
+		, mQueueToSubmitTo{ std::move(aOther.mQueueToSubmitTo) }
+		, mSemaphoreWaits{ std::move(aOther.mSemaphoreWaits) }
+		, mSemaphoreSignals{ std::move(aOther.mSemaphoreSignals) }
+		, mFence{ std::move(aOther.mFence) }
+		, mSubmissionCount{ std::move(aOther.mSubmissionCount) }
+	{
+		aOther.mRoot = nullptr;
+		aOther.mQueueToSubmitTo = nullptr;
+		aOther.mSemaphoreWaits.clear();
+		aOther.mSemaphoreSignals.clear();
+		aOther.mFence.reset();
+		aOther.mSubmissionCount = 0u;
+	}
+
+	submission_data& submission_data::operator=(submission_data&& aOther) noexcept
+	{
+		mRoot = std::move(aOther.mRoot);
+		mCommandBufferToSubmit = std::move(aOther.mCommandBufferToSubmit);
+		mQueueToSubmitTo = std::move(aOther.mQueueToSubmitTo);
+		mSemaphoreWaits = std::move(aOther.mSemaphoreWaits);
+		mSemaphoreSignals = std::move(aOther.mSemaphoreSignals);
+		mFence = std::move(aOther.mFence);
+		mSubmissionCount = std::move(aOther.mSubmissionCount);
+
+		aOther.mRoot = nullptr;
+		aOther.mQueueToSubmitTo = nullptr;
+		aOther.mSemaphoreWaits.clear();
+		aOther.mSemaphoreSignals.clear();
+		aOther.mFence.reset();
+		aOther.mSubmissionCount = 0u;
+
+		return *this;
+	}
+
+	submission_data::~submission_data() noexcept(false)
+	{
+		if (is_sane() && 0 == mSubmissionCount) { // TODO: PROBLEM HERE due to auto submission = .... in imgui_manager.cpp#L337
+			submit();
+		}
+	}
+
+	submission_data& submission_data::submit_to(const queue& aQueue)
+	{
+		mQueueToSubmitTo = &aQueue;
+		return *this;
+	}
+
+	submission_data& submission_data::waiting_for(avk::semaphore_wait_info aWaitInfo)
+	{
+		mSemaphoreWaits.push_back(std::move(aWaitInfo));
+		return *this;
+	}
+
+	submission_data& submission_data::signaling_upon_completion(semaphore_signal_info aSignalInfo)
+	{
+		mSemaphoreSignals.push_back(std::move(aSignalInfo));
+		return *this;
+	}
+
+	submission_data& submission_data::signaling_upon_completion(avk::resource_argument<avk::fence_t> aFence)
+	{
+		mFence = std::move(aFence);
+		return *this;
+	}
+
+	submission_data&& submission_data::store_for_now() noexcept
+	{
+		return std::move(*this);
+	}
+
+	void submission_data::submit()
+	{
+		// Gather config for wait semaphores:
+		std::vector<vk::SemaphoreSubmitInfoKHR> waitSem;
+		for (auto& semWait : mSemaphoreWaits) {
+			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			std::visit(lambda_overload{
+				[&subInfo](const std::monostate&) {
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+				},
+				[&subInfo](const vk::PipelineStageFlags2KHR& aFixedStage) {
+					subInfo.setStageMask(aFixedStage);
+				},
+				[&subInfo, this](const avk::stage::auto_stage_t& aAutoStage) {
+					// Set something:
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+					// But now try to find a tighter auto-stage:
+					auto* prevPtr = recorded_command_buffer_ptr();
+					if (nullptr != prevPtr) {
+						auto* prevPrevPtr = prevPtr->recorded_commands_ptr();
+						if (nullptr != prevPrevPtr) {
+							subInfo.setStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+								prevPrevPtr->recorded_commands_and_sync_instructions(),
+								/* Start index: within std::vector<recorded_commands_t>: */ 0,
+								/* How many steps to accumulate: */ static_cast<uint32_t>(aAutoStage),
+								/* after-wards: */  1,
+								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+								{} // <-- For the semaphore signal, we do not want to restrict looking for specific images or buffers; everything is relevant
+							));
+						}
+					}
+				}
+			}, semWait.mDstStage.mFlags);
+		}
+
+		// Gather config for signal semaphores:
+		std::vector<vk::SemaphoreSubmitInfoKHR> signalSem;
+		for (auto& semSig : mSemaphoreSignals) {
+			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			std::visit(lambda_overload{
+				[&subInfo](const std::monostate&) {
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
+				},
+				[&subInfo](const vk::PipelineStageFlags2KHR& lFixedStage) {
+					subInfo.setStageMask(lFixedStage);
+				},
+				[&subInfo, this](const avk::stage::auto_stage_t& lAutoStage) {
+					// Set something:
+					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eAllCommands);
+					// But now try to find a tighter auto-stage:
+					auto* prevPtr = recorded_command_buffer_ptr();
+					if (nullptr != prevPtr) {
+						auto* prevPrevPtr = prevPtr->recorded_commands_ptr();
+						if (nullptr != prevPrevPtr) {
+							subInfo.setStageMask(accumulate_sync_details<vk::PipelineStageFlags2KHR>(
+								prevPrevPtr->recorded_commands_and_sync_instructions(),
+								/* Start index: within std::vector<recorded_commands_t>: */ static_cast<int>(prevPrevPtr->recorded_commands_and_sync_instructions().size()) - 1,
+								/* How many steps to accumulate: */ static_cast<uint32_t>(lAutoStage),
+								/* before-wards: */  -1,
+								/* If we can't determine something specific, employ a heavy access mask to ensure correctness: */ vk::PipelineStageFlagBits2KHR::eAllCommands,
+								{} // <-- For the semaphore signal, we do not want to restrict looking for specific images or buffers; everything is relevant
+							));
+						}
+					}
+				}
+				}, semSig.mSrcStage.mFlags);
+		}
+
+		auto cmdBfrSubmitInfo = vk::CommandBufferSubmitInfoKHR{}
+		.setCommandBuffer(mCommandBufferToSubmit->handle());
+
+		auto submitInfo = vk::SubmitInfo2KHR{}
+			.setWaitSemaphoreInfoCount(static_cast<uint32_t>(waitSem.size()))
+			.setPWaitSemaphoreInfos(waitSem.data())
+			.setCommandBufferInfoCount(1u)
+			.setPCommandBufferInfos(&cmdBfrSubmitInfo)
+			.setSignalSemaphoreInfoCount(static_cast<uint32_t>(signalSem.size()))
+			.setPSignalSemaphoreInfos(signalSem.data());
+
+		auto fenceHandle = mFence.has_value() ? mFence.value()->handle() : vk::Fence{};
+		auto result = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+
+		++mSubmissionCount;
+	}
+
+#pragma endregion
+	
+	avk::recorded_commands root::record(std::vector<recorded_commands_t> aRecordedCommands) const
+	{
+		return avk::recorded_commands{ this, std::move(aRecordedCommands) };
+	}
 
 }

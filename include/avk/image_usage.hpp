@@ -122,10 +122,4 @@ namespace avk
 	{
 		return a = a & b;
 	}
-
-	inline image_usage exclude(image_usage original, image_usage toExclude)
-	{
-		typedef std::underlying_type<image_usage>::type EnumType;
-		return static_cast<image_usage>(static_cast<EnumType>(original) & (~static_cast<EnumType>(toExclude)));
-	}
 }

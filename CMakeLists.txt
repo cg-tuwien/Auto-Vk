@@ -4,6 +4,7 @@ project(avk)
 if (MSVC)
     # <ranges> support requires /std:c++latest on MSVC
     set(CMAKE_CXX_STANDARD 23)
+    add_compile_options(/bigobj)
 else (MSVC)
     set(CMAKE_CXX_STANDARD 20)
 endif (MSVC)
@@ -22,8 +23,7 @@ option(avk_UseVMA "Use Vulkan Memory Allocator (VMA) for custom memory allocatio
 set(avk_IncludeDirs
         include)
 set(avk_Sources
-        src/avk.cpp
-        src/sync.cpp)
+        src/avk.cpp)
 
 if(avk_UseVMA)
     list(APPEND avk_Sources src/vk_mem_alloc.cpp)

@@ -3,6 +3,16 @@
 
 namespace avk
 {
+	class image_view_as_sampled_image
+	{
+		friend class image_view_t;
+	public:
+		const auto& descriptor_info() const { return mDescriptorInfo; }
+
+	private:
+		vk::DescriptorImageInfo mDescriptorInfo;
+	};
+
 	class image_view_as_input_attachment
 	{
 		friend class image_view_t;
@@ -70,23 +80,39 @@ namespace avk
 		/** Gets the image view's vulkan handle */
 		const auto& handle() const { return mImageView.get(); }
 
-		const auto& descriptor_info() const		{ return mDescriptorInfo; }
-
-		image_view_as_input_attachment as_input_attachment() const
+		/** Declare that this image is intended to be used as sampled image.
+		 *	@param	aImageLayout	The layout of the image during its usage as sampled image
+		 */
+		image_view_as_sampled_image as_sampled_image(avk::layout::image_layout aImageLayout) const
+		{
+			image_view_as_sampled_image result;
+			result.mDescriptorInfo = vk::DescriptorImageInfo{}
+				.setImageView(handle())
+				.setImageLayout(aImageLayout.mLayout);
+			return result;
+		}
+		
+		/** Declare that this image is intended to be used as input attachment.
+		 *	@param	aImageLayout	The layout of the image during its usage as sampled image
+		 */
+		image_view_as_input_attachment as_input_attachment(avk::layout::image_layout aImageLayout) const
 		{
 			image_view_as_input_attachment result;
 			result.mDescriptorInfo = vk::DescriptorImageInfo{}
 				.setImageView(handle())
-				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal); // TODO: This SHOULD be the most common layout for input attachments... but can it also not be?
+				.setImageLayout(aImageLayout.mLayout);
 			return result;
 		}
 		
-		image_view_as_storage_image as_storage_image() const
+		/** Declare that this image is intended to be used as storage image.
+		 *	@param	aImageLayout	The layout of the image during its usage as sampled image
+		 */
+		image_view_as_storage_image as_storage_image(avk::layout::image_layout aImageLayout) const
 		{
 			image_view_as_storage_image result;
 			result.mDescriptorInfo = vk::DescriptorImageInfo{}
 				.setImageView(handle())
-				.setImageLayout(get_image().target_layout()); // TODO: Can it also be desired NOT to use the image's target_layout? 
+				.setImageLayout(aImageLayout.mLayout);
 			return result;
 		}
 
@@ -98,7 +124,6 @@ namespace avk
 		vk::ImageViewUsageCreateInfo mUsageInfo;
 		// The image view's handle. This member will contain a valid handle only after successful image view creation.
 		vk::UniqueHandle<vk::ImageView, DISPATCH_LOADER_CORE_TYPE> mImageView;
-		vk::DescriptorImageInfo mDescriptorInfo;
 	};
 
 	/** Typedef representing any kind of OWNING image view representations. */

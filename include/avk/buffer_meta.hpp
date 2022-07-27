@@ -678,6 +678,44 @@ namespace avk
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
+
+		/** Describe which part of an element's member gets mapped to which shader locaton. */
+		index_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, content_description aContent = content_description::unspecified)
+		{
+			// insert already in the right place
+			buffer_element_member_meta newElement{ aOffset, aFormat, aContent };
+			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
+				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool {
+					return first.mOffset < second.mOffset;
+				});
+			mOrderedMemberDescriptions.insert(it, newElement);
+			return *this;
+		}
+
+		/** If the buffer is not a data structure which contains interleaved data,
+		 *	this method can be used to describe its only data member. It is assumed that
+		 *	the only data member has the same size as `mSizeOfOneElement`.
+		 */
+		template <typename M>
+		index_buffer_meta& describe_only_member(const M& aMember, content_description aContent = content_description::unspecified)
+		{
+			assert(sizeof(aMember) == mSizeOfOneElement);
+			return describe_member(0, format_for<M>(), aContent);
+		}
+
+#if defined(_MSC_VER) && defined(__cplusplus)
+		/** Describe which part of an element's member gets mapped to which shader locaton,
+		 *	and let the compiler figure out offset and format.
+		 */
+		template <class T, class M>
+		index_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::unspecified)
+		{
+			return describe_member(
+				((::size_t) & reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
+				format_for<M>(),
+				aContent);
+		}
+#endif
 	};
 
 	/**	This struct contains information for a buffer which is intended to be used as 
@@ -735,7 +773,7 @@ namespace avk
 			return *this;
 		}
 
-		/** If the vertex buffer is not a data structure which contains interleaved data, 
+		/** If the buffer is not a data structure which contains interleaved data, 
 		 *	this method can be used to describe its only data member. It is assumed that
 		 *	the only data member has the same size as `mSizeOfOneElement`.
 		 */
@@ -821,6 +859,44 @@ namespace avk
 			result.mNumElements = how_many_elements(aData);
 			return result; 
 		}
+
+		/** Describe which part of an element's member gets mapped to which shader locaton. */
+		indirect_buffer_meta& describe_member(size_t aOffset, vk::Format aFormat, content_description aContent = content_description::unspecified)
+		{
+			// insert already in the right place
+			buffer_element_member_meta newElement{ aOffset, aFormat, aContent };
+			auto it = std::lower_bound(std::begin(mOrderedMemberDescriptions), std::end(mOrderedMemberDescriptions), newElement,
+				[](const buffer_element_member_meta& first, const buffer_element_member_meta& second) -> bool {
+					return first.mOffset < second.mOffset;
+				});
+			mOrderedMemberDescriptions.insert(it, newElement);
+			return *this;
+		}
+
+		/** If the buffer is not a data structure which contains interleaved data,
+		 *	this method can be used to describe its only data member. It is assumed that
+		 *	the only data member has the same size as `mSizeOfOneElement`.
+		 */
+		template <typename M>
+		indirect_buffer_meta& describe_only_member(const M& aMember, content_description aContent = content_description::unspecified)
+		{
+			assert(sizeof(aMember) == mSizeOfOneElement);
+			return describe_member(0, format_for<M>(), aContent);
+		}
+
+#if defined(_MSC_VER) && defined(__cplusplus)
+		/** Describe which part of an element's member gets mapped to which shader locaton,
+		 *	and let the compiler figure out offset and format.
+		 */
+		template <class T, class M>
+		indirect_buffer_meta& describe_member(M T::* aMember, content_description aContent = content_description::unspecified)
+		{
+			return describe_member(
+				((::size_t) & reinterpret_cast<char const volatile&>((((T*)0)->*aMember))),
+				format_for<M>(),
+				aContent);
+		}
+#endif
 	};
 
 #if VK_HEADER_VERSION >= 135

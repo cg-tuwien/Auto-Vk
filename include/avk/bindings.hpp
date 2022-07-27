@@ -21,7 +21,7 @@ namespace avk
 	inline vk::DescriptorType descriptor_type_of<buffer_view>(const buffer_view* aBufferView) { return (*aBufferView)->descriptor_type(); }
 
 	template<>
-	inline vk::DescriptorType descriptor_type_of<buffer_view_descriptor>(const buffer_view_descriptor* aBufferViewDescriptor) { return aBufferViewDescriptor->descriptor_type(); }
+	inline vk::DescriptorType descriptor_type_of<buffer_view_descriptor_info>(const buffer_view_descriptor_info* aBufferViewDescriptor) { return aBufferViewDescriptor->descriptor_type(); }
 
 #if VK_HEADER_VERSION >= 135
 	template<>
@@ -30,10 +30,9 @@ namespace avk
 	inline vk::DescriptorType descriptor_type_of<top_level_acceleration_structure>(const top_level_acceleration_structure*) { return vk::DescriptorType::eAccelerationStructureKHR; }
 #endif
 	
+
 	template<>
-	inline vk::DescriptorType descriptor_type_of<avk::image_view_t>(const avk::image_view_t* aImageView) { return vk::DescriptorType::eSampledImage; }
-	template<>
-	inline vk::DescriptorType descriptor_type_of<avk::image_view>(const avk::image_view* aImageView) { return vk::DescriptorType::eSampledImage; }
+	inline vk::DescriptorType descriptor_type_of<avk::image_view_as_sampled_image>(const avk::image_view_as_sampled_image*) { return vk::DescriptorType::eSampledImage; }
 
 	template<>
 	inline vk::DescriptorType descriptor_type_of<avk::image_view_as_input_attachment>(const avk::image_view_as_input_attachment*) { return vk::DescriptorType::eInputAttachment; }
@@ -47,10 +46,8 @@ namespace avk
 	inline vk::DescriptorType descriptor_type_of<avk::sampler>(const avk::sampler*) { return vk::DescriptorType::eSampler; }
 
 	template<>
-	inline vk::DescriptorType descriptor_type_of<avk::image_sampler_t>(const avk::image_sampler_t*) { return vk::DescriptorType::eCombinedImageSampler; }
-	template<>
-	inline vk::DescriptorType descriptor_type_of<avk::image_sampler>(const avk::image_sampler*) { return vk::DescriptorType::eCombinedImageSampler; }
-
+	inline vk::DescriptorType descriptor_type_of<avk::combined_image_sampler_descriptor_info>(const avk::combined_image_sampler_descriptor_info*) { return vk::DescriptorType::eCombinedImageSampler; }
+	
 	template<typename T> 
 	typename std::enable_if<
 		avk::has_size_and_iterators<T>::value && avk::has_nested_value_types<T>::value,
@@ -131,9 +128,9 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_view_descriptor>>::type as_uniform_texel_buffer_views(const T& aCollection)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_view_descriptor_info>>::type as_uniform_texel_buffer_views(const T& aCollection)
 	{
-		std::vector<buffer_view_descriptor> results;
+		std::vector<buffer_view_descriptor_info> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
 			results.emplace_back(aCollection[i]->as_uniform_texel_buffer_view());
 		}
@@ -151,9 +148,9 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_view_descriptor>>::type as_storage_texel_buffer_views(const T& aCollection)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<buffer_view_descriptor_info>>::type as_storage_texel_buffer_views(const T& aCollection)
 	{
-		std::vector<buffer_view_descriptor> results;
+		std::vector<buffer_view_descriptor_info> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
 			results.emplace_back(aCollection[i]->as_storage_texel_buffer_view());
 		}
@@ -161,21 +158,41 @@ namespace avk
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_storage_image>>::type as_storage_images(const T& aCollection)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_sampled_image>>::type as_sampled_images(const T& aCollection, avk::layout::image_layout aImageLayout)
 	{
-		std::vector<image_view_as_storage_image> results;
+		std::vector<image_view_as_sampled_image> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
-			results.emplace_back(aCollection[i]->as_storage_image());
+			results.emplace_back(aCollection[i]->as_sampled_image(aImageLayout));
 		}
 		return results;
 	}
 
 	template <typename T>
-	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_input_attachment>>::type as_input_attachments(const T& aCollection)
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_input_attachment>>::type as_input_attachments(const T& aCollection, avk::layout::image_layout aImageLayout)
 	{
 		std::vector<image_view_as_input_attachment> results;
 		for (size_t i = 0; i < aCollection.size(); ++i) {
-			results.emplace_back(aCollection[i]->as_input_attachment());
+			results.emplace_back(aCollection[i]->as_input_attachment(aImageLayout));
+		}
+		return results;
+	}
+
+	template <typename T>
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<image_view_as_storage_image>>::type as_storage_images(const T& aCollection, avk::layout::image_layout aImageLayout)
+	{
+		std::vector<image_view_as_storage_image> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_storage_image(aImageLayout));
+		}
+		return results;
+	}
+
+	template <typename T>
+	typename std::enable_if<avk::has_size_and_iterators<T>::value, std::vector<combined_image_sampler_descriptor_info>>::type as_combined_image_samplers(const T& aCollection, avk::layout::image_layout aImageLayout)
+	{
+		std::vector<combined_image_sampler_descriptor_info> results;
+		for (size_t i = 0; i < aCollection.size(); ++i) {
+			results.emplace_back(aCollection[i]->as_combined_image_sampler(aImageLayout));
 		}
 		return results;
 	}

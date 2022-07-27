@@ -205,6 +205,19 @@ namespace avk
 		return std::disjunction_v<std::is_same<InQuestion, Existing>...>;
 	}
 
+	template <typename V, typename F>
+	V exclude(V original, F toExclude)
+	{
+		typedef std::underlying_type_t<V> EnumType;
+		return static_cast<V>(static_cast<EnumType>(original) & (~static_cast<EnumType>(toExclude)));
+	}
+
+	template <typename V, typename F>
+	bool is_included(V toTest, F inQuestion)
+	{
+		return (toTest & inQuestion) == inQuestion;
+	}
+
 	// SFINAE test for detecting if a type has a `.size()` member and iterators
 	template <typename T>
 	class has_size_and_iterators
@@ -305,7 +318,6 @@ namespace avk
 		x[size_t{1}];
 	};
 
-
 	// A concept which requires a type to have ::value_type
 	template <typename T>
 	concept has_value_type = requires
@@ -319,8 +331,15 @@ namespace avk
 	{
 		x.handle();
 	};
-	
 
+	// A concept which requires a type to have iterators
+	template <typename T>
+	concept has_iterators = requires (T x)
+	{
+		std::begin(x);
+		std::end(x);
+	};
+	
 	// This class represents a/the owner of a specific resource T.
 	//
 	// The resource is either held locally on the stack, or -- as an additional features -- moved onto
@@ -355,17 +374,31 @@ namespace avk
 
 		// Construct an owning_resource by rvalue reference of a resource T.
 		// The original resource that is moved from might not be modified by the move.
-		owning_resource(T&& aResource) noexcept
-			: std::variant<std::monostate, T, std::shared_ptr<T>>{ std::move(aResource) }
-		{}
-
-		// Move-assign an owning_resource from an rvalue reference of a resource T.
-		// The original resource that is moved from might not be modified by the move.
-		owning_resource<T>& operator=(T&& aResource) noexcept
+		// By default, an owning_resource is created with shared ownership enabled.
+		owning_resource(T&& aResource, bool aCreateWithSharedOwnershipEnabled = true) noexcept
 		{
-			*this_as_variant() = std::move(aResource);
-			return *this;
+			if (aCreateWithSharedOwnershipEnabled) {
+				*this_as_variant() = std::make_shared<T>(std::move(aResource));
+			}
+			else {
+				*this_as_variant() = std::move(aResource);
+			}
 		}
+
+		owning_resource<T>& operator=(T&& aResource) = delete;
+		//// Move-assign an owning_resource from an rvalue reference of a resource T.
+		//// The original resource that is moved from might not be modified by the move.
+		//// By default, an owning_resource is created with shared ownership enabled.
+		//owning_resource<T>& operator=(T&& aResource) noexcept
+		//{
+		//	if (aCreateWithSharedOwnershipEnabled) {
+		//		*this_as_variant() = std::make_shared<T>(std::move(aResource));
+		//	}
+		//	else {
+		//		*this_as_variant() = std::move(aResource);
+		//	}
+		//	return *this;
+		//}
 
 		// Move-construct an owning_resource from another owning_resource.
 		// The other owning_reference is reset to std::monostate.
@@ -511,17 +544,15 @@ namespace avk
 			throw avk::logic_error("This owning_resource is uninitialized, i.e. std::monostate.");
 		}
 
-		//// Explicitly cast to the resource type and return a reference to it
-		//explicit operator const T&() const
-		//{
-		//	return get();
-		//}
+		[[nodiscard]] const T& as_reference() const
+		{
+			return get();
+		}
 
-		//// Explicitly cast to the resource type and return a reference to it
-		//explicit operator T&()
-		//{
-		//	return get();
-		//}
+		[[nodiscard]] T& as_reference()
+		{
+			return get();
+		}
 
 		// Access the resource by returning a reference to it
 		const T& operator*() const
@@ -548,380 +579,116 @@ namespace avk
 		}
 	};
 
-
-	// A reference to an (owning/non-owning) resource
-	//  - Can be initialized with owning_resource<T>
-	//  - or with resource T
+	// A type for passing resources as arguments. Can be used to express that
+	// ownership shall be passed along with it, or only a reference to it.
 	template <typename T>
-	class resource_reference
+	class resource_argument : public std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>
 	{
 	public:
-		// Implicitly allow the construction of a reference to owning_resource<T>
-		resource_reference(const owning_resource<std::remove_const_t<T>>& aOwningResource)
-			: mResource{ const_cast<T*>(aOwningResource.operator->()) }
-#ifdef _DEBUG
-			, mOwner{ &aOwningResource }
-#endif
+		// The type of the resource:
+		using value_type = T;
+		
+		// Cast the this-pointer to what it is: a std::variant-pointer (and to const)
+		const std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>* this_as_variant() const noexcept
+		{
+			return static_cast<const std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>*>(this);
+		}
+
+		// Cast the this-pointer to what it is: a std::variant-pointer
+		std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>* this_as_variant() noexcept
+		{
+			return static_cast<std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>*>(this);
+		}
+		
+		resource_argument(const T& aResource) noexcept 
+			: std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>{ std::cref(aResource) }
 		{ }
 
-		// Implicitly allow the construction of a reference to resource T
-		resource_reference(T& aResource)
-			: mResource{ &aResource }
-#ifdef _DEBUG
-			, mOwner{ nullptr }
-#endif
+		resource_argument(T& aResource) noexcept
+			: std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>{ std::ref(aResource) }
 		{ }
 
-		// Move-constructing, resetting aOther
-		resource_reference(resource_reference<T>&& aOther) noexcept
-			: mResource{ aOther.mResource }
-#ifdef _DEBUG
-			, mOwner{ aOther.mOwner }
-#endif
-		{
-#ifdef _DEBUG
-			aOther.mResource = nullptr;
-			aOther.mOwner = nullptr;
-#endif
-		}
-
-		// Copy the data from aOther
-		resource_reference(const resource_reference<T>& aOther)
-			: mResource{ aOther.mResource }
-#ifdef _DEBUG
-			, mOwner{ aOther.mOwner }
-#endif
+		resource_argument(owning_resource<T> aResource) noexcept
+			: std::variant<std::reference_wrapper<T>, std::reference_wrapper<const T>, owning_resource<T>>{ std::move(aResource) }
 		{ }
 
-		// Move-assigning, resetting aOther
-		resource_reference& operator=(resource_reference<T>&& aOther) noexcept
-		{
-			mResource = aOther.mResource;
-#ifdef _DEBUG
-			mOwner = aOther.mOwner;
-			aOther.mResource = nullptr;
-			aOther.mOwner = nullptr;
-#endif
-			return *this;
+		resource_argument(resource_argument&&) noexcept = default;
+		resource_argument(const resource_argument& aOther) = default;
+		resource_argument& operator=(resource_argument&&) noexcept = default;
+		resource_argument& operator=(const resource_argument&) = default;
+		~resource_argument() = default;
+
+		bool is_ownership() const {
+			return std::holds_alternative<owning_resource<T>>(*this_as_variant());
 		}
 
-		// Copy the data from aOther
-		resource_reference& operator=(const resource_reference<T>& aOther)
-		{
-			mResource = aOther.mResource;
-#ifdef _DEBUG
-			mOwner = aOther.mOwner;
-#endif
-			return *this;
+		bool is_reference() const {
+			return !is_ownership();
 		}
 
-		// Assign a resource T, storing a reference to it
-		resource_reference& operator=(T& aResource)
+		// Get a reference to the owned resource T
+		T& get()
 		{
-			mResource = &aResource;
-#ifdef _DEBUG
-			mOwner = nullptr;
-#endif
-			return *this;
-		}
-
-		// Implicitly allow casting a non-const-reference to a const-reference IF we're inside a non-const-reference-type instance.
-		template<
-			typename U = T,
-			typename = std::enable_if<std::is_same_v<resource_reference<std::remove_const_t<T>>, resource_reference<T>>, resource_reference<const T>>
-		>
-		operator resource_reference<const std::remove_const_t<T>>() {
-#ifdef _DEBUG
-			if (nullptr != mOwner) {
-				return resource_reference<const T>{ *mOwner };
+			if (is_ownership()) {
+				return std::get<owning_resource<T>>(*this_as_variant()).get();
 			}
-#endif
-			return resource_reference<const T>{ *mResource };
+			if (std::holds_alternative<std::reference_wrapper<T>>(*this_as_variant())) {
+				return std::get<std::reference_wrapper<T>>(*this_as_variant());
+			}
+			else {
+				throw avk::logic_error("The resource of type '" + std::string(typeid(T).name()) + "' is stored as const reference. Cannot return it as non-const reference. Use ::get_const_reference instead!");
+			}
 		}
 
-		// Get reference to the resource
-		const T& get() const
+		// Get a reference to the owned resource T
+		const T& get_const_reference() const
 		{
-			return *mResource;
+			if (is_ownership()) {
+				return std::get<owning_resource<T>>(*this_as_variant()).get();
+			}
+			if (std::holds_alternative<std::reference_wrapper<T>>(*this_as_variant())) {
+				return std::get<std::reference_wrapper<T>>(*this_as_variant());
+			}
+			else {
+				assert(std::holds_alternative<std::reference_wrapper<const T>>(*this_as_variant()));
+				return std::get<std::reference_wrapper<const T>>(*this_as_variant());
+			}
 		}
 
-		// Get reference to the resource
-		T& get()
-		{
-			return *mResource;
-		}
-
-#ifdef _DEBUG
-		// Get reference to the owner
-		const owning_resource<std::remove_const_t<T>>* get_owner() const
-		{
-			return mOwner;
-		}
-#endif
-
-		// Get reference to the resource
+		// Access the resource by returning a const reference to it
 		const T& operator*() const
 		{
-			return get();
+			return get_const_reference();
 		}
 
-		// Get reference to the resource
-		T& operator*()
-		{
-			return get();
-		}
-
-		// Get pointer to the resource
+		// Access the resource by returning its address to const
 		const T* operator->() const
 		{
-			return mResource;
+			return &get_const_reference();
 		}
 
-		// Get pointer to the resource
-		T* operator->()
+		// Get the ownership, i.e. the owned resource:
+		owning_resource<T>& get_ownership()
 		{
-			return mResource;
+			if (is_reference()) {
+				throw avk::logic_error("The resource of type '" + std::string(typeid(T).name()) + "' is stored as reference. Cannot get its parent (owning) resource.");
+			}
+			assert(is_ownership());
+			return std::get<owning_resource<T>>(*this_as_variant());
 		}
 
-	private:
-		T* mResource;
-#ifdef _DEBUG
-		const owning_resource<std::remove_const_t<T>>* mOwner;
-#endif
+		// Get the ownership or an empty ownership object.
+		// This method does not throw.
+		owning_resource<T> move_ownership_or_get_empty()
+		{
+			if (is_reference()) {
+				return owning_resource<T>{};
+			}
+			assert(is_ownership());
+			return std::move(std::get<owning_resource<T>>(*this_as_variant()));
+		}
 	};
-
-	// Indicate the intent to use the given resource via non-owning reference
-	template <typename T> requires has_value_type<T>
-	resource_reference<typename T::value_type> referenced(T& aResource)
-	{
-		resource_reference<typename T::value_type> result{ aResource };
-		return result;
-	}
-
-	// Indicate the intent to use the given resource via non-owning reference
-	template <typename T> requires has_handle<T>
-	resource_reference<T> referenced(T& aResource)
-	{
-		return resource_reference<T>{ aResource };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_reference
-	template <typename T>
-	resource_reference<T> referenced(resource_reference<T>& aResourceReference)
-	{
-		return resource_reference<T>{ aResourceReference };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_reference
-	template <typename T>
-	resource_reference<T> referenced(resource_reference<T>&& aResourceReference)
-	{
-		return resource_reference<T>{ aResourceReference };
-	}
-
-
-	// Indicate the intent to use the given resource via non-owning reference
-	template <typename T> requires has_value_type<T>
-	resource_reference<const typename T::value_type> const_referenced(const T& aResource)
-	{
-		return resource_reference<const typename T::value_type>{ aResource };
-	}
-
-	// Indicate the intent to use the given resource via non-owning reference
-	template <typename T> requires has_handle<T>
-	resource_reference<const T> const_referenced(const T& aResource)
-	{
-		return resource_reference<const T>{ aResource };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_reference
-	template <typename T> requires has_handle<T>
-	resource_reference<const T> const_referenced(resource_reference<T>& aResourceReference)
-	{
-		return resource_reference<const T>{ aResourceReference.get() };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_reference
-	template <typename T>
-	resource_reference<const T> const_referenced(resource_reference<T>&& aResourceReference)
-	{
-		return resource_reference<const T>{ aResourceReference.get() };
-	}
-
-
-	// A resource_owner owns a resource.
-	//  - Can be initialized with owning_resource<T>
-	//  x but not with resource T
-	template <typename T>
-	class resource_ownership
-	{
-	public:
-		// Explicitly construct an element that takes ownership of a reference to owning_resource<T>
-		explicit resource_ownership(owning_resource<T>& aOwningResource)
-			: mOwnership{ std::move(aOwningResource) }
-		{
-			assert(!aOwningResource.has_value());
-		}
-
-		// Implicitly allow construction of an rvalue-reference to owning_resource<T>
-		resource_ownership(owning_resource<T>&& aOwningResource)
-			: mOwnership{ std::move(aOwningResource) }
-		{
-			assert(!aOwningResource.has_value());
-		}
-
-		// Move-constructing from the other
-		resource_ownership(resource_ownership<T>&& aOther) noexcept
-			: mOwnership{ std::move(aOther.mOwnership) }
-		{
-			assert(!aOther.mOwnership.has_value());
-		}
-
-		// Move-assigning from the other
-		resource_ownership& operator=(resource_ownership<T>&& aOther) noexcept
-		{
-			mOwnership = std::move(aOther);
-			assert(!aOther.mOwnership.has_value());
-			return *this;
-		}
-
-		// Copy-constructing from the other.
-		// Can fail if aOther does not have shared ownership enabled.
-		resource_ownership(const resource_ownership<T>& aOther)
-			: mOwnership{ aOther.mOwnership }
-		{ }
-
-		// Copy-assigning from the other.
-		// Can fail if aOther does not have shared ownership enabled.
-		resource_ownership& operator=(const resource_ownership<T>& aOther)
-		{
-			mOwnership = aOther.mOwnership;
-			return *this;
-		}
-
-		// Get the owning_resource<T> of resource T
-		const owning_resource<T>& get_owner() const
-		{
-			return mOwnership;
-		}
-
-		// Get the owning_resource<T> of resource T
-		owning_resource<T>& get_owner()
-		{
-			return mOwnership;
-		}
-
-		// Get the ownership with the intent of stealing its guts
-		owning_resource<T>&& own()
-		{
-			return std::move(mOwnership);
-		}
-
-		// Get reference to the resource T
-		const T& get() const
-		{
-			return mOwnership.get();
-		}
-
-		// Get reference to the resource T
-		T& get()
-		{
-			return mOwnership.get();
-		}
-
-		// Get reference to the resource T
-		const T& operator*() const
-		{
-			return get();
-		}
-
-		// Get reference to the resource T
-		T& operator*()
-		{
-			return get();
-		}
-
-		// Get pointer to the resource T
-		const T* operator->() const
-		{
-			return &get();
-		}
-
-		// Get pointer to the resource T
-		T* operator->()
-		{
-			return &get();
-		}
-
-	private:
-		owning_resource<T> mOwnership;
-	};
-
-	// Indicate the intent to own the given resource
-	template <typename T>
-	resource_ownership<T> owned(owning_resource<T>&& aResource)
-	{
-		return resource_ownership<T>{ std::move(aResource) };
-	}
-
-	// Indicate the intent to own the given resource, transferring the ownership.
-	// Attention: The original owner no longer owns it afterwards!
-	template <typename T>
-	resource_ownership<T> owned(owning_resource<T>& aResource)
-	{
-		return resource_ownership<T>{ std::move(aResource) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> owned(resource_ownership<T>&& aResourceOwnership)
-	{
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> owned(resource_ownership<T>& aResourceOwnership)
-	{
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-	// Indicate the intent to co-own the given resource
-	template <typename T>
-	resource_ownership<T> shared(owning_resource<T>&& aResource)
-	{
-		// No need to enable shared ownership just for the move constructor
-		return resource_ownership<T>{ std::move(aResource) };
-	}
-
-	// Indicate the intent to co-own the given resource
-	template <typename T>
-	resource_ownership<T> shared(owning_resource<T>& aResource)
-	{
-		aResource.enable_shared_ownership();
-		// We must not destroy the original, but create a copy:
-		owning_resource<T> copy{ aResource };
-		return resource_ownership<T>{ std::move(copy) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> shared(resource_ownership<T>&& aResourceOwnership)
-	{
-		// No need to enable shared ownership just for the move constructor
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-	// Pass-through method for resources that are already wrapped in resource_ownership
-	template <typename T>
-	resource_ownership<T> shared(resource_ownership<T>& aResourceOwnership)
-	{
-		aResourceOwnership.get_owner().enable_shared_ownership();
-		return resource_ownership<T>{ std::move(aResourceOwnership) };
-	}
-
-
-
+	
 	template<typename T>
 	class unique_function : protected std::function<T>
 	{
@@ -1002,7 +769,7 @@ namespace avk
 		}
 
 		template<class Fn>
-		const Fn* target() const noexcept // TODO/ATTENTION/NOTE: changed this to const Fn* in order to allow `const unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)>& aToTest` in `ak::sync` (i.e. the CONST&). Not sure if this is totally okay or has any side effects.
+		const Fn* target() const noexcept // TODO/ATTENTION/NOTE: changed this to const Fn* in order to allow `const unique_function<void(command_buffer_t&, pipeline_stage, std::optional<read_memory_access>)>& aToTest` in `ak::old_sync` (i.e. the CONST&). Not sure if this is totally okay or has any side effects.
 		{
 			return &base::template target<wrapper<Fn>>()->fn;
 		}
@@ -1312,4 +1079,40 @@ namespace avk
 	template<class... Ts> lambda_overload(Ts...) -> lambda_overload<Ts...>;
 #pragma endregion
 
+	// A concept which requires a type to have a .has_value()
+	template <typename T>
+	concept has_has_value = requires (T& x)
+	{
+		x.has_value();
+	};
+
+	// A concept which requires a type to not have a .has_value()
+	template <typename T>
+	concept not_has_value = !has_has_value<T>;
+
+	// Add the resource R as to the list of resources to be lifetime-handled by object LH
+	template <typename LH, typename R> requires has_has_value<R>
+	void let_it_handle_lifetime_of(LH& lh, R& r)
+	{
+		if (r.has_value()) {
+			if (r.is_shared_ownership_enabled()) {
+				lh.handle_lifetime_of(r);
+			}
+			else {
+				lh.handle_lifetime_of(std::move(r));
+			}
+		}
+	}
+
+	// Add the resource R as to the list of resources to be lifetime-handled by object LH
+	template <typename LH, typename R> requires not_has_value<R>
+	void let_it_handle_lifetime_of(LH& lh, R& r)
+	{
+		if (r.is_shared_ownership_enabled()) {
+			lh.handle_lifetime_of(r);
+		}
+		else {
+			lh.handle_lifetime_of(std::move(r));
+		}
+	}
 }

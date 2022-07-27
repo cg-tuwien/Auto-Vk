@@ -47,19 +47,33 @@
  *	from device-only memory, when a scratch buffer is needed to build acceleration
  *	structures and none was provided, etc.
  *
- *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+ *	By default, such a staging buffer is created with avk::memory_usage::host_coherent
  *	if nothing else is specified. Feel free to specify a different value by defining
  *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
  *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
  */
 #if !defined(AVK_STAGING_BUFFER_MEMORY_USAGE)
-#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_visible
+#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_coherent
+#endif
+
+ /** CONFIG SETTING: AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE
+  *
+  *	The following setting CAN be set BEFORE including avk.hpp in order to change
+  *	the behavior whenever staging buffers for reading back values are created
+  *	internally. 
+  *
+  *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+  *	if nothing else is specified. Feel free to specify a different value by defining
+  *	the AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
+  *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
+  */
+#if !defined(AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE)
+#define AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE	avk::memory_usage::host_visible
 #endif
 
 namespace avk
 {
 	class root;
-	class sync;
 }
 
 #include <avk/image_color_channel_order.hpp>
@@ -145,15 +159,19 @@ namespace avk
 
 #include <avk/memory_access.hpp>
 #include <avk/memory_usage.hpp>
+#include <avk/layout.hpp>
 #include <avk/on_load.hpp>
 #include <avk/on_store.hpp>
-#include <avk/usage_type.hpp>
-#include <avk/usage_desc.hpp>
+#include <avk/subpass_usage_type.hpp>
+#include <avk/subpass_usages.hpp>
 
 #include <avk/shader_type.hpp>
 #include <avk/pipeline_stage.hpp>
+#include <avk/stage_and_access.hpp>
+
 #include <avk/descriptor_alloc_request.hpp>
 #include <avk/descriptor_pool.hpp>
+
 
 #include <avk/format_for.hpp>
 #include <avk/buffer_meta.hpp>
@@ -165,7 +183,19 @@ namespace avk
 #include <avk/set_of_descriptor_set_layouts.hpp>
 #include <avk/descriptor_cache.hpp>
 
-#include <avk/commands.hpp>
+// Predefine command types:
+namespace avk
+{
+	namespace command
+	{
+		struct state_type_command;
+		struct action_type_command;
+	}
+	namespace sync
+	{
+		class sync_type_command;
+	}
+}
 
 #include <avk/buffer.hpp>
 #include <avk/shader_info.hpp>
@@ -176,12 +206,6 @@ namespace avk
 
 #include <avk/semaphore.hpp>
 #include <avk/fence.hpp>
-
-#include <avk/sync.hpp>
-
-// NOTE: buffer_read_impl.hpp is included here, so Auto-Vk compiles with gcc & clang
-// TODO: Move read_impl back into buffer.hpp once avk::sync has been eliminated (Issue #2)
-#include <avk/buffer_read_impl.hpp>
 
 #include <avk/image.hpp>
 #include <avk/image_view.hpp>
@@ -195,8 +219,7 @@ namespace avk
 
 #include <avk/buffer_view.hpp>
 #include <avk/vertex_index_buffer_pair.hpp>
-#include <avk/queue.hpp>
-#include <avk/renderpass_sync.hpp>
+#include <avk/subpass_dependency.hpp>
 #include <avk/renderpass.hpp>
 #include <avk/framebuffer.hpp>
 
@@ -223,6 +246,7 @@ namespace avk
 #include <avk/bindings.hpp>
 
 #include <avk/commands.hpp>
+#include <avk/queue.hpp>
 
 namespace avk
 {
@@ -489,7 +513,7 @@ namespace avk
 		 *	@param	aAlterConfigBeforeCreation	A callback that can be used to alter the config of vk::BufferViewCreateInfo{}
 		 *										before it is handed over to vkCmdCreateBufferViewUnique.
 		 */
-		buffer_view create_buffer_view(resource_ownership<buffer_t> aBufferToOwn, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
+		buffer_view create_buffer_view(buffer aBufferToOwn, vk::Format aViewFormat, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Create a buffer view over the given buffer in the specified format based on the specified meta data
 		 *
@@ -501,7 +525,7 @@ namespace avk
 		 *										before it is handed over to vkCmdCreateBufferViewUnique.
 		 */
 		template <typename M>
-		buffer_view create_buffer_view(resource_ownership<buffer_t> aBufferToOwn, size_t aMetaSkip = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {})
+		buffer_view create_buffer_view(buffer aBufferToOwn, size_t aMetaSkip = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {})
 		{
 			const auto& meta = aBufferToOwn->meta<M>(aMetaSkip);
 			if (meta.member_descriptions().empty()) {
@@ -522,7 +546,7 @@ namespace avk
 		 *	@param	aAlterConfigBeforeCreation	A callback that can be used to alter the config of vk::BufferViewCreateInfo{}
 		 *										before it is handed over to vkCmdCreateBufferViewUnique.
 		 */
-		buffer_view create_buffer_view(resource_ownership<buffer_t> aBufferToOwn, size_t aMetaSkip = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {})
+		buffer_view create_buffer_view(buffer aBufferToOwn, size_t aMetaSkip = 0, std::function<void(buffer_view_t&)> aAlterConfigBeforeCreation = {})
 		{
 			const bool hasUniformTexelBufferMeta = aBufferToOwn->has_meta<uniform_texel_buffer_meta>(aMetaSkip);
 			const bool hasStorageTexelBufferMeta = aBufferToOwn->has_meta<storage_texel_buffer_meta>(aMetaSkip);
@@ -532,7 +556,13 @@ namespace avk
 			if (hasStorageTexelBufferMeta && !hasUniformTexelBufferMeta) {
 				return create_buffer_view<storage_texel_buffer_meta>(std::move(aBufferToOwn), aMetaSkip, std::move(aAlterConfigBeforeCreation));
 			}
-			throw avk::runtime_error("Buffer has both, uniform_texel_buffer_meta and storage_texel_buffer_meta. Don't know which one to use. => Use the templated create_buffer_view overload and specify the meta type explicitly!");
+
+			if (hasUniformTexelBufferMeta && hasStorageTexelBufferMeta) {
+				throw avk::runtime_error("Buffer has both, uniform_texel_buffer_meta and storage_texel_buffer_meta. Don't know which one to use. => Use the templated create_buffer_view overload and specify the meta type explicitly!");
+			}
+			else {
+				throw avk::runtime_error("Buffer has neither uniform_texel_buffer_meta nor storage_texel_buffer_meta, but need at least one of them here. Add one of the metas at buffer creation time!");
+			}
 		}
 
 		/**	Create a buffer view over the given buffer in the specified format.
@@ -553,7 +583,7 @@ namespace avk
 #pragma region compute pipeline
 		void rewire_config_and_create_compute_pipeline(compute_pipeline_t& aPreparedPipeline);
 		compute_pipeline create_compute_pipeline(compute_pipeline_config aConfig, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
-		compute_pipeline create_compute_pipeline_from_template(resource_reference<const compute_pipeline_t> aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		compute_pipeline create_compute_pipeline_from_template(const compute_pipeline_t& aTemplate, std::function<void(compute_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Convenience function for gathering the compute pipeline's configuration.
 		 *
@@ -601,26 +631,26 @@ namespace avk
 
 #pragma region framebuffer
 		// Helper methods for the create methods that take attachments and image views
-		void check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<resource_ownership<image_view_t>>& aImageViews);
+		void check_and_config_attachments_based_on_views(std::vector<attachment>& aAttachments, std::vector<image_view>& aImageViews);
 
-		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<resource_ownership<image_view_t>> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
-		framebuffer create_framebuffer_from_template(resource_reference<const framebuffer_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {}, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation = {});
+		framebuffer create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, uint32_t aWidth, uint32_t aHeight, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(renderpass aRenderpass, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, std::function<void(framebuffer_t&)> aAlterConfigBeforeCreation = {});
+		framebuffer create_framebuffer_from_template(const framebuffer_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {}, std::function<void(framebuffer_t&)> aAlterFramebufferConfigBeforeCreation = {});
 
-		template <typename ...ImViews> requires are_same<resource_ownership<image_view_t>, ImViews...>::value
+		template <typename ...ImViews> requires are_same<image_view, ImViews...>::value
 		framebuffer create_framebuffer(std::vector<avk::attachment> aAttachments, ImViews... aImViews)
 		{
-			std::vector<resource_ownership<image_view_t>> imageViews;
+			std::vector<image_view> imageViews;
 			(imageViews.push_back(std::move(aImViews)), ...);
 			return create_framebuffer(std::move(aAttachments), std::move(imageViews));
 		}
 
-		template <typename ...ImViews> requires are_same<resource_ownership<image_view_t>, ImViews...>::value
-		framebuffer create_framebuffer(resource_ownership<renderpass_t> aRenderpass, ImViews... aImViews)
+		template <typename ...ImViews> requires are_same<image_view, ImViews...>::value
+		framebuffer create_framebuffer(renderpass aRenderpass, ImViews... aImViews)
 		{
-			std::vector<resource_ownership<image_view_t>> imageViews;
+			std::vector<image_view> imageViews;
 			(imageViews.push_back(std::move(aImViews)), ...);
 			return create_framebuffer(std::move(aRenderpass), std::move(imageViews));
 		}
@@ -631,14 +661,37 @@ namespace avk
 		/** Create a geometry instance for a specific geometry, which is represented by a bottom level acceleration structure.
 		 *	@param	aBlas	The bottom level acceleration structure which represents the underlying geometry for this instance
 		 */
-		geometry_instance create_geometry_instance(resource_reference<const bottom_level_acceleration_structure_t> aBlas);
+		geometry_instance create_geometry_instance(const bottom_level_acceleration_structure_t& aBlas);
 #endif
 #pragma endregion
 
 #pragma region graphics pipeline
+		/** Helper function which internally rewires all the config that is necessary for graphics pipeline creation. */
 		void rewire_config_and_create_graphics_pipeline(graphics_pipeline_t& aPreparedPipeline);
+
+		/**	Creates a graphics pipeline based on the passed configuration.
+		 *	@param	aConfig						Configuration parameters for the graphics pipeline
+		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the pipeline's config right before it is being created on the device.
+		 *	@return A new graphics pipeline instance.
+		 */
 		graphics_pipeline create_graphics_pipeline(graphics_pipeline_config aConfig, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
-		graphics_pipeline create_graphics_pipeline_from_template(resource_reference<const graphics_pipeline_t> aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+
+		/**	Creates a graphics pipeline based on another graphics pipeline, which serves as a template, providing a renderpass instance.
+		 *	@param	aTemplate					Another, already existing graphics pipeline, which serves as a template for the newly created graphics pipeline.
+		 *	@param	aNewRenderpass				The (owned) renderpass which shall be used for the newly created graphics pipeline
+		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the new pipeline's config right before it is being created on the device.
+		 *	@return A new graphics pipeline instance.
+		 */
+		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, renderpass aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex = {}, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+
+		/**	Creates a graphics pipeline based on another graphics pipeline, which serves as a template,
+		 *	which either uses the same renderpass (if it has shared ownership enabled) or creates a new
+		 *	renderpass internally using create_renderpass_from_template with the template's renderpass.
+		 *	@param	aTemplate					Another, already existing graphics pipeline, which serves as a template for the newly created graphics pipeline.
+		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the new pipeline's config right before it is being created on the device.
+		 *	@return A new graphics pipeline instance.
+		 */
+		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Convenience function for gathering the graphic pipeline's configuration.
 		 *
@@ -717,7 +770,7 @@ namespace avk
 #pragma endregion
 
 #pragma region image
-		image create_image_from_template(resource_reference<const image_t> aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
+		image create_image_from_template(const image_t& aTemplate, std::function<void(image_t&)> aAlterConfigBeforeCreation = {});
 
 		/** Creates a new image
 		 *	@param	aWidth						The width of the image to be created
@@ -769,7 +822,7 @@ namespace avk
 #pragma endregion
 
 #pragma region image view
-		image_view create_image_view_from_template(resource_reference<const image_view_t> aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {});
+		image_view create_image_view_from_template(const image_view_t& aTemplate, std::function<void(image_t&)> aAlterImageConfigBeforeCreation = {}, std::function<void(image_view_t&)> aAlterImageViewConfigBeforeCreation = {});
 
 		/** Creates a new image view upon a given image
 		*	@param	aImageToOwn					The image which to create an image view for
@@ -777,9 +830,9 @@ namespace avk
 		*	@param	aAlterConfigBeforeCreation	A context-specific function which allows to modify the `vk::ImageViewCreateInfo` just before the image view will be created. Use `.create_info()` to access the configuration structure!
 		*	@return	Returns a newly created image.
 		*/
-		image_view create_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		image_view create_depth_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
-		image_view create_stencil_image_view(resource_ownership<image_t> aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_image_view(avk::image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_depth_image_view(avk::image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
+		image_view create_stencil_image_view(avk::image aImageToOwn, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {}, std::function<void(image_view_t&)> aAlterConfigBeforeCreation = {});
 
 		image_view create_image_view(image_t aImageToWrap, std::optional<vk::Format> aViewFormat = std::nullopt, std::optional<avk::image_usage> aImageViewUsage = {});
 
@@ -817,7 +870,7 @@ namespace avk
 			return create_sampler(aFilterMode, { aBorderHandlingMode, aBorderHandlingMode, aBorderHandlingMode }, aMipMapMaxLod, std::move(aAlterConfigBeforeCreation));
 		}
 
-		image_sampler create_image_sampler(resource_ownership<image_view_t> aImageView, resource_ownership<sampler_t> aSampler);
+		image_sampler create_image_sampler(image_view aImageView, sampler aSampler);
 #pragma endregion
 
 #pragma region ray tracing pipeline
@@ -827,7 +880,7 @@ namespace avk
 		void rewire_config_and_create_ray_tracing_pipeline(ray_tracing_pipeline_t& aPipeline);
 		void build_shader_binding_table(ray_tracing_pipeline_t& aPipeline);
 		ray_tracing_pipeline create_ray_tracing_pipeline(ray_tracing_pipeline_config aConfig, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
-		ray_tracing_pipeline create_ray_tracing_pipeline_from_template(resource_reference<const ray_tracing_pipeline_t> aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		ray_tracing_pipeline create_ray_tracing_pipeline_from_template(const ray_tracing_pipeline_t& aTemplate, std::function<void(ray_tracing_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
 		/**	Convenience function for gathering the ray tracing pipeline's configuration.
 		 *
@@ -873,18 +926,21 @@ namespace avk
 		 */
 		void rewire_subpass_descriptions(renderpass_t& aRenderpass);
 
+		std::tuple<std::vector<vk::SubpassDependency2KHR>, std::vector<vk::MemoryBarrier2KHR>> compile_subpass_dependencies(const renderpass_t& aRenderpass);
+
+		void rewire_subpass_dependencies(std::vector<vk::SubpassDependency2KHR>& aAlignedSubpassDependencies, std::vector<vk::MemoryBarrier2KHR>& aAlignedMemoryBarriers);
+
 		/** Create a renderpass from a given set of attachments.
 		 *	Also, create default subpass dependencies (which are overly cautious and potentially sync more than required.)
 		 *	To specify custom subpass dependencies, pass a callback to the second parameter!
 		 *	@param	aAttachments				Attachments of the renderpass to be created
-		 *	@param	aSync						Callback of type void(renderpass_sync&) that is invoked for external subpass dependencies (before and after),
-		 *										and also between each of the subpasses. Modify the passed `renderpass_sync&` in order to set custom
+		 *	@param	aSubpassDependencies		TODO: Describe!
 		 *										synchronization parameters.
 		 *	@param	aAlterConfigBeforeCreation	Use it to alter the renderpass_t configuration before it is actually being created.
 		 */
-		renderpass create_renderpass(std::vector<avk::attachment> aAttachments, std::function<void(renderpass_sync&)> aSync = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+		renderpass create_renderpass(std::vector<avk::attachment> aAttachments, subpass_dependencies aSubpassDependencies = {}, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 
-		renderpass create_renderpass_from_template(resource_reference<const renderpass_t> aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
+		renderpass create_renderpass_from_template(const renderpass_t& aTemplate, std::function<void(renderpass_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region semaphore
@@ -905,5 +961,10 @@ namespace avk
 		query_pool create_query_pool_for_timestamp_queries(uint32_t aQueryCount = 2u);
 		query_pool create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
 #pragma endregion
+
+		/**	Prepare an avk::recorded_commands object containing all the passed recorded_commands_t
+		 *	@param	aRecordedCommands	Stuff to be put into a new instance of avk::recoded_commands
+		 */
+		avk::recorded_commands record(std::vector<recorded_commands_t> aRecordedCommands) const;
 	};
 }

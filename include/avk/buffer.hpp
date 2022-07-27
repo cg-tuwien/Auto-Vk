@@ -5,7 +5,7 @@ namespace avk
 {
 	class command_buffer_t;
 	using command_buffer = avk::owning_resource<command_buffer_t>;
-	class sync;
+	class old_sync;
 	
 	/**	A helper-class representing a descriptor to a given buffer,
 	 *	containing the descriptor type and the descriptor info.
@@ -204,22 +204,22 @@ namespace avk
 		auto as_storage_buffer() const { return get_buffer_descriptor<storage_buffer_meta>(); }
 
 		/** Fill buffer with data.
-		 *  The buffer's size is determined from its metadata
+		 *  The buffer's size is determined from its metadata.
+		 *	Please note: The returned command will not contain any sort of lifetime handling measure for the given buffer.
+		 *               Instead, the caller must ensure that the buffer outlives the lifetime of the returned command.
 		 *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
 		 *  @param aMetaDataIndex	Index of the buffer metadata to use (for determining the buffer size)
-		 *  @param aSyncHandler		Synchronization handler for the copy operation
 		 */
-		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler);
+		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex) const;
 
 		// TODO: Maybe the following overload could be re-enabled after command/commands refactoring?!
 		///** Fill buffer with data according to the meta data of the given type Meta.
 		// *  The buffer's size is determined from its metadata
 		// *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
 		// *  @param aMetaDataSkip	How often a meta data of type Meta shall be skipped. I.e. values != 0 only make sense if there ar multiple meta data entries of type Meta.
-		// *  @param aSyncHandler		Synchronization handler for the copy operation
 		// */
 		//template <typename Meta>
-		//std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataSkip, sync aSyncHandler)
+		//std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataSkip, old_sync aSyncHandler)
 		//{
 		//	assert(has_meta<Meta>(aMetaDataSkip));
 		//	return fill(aDataPtr, index_of_meta<Meta>(aMetaDataSkip), std::move(aSyncHandler));
@@ -231,13 +231,14 @@ namespace avk
 		*  @param aMetaDataIndex	Index of the buffer metadata to use (for size validation only)
 		*  @param aOffsetInBytes	Offset from the start of the buffer (data will be copied to bufferstart + aOffset)
 		*  @param aDataSizeInBytes	Number of bytes to copy
-		*  @param aSyncHandler		Synchronization handler for the copy operation
 		*/
-		std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes, sync aSyncHandler);
+		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes) const;
 
-		/** Read data from buffer back to the CPU-side.
-		 */
-		std::optional<command_buffer> read(void* aDataPtr, size_t aMetaDataIndex, sync aSyncHandler) const;
+		/** Read data from buffer back to the CPU-side, into some given memory.
+		 *	@param	aDataPtr		Target memory where to write read-back data into
+		 *	@param	aMetaDataIndex	Index of the meta data index which is used for the buffer's read-back data (size and stuff)
+		 */	
+		avk::command::action_type_command read_into(void* aDataPtr, size_t aMetaDataIndex) const;
 
 		/**
 		 * Read back data from a buffer.
@@ -245,15 +246,22 @@ namespace avk
 		 * This is a convenience overload to avk::read.
 		 *
 		 * Example usage:
-		 * uint32_t readData = avk::read<uint32_t>(mMySsbo, avk::sync::not_required());
+		 * uint32_t readData = avk::read<uint32_t>(mMySsbo, avk::old_sync::not_required());
 		 * // ^ given that mMySsbo is a host-coherent buffer. If it is not, sync is required.
 		 *
 		 * @tparam	Ret			Specify the type of data that shall be read from the buffer (this is `uint32_t` in the example above).
 		 * @returns				A value of type `Ret` which is returned by value.
 		 */
-		template <typename Ret>
-		Ret read(size_t aMetaDataIndex, sync aSyncHandler); // implemented in avk/buffer_read_impl.hpp
-		
+		template<typename Ret>
+		[[nodiscard]] Ret read(size_t aMetaDataIndex) {
+			auto memProps = memory_properties();
+			Ret result;
+			read_into(static_cast<void*>(&result), aMetaDataIndex);
+			return result;
+		}
+
+		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
+
 	private:
 #if VK_HEADER_VERSION >= 135
 		std::vector<std::variant<buffer_meta, generic_buffer_meta, uniform_buffer_meta, uniform_texel_buffer_meta, storage_buffer_meta, storage_texel_buffer_meta, vertex_buffer_meta, index_buffer_meta, instance_buffer_meta, aabb_buffer_meta, geometry_instance_buffer_meta, query_results_buffer_meta, indirect_buffer_meta>> mMetaData;

@@ -47,26 +47,7 @@ namespace avk
 		uint32_t depth() const { return create_info().extent.depth; }
 		/** Gets the format of the image */
 		vk::Format format() const { return create_info().format; }
-
-		/**	Sets a new target layout for this image, simply overwriting any previous value.
-		 *	Attention: Only use if you know what you are doing!
-		 */
-		void set_target_layout(vk::ImageLayout aNewTargetLayout)
-		{
-			mTargetLayout = aNewTargetLayout;
-		}
-
-		/** Gets this image's target layout as specified during image creation. */
-		auto target_layout() const { return mTargetLayout; }
-
-		/** Sets the current image layout.
-		 *	Attention: Only use if you know what you are doing!
-		 */
-		void set_current_layout(vk::ImageLayout aNewLayout) { mCurrentLayout = aNewLayout; }
 		
-		/** Gets the current image layout */
-		auto current_layout() const { return mCurrentLayout; }
-
 		/** Gets the usage config flags as specified during image creation. */
 		auto usage_config() const { return mImageUsage; }
 
@@ -77,25 +58,19 @@ namespace avk
 
 		auto aspect_flags() const { return mAspectFlags; }
 
-		/** Transition the image into the given layout, or (if no layout specified) into its target layout (i.e. into `target_layout()`).
-		 *	Attention: IF the image is already in the requested (or target) layout, no command will be executed and `aSyncHandler` will NOT be invoked!
-		 */
-		std::optional<command_buffer> transition_to_layout(std::optional<vk::ImageLayout> aTargetLayout = {}, sync aSyncHandler = sync::wait_idle());
-
 		/**	Generate all the coarser MIP levels from the current level 0.
-		 *	Attention: IF the image has no MIP levels, `aSyncHandler` will NOT be invoked!
+		 *	@param	aLayoutTransition		Layout of the image before the generate_mip_maps >> layout that the image shall be transitioned into afterwards
 		 */
-		std::optional<command_buffer> generate_mip_maps(sync aSyncHandler = sync::wait_idle());
+		avk::command::action_type_command generate_mip_maps(avk::layout::image_layout_transition aLayoutTransition);
 		
+		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
+
 	private:
+		const root* mRoot;
 		// The image create info which contains all the parameters for image creation
 		vk::ImageCreateInfo mCreateInfo;
 		// The image handle. This member will contain a valid handle only after successful image creation.
 		std::variant<std::monostate, AVK_MEM_IMAGE_HANDLE, vk::Image> mImage;
-		// The image's target layout
-		vk::ImageLayout mTargetLayout;
-		// The current image layout
-		vk::ImageLayout mCurrentLayout;
 		// The image_usage flags specified during creation
 		image_usage mImageUsage;
 		// Image aspect flags (set during creation)

@@ -59,6 +59,14 @@ namespace avk
 	/** Returns true if the given image format is a format which has two color components.
 	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_2component_format(const vk::Format& aImageFormat);
+
+	/** Returns true if the given image format is a format which is one of the signed integer formats.
+	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
+	extern bool is_int_format(const vk::Format& aImageFormat);
+
+	/** Returns true if the given image format is a format which is one of the unsigned integer formats.
+	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
+	extern bool is_uint_format(const vk::Format& aImageFormat);
 	
 	/** Returns true if the given image's color channels are ordered like follows: RGB
 	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
@@ -86,9 +94,20 @@ namespace avk
 	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_4component_format(const vk::Format& aImageFormat);
 
+	/** Returns true if the given image format is a format which is one of the unorm formats.
+	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_unorm_format(const vk::Format& aImageFormat);
+
+	/** Returns true if the given image format is a format which is one of the snorm formats.
+	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_snorm_format(const vk::Format& aImageFormat);
+
+	/** Returns true if the given image format is an unorm or snorm format.
+	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_norm_format(const vk::Format& aImageFormat);
+
+	/** Returns true if the given image format is one of the block compressed formats.
+	*	Please note: This function does not guarantee completeness for all formats, i.e. false negatives must be expected. */
 	extern bool is_block_compressed_format(const vk::Format& aImageFormat);
 	
 	/** Returns true if the given image format is a depth/depth-stencil format and has a stencil component.
