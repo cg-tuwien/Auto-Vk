@@ -1,6 +1,15 @@
 # Auto-Vk
 
-_Auto-Vk_ is a low-level convenience and productivity layer atop [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp). 
+**What is _Auto-Vk_?**    
+_Auto-Vk_ is a low-level convenience and productivity layer for the best graphics API there is, namely
+
+![Vulkan Logo](Vulkan_170px_Dec16.png "Vulkan Logo")
+
+(...psst: and also the graphics API that most desperately needs such a layer.)    
+
+_Auto-Vk_ is written in modern C++ (using C++17 and C++20 features) and is built atop the Khronos Group's very own [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp). It aims to add more clarity, efficiency, and expressiveness to writing Vulkan code, while not abstracting-away any (or let's say: most) of its important concepts. 
+
+I.e., the big, important concepts, which make Vulkan as performant as it can be---such as fine-grained synchronization, parallel command recording on the host-side, usage of multiple queues, etc.---are all still there, but _Auto-Vk_ can help to not spend days implementing them, and to not lose track of the big picture of your source code. Just a few parts are abstracted a bit more heavily by _Auto-Vk_, in particular: descriptor set allocation and handling, memory allocation (where the recommended way to go is to use the [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator), as described below under [Memory Allocation](#memory-allocation)), and the handling of certain configuration parameters and flags. Should any of these parts fail suit your needs, you're still free to use raw Vulkan, or even more better: We're always happy to receive pull requests which extend the functionality and versatility of _Auto-Vk_.
 
 # Setup
 
