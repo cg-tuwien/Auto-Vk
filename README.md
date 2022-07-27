@@ -1,37 +1,37 @@
-# Auto-Vk
+# Auto-Vk v0.98
 
-**What is _Auto-Vk_?**    
 _Auto-Vk_ is a low-level convenience and productivity layer for the best graphics API there is, namely
-
-![Vulkan Logo](Vulkan_170px_Dec16.png "Vulkan Logo")
-
+<p align="center">
+  <img src="Vulkan_170px_Dec16.png" alt="Vulkan Logo"/>
+</p>
 (...psst: and also the graphics API that most desperately needs such a layer.)    
 
 _Auto-Vk_ is written in modern C++ (using C++17 and C++20 features) and is built atop the Khronos Group's very own [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp). It aims to add more clarity, efficiency, and expressiveness to writing Vulkan code, while not abstracting-away any (or let's say: most) of its important concepts. 
 
-I.e., the big, important concepts, which make Vulkan as performant as it can be---such as fine-grained synchronization, parallel command recording on the host-side, usage of multiple queues, etc.---are all still there, but _Auto-Vk_ can help to not spend days implementing them, and to not lose track of the big picture of your source code. Just a few parts are abstracted a bit more heavily by _Auto-Vk_, in particular: descriptor set allocation and handling, memory allocation (where the recommended way to go is to use the [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator), as described below under [Memory Allocation](#memory-allocation)), and the handling of certain configuration parameters and flags. Should any of these parts fail suit your needs, you're still free to use raw Vulkan, or even more better: We're always happy to receive pull requests which extend the functionality and versatility of _Auto-Vk_.
+I.e., the big, important concepts, which make Vulkan as performant as it can be---such as fine-grained synchronization, parallel command recording on the host-side, usage of multiple queues, etc.---are all still there, but _Auto-Vk_ can help to not spend days implementing them, and to not lose track of the big picture of your source code. Just a few parts are abstracted a bit more heavily by _Auto-Vk_, in particular: descriptor set allocation and handling, memory allocation, and the handling of certain configuration parameters and flags. Should any of these parts fail suit your needs, you're still free to use raw Vulkan, or even more better: We're always happy to receive pull requests which extend the functionality and versatility of _Auto-Vk_.
 
 # Setup
 
 _Auto-Vk_ requires
-* A Vulkan 1.1 SDK or newer
+* A Vulkan 1.2 SDK or a Vulkan 1.3 SDK
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 * A C++20 compiler
 
-_Auto-Vk_ consists of multiple C++ include files, two mandatory C++ source files (soon: one), and one optional C++ source file.
+_Auto-Vk_ consists of multiple C++ include files, one mandatory C++ source file, and one optional C++ source file:
 * Add [`include/`](include/) to the include paths so that your compiler can find include files under paths `avk/*`
-* Add [`src/avk.cpp`](src/avk.cpp) (and currently also [`src/sync.cpp`](src/sync.cpp)) as a compiled C++ source code file
-* *Optional:* Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see section [Memory Allocation](https://github.com/cg-tuwien/Auto-Vk/blob/master/README.md#memory-allocation).
+* Add [`src/avk.cpp`](src/avk.cpp) as a compiled C++ source code file
+* *Optional:* Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see section [Memory Allocation](#memory-allocation).
 
 #### Caveats
 * On `clang` (at least version <= 12) _Auto-Vk_ does not compile when using `libstdc++` version 11 or higher, because `clang` doesn't yet support "Down with `typename`!" ([P0634R3](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0634r3.html)), which is used in the `libstdc++` `ranges`-header.
-# Motivating Example
 
-_Auto-Vk_ aims to hit the sweet spot between full controllability and convenience without having a noticeable impact on performance.
+# Motivating Examples
 
-**Creating a graphics pipeline** in Vulkan might require several hundreds of lines of code. Here is what it can look like with _Auto-Vk_:
+## Creating a graphics pipeline
 
-```
+The task of creating a graphics pipeline in Vulkan might require several hundreds of lines of code. Here is what it can look like with _Auto-Vk_:
+
+```cpp
 auto graphicsPipeline = myRoot.create_graphics_pipeline_for(
 	// Specify which shaders the pipeline consists of:
 	avk::vertex_shader("shaders/vertex_shader.vert"),
@@ -44,25 +44,113 @@ auto graphicsPipeline = myRoot.create_graphics_pipeline_for(
 	avk::cfg::front_face::define_front_faces_to_be_counter_clockwise(),
 	avk::cfg::viewport_depth_scissors_config::from_extent(1920u, 1080u),
 	// Declare the renderpass' attachments and the actions to take:
-	avk::attachment::declare(vk::Format::eR8G8B8A8Unorm,  avk::on_load::clear, avk::unused()        -> avk::color(0) ->  avk::color(0), avk::on_store::store_in_presentable_format),	
-	avk::attachment::declare(vk::Format::eD24UnormS8Uint, avk::on_load::clear, avk::depth_stencil() -> preserve()    -> input(0),       avk::on_store::dont_care                  ),
+	avk::attachment::declare(vk::Format::eR8G8B8A8Unorm,  avk::on_load::clear, avk::usage::unused >> avk::usage::color(0) >> avk::usage::input(0), avk::on_store::dont_care),	
+	avk::attachment::declare(vk::Format::eD24UnormS8Uint, avk::on_load::clear, avk::usage::depth_stencil >> avk::usage::preserve >> avk::usage::input(1),       avk::on_store::dont_care),
+	avk::attachment::declare(vk::Format::eR8G8B8A8Unorm,  avk::on_load::clear, avk::usage::unused >> avk::usage::unused >> avk::usage::color(0), avk::on_store.in_layout(avk::layout::color_attachment_optimal)),	
 	// The following define resources that will be bound to the pipeline:
 	avk::push_constant_binding_data { avk::shader_type::vertex, 0, sizeof(std::array<float, 16>) },
 	avk::descriptor_binding(0, 0, myBuffer->as_uniform_buffer()),
-	avk::descriptor_binding(0, 1, myImageView)
+	avk::descriptor_binding(0, 1, myImageView->as_sampled_image(avk::layout::shader_read_only_optimal))
 );
 ```
 
-This creates a fully functioning graphics pipeline on the device consisting of two shaders (a vertex shader and a fragment shader), with three vertex/instance input bindings, stating some additional pipeline settings (face orientation, and viewport config), defining the renderpass' attachments (which could correspond to the backbuffer format to render into), and further resource bindings to the pipeline: push constants of the size 64 byte (16 floats, which is enough space for a 4x4 matrix), and two descriptors, namely a buffer bound as uniform buffer (corresponding to descriptor type `vk::DescriptorType::eUniformBuffer`) and an image view (corresponding to descriptor type `vk::DescriptorType::eSampledImage`).
+This creates a fully functioning graphics pipeline on the device consisting of two shaders (a vertex shader and a fragment shader), with three vertex/instance input bindings, stating some additional pipeline settings (face orientation, and viewport config), defining the renderpass' attachments, and further resource bindings to the pipeline: push constants of the size 64 byte (16 floats, which is enough space for a 4x4 matrix), and two descriptors, namely a buffer bound as uniform buffer (corresponding to descriptor type `vk::DescriptorType::eUniformBuffer`) and an image view as sampled image (corresponding to descriptor type `vk::DescriptorType::eSampledImage`) in a given layout.
 
-**Vertex input bindings** are specified in an expressive way. For example,       
+**Vertex input bindings** are specified in an expressive way: For example,       
 `avk::from_buffer_binding(2) -> stream_per_instance<glm::vec3>() -> to_location(5)`             
 means that from the buffer that is bound at index `2` when invoking `vk::CommandBuffer::bindVertexBuffers`, data is being streamed to vertex shader's `layout (location=5)` and the data pointer is advanced per instance. 
 
-In a similarly expressive manner, the **subpass usages of the renderpass' attachments** are specified. In the example above, there are three subpasses. The color attachment is not used in the first subpass, and is used as color attachment in subpasses `1` and `2`, bound to output location `0` in both of them.        
-The depth/stencil attachment is used as depth/stencil attachment in the first subpass, is not used in the second subpass but its contents are preserved, and in the thirds subpass, is is used as an input attachment, i.e. to be read from.
+In a similarly expressive manner, the **subpass usages of the renderpass' attachments** are specified. In the example above, there are three subpasses. The first color attachment is not used in the first subpass, it is used as color attachment in subpass one (bound to output location `0`), and as input attachment in subpass two (bound to input attachment index `0`).        
+The depth/stencil attachment is used as depth/stencil attachment in the first subpass, is not used in the second subpass but its contents are preserved, and in the third subpass, is is used as an input attachment (bound to input attachment index `1`).      
+The second color attachment is only used in subpass three (bound to output location `0`), and its contents are stored in an image layout optimal for color attachments, while the contents of the other two attachments are no longer needed.
 
-After subpass three, the color attachment shall be stored in a presentable format (`avk::on_store::store_in_presentable_format`), i.e. so that it can be passed on to a presentation engine for being displayed on screen. The depth/stencil attachment is not required any longer after subpass three, therefore we don't care about its contents (`avk::on_store::dont_care`).
+## Recording and submitting batches of commands
+
+Recording batches of work and submitting that to a queue can require a lot of code---especially if additional synchronization to other work shall be established. With _Auto-Vk_, it can look like follows:
+
+```cpp 
+avk::queue& graphicsQueue = myRoot.create_queue(vk::QueueFlagBits::eGraphics, avk::queue_selection_preference::versatile_queue);
+...
+avk::command_pool& commandPool = myRoot.get_command_pool_for_single_use_command_buffers(graphicsQueue);
+avk::command_buffer cmdBfr = commandPool->alloc_command_buffer(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+avk::graphics_pipeline graphicsPipeline = myRoot.create_graphics_pipeline_for(...);
+avk::framebuffer framebuffer = myRoot.create_framebuffer(...);
+avk::semaphore imageAvailableSemaphore = ...;
+
+mRoot.record({
+      avk::command::render_pass(graphicsPipeline->renderpass_reference(), framebuffer.as_reference(), {
+          avk::command::bind_pipeline(graphicsPipeline.as_reference()),
+          avk::command::draw(3u, 1u, 0u, 0u)
+      })
+  })
+  .into_command_buffer(cmdBfr)
+  .then_submit_to(graphicsQueue)
+  .waiting_for(imageAvailableSemaphore >> avk::stage::color_attachment_output)
+  .submit();
+```
+
+Getting handles to a queue (`avk::queue&`) and to a command pool (`avk::command_pool&`), and creating a command buffer (`avk::command_buffer`) from a command pool are one-liners. The creation of a graphics queue has been described above under [Creating a graphics pipeline](#creating-a-graphics-pipeline). Framebuffers (`avk::framebuffer`) and semaphores (`avk::semaphore`) can be efficiently created too. 
+
+In the example, let us assume that we have received the `avk::semaphore imageAvailableSemaphore` from our swap chain, indicatig when the image is available and can be rendered into. We can express such a dependency for a new batch of work (as recorded via `root::record`) simply by appending `.waiting_for(imageAvailableSemaphore >> avk::stage::color_attachment_output)`. It says that the batch's color attachment output stage must wait until the given semaphore has been signaled.
+
+The batch that is recorded into `avk::command_buffer cmdBfr` (through `.into_command_buffer(cmdBfr)`), describes the rendering of a renderpass, and within the renderpass, the `graphicsPipeline` is bound, and one draw call (rendering `3u` vertices and `1u` instance) is recorded.
+
+The batch is submitted to a specific queue, configured through `.then_submit_to(graphicsQueue)`, and executed at `.submit()`-time. If `.submit()` is not called explicitly, the returned `avk::submission_data`'s destructor will ensure to submit it to the queue (yeah, in its destructor ^^).
+
+## Recording barriers efficiently
+
+Also "simple" tasks like recording barriers can take so much code in Vulkan. See how a global memory barrier can be recorded in _Auto-Vk_:
+
+```cpp
+avk::sync::global_memory_barrier(
+    avk::stage::transfer        >> avk::stage::acceleration_structure_build, 
+    avk::access::transfer_write >> avk::access::shader_read
+)
+``` 
+
+It expresses that transfer stages and transfer writes must have completed and been made available, before an acceleration build structure may proceed, reading the data that has been written by the preceding transfer operations. Such a barrier can be recorded into a batch (e.g.: `root::record`). There's an alternative (maybe even more convenient) syntax for recording such a barrier, but it requires `using namespace avk;` s.t. the compiler can find the necessary `operator+`:
+
+```cpp
+using namespace avk;
+
+sync::global_memory_barrier(
+    stage::transfer + access::transfer_write  >>  stage::acceleration_structure_build + access::shader_read
+)
+``` 
+
+Buffer memory barriers and image memory barriers additionally offer the option to conveniently and expressively add queue family ownership transfers; image memory barriers also support the specification of image layout transitions as shown in the following example:
+
+```cpp
+using namespace avk;
+
+queue& transferQueue = myRoot.create_queue(vk::QueueFlagBits::eTransfer, queue_selection_preference::specialized_queue);
+queue& graphicsQueue = myRoot.create_queue(vk::QueueFlagBits::eGraphics, queue_selection_preference::specialized_queue);
+...
+image myImage;
+...
+avk::sync::image_memory_barrier(myImage.as_reference(), stage::copy + access::transfer_write >> stage::fragment_shader + access::shader_read)
+    .with_layout_transition(layout::transfer_dst >> layout::shader_read_only_optimal)
+    .with_queue_family_ownership_transfer(transferQueue.family_index(), graphicsQueue.family_index())
+``` 
+
+Finally, as a special convenience feature, _Auto-Vk_ is able to automatically determine the stages and access types of barriers for many cases:
+
+```cpp
+using namespace avk;
+
+std::vector<glm::vec3> vertices;
+buffer vertexBuffer = myRoot.create_buffer(memory_usage::device, {}, vertex_buffer_meta::create_from_data(vertices));
+bottom_level_acceleration_structure blas = ...;
+
+mRoot.record({
+      myBuffer->fill(myDataPointer, 0),
+      sync::buffer_memory_barrier(vertexBuffer.as_reference(), stage::auto_stage + access::auto_access >> stage::auto_stage + access::auto_access),
+      blas->build(...)
+  })
+  ...
+```
+
+In such a case, a barrier corresponding to `stage::copy + access::transfer_write >> stage::acceleration_structure_build + access::shader_read` should be established. 
 
 # Usage
 
