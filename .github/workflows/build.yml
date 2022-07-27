@@ -146,7 +146,7 @@ jobs:
         # Execute the build.  You can specify a specific target with "--target <NAME>"
         run: cmake --build .
 
-  windows:
+  windows-latest:
     name: ${{ matrix.config.name }} using VulkanSDK version ${{ matrix.vulkan-sdk }}
     runs-on: windows-latest
     env:
