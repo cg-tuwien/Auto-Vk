@@ -3934,7 +3934,7 @@ namespace avk
 	void fence_t::reset()
 	{
 		// ReSharper disable once CppExpressionWithoutSideEffects
-		mFence.getOwner().resetFences(1u, handle_ptr());
+		auto result = mFence.getOwner().resetFences(1u, handle_ptr());
 		if (mCustomDeleter.has_value() && *mCustomDeleter) {
 			// If there is a custom deleter => call it now
 			(*mCustomDeleter)();
