@@ -20,11 +20,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          #- {
-          #  name: "linux: clang",
-          #  cc: "clang",
-          #  cxx: "clang++"
-          #}
+          - {
+            name: "linux: clang",
+            cc: "clang",
+            cxx: "clang++"
+          }
           - {
             name: "linux: gcc",
             cc: "gcc-10",

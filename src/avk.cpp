@@ -4418,9 +4418,16 @@ namespace avk
 		// 1. Compile the array of vertex input binding descriptions
 		{
 			// Select bindings as vector:
+#if defined(_MSC_VER) && _MSC_VER < 1930
 			auto bindings = aConfig.mInputBindingLocations
 				| std::views::transform([](const auto& bindingData) { return bindingData.mGeneralData; })
 				| to_vector();
+#else 
+			std::vector<avk::vertex_input_buffer_binding> bindings;
+			for (const auto& bindingData : aConfig.mInputBindingLocations){
+				bindings.push_back(bindingData.mGeneralData);
+			}
+#endif
 
 			// Sort bindings:
 			std::ranges::sort(bindings);
@@ -4570,9 +4577,18 @@ namespace avk
 		// 9. Color Blending
 		{
 			// Do we have an "universal" color blending config? That means, one that is not assigned to a specific color target attachment id.
+#if defined(_MSC_VER) && _MSC_VER < 1930
 			auto universalConfig = aConfig.mColorBlendingPerAttachment
 				| std::views::filter([](const color_blending_config& config) { return !config.mTargetAttachment.has_value(); })
 				| to_vector();
+#else 
+			std::vector<cfg::color_blending_config> universalConfig;
+			for (const color_blending_config& config : aConfig.mColorBlendingPerAttachment) {
+				if (!config.mTargetAttachment.has_value()) {
+					universalConfig.push_back(config);
+				}
+			}
+#endif
 
 			if (universalConfig.size() > 1) {
 				throw avk::runtime_error("Ambiguous 'universal' color blending configurations. Either provide only one 'universal' "
@@ -4592,9 +4608,18 @@ namespace avk
 			result.mBlendingConfigsForColorAttachments.reserve(n); // Important! Otherwise the vector might realloc and .data() will become invalid!
 			for (size_t i = 0; i < n; ++i) {
 				// Do we have a specific blending config for color attachment i?
+#if defined(_MSC_VER) && _MSC_VER < 1930
 				auto configForI = aConfig.mColorBlendingPerAttachment
 					| std::views::filter([i](const color_blending_config& config) { return config.mTargetAttachment.has_value() && config.mTargetAttachment.value() == i; })
 					| to_vector();
+#else 
+				std::vector<cfg::color_blending_config> configForI;
+				for (const color_blending_config& config : aConfig.mColorBlendingPerAttachment) {
+					if (config.mTargetAttachment.has_value() && config.mTargetAttachment.value() == i) {
+						configForI.push_back(config);
+					}
+				}
+#endif
 				if (configForI.size() > 1) {
 					throw avk::runtime_error("Ambiguous color blending configuration for color attachment at index #" + std::to_string(i) + ". Provide only one config per color attachment!");
 				}
@@ -6970,9 +6995,19 @@ namespace avk
 		vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
 
 		// See what is configured in the render pass
+#if defined(_MSC_VER) && _MSC_VER < 1930
 		auto colorAttConfigs = color_attachments_for_subpass(aSubpassId)
 			| std::views::filter([](const vk::AttachmentReference2KHR& colorAttachment) { return colorAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-			| std::views::transform([this](const vk::AttachmentReference2KHR& colorAttachment) { return attachment_descriptions()[colorAttachment.attachment]; });
+			| std::views::transform([this](const vk::AttachmentReference2KHR& colorAttachment) { return mAttachmentDescriptions[colorAttachment.attachment]; });
+#else 
+		std::vector<vk::AttachmentDescription2KHR> colorAttConfigs;
+		for (const auto& colorAttachment : color_attachments_for_subpass(aSubpassId)) {
+			if (colorAttachment.attachment != VK_ATTACHMENT_UNUSED) {
+				colorAttConfigs.push_back(mAttachmentDescriptions[colorAttachment.attachment]);
+			}
+		}
+#endif
+
 
 		for (const vk::AttachmentDescription2KHR& config : colorAttConfigs) {
 			typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
@@ -6988,10 +7023,19 @@ namespace avk
 #endif
 
 		if (vk::SampleCountFlagBits::e1 == numSamples) {
+
+#if defined(_MSC_VER) && _MSC_VER < 1930
 			auto depthAttConfigs = depth_stencil_attachments_for_subpass(aSubpassId)
 				| std::views::filter([](const vk::AttachmentReference2KHR& depthStencilAttachment) { return depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED; })
-				| std::views::transform([this](const vk::AttachmentReference2KHR& depthStencilAttachment) { return attachment_descriptions()[depthStencilAttachment.attachment]; });
-
+				| std::views::transform([this](const vk::AttachmentReference2KHR& depthStencilAttachment) { return mAttachmentDescriptions[depthStencilAttachment.attachment]; });
+#else 
+			std::vector<vk::AttachmentDescription2KHR> depthAttConfigs;
+			for (const auto& depthStencilAttachment : depth_stencil_attachments_for_subpass(aSubpassId)) {
+				if (depthStencilAttachment.attachment != VK_ATTACHMENT_UNUSED) {
+					depthAttConfigs.push_back(mAttachmentDescriptions[depthStencilAttachment.attachment]);
+				}
+			}
+#endif
 			for (const vk::AttachmentDescription2KHR& config : depthAttConfigs) {
 				typedef std::underlying_type<vk::SampleCountFlagBits>::type EnumType;
 				numSamples = static_cast<vk::SampleCountFlagBits>(std::max(static_cast<EnumType>(config.samples), static_cast<EnumType>(numSamples)));
