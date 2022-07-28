@@ -169,7 +169,8 @@ virtual vk::Device& device() = 0;
 virtual vk::DispatchLoaderDynamic& dynamic_dispatch() = 0;
 ```
 
-Example implementation:
+The following code snippet shows a minimal example implementation of the `avk::root` class.
+A fully-fledged and more mature implementation of it with additional functionality can be found in our [_Auto-Vk-Toolkit_](https://github.com/cg-tuwien/Auto-Vk-Toolkit) framework.
 ```
 class my_root : avk::root
 {
