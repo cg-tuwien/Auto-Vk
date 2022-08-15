@@ -310,7 +310,7 @@ namespace avk
 		};
 
 		template <typename PL, typename D>
-		inline static state_type_command push_constants(const PL& aPipelineLayoutTuple, const D& aData, std::optional<shader_type> aShaderStages = {})
+		inline static state_type_command push_constants(const PL& aPipelineLayoutTuple, D aData, std::optional<shader_type> aShaderStages = {})
 		{
 			auto dataSize = static_cast<uint32_t>(sizeof(aData));
 			std::optional<vk::ShaderStageFlags> stageFlags;
@@ -336,14 +336,15 @@ namespace avk
 					lLayoutHandle = std::get<const vk::PipelineLayout>(aPipelineLayoutTuple),
 					lStageFlags = stageFlags.value_or(vk::ShaderStageFlagBits::eAll),
 					lDataSize = dataSize,
-					lData = aData
+					aData
 				] (avk::command_buffer_t& cb) {
 					cb.handle().pushConstants(
 						lLayoutHandle,
 						lStageFlags,
 						0, // TODO: How to deal with offset?
 						lDataSize,
-						&lData);
+						&aData
+					);
 				}
 			};
 		};
@@ -1169,7 +1170,7 @@ namespace avk
 	{
 	public:
 		// The constructor performs all the parsing, therefore, there's no std::vector<recorded_commands_t> member.
-		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer = nullptr);
+		recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer = nullptr, bool aBeginEnd = true);
 		
 		recorded_command_buffer(const recorded_command_buffer&) = default;
 		recorded_command_buffer(recorded_command_buffer&&) noexcept = default;
@@ -1215,7 +1216,7 @@ namespace avk
 		recorded_commands& handle_lifetime_of(any_owning_resource_t aResource);
 
 		std::vector<recorded_commands_t> and_store();
-		recorded_command_buffer into_command_buffer(avk::resource_argument<avk::command_buffer_t> aCommandBuffer);
+		recorded_command_buffer into_command_buffer(avk::resource_argument<avk::command_buffer_t> aCommandBuffer, bool aBeginEnd = true);
 
 		const auto& recorded_commands_and_sync_instructions() const { return mRecordedCommandsAndSyncInstructions; }
 

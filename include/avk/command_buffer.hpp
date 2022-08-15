@@ -24,6 +24,14 @@ namespace avk
 	class semaphore_t;
 	class top_level_acceleration_structure_t;
 
+	namespace command
+	{
+		struct state_type_command;
+		struct action_type_command;
+	}
+	class sync_type_command;
+	using recorded_commands_t = std::variant<command::state_type_command, command::action_type_command, sync::sync_type_command>;
+
 	using bottom_level_acceleration_structure = avk::owning_resource<bottom_level_acceleration_structure_t>;
 	//using buffer = avk::owning_resource<buffer_t>;
 	using buffer_view = avk::owning_resource<buffer_view_t>;
@@ -194,6 +202,12 @@ namespace avk
 		 *	immediately executed, recording the operations into this command buffer.
 		 */
 		void record(const avk::sync::sync_type_command& aToBeRecorded);
+
+		/**	Record a list of commands directly into the given command buffer.
+		 *	I.e., when calling this method, the actions of the given commands are
+		 *	immediately executed, recording the operations into this command buffer.
+		 */
+		void record(std::vector<avk::recorded_commands_t> aRecordedCommandsAndSyncInstructions);
 
 		/** Prepare a command buffer for re-recording.
 		 *   This essentially calls (and removes) any custom deleters, and removes any post-execution-handlers.

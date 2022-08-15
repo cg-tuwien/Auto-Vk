@@ -7953,6 +7953,12 @@ namespace avk
 		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded, std::vector<recorded_commands_t>{}, 0);
 	}
 
+	void command_buffer_t::record(std::vector<avk::recorded_commands_t> aRecordedCommandsAndSyncInstructions)
+	{
+		avk::recorded_commands{ root_ptr(), std::move(aRecordedCommandsAndSyncInstructions) }
+			.into_command_buffer(*this, false); // Last parameter: do not call begin/end here!
+	}
+
 
 	struct recordee_visitors
 	{
@@ -7998,14 +8004,20 @@ namespace avk
 		return submission_data{ mRoot, mCommandBufferToRecordInto, aQueue, this };
 	}
 
-	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer)
+	recorded_command_buffer::recorded_command_buffer(const root* aRoot, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, avk::resource_argument<avk::command_buffer_t> aCommandBuffer, const avk::recorded_commands* aDangerousRecordedCommandsPointer, bool aBeginEnd)
 		: mRoot{ aRoot }
 		, mCommandBufferToRecordInto{ std::move(aCommandBuffer) }
 		, mDangerousRecordedComandsPointer{ aDangerousRecordedCommandsPointer }
 	{
-		mCommandBufferToRecordInto.get().begin_recording();
+		if (aBeginEnd) {
+			mCommandBufferToRecordInto.get().begin_recording();
+		}
+
 		record_into_command_buffer(mCommandBufferToRecordInto.get(), mRoot->dispatch_loader_ext(), aRecordedCommandsAndSyncInstructions);
-		mCommandBufferToRecordInto.get().end_recording();
+
+		if (aBeginEnd) {
+			mCommandBufferToRecordInto.get().end_recording();
+		}
 	}
 
 	recorded_commands::recorded_commands(const root* aRoot, std::vector<recorded_commands_t> aRecordedCommandsAndSyncInstructions)
@@ -8051,9 +8063,9 @@ namespace avk
 		return std::move(mRecordedCommandsAndSyncInstructions);
 	}
 
-	recorded_command_buffer recorded_commands::into_command_buffer(avk::resource_argument<avk::command_buffer_t> aCommandBuffer)
+	recorded_command_buffer recorded_commands::into_command_buffer(avk::resource_argument<avk::command_buffer_t> aCommandBuffer, bool aBeginEnd)
 	{
-		recorded_command_buffer result(mRoot, mRecordedCommandsAndSyncInstructions, std::move(aCommandBuffer), this);
+		recorded_command_buffer result(mRoot, mRecordedCommandsAndSyncInstructions, std::move(aCommandBuffer), this, aBeginEnd);
 
 		for (int i = static_cast<int>(mLifetimeHandledResources.size() - 1); i > 0; --i) {
 			if (std::visit(lambda_overload{
