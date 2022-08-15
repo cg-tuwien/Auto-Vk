@@ -1539,6 +1539,11 @@ namespace avk
 	avk::buffer bottom_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
+			vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProps{};
+			vk::PhysicalDeviceProperties2 phProps{};
+			phProps.pNext = &asProps;
+			mRoot->physical_device().getProperties2(&phProps, mRoot->dispatch_loader_core());
+
 			mScratchBuffer = root::create_buffer(
 				*mRoot,
 				avk::memory_usage::device,
@@ -1551,7 +1556,7 @@ namespace avk
 #else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 #endif
-				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
+				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size() + asProps.minAccelerationStructureScratchOffsetAlignment, required_scratch_buffer_update_size() + asProps.minAccelerationStructureScratchOffsetAlignment))
 			);
 			mScratchBuffer->enable_shared_ownership();
 		}
@@ -1660,6 +1665,11 @@ namespace avk
 
 		//const auto* pointerToAnArray = accStructureGeometries.data();
 
+		vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProps{};
+		vk::PhysicalDeviceProperties2 phProps{};
+		phProps.pNext = &asProps;
+		mRoot->physical_device().getProperties2(&phProps, mRoot->dispatch_loader_core());
+
 		buildGeometryInfos.emplace_back()
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 			.setFlags(mFlags) // TODO: support individual flags per geometry?
@@ -1673,7 +1683,7 @@ namespace avk
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
 			//.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ getScratchBuffer()->device_address() });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ getScratchBuffer()->device_address() + (getScratchBuffer()->device_address() % asProps.minAccelerationStructureScratchOffsetAlignment) });
 
 		auto actionTypeCommand = avk::command::action_type_command{
 			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
@@ -1766,7 +1776,7 @@ namespace avk
 				//   VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR or VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
 				stage::acceleration_structure_build + (access::acceleration_structure_read | access::acceleration_structure_write),
 				stage::acceleration_structure_build + access::acceleration_structure_write
-				})
+			})
 		);
 		// Let's additionally also fill the dependencies for the geometries buffer:
 		// As the specification has it:
@@ -1807,6 +1817,11 @@ namespace avk
 
 		//const auto* pointerToAnArray = &accStructureGeometry;
 
+		vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProps{};
+		vk::PhysicalDeviceProperties2 phProps{};
+		phProps.pNext = &asProps;
+		mRoot->physical_device().getProperties2(&phProps, mRoot->dispatch_loader_core());
+
 		auto buildGeometryInfos = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
 			.setFlags(mFlags) // TODO: support individual flags per geometry?
@@ -1820,7 +1835,7 @@ namespace avk
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(1u)
 			//.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() + (scratchBuffer->device_address() % asProps.minAccelerationStructureScratchOffsetAlignment) });
 
 		auto actionTypeCommand = avk::command::action_type_command{
 			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
@@ -1958,6 +1973,11 @@ namespace avk
 	avk::buffer top_level_acceleration_structure_t::get_and_possibly_create_scratch_buffer()
 	{
 		if (!mScratchBuffer.has_value()) {
+			vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProps{};
+			vk::PhysicalDeviceProperties2 phProps{};
+			phProps.pNext = &asProps;
+			mRoot->physical_device().getProperties2(&phProps, mRoot->dispatch_loader_core());
+
 			mScratchBuffer = root::create_buffer(
 				*mRoot,
 				avk::memory_usage::device,
@@ -1972,7 +1992,7 @@ namespace avk
 #else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 #endif
-				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
+				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size() + asProps.minAccelerationStructureScratchOffsetAlignment, required_scratch_buffer_update_size() + asProps.minAccelerationStructureScratchOffsetAlignment))
 			);
 		}
 		assert(mScratchBuffer.has_value());
@@ -2063,7 +2083,11 @@ namespace avk
 			.setTransformOffset(0u); // TODO: Support different values for all these parameters?!
 		vk::AccelerationStructureBuildOffsetInfoKHR* buildOffsetInfoPtr = &boi;
 #endif
-		
+		vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProps{};
+		vk::PhysicalDeviceProperties2 phProps{};
+		phProps.pNext = &asProps;
+		mRoot->physical_device().getProperties2(&phProps, mRoot->dispatch_loader_core());
+
 		auto buildGeometryInfo = vk::AccelerationStructureBuildGeometryInfoKHR{}
 			.setType(vk::AccelerationStructureTypeKHR::eTopLevel)
 			.setFlags(mFlags)
@@ -2077,7 +2101,7 @@ namespace avk
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(1u) // TODO: Correct?
 			//.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() + (scratchBuffer->device_address() % asProps.minAccelerationStructureScratchOffsetAlignment) });
 
 		auto actionTypeCommand = avk::command::action_type_command{
 			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
