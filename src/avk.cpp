@@ -1683,7 +1683,7 @@ namespace avk
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(static_cast<uint32_t>(accStructureGeometries.size()))
 			//.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ getScratchBuffer()->device_address() + (getScratchBuffer()->device_address() % asProps.minAccelerationStructureScratchOffsetAlignment) });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ (getScratchBuffer()->device_address() / asProps.minAccelerationStructureScratchOffsetAlignment + 1) * asProps.minAccelerationStructureScratchOffsetAlignment });
 
 		auto actionTypeCommand = avk::command::action_type_command{
 			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
@@ -1835,7 +1835,7 @@ namespace avk
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(1u)
 			//.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() + (scratchBuffer->device_address() % asProps.minAccelerationStructureScratchOffsetAlignment) });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ (scratchBuffer->device_address() / asProps.minAccelerationStructureScratchOffsetAlignment + 1) * asProps.minAccelerationStructureScratchOffsetAlignment });
 
 		auto actionTypeCommand = avk::command::action_type_command{
 			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
@@ -2101,7 +2101,7 @@ namespace avk
 			.setDstAccelerationStructure(acceleration_structure_handle())
 			.setGeometryCount(1u) // TODO: Correct?
 			//.setPpGeometries(&pointerToAnArray)
-			.setScratchData(vk::DeviceOrHostAddressKHR{ scratchBuffer->device_address() + (scratchBuffer->device_address() % asProps.minAccelerationStructureScratchOffsetAlignment) });
+			.setScratchData(vk::DeviceOrHostAddressKHR{ (scratchBuffer->device_address() / asProps.minAccelerationStructureScratchOffsetAlignment + 1) * asProps.minAccelerationStructureScratchOffsetAlignment });
 
 		auto actionTypeCommand = avk::command::action_type_command{
 			{}, // Let the sync hint be inferred afterwards. For the acceleration structure, it should be exactly the same as the scratch buffer's => so, inferring is fine.
