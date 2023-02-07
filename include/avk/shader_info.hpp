@@ -66,6 +66,15 @@ namespace avk
 			return *this;
 		}
 		
+		inline bool direct_spirv() const {
+			return mSpVCode.has_value();
+		}
+
+		// There are two types available
+		// 1. Direct SPIR-V input: Valid fields are mSpVCode, mShaderType, mEntryPoint
+		// 2. File SPIR-V input: Valid fields are mPath, mShaderType, mEntryPoint, mDontMonitorFile
+
+		std::optional<std::vector<char>> mSpVCode;
 		std::string mPath;
 		avk::shader_type mShaderType;
 		std::string mEntryPoint;
@@ -76,10 +85,25 @@ namespace avk
 
 	static bool operator ==(const shader_info& left, const shader_info& right)
 	{
-		return are_paths_equal(left.mPath, right.mPath)
-			&& left.mShaderType == right.mShaderType 
+		if (left.direct_spirv() != right.direct_spirv()) {
+			return false;
+		}
+		else if (left.direct_spirv()
+			&& left.mShaderType == right.mShaderType
 			&& trim_spaces(left.mEntryPoint) == trim_spaces(right.mEntryPoint)
-			&& left.mSpecializationConstants == right.mSpecializationConstants;
+			&& left.mSpecializationConstants == right.mSpecializationConstants
+			&& left.mSpVCode == right.mSpVCode
+			) {
+			return true;
+		}
+		else {
+			return !left.direct_spirv()
+				&& are_paths_equal(left.mPath, right.mPath)
+				&& left.mShaderType == right.mShaderType
+				&& trim_spaces(left.mEntryPoint) == trim_spaces(right.mEntryPoint)
+				&& left.mSpecializationConstants == right.mSpecializationConstants;
+		}
+
 	}
 
 	static bool operator !=(const shader_info& left, const shader_info& right)

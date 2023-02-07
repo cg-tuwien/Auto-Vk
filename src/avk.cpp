@@ -7135,6 +7135,11 @@ namespace avk
 	{
 		auto shdr = shader::prepare(std::move(aInfo));
 
+		if (shdr.mInfo.direct_spirv()) {
+			shdr.mShaderModule = build_shader_module_from_binary_code(shdr.mInfo.mSpVCode.value());
+			return shdr;
+		}
+
 		if (std::filesystem::exists(shdr.info().mPath)) {
 			try {
 				shdr.mShaderModule = build_shader_module_from_file(shdr.info().mPath);
@@ -7193,6 +7198,7 @@ namespace avk
 
 		return shader_info
 		{
+			{},
 			std::move(pPath),
 			pShaderType.value(),
 			std::move(pEntryPoint),
