@@ -7557,7 +7557,11 @@ namespace avk
 				lHandle = handle(),
 				aQueryIndex
 			](avk::command_buffer_t& cb) {
-				cb.handle().writeTimestamp2KHR(lTimestampStage, lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_core());
+#ifdef VK_VERSION_1_3
+				cb.handle().writeTimestamp2(lTimestampStage, lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_core());
+#else
+				cb.handle().writeTimestamp2KHR(lTimestampStage, lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_ext());
+#endif
 			}
 		};
 	}
