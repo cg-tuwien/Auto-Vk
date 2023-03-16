@@ -48,6 +48,13 @@ namespace avk
 		const auto& handle() const { return mSemaphore.get(); }
 		const auto* handle_addr() const { return &mSemaphore.get(); }
 
+		// timeline semaphore specific functions
+		const uint64_t query_current_value() const;
+		void signal(uint64_t aNewValue) const;
+		void wait_until_signalled(uint64_t aRequiredValue, std::optional<uint64_t> aTimeout = {}) const;
+		static void wait_until_signalled(const std::vector<const semaphore_t*> &aSemaphores, const std::vector<uint64_t> &aTimestamps, bool aWaitOnAll = true, std::optional<uint64_t> aTimeout = {});
+		static void wait_until_signalled(const vk::Device &d, const vk::SemaphoreWaitInfo &info, std::optional<uint64_t> aTimeout = {});
+
 	private:
 		// The semaphore config struct:
 		vk::SemaphoreCreateInfo mCreateInfo;

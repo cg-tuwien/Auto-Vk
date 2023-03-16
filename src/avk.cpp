@@ -11,6 +11,8 @@
 #endif
 #endif
 
+#define _SILENCE_CXX20_CISCO646_REMOVED_WARNING
+
 namespace avk
 {
 #pragma region root definitions
@@ -7132,6 +7134,41 @@ namespace avk
 		mLifetimeHandledResources.push_back(std::move(aResource));
 		return *this;
 	}
+
+	const uint64_t semaphore_t::query_current_value() const { return 0; /* TODO */ }
+
+	void semaphore_t::signal(uint64_t aNewValue) const { /* TODO */ }	// unsure if signaling changes any of the data managed by this class ... maybe need to remove const
+
+	void semaphore_t::wait_until_signalled(uint64_t aRequiredValue, std::optional<uint64_t> aTimeout) const {
+		wait_until_signalled({ this }, {aRequiredValue} , true, aTimeout);
+	}
+
+	void semaphore_t::wait_until_signalled(const std::vector<const semaphore_t*>& aSemaphores, const std::vector<uint64_t>& aTimestamps, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
+		assert(aSemaphores.size() == aTimestamps.size());
+		if (aSemaphores.size() == 0) {
+			return;
+		}
+
+		std::vector<const vk::Semaphore*> semaphores;
+		std::transform(aSemaphores.begin(), aSemaphores.end(), semaphores.begin(), [](const semaphore_t* s) {return &s->mSemaphore.get(); });
+
+		vk::SemaphoreWaitInfo info{};
+		info.sType = vk::StructureType::eSemaphoreWaitInfo;
+		info.pNext = NULL;
+		info.flags = aWaitOnAll ? vk::SemaphoreWaitFlags() : vk::SemaphoreWaitFlagBits::eAny;
+		info.semaphoreCount = uint32_t(semaphores.size());
+		info.pSemaphores = *(semaphores.data());
+		info.pValues = aTimestamps.data();
+
+		// assume all semapores use the same device
+		wait_until_signalled(aSemaphores.front()->mSemaphore.getOwner(), info, aTimeout);
+	}
+
+	void semaphore_t::wait_until_signalled(const vk::Device& d, const vk::SemaphoreWaitInfo& info, std::optional<uint64_t> aTimeout) {
+		auto result = d.waitSemaphores(info, aTimeout.value_or(UINT64_MAX));
+		assert(static_cast<VkResult>(result) >= 0);
+	}
+
 #pragma endregion
 
 #pragma region shader definitions
