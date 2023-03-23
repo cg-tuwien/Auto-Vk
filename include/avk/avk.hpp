@@ -975,6 +975,7 @@ namespace avk
 #pragma region semaphore
 		static semaphore create_semaphore(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 		semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+		semaphore create_timeline_semaphore(uint64_t aPayload = 0, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion
 
 #pragma region shader

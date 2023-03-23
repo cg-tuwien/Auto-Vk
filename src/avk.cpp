@@ -7129,15 +7129,46 @@ namespace avk
 		return create_semaphore(device(), dispatch_loader_core(), std::move(aAlterConfigBeforeCreation));
 	}
 
+	semaphore root::create_timeline_semaphore(uint64_t aPayload, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
+	{
+		return create_semaphore(device(), dispatch_loader_core(), [otherAlterations = move(aAlterConfigBeforeCreation), aPayload](semaphore_t& aSem) {
+			auto typeInfo = std::make_unique<vk::SemaphoreTypeCreateInfo>();
+			typeInfo->semaphoreType = vk::SemaphoreType::eTimeline;
+			typeInfo->initialValue = aPayload;
+
+			aSem.create_info().pNext = typeInfo.get();
+			aSem.set_custom_deleter([aTypeInfo = move(typeInfo)]() { /* Do nothing ... this lambda just keeps the typeInfo struct alive */ });
+			// maybe extend any_owning_resource_t and use handle_lifetime_of instead?
+
+			if (otherAlterations) {
+				otherAlterations(aSem);
+			}
+		});
+	}
+
 	semaphore_t& semaphore_t::handle_lifetime_of(any_owning_resource_t aResource)
 	{
 		mLifetimeHandledResources.push_back(std::move(aResource));
 		return *this;
 	}
 
-	const uint64_t semaphore_t::query_current_value() const { return 0; /* TODO */ }
+	const uint64_t semaphore_t::query_current_value() const {
+		uint64_t value;
+		auto result = mSemaphore.getOwner().getSemaphoreCounterValue(mSemaphore.get(), &value);
+		assert(static_cast<VkResult>(result) >= 0);
+		return value;
+	}
 
-	void semaphore_t::signal(uint64_t aNewValue) const { /* TODO */ }	// unsure if signaling changes any of the data managed by this class ... maybe need to remove const
+	void semaphore_t::signal(uint64_t aNewValue) const {
+
+		vk::SemaphoreSignalInfo info{};
+		info.sType = vk::StructureType::eSemaphoreSignalInfo;
+		info.pNext = NULL;
+		info.semaphore = mSemaphore.get();
+		info.value = aNewValue;
+
+		mSemaphore.getOwner().signalSemaphore(info);
+	}
 
 	void semaphore_t::wait_until_signalled(uint64_t aRequiredValue, std::optional<uint64_t> aTimeout) const {
 		wait_until_signalled({ this }, {aRequiredValue} , true, aTimeout);
@@ -8774,7 +8805,7 @@ namespace avk
 		// Gather config for wait semaphores:
 		std::vector<vk::SemaphoreSubmitInfoKHR> waitSem;
 		for (auto& semWait : mSemaphoreWaits) {
-			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle(), semWait.mValue);
 			std::visit(lambda_overload{
 				[&subInfo](const std::monostate&) {
 					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
@@ -8807,7 +8838,7 @@ namespace avk
 		// Gather config for signal semaphores:
 		std::vector<vk::SemaphoreSubmitInfoKHR> signalSem;
 		for (auto& semSig : mSemaphoreSignals) {
-			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle(), semSig.mValue);
 			std::visit(lambda_overload{
 				[&subInfo](const std::monostate&) {
 					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
