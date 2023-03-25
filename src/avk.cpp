@@ -7181,7 +7181,7 @@ namespace avk
 		}
 
 		std::vector<const vk::Semaphore*> semaphores;
-		std::transform(aSemaphores.begin(), aSemaphores.end(), semaphores.begin(), [](const semaphore_t* s) {return &s->mSemaphore.get(); });
+		std::transform(aSemaphores.begin(), aSemaphores.end(), std::back_inserter(semaphores), [](const semaphore_t* s) {return &s->mSemaphore.get(); });
 
 		vk::SemaphoreWaitInfo info{};
 		info.sType = vk::StructureType::eSemaphoreWaitInfo;
