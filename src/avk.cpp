@@ -807,7 +807,9 @@ namespace avk
 		avk::image_usage cleanedUpUsageFlagsForReadOnly = exclude(aImageUsageFlags, avk::image_usage::transfer_source | avk::image_usage::transfer_destination | avk::image_usage::sampled | avk::image_usage::read_only | avk::image_usage::presentable | avk::image_usage::shared_presentable | avk::image_usage::tiling_optimal | avk::image_usage::tiling_linear | avk::image_usage::sparse_memory_binding | avk::image_usage::cube_compatible | avk::image_usage::is_protected); // TODO: To be verified, it's just a guess.
 
 		auto targetLayout = isReadOnly ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eGeneral; // General Layout or Shader Read Only Layout is the default
-		auto imageTiling = vk::ImageTiling::eOptimal; // Optimal is the default
+
+		bool tilingLinear = avk::has_flag(aImageUsageFlags, avk::image_usage::tiling_linear);
+		auto imageTiling = tilingLinear ? vk::ImageTiling::eLinear : vk::ImageTiling::eOptimal;
 		vk::ImageCreateFlags imageCreateFlags{};
 
 		if (avk::has_flag(aImageUsageFlags, avk::image_usage::transfer_source)) {
