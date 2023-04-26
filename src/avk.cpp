@@ -7170,11 +7170,11 @@ namespace avk
 		mSemaphore.getOwner().signalSemaphore(info);
 	}
 
-	vk::Result semaphore_t::wait_until_signalled(uint64_t aRequiredValue, std::optional<uint64_t> aTimeout) const {
-		return wait_until_signalled({ this }, {aRequiredValue} , true, aTimeout);	// maybe avoid unnecessary vector construction by just creating SemaphoreWaitInfo in this function
+	vk::Result semaphore_t::wait_until_signaled(uint64_t aRequiredValue, std::optional<uint64_t> aTimeout) const {
+		return wait_until_signaled({ this }, {aRequiredValue} , true, aTimeout);	// maybe avoid unnecessary vector construction by just creating SemaphoreWaitInfo in this function
 	}
 
-	vk::Result semaphore_t::wait_until_signalled(const std::vector<const semaphore_t*>& aSemaphores, const std::vector<uint64_t>& aTimestamps, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
+	vk::Result semaphore_t::wait_until_signaled(const std::vector<const semaphore_t*>& aSemaphores, const std::vector<uint64_t>& aTimestamps, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
 		assert(aSemaphores.size() == aTimestamps.size());
 		if (aSemaphores.size() == 0) {
 			return vk::Result::eSuccess;
@@ -7192,10 +7192,10 @@ namespace avk
 		info.pValues = aTimestamps.data();
 
 		// assume all semapores use the same device
-		return wait_until_signalled(aSemaphores.front()->mSemaphore.getOwner(), info, aTimeout);
+		return wait_until_signaled(aSemaphores.front()->mSemaphore.getOwner(), info, aTimeout);
 	}
 
-	vk::Result semaphore_t::wait_until_signalled(const vk::Device& aDevice, const vk::SemaphoreWaitInfo& aInfo, std::optional<uint64_t> aTimeout) {
+	vk::Result semaphore_t::wait_until_signaled(const vk::Device& aDevice, const vk::SemaphoreWaitInfo& aInfo, std::optional<uint64_t> aTimeout) {
 		auto result = aDevice.waitSemaphores(aInfo, aTimeout.value_or(UINT64_MAX));
 		assert(static_cast<VkResult>(result) >= 0);
 		return result;
