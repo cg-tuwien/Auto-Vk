@@ -102,6 +102,7 @@ namespace avk
 		vk::UniqueHandle<vk::Pipeline, DISPATCH_LOADER_EXT_TYPE> mPipeline;
 
 		uint32_t mShaderGroupBaseAlignment;
+		uint32_t mShaderGroupHandleAlignment;
 		uint32_t mShaderGroupHandleSize;
 		buffer mShaderBindingTable; // TODO: support more than one shader binding table?
 

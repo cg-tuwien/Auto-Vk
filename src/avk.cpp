@@ -5961,6 +5961,7 @@ namespace avk
 			physical_device().getProperties2(&props2);
 
 			result.mShaderGroupBaseAlignment = static_cast<uint32_t>(rtProps.shaderGroupBaseAlignment);
+			result.mShaderGroupHandleAlignment = static_cast<uint32_t>(rtProps.shaderGroupHandleAlignment);
 			result.mShaderGroupHandleSize = static_cast<uint32_t>(rtProps.shaderGroupHandleSize);
 		}
 
@@ -6047,10 +6048,10 @@ namespace avk
 			if (std::holds_alternative<shader_info>(tableEntry)) {
 				const auto& shaderInfo = std::get<shader_info>(tableEntry);
 				switch (shaderInfo.mShaderType) {
-				case shader_type::ray_generation: curType = group_type::raygen;   break;
-				case shader_type::miss:           curType = group_type::miss;     break;
-				case shader_type::callable:       curType = group_type::callable; break;
-				default: throw avk::runtime_error("Invalid shader type passed to create_ray_tracing_pipeline, recognized during gathering of SBT infos");
+					case shader_type::ray_generation: curType = group_type::raygen;   break;
+					case shader_type::miss:           curType = group_type::miss;     break;
+					case shader_type::callable:       curType = group_type::callable; break;
+					default: throw avk::runtime_error("Invalid shader type passed to create_ray_tracing_pipeline, recognized during gathering of SBT infos");
 				}
 
 				// The shader indices are actually indices into `result.mShaders` not into
@@ -6058,7 +6059,7 @@ namespace avk
 				// so we are just using `orderedUniqueShaderInfos` for convenience.
 				const uint32_t generalShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, shaderInfo));
 				result.mShaderGroupCreateInfos.emplace_back()
-					.setType(vk::RayTracingShaderGroupTypeNV::eGeneral)
+					.setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
 					.setGeneralShader(generalShaderIndex)
 					.setIntersectionShader(VK_SHADER_UNUSED_KHR)
 					.setAnyHitShader(VK_SHADER_UNUSED_KHR)
@@ -6077,7 +6078,7 @@ namespace avk
 					rchitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value()));
 				}
 				result.mShaderGroupCreateInfos.emplace_back()
-					.setType(vk::RayTracingShaderGroupTypeNV::eTrianglesHitGroup)
+					.setType(vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup)
 					.setGeneralShader(VK_SHADER_UNUSED_KHR)
 					.setIntersectionShader(VK_SHADER_UNUSED_KHR)
 					.setAnyHitShader(rahitShaderIndex)
@@ -6097,7 +6098,7 @@ namespace avk
 					rchitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value()));
 				}
 				result.mShaderGroupCreateInfos.emplace_back()
-					.setType(vk::RayTracingShaderGroupTypeNV::eProceduralHitGroup)
+					.setType(vk::RayTracingShaderGroupTypeKHR::eProceduralHitGroup)
 					.setGeneralShader(VK_SHADER_UNUSED_KHR)
 					.setIntersectionShader(rintShaderIndex)
 					.setAnyHitShader(rahitShaderIndex)
@@ -6107,13 +6108,21 @@ namespace avk
 				throw avk::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
 			}
 
+			auto align_to = [](auto address, auto alignment) -> vk::DeviceSize {
+				// Formula taken from here: https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable
+				auto am1 = static_cast<vk::DeviceSize>(alignment) - 1;
+				return (static_cast<vk::DeviceSize>(address) + am1) & ~am1;
+			};
+
 			// Set that shader binding table groups information:
-			byteOffset += result.mShaderGroupHandleSize;
 			assert (group_type::none != curType);
 			if (curType == prevType) {
 				// same same is easy
 				assert (nullptr != curEdited);
 				curEdited->mNumEntries += 1;
+
+				// A new handle group must start at a multiple of result.mShaderGroupHandleAlignment
+				byteOffset += result.mShaderGroupHandleSize;
 			}
 			else {
 				// different => create new entry
@@ -6137,10 +6146,9 @@ namespace avk
 				curEdited->mNumEntries = 1;
 
 				// A new shader group must start at a multiple of result.mShaderGroupBaseAlignment
-				if (byteOffset % static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment) != 0) {
-					byteOffset = (byteOffset / static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment) + 1) * static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment);
-				}
+				byteOffset = align_to(byteOffset, result.mShaderGroupBaseAlignment);
 				curEdited->mByteOffset = byteOffset;
+				byteOffset += result.mShaderGroupHandleSize;
 			}
 			prevType = curType;
 			++groupOffset;
