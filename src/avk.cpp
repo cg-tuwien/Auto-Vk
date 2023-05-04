@@ -7259,8 +7259,9 @@ namespace avk
 				lSrcHandle = aSrcImage->handle(),
 				lDstHandle = aDstImage->handle(),
 				aSrcImageLayout, aDstImageLayout, aImageAspectFlags, aFilter,
-				lExtent = vk::Extent3D{ aSrcImage->width(), aSrcImage->height(), 1u },
-				dExtent = vk::Extent3D{ aDstImage->width(), aDstImage->height(), 1u }
+				lSrcExtent = vk::Extent3D{ aSrcImage->width(), aSrcImage->height(), 1u },
+				lDstExtent = vk::Extent3D{ aDstImage->width(), aDstImage->height(), 1u }
+
 			](avk::command_buffer_t& cb) {
 				const std::array srcOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lExtent.width), static_cast<int32_t>(lExtent.height), 1 }};
 				const std::array dstOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(dExtent.width), static_cast<int32_t>(dExtent.height), 1 }};
