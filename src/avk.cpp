@@ -1542,12 +1542,8 @@ namespace avk
 			mScratchBuffer = root::create_buffer(
 				*mRoot,
 				avk::memory_usage::device,
-#if VK_HEADER_VERSION >= 189
-				vk::BufferUsageFlagBits::eStorageBuffer |
-#endif
 #if VK_HEADER_VERSION >= 162
-				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
-				| vk::BufferUsageFlagBits::eStorageBuffer,
+				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR | vk::BufferUsageFlagBits::eStorageBuffer,
 #else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 #endif

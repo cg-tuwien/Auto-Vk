@@ -100,8 +100,8 @@ namespace avk
 		
 		auto usage_flags() const	{ return mBufferUsageFlags; }
 		auto memory_properties() const          { return mBuffer.memory_properties(); }
-		const auto has_device_address() const { return mDeviceAddress.has_value(); }
-		const auto device_address() const { return mDeviceAddress.value(); }
+		auto has_device_address() const { return mDeviceAddress.has_value(); }
+		auto device_address() const { return mDeviceAddress.value(); }
 
 		/**	Returns a reference to the descriptor info. If no descriptor info exists yet,
 		 *	one is created, that includes the buffer handle, offset is set to 0, and
