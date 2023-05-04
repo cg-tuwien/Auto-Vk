@@ -1549,6 +1549,16 @@ namespace avk
 #endif
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
+#ifdef _DEBUG
+			auto deviceAddressBeforeAlignment = mScratchBuffer.value()->device_address();
+			auto aligned =
+#endif
+			mScratchBuffer.value()->align_device_address_to(scratch_buffer_alignment());
+#ifdef _DEBUG
+			assert(aligned);
+			auto deviceAddressAfterAlignment = mScratchBuffer.value()->device_address();
+			AVK_LOG_DEBUG("Aligned[" + std::to_string(aligned) + "] scratch buffer's address from " + std::to_string(deviceAddressBeforeAlignment) + " to " + std::to_string(deviceAddressAfterAlignment));
+#endif
 			mScratchBuffer->enable_shared_ownership();
 		}
 		assert(mScratchBuffer.has_value());
@@ -1970,6 +1980,17 @@ namespace avk
 #endif
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
+#ifdef _DEBUG
+			auto deviceAddressBeforeAlignment = mScratchBuffer.value()->device_address();
+			auto aligned =
+#endif
+			mScratchBuffer.value()->align_device_address_to(scratch_buffer_alignment());
+#ifdef _DEBUG
+			assert(aligned);
+			auto deviceAddressAfterAlignment = mScratchBuffer.value()->device_address();
+			AVK_LOG_DEBUG("Aligned[" + std::to_string(aligned) + "] scratch buffer's address from " + std::to_string(deviceAddressBeforeAlignment) + " to " + std::to_string(deviceAddressAfterAlignment));
+#endif
+			mScratchBuffer->enable_shared_ownership();
 		}
 		assert(mScratchBuffer.has_value());
 		return mScratchBuffer.value();
@@ -6104,12 +6125,6 @@ namespace avk
 				throw avk::runtime_error("tableEntry holds an unknown alternative. That's mysterious.");
 			}
 
-			auto align_to = [](auto address, auto alignment) -> vk::DeviceSize {
-				// Formula taken from here: https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable
-				auto am1 = static_cast<vk::DeviceSize>(alignment) - 1;
-				return (static_cast<vk::DeviceSize>(address) + am1) & ~am1;
-			};
-
 			// Set that shader binding table groups information:
 			assert (group_type::none != curType);
 			if (curType == prevType) {
@@ -6142,7 +6157,7 @@ namespace avk
 				curEdited->mNumEntries = 1;
 
 				// A new shader group must start at a multiple of result.mShaderGroupBaseAlignment
-				byteOffset = align_to(byteOffset, result.mShaderGroupBaseAlignment);
+				byteOffset = align_to(byteOffset, static_cast<vk::DeviceAddress>(result.mShaderGroupBaseAlignment));
 				curEdited->mByteOffset = byteOffset;
 				byteOffset += result.mShaderGroupHandleSize;
 			}

@@ -293,6 +293,11 @@ namespace avk
 		template <typename T>
 		void finish_acceleration_structure_creation(T& result, std::function<void(T&)> aAlterConfigBeforeMemoryAlloc)
 		{
+			vk::PhysicalDeviceAccelerationStructurePropertiesKHR asProps{};
+			vk::PhysicalDeviceProperties2 phProps2{};
+			phProps2.pNext = &asProps;
+			physical_device().getProperties2(&phProps2, dispatch_loader_core());
+
 			// ------------- Memory ------------
 			// 5. Query memory requirements
 #if VK_HEADER_VERSION >= 162
@@ -305,8 +310,9 @@ namespace avk
 				dispatch_loader_ext()
 			);
 			result.mMemoryRequirementsForAccelerationStructure = buildSizesInfo.accelerationStructureSize;
-			result.mMemoryRequirementsForBuildScratchBuffer    = buildSizesInfo.buildScratchSize;
-			result.mMemoryRequirementsForScratchBufferUpdate   = buildSizesInfo.updateScratchSize;
+			result.mMemoryAlignmentForScratchBuffer            = asProps.minAccelerationStructureScratchOffsetAlignment;
+			result.mMemoryRequirementsForBuildScratchBuffer    = buildSizesInfo.buildScratchSize + result.mMemoryAlignmentForScratchBuffer;
+			result.mMemoryRequirementsForScratchBufferUpdate   = buildSizesInfo.updateScratchSize + result.mMemoryAlignmentForScratchBuffer;
 
 			result.mAccStructureBuffer = create_buffer(
 				memory_usage::device,                                                                                         // TODO: Make meta data for it!

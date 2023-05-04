@@ -103,6 +103,20 @@ namespace avk
 		auto has_device_address() const { return mDeviceAddress.has_value(); }
 		auto device_address() const { return mDeviceAddress.value(); }
 
+		/** IF the buffer has a device address, this method potentially MODIFIES the address
+		 *  s.t. it is aligned to the given bytes.
+		 *	@param  aAlignment    The bytes which the stored device address shall be aligned to.
+		 *	@return True if a device address was set, false if it wasn't.
+		 *	        In the latter case, you're probably missing the vk::BufferUsageFlagBits::eShaderDeviceAddressKHR flag.
+		 */
+		bool align_device_address_to(vk::DeviceAddress aAlignment) {
+			if (mDeviceAddress.has_value()) {
+				mDeviceAddress = align_to(mDeviceAddress.value(), aAlignment);
+				return true;
+			}
+			return false;
+		}
+
 		/**	Returns a reference to the descriptor info. If no descriptor info exists yet,
 		 *	one is created, that includes the buffer handle, offset is set to 0, and
 		 *	the size to total_size.
