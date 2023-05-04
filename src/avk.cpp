@@ -7263,8 +7263,8 @@ namespace avk
 				lDstExtent = vk::Extent3D{ aDstImage->width(), aDstImage->height(), 1u }
 
 			](avk::command_buffer_t& cb) {
-				const std::array srcOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lExtent.width), static_cast<int32_t>(lExtent.height), 1 }};
-				const std::array dstOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(dExtent.width), static_cast<int32_t>(dExtent.height), 1 }};
+				const std::array srcOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lSrcExtent.width), static_cast<int32_t>(lSrcExtent.height), 1 }};
+				const std::array dstOffsets{ vk::Offset3D{ 0, 0, 0 }, vk::Offset3D{ static_cast<int32_t>(lDstExtent.width), static_cast<int32_t>(lDstExtent.height), 1 }};
 				const vk::ImageBlit region {
 					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, srcOffsets,
 					vk::ImageSubresourceLayers{ aImageAspectFlags, 0u, 0u, 1u }, dstOffsets
