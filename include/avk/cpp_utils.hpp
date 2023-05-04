@@ -1,5 +1,5 @@
 #pragma once
-#include <avk/avk.hpp>
+#include "avk/avk_error.hpp"
 
 namespace avk
 {
