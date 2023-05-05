@@ -1542,17 +1542,23 @@ namespace avk
 			mScratchBuffer = root::create_buffer(
 				*mRoot,
 				avk::memory_usage::device,
-#if VK_HEADER_VERSION >= 189
-				vk::BufferUsageFlagBits::eStorageBuffer |
-#endif
 #if VK_HEADER_VERSION >= 162
-				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR
-				| vk::BufferUsageFlagBits::eStorageBuffer,
+				vk::BufferUsageFlagBits::eShaderDeviceAddressKHR | vk::BufferUsageFlagBits::eStorageBuffer,
 #else
 				vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
 #endif
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
+#ifdef _DEBUG
+			auto deviceAddressBeforeAlignment = mScratchBuffer.value()->device_address();
+			auto aligned =
+#endif
+			mScratchBuffer.value()->align_device_address_to(scratch_buffer_alignment());
+#ifdef _DEBUG
+			assert(aligned);
+			auto deviceAddressAfterAlignment = mScratchBuffer.value()->device_address();
+			AVK_LOG_DEBUG("Aligned[" + std::to_string(aligned) + "] scratch buffer's address from " + std::to_string(deviceAddressBeforeAlignment) + " to " + std::to_string(deviceAddressAfterAlignment));
+#endif
 			mScratchBuffer->enable_shared_ownership();
 		}
 		assert(mScratchBuffer.has_value());
@@ -1974,6 +1980,17 @@ namespace avk
 #endif
 				avk::generic_buffer_meta::create_from_size(std::max(required_scratch_buffer_build_size(), required_scratch_buffer_update_size()))
 			);
+#ifdef _DEBUG
+			auto deviceAddressBeforeAlignment = mScratchBuffer.value()->device_address();
+			auto aligned =
+#endif
+			mScratchBuffer.value()->align_device_address_to(scratch_buffer_alignment());
+#ifdef _DEBUG
+			assert(aligned);
+			auto deviceAddressAfterAlignment = mScratchBuffer.value()->device_address();
+			AVK_LOG_DEBUG("Aligned[" + std::to_string(aligned) + "] scratch buffer's address from " + std::to_string(deviceAddressBeforeAlignment) + " to " + std::to_string(deviceAddressAfterAlignment));
+#endif
+			mScratchBuffer->enable_shared_ownership();
 		}
 		assert(mScratchBuffer.has_value());
 		return mScratchBuffer.value();
@@ -5961,6 +5978,7 @@ namespace avk
 			physical_device().getProperties2(&props2);
 
 			result.mShaderGroupBaseAlignment = static_cast<uint32_t>(rtProps.shaderGroupBaseAlignment);
+			result.mShaderGroupHandleAlignment = static_cast<uint32_t>(rtProps.shaderGroupHandleAlignment);
 			result.mShaderGroupHandleSize = static_cast<uint32_t>(rtProps.shaderGroupHandleSize);
 		}
 
@@ -6047,10 +6065,10 @@ namespace avk
 			if (std::holds_alternative<shader_info>(tableEntry)) {
 				const auto& shaderInfo = std::get<shader_info>(tableEntry);
 				switch (shaderInfo.mShaderType) {
-				case shader_type::ray_generation: curType = group_type::raygen;   break;
-				case shader_type::miss:           curType = group_type::miss;     break;
-				case shader_type::callable:       curType = group_type::callable; break;
-				default: throw avk::runtime_error("Invalid shader type passed to create_ray_tracing_pipeline, recognized during gathering of SBT infos");
+					case shader_type::ray_generation: curType = group_type::raygen;   break;
+					case shader_type::miss:           curType = group_type::miss;     break;
+					case shader_type::callable:       curType = group_type::callable; break;
+					default: throw avk::runtime_error("Invalid shader type passed to create_ray_tracing_pipeline, recognized during gathering of SBT infos");
 				}
 
 				// The shader indices are actually indices into `result.mShaders` not into
@@ -6058,7 +6076,7 @@ namespace avk
 				// so we are just using `orderedUniqueShaderInfos` for convenience.
 				const uint32_t generalShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, shaderInfo));
 				result.mShaderGroupCreateInfos.emplace_back()
-					.setType(vk::RayTracingShaderGroupTypeNV::eGeneral)
+					.setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
 					.setGeneralShader(generalShaderIndex)
 					.setIntersectionShader(VK_SHADER_UNUSED_KHR)
 					.setAnyHitShader(VK_SHADER_UNUSED_KHR)
@@ -6077,7 +6095,7 @@ namespace avk
 					rchitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value()));
 				}
 				result.mShaderGroupCreateInfos.emplace_back()
-					.setType(vk::RayTracingShaderGroupTypeNV::eTrianglesHitGroup)
+					.setType(vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup)
 					.setGeneralShader(VK_SHADER_UNUSED_KHR)
 					.setIntersectionShader(VK_SHADER_UNUSED_KHR)
 					.setAnyHitShader(rahitShaderIndex)
@@ -6097,7 +6115,7 @@ namespace avk
 					rchitShaderIndex = static_cast<uint32_t>(index_of(orderedUniqueShaderInfos, hitGroup.mClosestHitShader.value()));
 				}
 				result.mShaderGroupCreateInfos.emplace_back()
-					.setType(vk::RayTracingShaderGroupTypeNV::eProceduralHitGroup)
+					.setType(vk::RayTracingShaderGroupTypeKHR::eProceduralHitGroup)
 					.setGeneralShader(VK_SHADER_UNUSED_KHR)
 					.setIntersectionShader(rintShaderIndex)
 					.setAnyHitShader(rahitShaderIndex)
@@ -6108,12 +6126,14 @@ namespace avk
 			}
 
 			// Set that shader binding table groups information:
-			byteOffset += result.mShaderGroupHandleSize;
 			assert (group_type::none != curType);
 			if (curType == prevType) {
 				// same same is easy
 				assert (nullptr != curEdited);
 				curEdited->mNumEntries += 1;
+
+				// A new handle group must start at a multiple of result.mShaderGroupHandleAlignment
+				byteOffset += result.mShaderGroupHandleSize;
 			}
 			else {
 				// different => create new entry
@@ -6137,10 +6157,9 @@ namespace avk
 				curEdited->mNumEntries = 1;
 
 				// A new shader group must start at a multiple of result.mShaderGroupBaseAlignment
-				if (byteOffset % static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment) != 0) {
-					byteOffset = (byteOffset / static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment) + 1) * static_cast<vk::DeviceSize>(result.mShaderGroupBaseAlignment);
-				}
+				byteOffset = align_to(byteOffset, static_cast<vk::DeviceAddress>(result.mShaderGroupBaseAlignment));
 				curEdited->mByteOffset = byteOffset;
+				byteOffset += result.mShaderGroupHandleSize;
 			}
 			prevType = curType;
 			++groupOffset;

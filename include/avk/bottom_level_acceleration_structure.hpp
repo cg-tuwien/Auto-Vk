@@ -40,6 +40,7 @@ namespace avk
 		size_t required_acceleration_structure_size() const { return static_cast<size_t>(mMemoryRequirementsForAccelerationStructure); }
 		size_t required_scratch_buffer_build_size() const { return static_cast<size_t>(mMemoryRequirementsForBuildScratchBuffer); }
 		size_t required_scratch_buffer_update_size() const { return static_cast<size_t>(mMemoryRequirementsForScratchBufferUpdate); }
+		uint32_t scratch_buffer_alignment() const { return mMemoryAlignmentForScratchBuffer; }
 #else
 		size_t required_acceleration_structure_size() const { return static_cast<size_t>(mMemoryRequirementsForAccelerationStructure.memoryRequirements.size); }
 		size_t required_scratch_buffer_build_size() const { return static_cast<size_t>(mMemoryRequirementsForBuildScratchBuffer.memoryRequirements.size); }
@@ -118,9 +119,10 @@ namespace avk
 		avk::buffer get_and_possibly_create_scratch_buffer();
 		
 #if VK_HEADER_VERSION >= 162
-		vk::DeviceSize mMemoryRequirementsForAccelerationStructure = {};
-		vk::DeviceSize mMemoryRequirementsForBuildScratchBuffer = {};
-		vk::DeviceSize mMemoryRequirementsForScratchBufferUpdate = {};
+		vk::DeviceSize mMemoryRequirementsForAccelerationStructure = 0;
+		vk::DeviceSize mMemoryRequirementsForBuildScratchBuffer = 0;
+		uint32_t       mMemoryAlignmentForScratchBuffer = 0;
+		vk::DeviceSize mMemoryRequirementsForScratchBufferUpdate = 0;
 		buffer mAccStructureBuffer;
 #else
 		vk::MemoryRequirements2KHR mMemoryRequirementsForAccelerationStructure;

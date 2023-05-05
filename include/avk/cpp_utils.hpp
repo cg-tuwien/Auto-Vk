@@ -1,5 +1,5 @@
 #pragma once
-#include <avk/avk.hpp>
+#include "avk/avk_error.hpp"
 
 namespace avk
 {
@@ -1115,4 +1115,17 @@ namespace avk
 			lh.handle_lifetime_of(std::move(r));
 		}
 	}
+
+	/** Aligns the given address by the given byte-alignment
+	 *	@param	aAddress	Address to be aligned
+	 *	@param	aAlignment	Byte alignment
+	 *	@return The result of the alignment. Possible outcomes:
+	 *	        Either: result == aAddress, or result > aAddress.
+	 */
+	template <typename T>
+	T align_to(T aAddress, T aAlignment) {
+		// Formula taken from here: https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/#shaderbindingtable
+		auto am1 = aAlignment - 1;
+		return (aAddress + am1) & ~am1;
+	};
 }
