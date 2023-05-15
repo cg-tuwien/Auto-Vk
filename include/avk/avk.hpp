@@ -29,9 +29,9 @@
 #include <concepts>
 #include <ranges>
 
-#include <avk/avk_log.hpp>
-#include <avk/avk_error.hpp>
-#include <avk/cpp_utils.hpp>
+#include "avk/avk_log.hpp"
+#include "avk/avk_error.hpp"
+#include "avk/cpp_utils.hpp"
 
 // TODO: #include <vulkan/vulkan_core.h> => #if VK_HEADER_VERSION >= 162
 #define VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL 0
@@ -49,7 +49,7 @@
  *
  *	By default, such a staging buffer is created with avk::memory_usage::host_coherent
  *	if nothing else is specified. Feel free to specify a different value by defining
- *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
+ *	the AVK_STAGING_BUFFER_MEMORY_USAGE macro before the #include "avk/avk.hpp".
  *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
  */
 #if !defined(AVK_STAGING_BUFFER_MEMORY_USAGE)
@@ -64,7 +64,7 @@
   *
   *	By default, such a staging buffer is created with avk::memory_usage::host_visible
   *	if nothing else is specified. Feel free to specify a different value by defining
-  *	the AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE macro before the #include <avk/avk.hpp>.
+  *	the AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE macro before the #include "avk/avk.hpp".
   *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
   */
 #if !defined(AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE)
@@ -76,14 +76,14 @@ namespace avk
 	class root;
 }
 
-#include <avk/image_color_channel_order.hpp>
-#include <avk/image_color_channel_format.hpp>
-#include <avk/image_usage.hpp>
-#include <avk/filter_mode.hpp>
-#include <avk/border_handling_mode.hpp>
+#include "avk/image_color_channel_order.hpp"
+#include "avk/image_color_channel_format.hpp"
+#include "avk/image_usage.hpp"
+#include "avk/filter_mode.hpp"
+#include "avk/border_handling_mode.hpp"
 
-#include <avk/vk_utils.hpp>
-#include <avk/mapping_access.hpp>
+#include "avk/vk_utils.hpp"
+#include "avk/mapping_access.hpp"
 
 /** CONFIG SETTING: DISPATCH_LOADER_CORE_TYPE
  *
@@ -108,7 +108,7 @@ namespace avk
 /** CONFIG SETTING: AVK_USE_VMA
  *
  *	Define the macro AVK_USE_VMA to enable memory allocation via Vulkan Memory Allocator.
- *	Note 1: You'll have to #define AVK_USE_VMA before the #include <avk/avk.hpp> statement!
+ *	Note 1: You'll have to #define AVK_USE_VMA before the #include "avk/avk.hpp" statement!
  *	Note 2: Vulkan Memory Allocator is not enabled by default. By default, you'll get
  *	        a very straight-forward and unoptimized memory allocation behavior, where
  *	        one memory allocation is made per resource.
@@ -126,12 +126,12 @@ namespace avk
 #if !defined(AVK_MEM_BUFFER_HANDLE)
 #define AVK_MEM_BUFFER_HANDLE        avk::vma_handle<vk::Buffer>
 #endif
-#include <avk/vma_handle.hpp>
+#include "avk/vma_handle.hpp"
 #else
-#include <avk/mem_handle.hpp>
+#include "avk/mem_handle.hpp"
 #endif
 
-#include <avk/scoped_mapping.hpp>
+#include "avk/scoped_mapping.hpp"
 
 /** CONFIG SETTINGS: AVK_MEM_ALLOCATOR_TYPE, AVK_MEM_IMAGE_HANDLE, AVK_MEM_BUFFER_HANDLE
  *
@@ -140,7 +140,7 @@ namespace avk
  *	similar to avk::mem_handle or avk::vma_handle which manages memory allocations.
  *
  *	If you want to plug-in custom memory allocation behavior, define ALL THREE of these
- *	macros before the #include <avk/avk.hpp>
+ *	macros before the #include "avk/avk.hpp"
  *
  *	The default for these macros is "stupid" memory allocation behavior by the means of
  *	mem_handle which creates one memory allocation per resource. If the AVK_USE_VMA macro
@@ -157,31 +157,31 @@ namespace avk
 #define AVK_MEM_BUFFER_HANDLE        avk::mem_handle<vk::Buffer>
 #endif
 
-#include <avk/memory_access.hpp>
-#include <avk/memory_usage.hpp>
-#include <avk/layout.hpp>
-#include <avk/on_load.hpp>
-#include <avk/on_store.hpp>
-#include <avk/subpass_usage_type.hpp>
-#include <avk/subpass_usages.hpp>
+#include "avk/memory_access.hpp"
+#include "avk/memory_usage.hpp"
+#include "avk/layout.hpp"
+#include "avk/on_load.hpp"
+#include "avk/on_store.hpp"
+#include "avk/subpass_usage_type.hpp"
+#include "avk/subpass_usages.hpp"
 
-#include <avk/shader_type.hpp>
-#include <avk/pipeline_stage.hpp>
-#include <avk/stage_and_access.hpp>
+#include "avk/shader_type.hpp"
+#include "avk/pipeline_stage.hpp"
+#include "avk/stage_and_access.hpp"
 
-#include <avk/descriptor_alloc_request.hpp>
-#include <avk/descriptor_pool.hpp>
+#include "avk/descriptor_alloc_request.hpp"
+#include "avk/descriptor_pool.hpp"
 
 
-#include <avk/format_for.hpp>
-#include <avk/buffer_meta.hpp>
+#include "avk/format_for.hpp"
+#include "avk/buffer_meta.hpp"
 
-#include <avk/binding_data.hpp>
+#include "avk/binding_data.hpp"
 
-#include <avk/descriptor_set.hpp>
-#include <avk/descriptor_set_layout.hpp>
-#include <avk/set_of_descriptor_set_layouts.hpp>
-#include <avk/descriptor_cache.hpp>
+#include "avk/descriptor_set.hpp"
+#include "avk/descriptor_set_layout.hpp"
+#include "avk/set_of_descriptor_set_layouts.hpp"
+#include "avk/descriptor_cache.hpp"
 
 // Predefine command types:
 namespace avk
@@ -197,56 +197,56 @@ namespace avk
 	}
 }
 
-#include <avk/buffer.hpp>
-#include <avk/shader_info.hpp>
+#include "avk/buffer.hpp"
+#include "avk/shader_info.hpp"
 
-#include <avk/shader_binding_table.hpp>
-#include <avk/command_buffer.hpp>
-#include <avk/command_pool.hpp>
+#include "avk/shader_binding_table.hpp"
+#include "avk/command_buffer.hpp"
+#include "avk/command_pool.hpp"
 
-#include <avk/semaphore.hpp>
-#include <avk/fence.hpp>
+#include "avk/semaphore.hpp"
+#include "avk/fence.hpp"
 
-#include <avk/image.hpp>
-#include <avk/image_view.hpp>
-#include <avk/sampler.hpp>
-#include <avk/image_sampler.hpp>
-#include <avk/attachment.hpp>
+#include "avk/image.hpp"
+#include "avk/image_view.hpp"
+#include "avk/sampler.hpp"
+#include "avk/image_sampler.hpp"
+#include "avk/attachment.hpp"
 
-#include <avk/input_description.hpp>
-#include <avk/push_constants.hpp>
+#include "avk/input_description.hpp"
+#include "avk/push_constants.hpp"
 
 
-#include <avk/buffer_view.hpp>
-#include <avk/vertex_index_buffer_pair.hpp>
-#include <avk/subpass_dependency.hpp>
-#include <avk/renderpass.hpp>
-#include <avk/framebuffer.hpp>
+#include "avk/buffer_view.hpp"
+#include "avk/vertex_index_buffer_pair.hpp"
+#include "avk/subpass_dependency.hpp"
+#include "avk/renderpass.hpp"
+#include "avk/framebuffer.hpp"
 
-#include <avk/geometry_instance.hpp>
+#include "avk/geometry_instance.hpp"
 
-#include <avk/vk_utils2.hpp>
+#include "avk/vk_utils2.hpp"
 
-#include <avk/acceleration_structure_size_requirements.hpp>
-#include <avk/bottom_level_acceleration_structure.hpp>
-#include <avk/top_level_acceleration_structure.hpp>
-#include <avk/shader.hpp>
+#include "avk/acceleration_structure_size_requirements.hpp"
+#include "avk/bottom_level_acceleration_structure.hpp"
+#include "avk/top_level_acceleration_structure.hpp"
+#include "avk/shader.hpp"
 
-#include <avk/graphics_pipeline_config.hpp>
-#include <avk/compute_pipeline_config.hpp>
-#include <avk/ray_tracing_pipeline_config.hpp>
-#include <avk/graphics_pipeline.hpp>
-#include <avk/compute_pipeline.hpp>
-#include <avk/ray_tracing_pipeline.hpp>
+#include "avk/graphics_pipeline_config.hpp"
+#include "avk/compute_pipeline_config.hpp"
+#include "avk/ray_tracing_pipeline_config.hpp"
+#include "avk/graphics_pipeline.hpp"
+#include "avk/compute_pipeline.hpp"
+#include "avk/ray_tracing_pipeline.hpp"
 
-#include <avk/query_pool.hpp>
+#include "avk/query_pool.hpp"
 
-#include <avk/vulkan_helper_functions.hpp>
+#include "avk/vulkan_helper_functions.hpp"
 
-#include <avk/bindings.hpp>
+#include "avk/bindings.hpp"
 
-#include <avk/commands.hpp>
-#include <avk/queue.hpp>
+#include "avk/commands.hpp"
+#include "avk/queue.hpp"
 
 namespace avk
 {
