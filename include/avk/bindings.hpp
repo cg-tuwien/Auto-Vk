@@ -1,5 +1,5 @@
 #pragma once
-#include <avk/avk.hpp>
+#include "avk/avk.hpp"
 #include <type_traits>
 
 namespace avk

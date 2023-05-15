@@ -1,6 +1,6 @@
 #define NOMINMAX
 #include <avk/avk_log.hpp>
-#include <avk/avk.hpp>
+#include "avk/avk.hpp"
 
 namespace avk
 {
