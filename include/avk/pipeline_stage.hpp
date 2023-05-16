@@ -179,8 +179,15 @@ namespace avk
 #endif
 #if VK_HEADER_VERSION >= 180
 		static constexpr auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessEXT };
+#if VK_HEADER_VERSION >= 239
+		static constexpr auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderEXT };
+		static constexpr auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderEXT };
+#else
+		// Note: Using eTaskShaderEXT and eMeshShaderEXT instead of eTaskShaderNV and eMeshShaderNV doesn't really matter.
+		//       They are defined to _exactly_ the same respective enum values anyways. 
 		static constexpr auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNV };
 		static constexpr auto mesh_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eMeshShaderNV };
+#endif
 #else
 		static constexpr auto fragment_density_process         = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eFragmentDensityProcessExt };
 		static constexpr auto task_shader                      = pipeline_stage_flags{ vk::PipelineStageFlagBits2KHR::eTaskShaderNv };
