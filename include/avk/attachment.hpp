@@ -1,5 +1,5 @@
 #pragma once
-#include <avk/avk.hpp>
+#include "avk/avk.hpp"
 
 namespace avk
 {
@@ -60,26 +60,26 @@ namespace avk
 		 */
 		static attachment declare_for(const image_view_t& aImageView, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp);
 
-		attachment& set_clear_color(std::array<float, 4> aColor)					{ mColorClearValue = aColor; return *this; }
-		attachment& set_depth_clear_value(float aDepthClear)						{ mDepthClearValue = aDepthClear; return *this; }
-		attachment& set_stencil_clear_value(uint32_t aStencilClear)					{ mStencilClearValue = aStencilClear; return *this; }
-		
-		attachment& set_load_operation(attachment_load_config aLoadOp)              { mLoadOperation = aLoadOp; return *this; }
-		attachment& set_store_operation(attachment_store_config aStoreOp)           { mStoreOperation = aStoreOp; return *this; }
-		attachment& set_stencil_load_operation(attachment_load_config aLoadOp)      { mStencilLoadOperation = aLoadOp; return *this; }
-		attachment& set_stencil_store_operation(attachment_store_config aStoreOp)   { mStencilStoreOperation = aStoreOp; return *this; }
-		
+		attachment& set_clear_color(std::array<float, 4> aColor) { mColorClearValue = aColor; return *this; }
+		attachment& set_depth_clear_value(float aDepthClear) { mDepthClearValue = aDepthClear; return *this; }
+		attachment& set_stencil_clear_value(uint32_t aStencilClear) { mStencilClearValue = aStencilClear; return *this; }
+
+		attachment& set_load_operation(attachment_load_config aLoadOp) { mLoadOperation = aLoadOp; return *this; }
+		attachment& set_store_operation(attachment_store_config aStoreOp) { mStoreOperation = aStoreOp; return *this; }
+		attachment& set_stencil_load_operation(attachment_load_config aLoadOp) { mStencilLoadOperation = aLoadOp; return *this; }
+		attachment& set_stencil_store_operation(attachment_store_config aStoreOp) { mStencilStoreOperation = aStoreOp; return *this; }
+
 		/** The color/depth/stencil format of the attachment */
 		auto format() const { return mFormat; }
-		
+
 		auto get_first_color_depth_input() const { return mSubpassUsages.first_color_depth_input_usage(); }
 
 		auto get_last_color_depth_input() const { return mSubpassUsages.last_color_depth_input_usage(); }
-		
+
 		auto is_used_as_depth_stencil_attachment() const { return mSubpassUsages.contains_depth_stencil(); }
 
 		auto is_used_as_color_attachment() const { return mSubpassUsages.contains_color(); }
-		
+
 		auto is_used_as_input_attachment() const { return mSubpassUsages.contains_input(); }
 
 		/** True if the sample count is greater than 1 */
