@@ -250,6 +250,20 @@ auto actionTypeCommand = myBuffer->fill(vertices, 0);
 ```
 The first parameter are the data, the second refers to the meta data index to use (in this case to the `vertex_buffer_meta`, but actually the data should be the same for all of the meta data entries anyways). This operation returns an instance of type `avk::command::action_type_command`. This indicates that there are (or might be) commands which still need to be submitted to a queue and executed there in order to complete the operation.
 
+## Preprocessor Settings
+
+_Auto-Vk_ offers some preprocessor settings which influence the internal behavior at some points. In order to change these settings, define the respective setting **before** including `avk.hpp`!
+- `AVK_STAGING_BUFFER_MEMORY_USAGE`: If defined before including `avk.hpp`, it can be used to change the memory type that staging buffers are created in.    
+    Expected value: A value of the `avk::memory_usage` enum.     
+	Example: `#define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_coherent` (this is also the default value).
+- `AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE`: If defined before including `avk.hpp`, it can be used to change the memory type that readback buffers are created in.    
+    Expected value: A value of the `avk::memory_usage` enum.     
+	Example: `#define AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE	avk::memory_usage::host_visible` (this is also the default value).
+- `AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE`: If defined before including `avk.hpp`, it changes _Auto-Vk_ internally s.t. it uses the `2KHR`-type Vulkan API functions from the [`VK_KHR_synchronization2`](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html) extension instead of the `2`-type Vulkan API functions, which correspond to the Synchronization2 functions but have been promoted to core with [Vulkan 1.3](https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#versions-1.3-promotions).       
+    Expected value: None, just define `AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE` or don't.      
+	Example: `#define AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE` (_not_ defined by default.      
+	When to use: If you're targeting Vulkan 1.3 and above only, do not define it. If you're targeting also Vulkan versions < 1.3, then define it and enable [`VK_KHR_synchronization2`](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)!
+
 # Resource Management
 
 Resource management in _Auto-Vk_ is managed in a way which strongly relies on _move-only_ types. That means: Whenever a resource's destructor is being invoked, the resource is destroyed and its memory freed. Furthermore, where resources "live" can be totally controlled by the programmer: be it on the stack or on the heap, enabling both, efficient and versatile usage patterns. These policies require explicit and precise handling of _how_ resources are stored and passed around, especially when passing them as arguments to functions/methods.

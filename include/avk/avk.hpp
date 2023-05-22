@@ -56,20 +56,29 @@
 #define AVK_STAGING_BUFFER_MEMORY_USAGE	avk::memory_usage::host_coherent
 #endif
 
- /** CONFIG SETTING: AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE
-  *
-  *	The following setting CAN be set BEFORE including avk.hpp in order to change
-  *	the behavior whenever staging buffers for reading back values are created
-  *	internally. 
-  *
-  *	By default, such a staging buffer is created with avk::memory_usage::host_visible
-  *	if nothing else is specified. Feel free to specify a different value by defining
-  *	the AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE macro before the #include "avk/avk.hpp".
-  *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
-  */
+/** CONFIG SETTING: AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE
+ *
+ *	The following setting CAN be set BEFORE including avk.hpp in order to change
+ *	the behavior whenever staging buffers for reading back values are created
+ *	internally. 
+ *
+ *	By default, such a staging buffer is created with avk::memory_usage::host_visible
+ *	if nothing else is specified. Feel free to specify a different value by defining
+ *	the AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE macro before the #include "avk/avk.hpp".
+ *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
+ */
 #if !defined(AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE)
 #define AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE	avk::memory_usage::host_visible
 #endif
+
+/** CONFIG SETTING: AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+ *	If this is defined BEFORE including avk.hpp, the Vulkan API functions of the Synchronization2
+ *	extension are used instead of the core functions (that have been added with Vulkan 1.3.
+ *	E.g. for writing timestamps on the GPU:
+ *	 -   If AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE is defined, vkCmdWriteTimestamp2KHR is used.
+ *   -   Otherwise vkCmdWriteTimestamp2KHR is used.
+ *  Note: The former uses the dispatch_loader_ext(), while the latter uses dispatch_loader_core().
+ */
 
 namespace avk
 {
