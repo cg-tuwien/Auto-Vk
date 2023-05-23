@@ -15,7 +15,7 @@ env:
 
 jobs:
   linux:
-    name: ${{ matrix.config.name }}, VulkanSDK v${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
+    name: ${{ matrix.config.name }}, VulkanSDK ${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -86,7 +86,7 @@ jobs:
         run: cmake --build .
 
   windows:
-    name: ${{ matrix.config.name }}, VulkanSDK v${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
+    name: ${{ matrix.config.name }}, VulkanSDK ${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
     runs-on: windows-2019
     env:
       vulkan_sdk: "$GITHUB_WORKSPACE/vulkan_sdk/"
@@ -150,7 +150,7 @@ jobs:
         run: cmake --build .
 
   windows-latest:
-    name: ${{ matrix.config.name }}, VulkanSDK v${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
+    name: ${{ matrix.config.name }}, VulkanSDK ${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
     runs-on: windows-latest
     env:
       vulkan_sdk: "$GITHUB_WORKSPACE/vulkan_sdk/"
