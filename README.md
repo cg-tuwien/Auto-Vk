@@ -20,7 +20,6 @@ _Auto-Vk_ requires
 _Auto-Vk_ consists of multiple C++ include files, one mandatory C++ source file, and one optional C++ source file:
 * Add [`include/`](include/) to the include paths so that your compiler can find include files under paths `avk/*`
 * Add [`src/avk.cpp`](src/avk.cpp) as a compiled C++ source code file
-* *Optional:* Add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) if you want to use [Vulkan Memory Allocator (VMA)](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) for handling memory allocations. For configuration instructions, see section [Memory Allocation](#memory-allocation).
 
 #### Caveats
 * On `clang` (at least version <= 12) _Auto-Vk_ does not compile when using `libstdc++` version 11 or higher, because `clang` doesn't yet support "Down with `typename`!" ([P0634R3](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0634r3.html)), which is used in the `libstdc++` `ranges`-header.
@@ -319,7 +318,7 @@ _Auto-Vk_, however, allows to easily swap this straight-froward way of memory ha
 #include <avk/avk.hpp>
 ```
 
-_Note:_ Your project setup must enable the compiler to include VMA from the include path `<vma/vk_mem_alloc.h>`, which can be accomplished by:
+_Note:_ Your project setup must enable the compiler to include VMA from one of the following include paths: `<vma/vk_mem_alloc.h>` or `<vk_mem_alloc.h>`. This can be established through:
 - Installing VMA through the Vulkan installer or its maintenance tool (e.g., `maintenancetool.exe` on Windows) by selecting the `Vulkan Memory Allocator header`. option.
 
 This is all that is required to set-up VMA to handle all internal memory allocations.

@@ -128,14 +128,17 @@ namespace avk
  *	        one memory allocation is made per resource.
  *	Note 3: If you are opting-in for using Vulkan Memory Allocator, make sure that your compiler
  *	        can find VMA under <vma/vk_mem_alloc.h>. This can be accomplished by installing VMA
- *			through the Vulkan SDK.
+ *			through the Vulkan SDK. On Linux it is probably <vk_mem_alloc.h>. Both paths are considered.
  */
 #if defined(AVK_USE_VMA)
 #if __has_include(<vma/vk_mem_alloc.h>)
 #define AVK_USES_VMA
 #include <vma/vk_mem_alloc.h>
+#elif __has_include(<vk_mem_alloc.h>)
+#define AVK_USES_VMA
+#include <vk_mem_alloc.h>
 #else
-static_assert(false, "Unable to find include <vma/vk_mem_alloc.h>, but AVK_USE_VMA is defined.");
+static_assert(false, "Unable to find include <vma/vk_mem_alloc.h> or <vk_mem_alloc.h>, but AVK_USE_VMA is defined.");
 #endif
 #if !defined(AVK_MEM_ALLOCATOR_TYPE)
 #define AVK_MEM_ALLOCATOR_TYPE       VmaAllocator
