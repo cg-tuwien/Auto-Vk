@@ -976,10 +976,38 @@ namespace avk
 #pragma endregion
 
 #pragma region query pool and query
-		query_pool create_query_pool(vk::QueryType aQueryType, uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
-		query_pool create_query_pool_for_occlusion_queries(uint32_t aQueryCount = 2u);
-		query_pool create_query_pool_for_timestamp_queries(uint32_t aQueryCount = 2u);
-		query_pool create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount = 2u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
+		/**
+		 * @brief Creates a new query pool with the given configurations
+		 * @param aQueryType           The type of queries managed by the pool.
+		 * @param aQueryCount          The number of queries managed by the pool.
+		 * @param aPipelineStatistics  The counters which will be returned in queries on the pool.
+		 * @return A new query pool instance.
+		 */
+		query_pool create_query_pool(vk::QueryType aQueryType, uint32_t aQueryCount = 1u, vk::QueryPipelineStatisticFlags aPipelineStatistics = {});
+
+		/**
+		 * @brief Creates a new query pool for occlusion queries (configured via query type).
+		 * @param aNumOcclusionQueries    The number of occlusion queries managed by the pool.
+		 * @return A new query pool instance for performing occlusion queries.
+		 */
+		query_pool create_query_pool_for_occlusion_queries(uint32_t aNumOcclusionQueries = 1u);
+
+		/**
+		 * @brief Creates a new query pool for timestamp queries (configured via query type).
+		 * @param aNumTimestampQueries    The number of timestamp queries managed by the pool.
+		 * @return A new query pool instance for performing timestamp queries.
+		 */
+		query_pool create_query_pool_for_timestamp_queries(uint32_t aNumTimestampQueries = 1u);
+		
+		/**
+		 * @brief Creates a new query pool for pipeline statistics queries (configured via query type).
+		 * @param aPipelineStatistics    The specific counters that shall be returned in queries on the pool.
+		 *                               This overload counts the bits that are set aPipelineStatistics and uses it as a query count.
+		 * @param aQueryCountMultiplier  The query count determined by counting the bits set in aPipelineStatistics can be multiplied
+		 *                               this factor. The default is 1, giving a query count as high as the number of bits set in aPipelineStatistics.
+		 * @return A new query pool instance for performing pipeline statistics queries.
+		 */
+		query_pool create_query_pool_for_pipeline_statistics_queries(vk::QueryPipelineStatisticFlags aPipelineStatistics, uint32_t aQueryCountMultiplier = 1u);
 #pragma endregion
 
 		/**	Prepare an avk::recorded_commands object containing all the passed recorded_commands_t

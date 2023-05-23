@@ -7513,19 +7513,21 @@ namespace avk
 		return result;
 	}
 
-	query_pool root::create_query_pool_for_occlusion_queries(uint32_t aQueryCount)
+	query_pool root::create_query_pool_for_occlusion_queries(uint32_t aNumOcclusionQueries)
 	{
-		return create_query_pool(vk::QueryType::eOcclusion, aQueryCount);
+		return create_query_pool(vk::QueryType::eOcclusion, aNumOcclusionQueries);
 	}
 
-	query_pool root::create_query_pool_for_timestamp_queries(uint32_t aQueryCount)
+	query_pool root::create_query_pool_for_timestamp_queries(uint32_t aNumTimestampQueries)
 	{
-		return create_query_pool(vk::QueryType::eTimestamp, aQueryCount);
+		return create_query_pool(vk::QueryType::eTimestamp, aNumTimestampQueries);
 	}
-
-	query_pool root::create_query_pool_for_pipeline_statistics_queries(uint32_t aQueryCount, vk::QueryPipelineStatisticFlags aPipelineStatistics)
+	
+	query_pool root::create_query_pool_for_pipeline_statistics_queries(vk::QueryPipelineStatisticFlags aPipelineStatistics, uint32_t aQueryCountMultiplier)
 	{
-		return create_query_pool(vk::QueryType::ePipelineStatistics, aQueryCount, aPipelineStatistics);
+		const auto valueAsSomeKindOfInt = static_cast<vk::QueryPipelineStatisticFlags::MaskType>(aPipelineStatistics);
+		const auto count = avk::bit_count(valueAsSomeKindOfInt);
+		return create_query_pool(vk::QueryType::ePipelineStatistics, count * aQueryCountMultiplier, aPipelineStatistics);
 	}
 
 	void query_pool_t::host_reset(uint32_t aFirstQueryIndex, std::optional<uint32_t> aNumQueries)

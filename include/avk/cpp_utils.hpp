@@ -1174,4 +1174,12 @@ namespace avk
 			return x / y + (x % y != 0 && quotientPositive);  // int / int
 		}
 	}
+
+	// Counts how many bits are set in value and returns the count.
+	// Inspired by: https://stackoverflow.com/questions/25224253/problems-using-template-meta-programming-to-count-number-of-set-bits-in-integer
+	template <typename T>
+	constexpr uint32_t bit_count(T x)
+	{
+		return (x == 0) ? 0 : uint32_t{ x & uint32_t{1} } + bit_count(x >> 1);
+	}
 }
