@@ -68,17 +68,22 @@
  *	Note, however, that host-visibility MUST be given, otherwise nothing will work anymore.
  */
 #if !defined(AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE)
-#define AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE	avk::memory_usage::host_visible
+#define AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE avk::memory_usage::host_visible
 #endif
 
-/** CONFIG SETTING: AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
- *	If this is defined BEFORE including avk.hpp, the Vulkan API functions of the Synchronization2
- *	extension are used instead of the core functions (that have been added with Vulkan 1.3.
+/** CONFIG SETTING: AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2
+ *	If this is defined BEFORE including avk.hpp, the Vulkan API core functions are used 
+ *	instead of the Synchronization2 extension functions (which were promoted to core with
+ *	Vulkan 1.3). Concretely, this means that the ...2()-type functions are used (core)
+ *	instead of the ...2KHR-type functions (Synchronization2 a.k.a. VK_KHR_synchronization2).
  *	E.g. for writing timestamps on the GPU:
- *	 -   If AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE is defined, vkCmdWriteTimestamp2KHR is used.
+ *	 -   If AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2 is defined, vkCmdWriteTimestamp2 is used.
  *   -   Otherwise vkCmdWriteTimestamp2KHR is used.
- *  Note: The former uses the dispatch_loader_ext(), while the latter uses dispatch_loader_core().
+ *  Note: The former is used with dispatch_loader_core(), the latter with dispatch_loader_ext().
  */
+#if !defined(AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2)
+#define AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+#endif
 
 namespace avk
 {

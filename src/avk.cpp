@@ -8676,9 +8676,15 @@ namespace avk
 
 		auto fenceHandle = mFence.has_value() ? mFence.value()->handle() : vk::Fence{};
 #ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
-		auto result = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+		auto errorCode = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+		if (vk::Result::eSuccess != errorCode) {
+			AVK_LOG_WARNING("submit2KHR returned " + vk::to_string(errorCode));
+	    }
 #else
-		auto result = mQueueToSubmitTo->handle().submit2(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_core());
+		auto errorCode = mQueueToSubmitTo->handle().submit2(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_core());
+		if (vk::Result::eSuccess != errorCode) {
+			AVK_LOG_WARNING("submit2 returned " + vk::to_string(errorCode));
+		}
 #endif
 
 		++mSubmissionCount;
