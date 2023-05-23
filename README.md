@@ -311,14 +311,16 @@ By default, `avk::owning_resource<T>` are created with so called "shared ownersh
 
 By default _Auto-Vk_ uses a very straight-forward, but for most cases probably also suboptimal, way of handling memory allocations: One allocation per resource. This is especially suboptimal if many small resources are used. Implementation-wise, [`avk::mem_handle`](include/avk/mem_handle.hpp) is used in this case. 
 
-_Auto-Vk_, however, allows to easily swap this straight-froward way of memory handling with using the well-established [Vulkan Memory Allocator (VMA) library](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator). Only a small config-change is necessary to switch from [`avk::mem_handle`](include/avk/mem_handle.hpp) to [`avk::vma_handle`](include/avk/vma_handle.hpp), which uses VMA to alloc memory for all resources.
+_Auto-Vk_, however, allows to easily swap this straight-froward way of memory handling with using the well-established [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)(VMA) library. Only a small config-change is necessary to switch from [`avk::mem_handle`](include/avk/mem_handle.hpp) to [`avk::vma_handle`](include/avk/vma_handle.hpp), which uses VMA to alloc memory for all resources.
 
 **To enable VMA**, define `AVK_USE_VMA` *before* including `<avk/avk.hpp>`:
 ```
 #define AVK_USE_VMA
 #include <avk/avk.hpp>
 ```
-Furthermore, add [`src/vk_mem_alloc.cpp`](src/vk_mem_alloc.cpp) to your source files. If you're using `CMake` you can do this by setting the `avk_UseVMA` option to `ON`.
+
+_Note:_ Your project setup must enable the compiler to include VMA from the include path `<vma/vk_mem_alloc.h>`, which can be accomplished by:
+- Installing VMA through the Vulkan installer or its maintenance tool (e.g., `maintenancetool.exe` on Windows) by selecting the `Vulkan Memory Allocator header`. option.
 
 This is all that is required to set-up VMA to handle all internal memory allocations.
 
