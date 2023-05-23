@@ -52,13 +52,28 @@ namespace avk
 		 *	@param	aQueryIndex		Which query of the pool shall the result be written to
 		 *	@param	aFlags			Additional flags for the instruction
 		 */
-		avk::command::action_type_command begin_query(uint32_t aQueryIndex, vk::QueryControlFlags aFlags);
+		avk::command::action_type_command begin_query(uint32_t aQueryIndex = 0u, vk::QueryControlFlags aFlags = {});
 
 		/**	Issues a command to end a certain query.
 		 *
 		 *	@param	aQueryIndex		Which query of the pool shall the result be written to
 		 */
-		avk::command::action_type_command end_query(uint32_t aQueryIndex);
+		avk::command::action_type_command end_query(uint32_t aQueryIndex = 0u);
+
+		/**
+		 * Calculates the number of values returned per query. 
+		 * \param aFlags Flags used for the theoretical query. The flags can influence the number of values returned.
+		 * \return Number of values per query from this pool with the given flags.
+		 */
+		uint32_t num_values_per_query(vk::QueryResultFlags aFlags)
+		{
+			const auto valueAsSomeKindOfInt = static_cast<vk::QueryPipelineStatisticFlags::MaskType>(mCreateInfo.pipelineStatistics);
+			const auto count = avk::bit_count(valueAsSomeKindOfInt);
+			const auto numValuesPerQuery = std::max(count, 1u)
+				+ avk::has_flag(aFlags, vk::QueryResultFlagBits::eWithAvailability)
+				+ avk::has_flag(aFlags, vk::QueryResultFlagBits::eWithStatusKHR);
+			return numValuesPerQuery;
+		}
 
 		/**	Get results of multiple queries
 		 *
@@ -73,23 +88,35 @@ namespace avk
 		 *	@param	aFlags				Additional flags. If T has the size of an 64-bit integer, the
 		 *								flag vk::QueryResultFlagBits::e64 will automatically be added.
 		 */
-		template <typename T, size_t N>
-		std::array<T, N> get_results(uint32_t aFirstQueryIndex, vk::QueryResultFlags aFlags)
+		template <typename T, uint32_t N>
+		std::array<T, N> get_results(uint32_t aFirstQueryIndex, uint32_t aNumQueries, vk::QueryResultFlags aFlags)
 		{
 			std::array<T, N> results;
 
 			if (sizeof(T) == sizeof(uint64_t)) {
 				aFlags |= vk::QueryResultFlagBits::e64;
 			}
-
-			//assert (create_info().queryType != vk::QueryType::eTimestamp || !has_flag(aFlags, vk::QueryResultFlagBits::ePartial));
+#ifdef _DEBUG
+			const auto numValuesPerQuery = num_values_per_query(aFlags);
+			if (numValuesPerQuery * aNumQueries != N) {
+				AVK_LOG_ERROR("Wrong array size passed to query_pool::get_results. "
+				              "The configuration of aNumQueries[" + std::to_string(aNumQueries) + "] "
+					          "and aFlags[" + vk::to_string(aFlags) + "] "
+                              "requires a size of " + std::to_string(numValuesPerQuery * aNumQueries) + " "
+					          "(which is " + std::to_string(numValuesPerQuery) + " values per query), "
+					          "but N[" + std::to_string(N) + "] was passed.");
+			}
+#endif
 			
-			mQueryPool.getOwner().getQueryPoolResults(
+			auto errorCode = mQueryPool.getOwner().getQueryPoolResults(
 				mQueryPool.get(), 
-				aFirstQueryIndex, static_cast<uint32_t>(N),
+				aFirstQueryIndex, aNumQueries,
 				sizeof(results), results.data(), sizeof(T),
 				aFlags
 			);
+			if (vk::Result::eSuccess != errorCode) {
+				AVK_LOG_WARNING("getQueryPoolResults returned " + vk::to_string(errorCode));
+			}
 
 			return results;
 		}
@@ -108,6 +135,13 @@ namespace avk
 		template <typename T>
 		T get_result(uint32_t aOnlyQueryIndex, vk::QueryResultFlags aFlags)
 		{
+#ifdef _DEBUG
+			if (const auto numValuesPerQuery = num_values_per_query(aFlags) > 1) {
+				AVK_LOG_ERROR("query_pool::get_result invoked on a pool/with flags which returns more than one value, namely " + std::to_string(numValuesPerQuery) + 
+					"In such a case, query_pool::get_result is unsuitable. Use query_pool::get_results instead and pass " + std::to_string(numValuesPerQuery) +
+					" for N (for one single query), or N * aNumQueries!");
+			}
+#endif
 			return get_results<T, 1>(aOnlyQueryIndex, aFlags)[0];
 		}
 
@@ -145,7 +179,9 @@ namespace avk
 		avk::command::action_type_command copy_result(uint32_t aOnlyQueryIndex, const buffer_t& aBuffer, size_t aBufferMetaSkip, vk::QueryResultFlags aFlags);
 		
 	private:
+		// Create info used for creating this pool
 		vk::QueryPoolCreateInfo mCreateInfo;
+		// Unique handle to this pool
 		vk::UniqueHandle<vk::QueryPool, DISPATCH_LOADER_CORE_TYPE> mQueryPool;
 	};
 
