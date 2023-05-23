@@ -263,6 +263,16 @@ _Auto-Vk_ offers some preprocessor settings which influence the internal behavio
     Expected value: None, just define `AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2` or don't.      
 	Example: `#define AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2` (_Not_ defined by default. I.e., by default the Synchronization 2 API functions are used.)      
 	When to use: If you're targeting Vulkan 1.3 and above only, define it! If you're targeting also Vulkan versions < 1.3, then do _not_ define it, but make sure to enable [`VK_KHR_synchronization2`](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)!
+- `DISPATCH_LOADER_CORE_TYPE`: Can be used to define a custom dispatch loader type for the core functions (those that do not require extensions + some of the swapchain functions) passed on to Vulkan-Hpp types and calls.    
+    Expected value: A type compatible with the `Dispatch` tempalte parameters used in Vulkan-Hpp.      
+    Example: `#define DISPATCH_LOADER_CORE_TYPE vk::DispatchLoaderStatic` (default value)     
+- `DISPATCH_LOADER_EXT_TYPE`: Can be used to define a custom dispatch loader type for the extension functions (all those which are not core or swapchain) passed on to Vulkan-Hpp types and calls.    
+    Expected value: A type compatible with the `Dispatch` tempalte parameters used in Vulkan-Hpp.      
+    Example: `#define DISPATCH_LOADER_EXT_TYPE vk::DispatchLoaderDynamic` (default value)     
+- `AVK_USE_VMA`: If defined before including `avk.hpp`, it changes the memory allocator used by _Auto-Vk_ internally to VMA.     
+    Expected value: None, just define `AVK_USE_VMA` or don't.      
+    Example: `#define AVK_USE_VMA` (_Not_ defined by default. I.e., by default VMA is not used internally.)      
+    Further information: See [Memory Allocation](#memory-allocation) section below.
 
 # Resource Management
 
