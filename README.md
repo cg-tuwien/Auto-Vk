@@ -250,6 +250,30 @@ auto actionTypeCommand = myBuffer->fill(vertices, 0);
 ```
 The first parameter are the data, the second refers to the meta data index to use (in this case to the `vertex_buffer_meta`, but actually the data should be the same for all of the meta data entries anyways). This operation returns an instance of type `avk::command::action_type_command`. This indicates that there are (or might be) commands which still need to be submitted to a queue and executed there in order to complete the operation.
 
+## Preprocessor Settings
+
+_Auto-Vk_ offers some preprocessor settings which influence its internal behavior. In order to change these settings, define the respective setting **before** including `avk.hpp`!
+- `AVK_STAGING_BUFFER_MEMORY_USAGE`: If defined before including `avk.hpp`, it can be used to change the memory type that staging buffers are created in.    
+    Expected value: A value of the `avk::memory_usage` enum.     
+	Example: `#define AVK_STAGING_BUFFER_MEMORY_USAGE avk::memory_usage::host_coherent` (this is also the default value).
+- `AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE`: If defined before including `avk.hpp`, it can be used to change the memory type that readback buffers are created in.    
+    Expected value: A value of the `avk::memory_usage` enum.     
+	Example: `#define AVK_STAGING_BUFFER_READBACK_MEMORY_USAGE avk::memory_usage::host_visible` (default value).
+- `AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2`: If defined before including `avk.hpp`, it changes _Auto-Vk_ internally s.t. it uses the core `2`-type Vulkan API functions instead of the `2KHR`-type functions from the [`VK_KHR_synchronization2`](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html) extension. There's a corresponding function for each one. The Synchronization2 functions have been promoted to core in [Vulkan 1.3](https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#versions-1.3-promotions).       
+    Expected value: None, just define `AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2` or don't.      
+	Example: `#define AVK_USE_CORE_INSTEAD_OF_SYNCHRONIZATION2` (_Not_ defined by default. I.e., by default the Synchronization 2 API functions are used.)      
+	When to use: If you're targeting Vulkan 1.3 and above only, define it! If you're targeting also Vulkan API versions smaller than 1.3, then do _not_ define it, but make sure to enable [`VK_KHR_synchronization2`](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_synchronization2.html)!
+- `DISPATCH_LOADER_CORE_TYPE`: Can be used to define a custom dispatch loader type for the core functions (those that do not require extensions + some of the swapchain functions) passed on to Vulkan-Hpp types and calls.    
+    Expected value: A type compatible with the `Dispatch` template parameters used in Vulkan-Hpp.      
+    Example: `#define DISPATCH_LOADER_CORE_TYPE vk::DispatchLoaderStatic` (default value)     
+- `DISPATCH_LOADER_EXT_TYPE`: Can be used to define a custom dispatch loader type for the extension functions (all those which are not core or swapchain) passed on to Vulkan-Hpp types and calls.    
+    Expected value: A type compatible with the `Dispatch` template parameters used in Vulkan-Hpp.      
+    Example: `#define DISPATCH_LOADER_EXT_TYPE vk::DispatchLoaderDynamic` (default value)     
+- `AVK_USE_VMA`: If defined before including `avk.hpp`, it changes the memory allocator used by _Auto-Vk_ internally to the [Vulkan Memory Allocator](https://gpuopen.com/vulkan-memory-allocator/) (VMA).     
+    Expected value: None, just define `AVK_USE_VMA` or don't.      
+    Example: `#define AVK_USE_VMA` (_Not_ defined by default. I.e., by default VMA is not used internally.)      
+    Further information: See [Memory Allocation](#memory-allocation) section below.
+
 # Resource Management
 
 Resource management in _Auto-Vk_ is managed in a way which strongly relies on _move-only_ types. That means: Whenever a resource's destructor is being invoked, the resource is destroyed and its memory freed. Furthermore, where resources "live" can be totally controlled by the programmer: be it on the stack or on the heap, enabling both, efficient and versatile usage patterns. These policies require explicit and precise handling of _how_ resources are stored and passed around, especially when passing them as arguments to functions/methods.

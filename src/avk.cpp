@@ -6874,7 +6874,7 @@ namespace avk
 		rewire_subpass_dependencies(subpassDependencies, memoryBarriers);
 
 		// Finally, create the render pass
-		result.mCreateInfo = vk::RenderPassCreateInfo2KHR()
+		result.mCreateInfo = vk::RenderPassCreateInfo2KHR{}
 			.setAttachmentCount(static_cast<uint32_t>(result.mAttachmentDescriptions.size()))
 			.setPAttachments(result.mAttachmentDescriptions.data())
 			.setSubpassCount(static_cast<uint32_t>(result.mSubpasses.size()))
@@ -7557,7 +7557,11 @@ namespace avk
 				lHandle = handle(),
 				aQueryIndex
 			](avk::command_buffer_t& cb) {
-				cb.handle().writeTimestamp2KHR(lTimestampStage, lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_core());
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+				cb.handle().writeTimestamp2KHR(lTimestampStage, lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_ext());
+#else
+				cb.handle().writeTimestamp2(lTimestampStage, lHandle, aQueryIndex, cb.root_ptr()->dispatch_loader_core());
+#endif
 			}
 		};
 	}
@@ -7624,7 +7628,14 @@ namespace avk
 #pragma endregion
 
 #pragma region commands and sync
-	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions);
+	inline static void record_into_command_buffer(
+		command_buffer_t& aCommandBuffer, 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoaderExt,
+#else
+		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoaderCore,
+#endif
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions);
 
 	template <typename T>
 	inline static T accumulate_sync_details(
@@ -7908,20 +7919,38 @@ namespace avk
 		return barrier;
 	}
 
-	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const command::state_type_command& aStateCmd)
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoaderExt,
+#else
+		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoaderCore,
+#endif
+		const command::state_type_command& aStateCmd)
 	{
 		if (aStateCmd.mFun) {
 			aStateCmd.mFun(aCommandBuffer);
 		}
 	}
 
-	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const command::action_type_command& aActionCmd)
+	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer,
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoaderExt,
+#else
+		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoaderCore,
+#endif
+		const command::action_type_command& aActionCmd)
 	{
 		if (aActionCmd.mBeginFun) {
 			aActionCmd.mBeginFun(aCommandBuffer);
 		}
 		if (!aActionCmd.mNestedCommandsAndSyncInstructions.empty()) {
-			record_into_command_buffer(aCommandBuffer, aDispatchLoader, aActionCmd.mNestedCommandsAndSyncInstructions);
+			record_into_command_buffer(aCommandBuffer, 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+				aDispatchLoaderExt,
+#else
+				aDispatchLoaderCore,
+#endif
+				aActionCmd.mNestedCommandsAndSyncInstructions);
 		}
 		if (aActionCmd.mEndFun) {
 			aActionCmd.mEndFun(aCommandBuffer);
@@ -7930,7 +7959,11 @@ namespace avk
 
 	inline static void record_into_command_buffer(
 		command_buffer_t& aCommandBuffer, 
-		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoaderExt,
+#else
+		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoaderCore,
+#endif
 		const sync::sync_type_command& aSyncCmd, 
 		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions, 
 		int aRecordedStuffIndex)
@@ -7940,38 +7973,67 @@ namespace avk
 			auto dependencyInfo = vk::DependencyInfoKHR{}
 				.setMemoryBarrierCount(1u)
 				.setPMemoryBarriers(&barrier);
-			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoaderExt);
+#else
+			aCommandBuffer.handle().pipelineBarrier2(dependencyInfo, aDispatchLoaderCore);
+#endif
 		}
 		else if (aSyncCmd.is_image_memory_barrier()) {
 			auto barrier = assemble_barrier_data<vk::ImageMemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
 			auto dependencyInfo = vk::DependencyInfoKHR{}
 				.setImageMemoryBarrierCount(1u)
 				.setPImageMemoryBarriers(&barrier);
-			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoaderExt);
+#else
+			aCommandBuffer.handle().pipelineBarrier2(dependencyInfo, aDispatchLoaderCore);
+#endif
 		}
 		else if (aSyncCmd.is_buffer_memory_barrier()) {
 			auto barrier = assemble_barrier_data<vk::BufferMemoryBarrier2KHR>(aSyncCmd, aRecordedCommandsAndSyncInstructions, aRecordedStuffIndex);
 			auto dependencyInfo = vk::DependencyInfoKHR{}
 				.setBufferMemoryBarrierCount(1u)
 				.setPBufferMemoryBarriers(&barrier);
-			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoader);
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			aCommandBuffer.handle().pipelineBarrier2KHR(dependencyInfo, aDispatchLoaderExt);
+#else
+			aCommandBuffer.handle().pipelineBarrier2(dependencyInfo, aDispatchLoaderCore);
+#endif
 		}
 	}
 
-
 	void command_buffer_t::record(const avk::command::state_type_command& aToBeRecorded)
 	{
-		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded);
+		record_into_command_buffer(*this,
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			root_ptr()->dispatch_loader_ext(), 
+#else
+			root_ptr()->dispatch_loader_core(),
+#endif
+			aToBeRecorded);
 	}
 
 	void command_buffer_t::record(const avk::command::action_type_command& aToBeRecorded)
 	{
-		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded);
+		record_into_command_buffer(*this,
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			root_ptr()->dispatch_loader_ext(),
+#else
+			root_ptr()->dispatch_loader_core(),
+#endif
+			aToBeRecorded);
 	}
 
 	void command_buffer_t::record(const avk::sync::sync_type_command& aToBeRecorded)
 	{
-		record_into_command_buffer(*this, root_ptr()->dispatch_loader_ext(), aToBeRecorded, std::vector<recorded_commands_t>{}, 0);
+		record_into_command_buffer(*this,
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			root_ptr()->dispatch_loader_ext(),
+#else
+			root_ptr()->dispatch_loader_core(),
+#endif
+			aToBeRecorded, std::vector<recorded_commands_t>{}, 0);
 	}
 
 	void command_buffer_t::record(std::vector<avk::recorded_commands_t> aRecordedCommandsAndSyncInstructions)
@@ -7980,29 +8042,63 @@ namespace avk
 			.into_command_buffer(*this, false); // Last parameter: do not call begin/end here!
 	}
 
-
 	struct recordee_visitors
 	{
 		void operator()(const command::state_type_command& vStateCmd) const {
-			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vStateCmd);
+			record_into_command_buffer(mCommandBuffer, 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+				mDispatchLoaderExt, 
+#else
+				mDispatchLoaderCore,
+#endif
+				vStateCmd);
 		}
 		void operator()(const command::action_type_command& vActionCmd) const {
-			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vActionCmd);
+			record_into_command_buffer(mCommandBuffer,
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+				mDispatchLoaderExt,
+#else
+				mDispatchLoaderCore,
+#endif
+				vActionCmd);
 			
 		}
 		void operator()(const sync::sync_type_command& vSyncCmd) const {
-			record_into_command_buffer(mCommandBuffer, mDispatchLoaderExt, vSyncCmd, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
+			record_into_command_buffer(mCommandBuffer,
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+				mDispatchLoaderExt,
+#else
+				mDispatchLoaderCore,
+#endif
+				vSyncCmd, mRecordedStuff, mCurrentIndexIntoRecordedStuff);
 		}
 
 		command_buffer_t& mCommandBuffer;
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
 		const DISPATCH_LOADER_EXT_TYPE& mDispatchLoaderExt;
+#else
+		const DISPATCH_LOADER_CORE_TYPE& mDispatchLoaderCore;
+#endif
 		const std::vector<recorded_commands_t>& mRecordedStuff;
 		int mCurrentIndexIntoRecordedStuff;
 	};
 	
-	inline static void record_into_command_buffer(command_buffer_t& aCommandBuffer, const DISPATCH_LOADER_EXT_TYPE& aDispatchLoader, const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions)
+	inline static void record_into_command_buffer(
+		command_buffer_t& aCommandBuffer, 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+		const DISPATCH_LOADER_EXT_TYPE& aDispatchLoaderExt,
+#else
+		const DISPATCH_LOADER_CORE_TYPE& aDispatchLoaderCore,
+#endif
+		const std::vector<recorded_commands_t>& aRecordedCommandsAndSyncInstructions)
 	{
-		recordee_visitors visitState{ aCommandBuffer, aDispatchLoader, aRecordedCommandsAndSyncInstructions, /* Current index: */ 0 };
+		recordee_visitors visitState{ aCommandBuffer, 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			aDispatchLoaderExt,
+#else
+			aDispatchLoaderCore,
+#endif
+			aRecordedCommandsAndSyncInstructions, /* Current index: */ 0 };
 		
 		const int n = static_cast<int>(aRecordedCommandsAndSyncInstructions.size());
 		for (int i = 0; i < n; ++i) {
@@ -8034,7 +8130,13 @@ namespace avk
 			mCommandBufferToRecordInto.get().begin_recording();
 		}
 
-		record_into_command_buffer(mCommandBufferToRecordInto.get(), mRoot->dispatch_loader_ext(), aRecordedCommandsAndSyncInstructions);
+		record_into_command_buffer(mCommandBufferToRecordInto.get(), 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+			mRoot->dispatch_loader_ext(),
+#else
+			mRoot->dispatch_loader_core(),
+#endif
+			aRecordedCommandsAndSyncInstructions);
 
 		if (aBeginEnd) {
 			mCommandBufferToRecordInto.get().end_recording();
@@ -8163,11 +8265,19 @@ namespace avk
 						.setClearValueCount(static_cast<uint32_t>(lClearValues.size()))
 						.setPClearValues(lClearValues.data());
 
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
 					cb.handle().beginRenderPass2KHR(
 						renderPassBeginInfo,
 						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
 						lRoot->dispatch_loader_ext()
 					);
+#else
+					cb.handle().beginRenderPass2(
+						renderPassBeginInfo,
+						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
+						lRoot->dispatch_loader_core()
+					);
+#endif
 				}
 			};
 		}
@@ -8188,7 +8298,11 @@ namespace avk
 				},
 				{},
 				[](avk::command_buffer_t& cb) {
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
 					cb.handle().endRenderPass2KHR(vk::SubpassEndInfo{}, cb.root_ptr()->dispatch_loader_ext());
+#else
+					cb.handle().endRenderPass2(vk::SubpassEndInfo{}, cb.root_ptr()->dispatch_loader_core());
+#endif
 				}
 			};
 		}
@@ -8222,11 +8336,19 @@ namespace avk
 			return action_type_command{
 				{}, {}, // Sync hints not applicable here, I guess
 				[aSubpassesInline](avk::command_buffer_t& cb) {
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
 					cb.handle().nextSubpass2KHR(
 						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
 						vk::SubpassEndInfo{},
 						cb.root_ptr()->dispatch_loader_ext()
 					);
+#else
+					cb.handle().nextSubpass2(
+						vk::SubpassBeginInfo{ aSubpassesInline ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers },
+						vk::SubpassEndInfo{},
+						cb.root_ptr()->dispatch_loader_core()
+					);
+#endif
 				}
 			};
 		}
@@ -8553,7 +8675,17 @@ namespace avk
 			.setPSignalSemaphoreInfos(signalSem.data());
 
 		auto fenceHandle = mFence.has_value() ? mFence.value()->handle() : vk::Fence{};
-		auto result = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+#ifdef AVK_USE_SYNCHRONIZATION2_INSTEAD_OF_CORE
+		auto errorCode = mQueueToSubmitTo->handle().submit2KHR(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_ext());
+		if (vk::Result::eSuccess != errorCode) {
+			AVK_LOG_WARNING("submit2KHR returned " + vk::to_string(errorCode));
+	    }
+#else
+		auto errorCode = mQueueToSubmitTo->handle().submit2(1u, &submitInfo, fenceHandle, mRoot->dispatch_loader_core());
+		if (vk::Result::eSuccess != errorCode) {
+			AVK_LOG_WARNING("submit2 returned " + vk::to_string(errorCode));
+		}
+#endif
 
 		++mSubmissionCount;
 	}
