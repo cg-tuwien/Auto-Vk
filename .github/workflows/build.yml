@@ -120,7 +120,7 @@ jobs:
           } Else {
             curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/${{ matrix.vulkan-sdk }}/windows/VulkanSDK-${{ matrix.vulkan-sdk }}-Installer.exe
           }
-          7z x vulkan-sdk.exe install com.lunarg.vulkan.vma -o"${{ env.vulkan_sdk }}"
+          7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}" install com.lunarg.vulkan.vma
         
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
           cmake -E make_directory ${{ runner.workspace }}/${{ github.event.repository.name }}/build
@@ -184,7 +184,7 @@ jobs:
           } Else {
             curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/${{ matrix.vulkan-sdk }}/windows/VulkanSDK-${{ matrix.vulkan-sdk }}-Installer.exe
           }
-          7z x vulkan-sdk.exe install com.lunarg.vulkan.vma -o"${{ env.vulkan_sdk }}"
+          7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}" install com.lunarg.vulkan.vma
         
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
           cmake -E make_directory ${{ runner.workspace }}/${{ github.event.repository.name }}/build
