@@ -2,6 +2,15 @@
 #include <avk/avk_log.hpp>
 #include "avk/avk.hpp"
 
+#ifdef AVK_USES_VMA
+#define VMA_IMPLEMENTATION
+#if __has_include(<vma/vk_mem_alloc.h>)
+#include <vma/vk_mem_alloc.h>
+#else
+#include <vk_mem_alloc.h>
+#endif
+#endif
+
 namespace avk
 {
 #pragma region root definitions
