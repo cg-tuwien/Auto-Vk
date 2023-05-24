@@ -843,7 +843,6 @@ namespace avk
 			return draw_indexed_indirect(aParametersBuffer, aIndexBuffer, aNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aVertexBuffers...);
 		}
 
-#if defined(VK_VERSION_1_2)
 		/**	Perform an indexed indirect count draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
@@ -930,7 +929,32 @@ namespace avk
 			return draw_indexed_indirect_count(aParametersBuffer, aIndexBuffer, aMaxNumberOfDraws, vk::DeviceSize{ 0 }, static_cast<uint32_t>(sizeof(vk::DrawIndexedIndirectCommand)), aDrawCountBuffer, vk::DeviceSize{ 0 }, aVertexBuffers...);
 		}
 
-		action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
+        /**
+         * \brief Perform a dispatch call, i.e., invoke a compute shader
+         * \param aGroupCountX The number of local workgroups to dispatch in the X dimension.
+         * \param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
+         * \param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
+         * \return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
+
+		/**
+		 * \brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_NV_mesh_shader.
+		 * \param aTaskCount The number of local workgroups to dispatch in the X dimension. Y and Z dimension are implicitly set to one.
+		 * \param aFirstTask The X component of the first workgroup ID
+		 * \return An action_type_command instance which you must submit to a queue.
+		 */
+		extern action_type_command draw_mesh_tasks_nv(uint32_t aTaskCount, uint32_t aFirstTask);
+
+#if VK_HEADER_VERSION >= 239
+		/**
+		 * \brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
+		 * \param aGroupCountX The number of local workgroups to dispatch in the X dimension.
+		 * \param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
+		 * \param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
+		 * \return An action_type_command instance which you must submit to a queue.
+		 */
+		extern action_type_command draw_mesh_tasks_ext(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
 #endif
 
 #if VK_HEADER_VERSION >= 135
