@@ -1,4 +1,4 @@
-# Auto-Vk v0.98
+# Auto-Vk v0.98.1
 
 _Auto-Vk_ is a low-level convenience and productivity layer for the best graphics API there is, namely
 <p align="center">
@@ -317,6 +317,8 @@ _Auto-Vk_, however, allows to easily swap this straight-froward way of memory ha
 #define AVK_USE_VMA
 #include <avk/avk.hpp>
 ```
+
+If you're using `CMake` you can do this by setting the `avk_UseVMA` option to `ON`.
 
 _Note:_ Your project setup must enable the compiler to include VMA from one of the following include paths: `<vma/vk_mem_alloc.h>` or `<vk_mem_alloc.h>`. This can be established through:
 - Installing VMA through the Vulkan installer or its maintenance tool (e.g., `maintenancetool.exe` on Windows) by selecting the `Vulkan Memory Allocator header`. option.
