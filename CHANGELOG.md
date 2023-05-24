@@ -7,7 +7,7 @@ Notable _Auto-Vk_ versions in date-wise decending order:
 **Date:** 24.05.2023
 
 Major changes:
-- Ray tracing buffers memory alignment to device-demanded offsets (https://github.com/cg-tuwien/Auto-Vk/commit/f831cec59d58113e0c87971756aa0c8531fc77cf)
+- Ray tracing buffers memory alignment to device-demanded offsets https://github.com/cg-tuwien/Auto-Vk/commit/f831cec59d58113e0c87971756aa0c8531fc77cf
 - Awareness of official `VK_EXT_mesh_shader` mesh shader stages (https://github.com/cg-tuwien/Auto-Vk/commit/54d561170db952f44264569d0cd3c6fc94967467)
 - Added some mesh shader commands: `draw_mesh_tasks_nv` and `draw_mesh_tasks_ext` (https://github.com/cg-tuwien/Auto-Vk/commit/d7fe3b09f809484b773e3e2577c63873653b6cbf)
 - _Auto-Vk_ includes are now using quotes instead of angle brackets (https://github.com/cg-tuwien/Auto-Vk/commit/ff0a882c613b64dd176ed445c43601428fc5330b)
