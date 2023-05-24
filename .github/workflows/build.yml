@@ -34,11 +34,7 @@ jobs:
         # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
         # (not that ubuntu-latest (20.04) only supports >= v1.2.148 via apt)
         vulkan-sdk: ["latest", "1.2.176"]
-        vma: ["ON", "OFF"]
-        shouldTestCombination:
-          - ${{ vulkan-sdk = 'latest' || vma = 'OFF' }}
-        exclude:
-          - shouldTestVma: false
+        vma: ["OFF"]
 
     steps:
       - uses: actions/checkout@v2
@@ -105,11 +101,7 @@ jobs:
           }
         # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
         vulkan-sdk: ["latest", "1.2.176.1"]
-        vma: ["ON", "OFF"]
-        shouldTestCombination:
-          - ${{ vulkan-sdk = 'latest' || vma = 'OFF' }}
-        exclude:
-          - shouldTestVma: false
+        vma: ["OFF"]
 
     steps:
       # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
@@ -173,11 +165,7 @@ jobs:
           }
         # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
         vulkan-sdk: ["latest", "1.2.176.1"]
-        vma: ["ON", "OFF"]
-        shouldTestCombination:
-          - ${{ vulkan-sdk = 'latest' || vma = 'OFF' }}
-        exclude:
-          - shouldTestVma: false
+        vma: ["OFF"]
 
     steps:
       # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
