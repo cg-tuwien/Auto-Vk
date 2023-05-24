@@ -2,6 +2,15 @@
 #include <avk/avk_log.hpp>
 #include "avk/avk.hpp"
 
+#ifdef AVK_USES_VMA
+#define VMA_IMPLEMENTATION
+#if __has_include(<vma/vk_mem_alloc.h>)
+#include <vma/vk_mem_alloc.h>
+#else
+#include <vk_mem_alloc.h>
+#endif
+#endif
+
 namespace avk
 {
 #pragma region root definitions
@@ -8479,6 +8488,59 @@ namespace avk
 				}
 			};
 		}
+		
+		action_type_command draw_mesh_tasks_nv(uint32_t aTaskCount, uint32_t aFirstTask)
+		{
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead
+					    | vk::AccessFlagBits2KHR::eColorAttachmentRead
+					    | vk::AccessFlagBits2KHR::eColorAttachmentWrite
+					    | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead
+					    | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						| vk::AccessFlagBits2KHR::eShaderStorageRead // Because we must expect to read data from buffers
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[aTaskCount, aFirstTask](avk::command_buffer_t& cb) {
+					cb.handle().drawMeshTasksNV(aTaskCount, aFirstTask, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+		}
+
+#if VK_HEADER_VERSION >= 239
+		action_type_command draw_mesh_tasks_ext(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ)
+		{
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentWrite
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						| vk::AccessFlagBits2KHR::eShaderStorageRead // Because we must expect to read data from buffers
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[aGroupCountX, aGroupCountY, aGroupCountZ](avk::command_buffer_t& cb) {
+					cb.handle().drawMeshTasksEXT(aGroupCountX, aGroupCountY, aGroupCountZ, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+		}
+#endif
+
 
 #if VK_HEADER_VERSION >= 135
 		action_type_command trace_rays(

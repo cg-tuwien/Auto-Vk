@@ -18,7 +18,7 @@ if(NOT avk_LibraryType IN_LIST avk_AllowedLibraryTypes)
     message(FATAL_ERROR "avk_LibraryType must be one of ${avk_AllowedLibraryTypes}")
 endif()
 
-option(avk_UseVMA "Use Vulkan Memory Allocator (VMA) for custom memory allocation." OFF)
+option(avk_UseVMA "Use Vulkan Memory Allocator (VMA) for internal memory allocation." OFF)
 
 set(avk_IncludeDirs
         include)
@@ -26,7 +26,7 @@ set(avk_Sources
         src/avk.cpp)
 
 if(avk_UseVMA)
-    list(APPEND avk_Sources src/vk_mem_alloc.cpp)
+    add_compile_definitions(AVK_USE_VMA)
 endif()
 
 add_library(${PROJECT_NAME} ${avk_LibraryType})
