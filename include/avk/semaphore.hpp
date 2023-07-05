@@ -68,7 +68,7 @@ namespace avk
 		*   @param aTimeout (optional) Defines a timeout (in nanoseconds) after which the function returns regardless of the semaphore state.
 		*   @return Value of type vk::Result containing information about whether the wait operation succeeded, or the timeout has been triggered.
 		*/
-		static vk::Result wait_until_signaled(const std::vector<const semaphore_t*> &aSemaphores, const std::vector<uint64_t> &aTimestamps, bool aWaitOnAll = true, std::optional<uint64_t> aTimeout = {});
+		static vk::Result wait_until_signaled(const std::span<std::reference_wrapper<const semaphore_t>> aSemaphores, const std::span<uint64_t> &aTimestamps, bool aWaitOnAll = true, std::optional<uint64_t> aTimeout = {});
 
 		/** @brief Waits on host until the condition specified with the parameters is met.
 		*   @param aDevice The logical device owning all referenced timeline semaphores.

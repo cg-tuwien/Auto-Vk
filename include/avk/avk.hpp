@@ -975,10 +975,11 @@ namespace avk
 #pragma region semaphore
 		static semaphore create_semaphore(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 		semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
-		/** @brief Creates a timeline semaphore
-		*   @param aPayload					(optional) The initial value of the payload. Defaults to 0.
-		*   @param aAlterConfigBeforeCreation (optional) Use it to alter the timeline semaphore configuration before it is actually being created.
-		*   @return The created semaphore.
+		/** 
+		* @brief Creates a timeline semaphore
+		* @param aPayload                   (optional) The initial value of the payload. Defaults to 0.
+		* @param aAlterConfigBeforeCreation (optional) Use it to alter the timeline semaphore configuration before it is actually being created.
+		* @return The created semaphore.
 		*/
 		semaphore create_timeline_semaphore(uint64_t aPayload = 0, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 #pragma endregion

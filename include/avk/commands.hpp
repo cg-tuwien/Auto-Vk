@@ -1242,6 +1242,11 @@ namespace avk
 		avk::resource_argument<avk::semaphore_t> mWaitSemaphore;
 		avk::stage::pipeline_stage_flags mDstStage;
 		uint64_t mValue;
+
+		semaphore_wait_info& at_value(uint64_t aValue) {
+			mValue = aValue;
+			return *this;
+		}
 	};
 
 	inline semaphore_wait_info operator>> (avk::resource_argument<avk::semaphore_t> a, avk::stage::pipeline_stage_flags b)
@@ -1249,40 +1254,21 @@ namespace avk
 		return semaphore_wait_info{ std::move(a), b, 0 };
 	}
 
-	inline semaphore_wait_info&& operator| (uint64_t aValue, semaphore_wait_info&& aInfo)
-	{
-		aInfo.mValue = aValue;
-		return std::move(aInfo);
-	}
-
-	inline semaphore_wait_info& operator| (uint64_t aValue, semaphore_wait_info& aInfo)
-	{
-		aInfo.mValue = aValue;
-		return aInfo;
-	}
-
 	struct semaphore_signal_info
 	{
 		avk::stage::pipeline_stage_flags mSrcStage;
 		avk::resource_argument<avk::semaphore_t> mSignalSemaphore;
 		uint64_t mValue;
+
+		semaphore_signal_info& to_value(uint64_t aValue) {
+			mValue = aValue;
+			return *this;
+		}
 	};
 
 	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags a, avk::resource_argument<avk::semaphore_t> b)
 	{
 		return semaphore_signal_info{ a, std::move(b), 0 };
-	}
-
-	inline semaphore_signal_info&& operator| (semaphore_signal_info&& aInfo, uint64_t aValue)
-	{
-		aInfo.mValue = aValue;
-		return std::move(aInfo);
-	}
-
-	inline semaphore_signal_info& operator| (semaphore_signal_info& aInfo, uint64_t aValue)
-	{
-		aInfo.mValue = aValue;
-		return aInfo;
 	}
 
 

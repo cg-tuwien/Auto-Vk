@@ -11,8 +11,6 @@
 #endif
 #endif
 
-#define _SILENCE_CXX20_CISCO646_REMOVED_WARNING
-
 namespace avk
 {
 #pragma region root definitions
@@ -7131,14 +7129,12 @@ namespace avk
 
 	semaphore root::create_timeline_semaphore(uint64_t aPayload, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
 	{
-		return create_semaphore(device(), dispatch_loader_core(), [otherAlterations = move(aAlterConfigBeforeCreation), aPayload](semaphore_t& aSem) {
-			auto typeInfo = std::make_unique<vk::SemaphoreTypeCreateInfo>();
-			typeInfo->semaphoreType = vk::SemaphoreType::eTimeline;
-			typeInfo->initialValue = aPayload;
+		auto typeInfo = std::make_unique<vk::SemaphoreTypeCreateInfo>();
+		typeInfo->semaphoreType = vk::SemaphoreType::eTimeline;
+		typeInfo->initialValue = aPayload;
 
+		return create_semaphore(device(), dispatch_loader_core(), [otherAlterations = move(aAlterConfigBeforeCreation), &typeInfo](semaphore_t& aSem) {
 			aSem.create_info().pNext = typeInfo.get();
-			aSem.set_custom_deleter([aTypeInfo = move(typeInfo)]() { /* Do nothing ... this lambda just keeps the typeInfo struct alive */ });
-			// maybe extend any_owning_resource_t and use handle_lifetime_of instead?
 
 			if (otherAlterations) {
 				otherAlterations(aSem);
@@ -7171,28 +7167,28 @@ namespace avk
 	}
 
 	vk::Result semaphore_t::wait_until_signaled(uint64_t aRequiredValue, std::optional<uint64_t> aTimeout) const {
-		return wait_until_signaled({ this }, {aRequiredValue} , true, aTimeout);	// maybe avoid unnecessary vector construction by just creating SemaphoreWaitInfo in this function
+		std::vector<std::reference_wrapper<const semaphore_t>> semaphores{ *this };
+		return wait_until_signaled(semaphores, std::span<uint64_t>(&aRequiredValue, 1), true, aTimeout);
 	}
 
-	vk::Result semaphore_t::wait_until_signaled(const std::vector<const semaphore_t*>& aSemaphores, const std::vector<uint64_t>& aTimestamps, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
+	vk::Result semaphore_t::wait_until_signaled(const std::span<std::reference_wrapper<const semaphore_t>> aSemaphores, const std::span<uint64_t>& aTimestamps, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
 		assert(aSemaphores.size() == aTimestamps.size());
 		if (aSemaphores.size() == 0) {
 			return vk::Result::eSuccess;
 		}
 
-		std::vector<const vk::Semaphore*> semaphores;
-		std::transform(aSemaphores.begin(), aSemaphores.end(), std::back_inserter(semaphores), [](const semaphore_t* s) {return &s->mSemaphore.get(); });
+		std::vector<vk::Semaphore> semaphores;
+		std::transform(aSemaphores.begin(), aSemaphores.end(), std::back_inserter(semaphores), [](const semaphore_t& s) {return s.mSemaphore.get(); });
 
-		vk::SemaphoreWaitInfo info{};
-		info.sType = vk::StructureType::eSemaphoreWaitInfo;
-		info.pNext = NULL;
-		info.flags = aWaitOnAll ? vk::SemaphoreWaitFlags() : vk::SemaphoreWaitFlagBits::eAny;
-		info.semaphoreCount = uint32_t(semaphores.size());
-		info.pSemaphores = *(semaphores.data());
-		info.pValues = aTimestamps.data();
+		vk::SemaphoreWaitInfo info{
+			aWaitOnAll ? vk::SemaphoreWaitFlags() : vk::SemaphoreWaitFlagBits::eAny,
+			static_cast<uint32_t>(semaphores.size()),
+			semaphores.data(),
+			aTimestamps.data()
+		};
 
 		// assume all semapores use the same device
-		return wait_until_signaled(aSemaphores.front()->mSemaphore.getOwner(), info, aTimeout);
+		return wait_until_signaled(aSemaphores.front().get().mSemaphore.getOwner(), info, aTimeout);
 	}
 
 	vk::Result semaphore_t::wait_until_signaled(const vk::Device& aDevice, const vk::SemaphoreWaitInfo& aInfo, std::optional<uint64_t> aTimeout) {
