@@ -17,6 +17,7 @@
 #include <queue>
 #include <set>
 #include <unordered_set>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
