@@ -7156,13 +7156,9 @@ namespace avk
 	}
 
 	void semaphore_t::signal(uint64_t aNewValue) const {
-
-		vk::SemaphoreSignalInfo info{};
-		info.sType = vk::StructureType::eSemaphoreSignalInfo;
-		info.pNext = NULL;
-		info.semaphore = mSemaphore.get();
-		info.value = aNewValue;
-
+		auto info = vk::SemaphoreSignalInfo{}
+		    .setSemaphore(mSemaphore.get())
+		    .setValue(aNewValue);
 		mSemaphore.getOwner().signalSemaphore(info);
 	}
 
