@@ -1235,9 +1235,7 @@ namespace avk
 #endif
 	}
 
-
-
-	struct semaphore_wait_info
+    struct semaphore_wait_info
 	{
 		avk::resource_argument<avk::semaphore_t> mWaitSemaphore;
 		avk::stage::pipeline_stage_flags mDstStage;
@@ -1249,28 +1247,47 @@ namespace avk
 		}
 	};
 
-	inline semaphore_wait_info operator>> (avk::resource_argument<avk::semaphore_t> a, avk::stage::pipeline_stage_flags b)
+	inline semaphore_wait_info operator>> (avk::resource_argument<avk::semaphore_t> aSemaphore, avk::stage::pipeline_stage_flags aStageFlags)
 	{
-		return semaphore_wait_info{ std::move(a), b, 0 };
+		return semaphore_wait_info{ std::move(aSemaphore), aStageFlags, 0 };
 	}
+
+	/** Helper struct to specify a semaphore and a signal value for it.
+	 *  This is used for timeline semaphores.
+	 */
+	struct semaphore_value_info
+	{
+		avk::resource_argument<avk::semaphore_t> mSignalSemaphore;
+		uint64_t mValue;
+	};
 
 	struct semaphore_signal_info
 	{
 		avk::stage::pipeline_stage_flags mSrcStage;
 		avk::resource_argument<avk::semaphore_t> mSignalSemaphore;
 		uint64_t mValue;
-
-		semaphore_signal_info& to_value(uint64_t aValue) {
-			mValue = aValue;
-			return *this;
-		}
 	};
 
-	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags a, avk::resource_argument<avk::semaphore_t> b)
+	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags aStageFlags, avk::resource_argument<avk::semaphore_t> aSemaphore)
 	{
-		return semaphore_signal_info{ a, std::move(b), 0 };
+		return semaphore_signal_info{ aStageFlags, std::move(aSemaphore), 0 };
+	}
+	
+	inline semaphore_value_info operator>> (avk::resource_argument<avk::semaphore_t> aSemaphore, uint64_t aSemaphoreValue)
+	{
+		return semaphore_value_info{ std::move(aSemaphore), aSemaphoreValue };
 	}
 
+	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags aStageFlags, semaphore_value_info aSemaphoreValueInfo)
+	{
+		return semaphore_signal_info{ aStageFlags, std::move(aSemaphoreValueInfo.mSignalSemaphore), aSemaphoreValueInfo.mValue };
+	}
+
+	inline semaphore_signal_info operator>> (avk::semaphore_signal_info aSemaphoreSignalInfo, uint64_t aSemaphoreValue)
+	{
+		aSemaphoreSignalInfo.mValue	 = aSemaphoreValue;
+		return aSemaphoreSignalInfo;
+	}
 
 	class recorded_command_buffer;
 
