@@ -7166,35 +7166,41 @@ namespace avk
 		mSemaphore.getOwner().signalSemaphore(info);
 	}
 
-	vk::Result semaphore_t::wait_until_signaled(uint64_t aRequiredValue, std::optional<uint64_t> aTimeout) const {
-		std::vector<std::reference_wrapper<const semaphore_t>> semaphores{ *this };
-		return wait_until_signaled(semaphores, std::span<uint64_t>(&aRequiredValue, 1), true, aTimeout);
-	}
-
-	vk::Result semaphore_t::wait_until_signaled(const std::span<std::reference_wrapper<const semaphore_t>> aSemaphores, const std::span<uint64_t>& aTimestamps, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
-		assert(aSemaphores.size() == aTimestamps.size());
-		if (aSemaphores.size() == 0) {
-			return vk::Result::eSuccess;
-		}
-
-		std::vector<vk::Semaphore> semaphores;
-		std::transform(aSemaphores.begin(), aSemaphores.end(), std::back_inserter(semaphores), [](const semaphore_t& s) {return s.mSemaphore.get(); });
-
+	void semaphore_t::wait_until_signaled(uint64_t aSignalValue, std::optional<uint64_t> aTimeout) const {
 		vk::SemaphoreWaitInfo info{
-			aWaitOnAll ? vk::SemaphoreWaitFlags() : vk::SemaphoreWaitFlagBits::eAny,
-			static_cast<uint32_t>(semaphores.size()),
-			semaphores.data(),
-			aTimestamps.data()
+	        vk::SemaphoreWaitFlags{},
+	        1u,
+	        handle_addr(),
+	        &aSignalValue
 		};
-
-		// assume all semapores use the same device
-		return wait_until_signaled(aSemaphores.front().get().mSemaphore.getOwner(), info, aTimeout);
+		wait_until_signaled(info, aTimeout);
 	}
 
-	vk::Result semaphore_t::wait_until_signaled(const vk::Device& aDevice, const vk::SemaphoreWaitInfo& aInfo, std::optional<uint64_t> aTimeout) {
-		auto result = aDevice.waitSemaphores(aInfo, aTimeout.value_or(UINT64_MAX));
-		assert(static_cast<VkResult>(result) >= 0);
-		return result;
+	//vk::Result semaphore_t::wait_until_signaled(std::span<semaphore_signal_info> aSignalInfos, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
+	//	if (aSemaphores.size() == 0) {
+	//		return vk::Result::eSuccess;
+	//	}
+
+	//	std::vector<vk::Semaphore> semHandles;
+	//	std::vector<uint64_t> timestampValues;
+	//	for (const auto& ssi : aSignalInfos) {
+ //           semHandles.push_back(ssi.mSignalSemaphore->handle());
+ //           timestampValues.push_back(ssi.mValue);
+ //       }
+
+	//	vk::SemaphoreWaitInfo info{
+	//		aWaitOnAll ? vk::SemaphoreWaitFlags{} : vk::SemaphoreWaitFlagBits::eAny,
+	//		static_cast<uint32_t>(semHandles.size()),
+	//		semHandles.data(),
+	//		timestampValues.data()
+	//	};
+
+	//	// assume all semapores use the same device
+	//	return wait_until_signaled(aSemaphores.front().get().mSemaphore.getOwner(), info, aTimeout);
+	//}
+
+	void semaphore_t::wait_until_signaled(const vk::SemaphoreWaitInfo& aInfo, std::optional<uint64_t> aTimeout) const {
+		mSemaphore.getOwner().waitSemaphores(aInfo, aTimeout.value_or(UINT64_MAX));
 	}
 
 #pragma endregion
