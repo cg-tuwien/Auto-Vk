@@ -983,6 +983,15 @@ namespace avk
 		* @return The created semaphore.
 		*/
 		semaphore create_timeline_semaphore(uint64_t aPayload = 0, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+
+		/** 
+		* @brief Waits on host until the condition specified with the parameters is met.
+		* @param aSemaphoreValueInfos Span of semaphore_value_info structs, each containing a semaphore and a payload value to wait on. All semaphores are required to be owned by the same logical device.
+		* @param aWaitOnAll (optional) If true, waits until ALL semaphores have reached their target timestamps. If false, waits until ANY semaphore has reached its target timestamp.
+		* @param aTimeout (optional) Defines a timeout (in nanoseconds) after which the function returns regardless of the semaphore state.
+		* @return Value of type vk::Result containing information about whether the wait operation succeeded, or the timeout has been triggered.
+		*/
+		static vk::Result wait_until_signaled(std::span<avk::semaphore_value_info> aSemaphoreValueInfos, bool aWaitOnAll = true, std::optional<uint64_t> aTimeout = {});
 #pragma endregion
 
 #pragma region shader
