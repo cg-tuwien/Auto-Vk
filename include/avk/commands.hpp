@@ -930,31 +930,54 @@ namespace avk
 		}
 
         /**
-         * \brief Perform a dispatch call, i.e., invoke a compute shader
-         * \param aGroupCountX The number of local workgroups to dispatch in the X dimension.
-         * \param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
-         * \param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
-         * \return An action_type_command instance which you must submit to a queue.
+         * @brief Perform a dispatch call, i.e., invoke a compute shader
+         * @param aGroupCountX The number of local workgroups to dispatch in the X dimension.
+         * @param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
+         * @param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
+         * @return An action_type_command instance which you must submit to a queue.
          */
         extern action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
 
 		/**
-		 * \brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_NV_mesh_shader.
-		 * \param aTaskCount The number of local workgroups to dispatch in the X dimension. Y and Z dimension are implicitly set to one.
-		 * \param aFirstTask The X component of the first workgroup ID
-		 * \return An action_type_command instance which you must submit to a queue.
+		 * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_NV_mesh_shader.
+		 * @param aTaskCount The number of local workgroups to dispatch in the X dimension. Y and Z dimension are implicitly set to one.
+		 * @param aFirstTask The X component of the first workgroup ID
+		 * @return An action_type_command instance which you must submit to a queue.
 		 */
 		extern action_type_command draw_mesh_tasks_nv(uint32_t aTaskCount, uint32_t aFirstTask);
 
 #if VK_HEADER_VERSION >= 239
-		/**
-		 * \brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
-		 * \param aGroupCountX The number of local workgroups to dispatch in the X dimension.
-		 * \param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
-		 * \param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
-		 * \return An action_type_command instance which you must submit to a queue.
-		 */
-		extern action_type_command draw_mesh_tasks_ext(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
+        /**
+         * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
+         * @param aGroupCountX The number of local workgroups to dispatch in the X dimension.
+         * @param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
+         * @param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+
+        extern action_type_command draw_mesh_tasks_ext(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
+
+        /**
+         * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
+         * @param aDrawBuffer			buffer containing draw parameters.
+         * @param aDrawBufferOffset		byte offset into buffer where parameters begin.
+         * @param aDrawCount			number of draws to execute, and can be zero.
+         * @param aStride				byte stride between successive sets of draw parameters.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command draw_mesh_tasks_indirect_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, uint32_t aDrawCount, uint32_t aStride);
+
+        /**
+         * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
+         * @param aDrawBuffer			buffer containing draw parameters.
+         * @param aDrawBufferOffset		byte offset into buffer where parameters begin.
+         * @param aCountBuffer			buffer containing the draw count.
+         * @param aCountBufferOffset	byte offset into countBuffer where the draw count begins.
+         * @param aMaxDrawCount			number of draws to execute, and can be zero.
+         * @param aStride				byte stride between successive sets of draw parameters.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command draw_mesh_tasks_indirect_count_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, avk::buffer aCountBuffer, uint32_t aCountBufferOffset, uint32_t aMaxDrawCount, uint32_t aStride);
 #endif
 
 #if VK_HEADER_VERSION >= 135
