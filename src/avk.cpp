@@ -2887,8 +2887,6 @@ namespace avk
 
 	command_buffer_t& command_buffer_t::handle_lifetime_of(any_owning_resource_t aResource)
 	{
-
-
 		mLifetimeHandledResources.push_back(std::move(aResource));
 		return *this;
 	}
@@ -8538,6 +8536,59 @@ namespace avk
 					cb.handle().drawMeshTasksEXT(aGroupCountX, aGroupCountY, aGroupCountZ, cb.root_ptr()->dispatch_loader_ext());
 				}
 			};
+		}
+
+		action_type_command draw_mesh_tasks_indirect_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, uint32_t aDrawCount, uint32_t aStride)
+		{
+			auto actionTypeCmd = action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentWrite
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						| vk::AccessFlagBits2KHR::eShaderStorageRead // Because we must expect to read data from buffers
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+                {}, [lBufferHandle = aDrawBuffer->handle(), aDrawBufferOffset, aDrawCount, aStride](avk::command_buffer_t& cb) {
+                    cb.handle().drawMeshTasksIndirectEXT(lBufferHandle, aDrawBufferOffset, aDrawCount, aStride, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+            actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aDrawBuffer));
+			return actionTypeCmd;
+		}
+
+		action_type_command draw_mesh_tasks_indirect_count_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, avk::buffer aCountBuffer, uint32_t aCountBufferOffset, uint32_t aMaxDrawCount, uint32_t aStride)
+		{
+			auto actionTypeCmd = action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentWrite
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						| vk::AccessFlagBits2KHR::eShaderStorageRead // Because we must expect to read data from buffers
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+                {}, [lDrawBufferHandle = aDrawBuffer->handle(), aDrawBufferOffset, lCountBufferHandle = aCountBuffer->handle(), aCountBufferOffset, aMaxDrawCount, aStride](avk::command_buffer_t& cb) {
+                    cb.handle().drawMeshTasksIndirectCountEXT(lDrawBufferHandle, aDrawBufferOffset, lCountBufferHandle, aCountBufferOffset, aMaxDrawCount, aStride, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+            actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aDrawBuffer));
+            actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aCountBuffer));
+			return actionTypeCmd;
 		}
 #endif
 
