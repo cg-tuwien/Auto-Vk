@@ -1235,6 +1235,18 @@ namespace avk
 #endif
 	}
 
+	/** Helper struct to specify a semaphore and a signal value for it.
+	 *  This is used for timeline semaphores.
+	 */
+	struct semaphore_value_info
+	{
+		avk::resource_argument<avk::semaphore_t> mSemaphore;
+		uint64_t mValue;
+	};
+	inline semaphore_value_info operator,(avk::resource_argument<avk::semaphore_t> aSemaphore, uint64_t aValue) {
+		return semaphore_value_info{std::move(aSemaphore), aValue};
+	}
+
     struct semaphore_wait_info
 	{
 		avk::resource_argument<avk::semaphore_t> mWaitSemaphore;
@@ -1252,14 +1264,10 @@ namespace avk
 		return semaphore_wait_info{ std::move(aSemaphore), aStageFlags, 0 };
 	}
 
-	/** Helper struct to specify a semaphore and a signal value for it.
-	 *  This is used for timeline semaphores.
-	 */
-	struct semaphore_value_info
+	inline semaphore_wait_info operator>> (semaphore_value_info aSemaphoreValueInfo, avk::stage::pipeline_stage_flags aStageFlags)
 	{
-		avk::resource_argument<avk::semaphore_t> mSignalSemaphore;
-		uint64_t mValue;
-	};
+		return semaphore_wait_info{ std::move(aSemaphoreValueInfo.mSemaphore), aStageFlags, aSemaphoreValueInfo.mValue };
+	}
 
 	struct semaphore_signal_info
 	{
@@ -1272,21 +1280,10 @@ namespace avk
 	{
 		return semaphore_signal_info{ aStageFlags, std::move(aSemaphore), 0 };
 	}
-	
-	inline semaphore_value_info operator>> (avk::resource_argument<avk::semaphore_t> aSemaphore, uint64_t aSemaphoreValue)
-	{
-		return semaphore_value_info{ std::move(aSemaphore), aSemaphoreValue };
-	}
 
 	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags aStageFlags, semaphore_value_info aSemaphoreValueInfo)
 	{
-		return semaphore_signal_info{ aStageFlags, std::move(aSemaphoreValueInfo.mSignalSemaphore), aSemaphoreValueInfo.mValue };
-	}
-
-	inline semaphore_signal_info operator>> (avk::semaphore_signal_info aSemaphoreSignalInfo, uint64_t aSemaphoreValue)
-	{
-		aSemaphoreSignalInfo.mValue	 = aSemaphoreValue;
-		return aSemaphoreSignalInfo;
+		return semaphore_signal_info{ aStageFlags, std::move(aSemaphoreValueInfo.mSemaphore), aSemaphoreValueInfo.mValue };
 	}
 
 	class recorded_command_buffer;

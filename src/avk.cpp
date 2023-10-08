@@ -7147,12 +7147,12 @@ namespace avk
 			return vk::Result::eSuccess;
 		}
 
-		const vk::Device& device = aSemaphoreValueInfos.front().mSignalSemaphore->mSemaphore.getOwner();
+		const vk::Device& device = aSemaphoreValueInfos.front().mSemaphore->mSemaphore.getOwner();
 		std::vector<vk::Semaphore> semHandles;
 		std::vector<uint64_t> timestampValues;
 		for (const auto& svi : aSemaphoreValueInfos) {
-			assert(device == svi.mSignalSemaphore->mSemaphore.getOwner());
-			semHandles.push_back(svi.mSignalSemaphore->handle());
+			assert(device == svi.mSemaphore->mSemaphore.getOwner());
+			semHandles.push_back(svi.mSemaphore->handle());
 			timestampValues.push_back(svi.mValue);
 		}
 
