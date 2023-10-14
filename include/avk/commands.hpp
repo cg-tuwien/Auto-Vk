@@ -1247,7 +1247,7 @@ namespace avk
 		return semaphore_value_info{std::move(aSemaphore), aValue};
 	}
 
-    struct semaphore_wait_info
+	struct semaphore_wait_info
 	{
 		avk::resource_argument<avk::semaphore_t> mWaitSemaphore;
 		avk::stage::pipeline_stage_flags mDstStage;

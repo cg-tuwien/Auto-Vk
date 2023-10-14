@@ -7181,17 +7181,17 @@ namespace avk
 
 	void semaphore_t::signal(uint64_t aNewValue) const {
 		auto info = vk::SemaphoreSignalInfo{}
-		    .setSemaphore(mSemaphore.get())
-		    .setValue(aNewValue);
+			.setSemaphore(mSemaphore.get())
+			.setValue(aNewValue);
 		mSemaphore.getOwner().signalSemaphore(info);
 	}
 
 	void semaphore_t::wait_until_signaled(uint64_t aSignalValue, std::optional<uint64_t> aTimeout) const {
 		vk::SemaphoreWaitInfo info{
-	        vk::SemaphoreWaitFlags{},
-	        1u,
-	        handle_addr(),
-	        &aSignalValue
+			vk::SemaphoreWaitFlags{},
+			1u,
+			handle_addr(),
+			&aSignalValue
 		};
 		mSemaphore.getOwner().waitSemaphores(info, aTimeout.value_or(UINT64_MAX));
 	}
