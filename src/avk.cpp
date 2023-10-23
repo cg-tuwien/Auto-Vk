@@ -1661,8 +1661,8 @@ namespace avk
 			// Create sync hint for each one of the buffers
 			// As the specification has it:
 			//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stageand an access type of VK_ACCESS_SHADER_READ_BIT:
-			resSpecificSyncHints.push_back(std::make_tuple(vertexBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
-			resSpecificSyncHints.push_back(std::make_tuple(indexBuffer->handle(),  avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+			resSpecificSyncHints.push_back(std::make_tuple(vertexBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
+			resSpecificSyncHints.push_back(std::make_tuple(indexBuffer->handle(),  avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
 
 			// See if we must handle the lifetime of the two buffers:
 			if (vertexBuffer.is_ownership()) {
@@ -1786,7 +1786,7 @@ namespace avk
 		// Let's additionally also fill the dependencies for the geometries buffer:
 		// As the specification has it:
 		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
-		resSpecificSyncHints.push_back(std::make_tuple(aGeometriesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometriesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
 
 		const auto& aabbMeta = aGeometriesBuffer->meta<aabb_buffer_meta>();
 		auto startAddress = aGeometriesBuffer->device_address();
@@ -2048,7 +2048,7 @@ namespace avk
 		// Let's additionally also fill the dependencies for the geometries buffer:
 		// As the specification has it:
 		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
-		resSpecificSyncHints.push_back(std::make_tuple(aGeometryInstancesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometryInstancesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
 
 		const auto& metaData = aGeometryInstancesBuffer->meta<geometry_instance_buffer_meta>();
 		auto startAddress = aGeometryInstancesBuffer->device_address();
