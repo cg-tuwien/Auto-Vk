@@ -79,7 +79,7 @@ avk::framebuffer framebuffer = myRoot.create_framebuffer(...);
 avk::semaphore imageAvailableSemaphore = ...;
 
 mRoot.record({
-      avk::command::render_pass(graphicsPipeline->renderpass_reference(), framebuffer.as_reference(), {
+      avk::command::render_pass(*graphicsPipeline->renderpass_pointer().value(), framebuffer.as_reference(), {
           avk::command::bind_pipeline(graphicsPipeline.as_reference()),
           avk::command::draw(3u, 1u, 0u, 0u)
       })

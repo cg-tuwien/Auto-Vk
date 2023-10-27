@@ -16,10 +16,25 @@ namespace avk
 		graphics_pipeline_t& operator=(const graphics_pipeline_t&) = delete;
 		~graphics_pipeline_t() = default;
 
-		[[nodiscard]] avk::renderpass renderpass() const { return mRenderPass; }
-		[[nodiscard]] const avk::renderpass_t& renderpass_reference() const { return mRenderPass.get(); }
-		auto renderpass_handle() const { return mRenderPass->handle(); }
-		auto subpass_id() const { return mSubpassIndex; }
+		[[nodiscard]] auto renderpass() const { return mRenderPass; }
+		// TODO(msakmary) I can also keep the consistent naming aka renderpass_reference() return std::optional<std::reference_wrapper>> I feel like this is way cleaner?
+		[[nodiscard]] auto renderpass_pointer() const -> std::optional<const avk::renderpass_t *>
+		{
+			if(mRenderPass.has_value()) { return &(mRenderPass.value().get()); }
+			else 						{ return std::nullopt; }
+		} 
+		// TODO(msakmary) Perhaps I just return std::optional<vk::RenderPass> here? It would probably be more readable then declval
+		auto renderpass_handle() const -> std::optional<decltype(std::declval<avk::renderpass_t>().handle())>
+		{
+			if(mRenderPass.has_value()) {return mRenderPass.value()->handle();}
+			else 						{return std::nullopt;}
+		}
+		auto subpass_id() const -> std::optional<uint32_t> 
+		{
+			if(mRenderPass.has_value()) {return mSubpassIndex;}
+			// TODO(msakmary) change subpass index to int and make -1 invalid value or perhaps add on optional here?
+			else 						{return -1;}
+		};
 		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }
 		auto& vertex_input_attribute_descriptions() { return mVertexInputAttributeDescriptions; }
 		auto& vertex_input_state_create_info() { return mPipelineVertexInputStateCreateInfo; }
@@ -69,7 +84,7 @@ namespace avk
 		const auto& handle() const { return mPipeline.get(); }
 		
 	private:
-		avk::renderpass mRenderPass;
+		std::optional<avk::renderpass> mRenderPass;
 		uint32_t mSubpassIndex;
 		// The vertex input data:
 		std::vector<vk::VertexInputBindingDescription> mOrderedVertexInputBindingDescriptions;
@@ -85,6 +100,9 @@ namespace avk
 		std::vector<vk::Viewport> mViewports;
 		std::vector<vk::Rect2D> mScissors;
 		vk::PipelineViewportStateCreateInfo mViewportStateCreateInfo;
+		// Dynamic rendering state
+		std::vector<vk::Format> mDynamicRenderingColorFormats;
+		std::optional<vk::PipelineRenderingCreateInfo> mRenderingCreateInfo;
 		// Rasterization state:
 		vk::PipelineRasterizationStateCreateInfo mRasterizationStateCreateInfo;
 		// Depth stencil config:
