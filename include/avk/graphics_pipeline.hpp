@@ -102,7 +102,7 @@ namespace avk
 		vk::PipelineViewportStateCreateInfo mViewportStateCreateInfo;
 		// Dynamic rendering state
 		std::vector<vk::Format> mDynamicRenderingColorFormats;
-		std::optional<vk::PipelineRenderingCreateInfo> mRenderingCreateInfo;
+		std::optional<vk::PipelineRenderingCreateInfoKHR> mRenderingCreateInfo;
 		// Rasterization state:
 		vk::PipelineRasterizationStateCreateInfo mRasterizationStateCreateInfo;
 		// Depth stencil config:

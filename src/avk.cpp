@@ -4878,7 +4878,7 @@ namespace avk
 			if(depth_attachments.size() > 1)   { throw avk::runtime_error("Provided multiple depth attachments! Only one is supported!"); }
 			if(stencil_attachments.size() > 1) { throw avk::runtime_error("Provided multiple stencil attachments! Only one is supported!"); }
 
-			result.mRenderingCreateInfo = vk::PipelineRenderingCreateInfo{}
+			result.mRenderingCreateInfo = vk::PipelineRenderingCreateInfoKHR{}
 				.setColorAttachmentCount(static_cast<uint32_t>(result.mDynamicRenderingColorFormats.size()))
 				.setPColorAttachmentFormats(result.mDynamicRenderingColorFormats.data())
 				.setDepthAttachmentFormat(depth_attachments.size() == 1 ? depth_attachments.at(0) : vk::Format{})
