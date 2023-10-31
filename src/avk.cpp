@@ -1,3 +1,5 @@
+#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_structs.hpp>
 #define NOMINMAX
 #include <avk/avk_log.hpp>
 #include "avk/avk.hpp"
@@ -585,6 +587,7 @@ namespace avk
 			vk::Format::eD16UnormS8Uint,
 			vk::Format::eD24UnormS8Uint,
 			vk::Format::eD32SfloatS8Uint,
+			vk::Format::eS8Uint,
 		};
 		auto it = std::find(std::begin(stencilFormats), std::end(stencilFormats), aImageFormat);
 		return it != stencilFormats.end();
@@ -8364,6 +8367,168 @@ namespace avk
 
 	namespace command
 	{
+
+		action_type_command begin_dynamic_rendering(
+			std::vector<attachment> aAttachments,
+			std::vector<image_view> aImageViews,
+			vk::Offset2D aRenderAreaOffset,
+			std::optional<vk::Extent2D> aRenderAreaExtent,
+			uint32_t aLayerCount)
+		{
+#ifdef _DEBUG
+			if (aAttachments.size() != aImageViews.size()) {
+				throw avk::runtime_error("Incomplete config for begin dynamic rendering: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
+			}
+			auto n = aAttachments.size();
+			for (size_t i = 0; i < n; ++i) {
+				auto& a = aAttachments[i];
+				auto& v = aImageViews[i];
+				if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
+					AVK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
+				}
+			}
+#endif //_DEBUG
+			const bool detectExtent = aRenderAreaExtent.has_value();
+			std::vector<vk::RenderingAttachmentInfoKHR> colorAttachments = {};
+			std::optional<vk::RenderingAttachmentInfoKHR> depthAttachment = {};
+			std::optional<vk::RenderingAttachmentInfoKHR> stencilAttachment = {};
+			// First parse all the attachments into vulkan structs
+			for(uint32_t attachmentIndex = 0; attachmentIndex < aAttachments.size(); attachmentIndex++)
+			{
+				const auto & currAttachment = aAttachments.at(attachmentIndex);
+				const auto & currImageView = aImageViews.at(attachmentIndex);
+				if(detectExtent && !aRenderAreaExtent.has_value())
+				{
+					const auto imageExtent = currImageView->get_image().create_info().extent;
+					aRenderAreaExtent = vk::Extent2D{
+						imageExtent.width - static_cast<uint32_t>(aRenderAreaOffset.x),
+						imageExtent.height - static_cast<uint32_t>(aRenderAreaOffset.y)
+					};
+				}
+#ifdef _DEBUG
+				else if(detectExtent)
+				{
+					const auto imageExtent = currImageView->get_image().create_info().extent;
+					const auto currAreaExtent = vk::Extent2D{
+						imageExtent.width - static_cast<uint32_t>(aRenderAreaOffset.x),
+						imageExtent.height - static_cast<uint32_t>(aRenderAreaOffset.y)
+					};
+					if(currAreaExtent != aRenderAreaExtent.value())
+					{
+						throw avk::runtime_error("Autodetect extent failed because the images passed in image views have differing extents");
+					}
+				}
+#endif //_DEBUG
+				if(currAttachment.is_used_as_color_attachment())
+				{
+					colorAttachments.push_back(
+						vk::RenderingAttachmentInfoKHR{}
+							.setImageView(currImageView->handle())
+							.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+							// TODO(msakmary) add support for resolve and MSAA
+							// .setResolveMode()
+							// .setResolveImageView()
+							// .setResolveImageLayout()
+							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
+							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
+							.setClearValue(vk::ClearColorValue(currAttachment.clear_color()))
+					);
+				} 
+				else // currAttachment is either used as depth or as stencil
+				{
+					// TODO(msakmary): This will brake if we want depth image and stencil both D24S8 but separate images (so two D24S8 images 
+					//                 one used as depth one as stencil) probably should have this info in a custom attachment type.
+					//                 I think something like begin_rendering_attachment should be added which would have an explicit field 
+					//                 which would denote how to use the attachment - use this attachment as stencil, depth or color
+					if(is_depth_format(currAttachment.format()))
+					{
+						if(depthAttachment.has_value())
+						{
+							throw avk::runtime_error("Multiple depth attachments provided! Please provide only a single depth attachment");
+						}
+						depthAttachment = vk::RenderingAttachmentInfoKHR{}
+							.setImageView(currImageView->handle())
+							.setImageLayout(vk::ImageLayout::eAttachmentOptimal)
+							// TODO(msakmary) add support for resolve and MSAA
+							// .setResolveMode()
+							// .setResolveImageView()
+							// .setResolveImageLayout()
+							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
+							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
+							.setClearValue(vk::ClearDepthStencilValue(
+								currAttachment.depth_clear_value(),
+								currAttachment.stencil_clear_value()));
+					} 
+					if(is_stencil_format(currAttachment.format()))
+					{
+						if(stencilAttachment.has_value())
+						{
+							throw avk::runtime_error("Multiple stencil attachments provided! Please provide only a single stencil attachment");
+						}
+						stencilAttachment = vk::RenderingAttachmentInfoKHR{}
+							.setImageView(currImageView->handle())
+							.setImageLayout(vk::ImageLayout::eAttachmentOptimal)
+							// TODO(msakmary) add support for resolve and MSAA
+							// .setResolveMode()
+							// .setResolveImageView()
+							// .setResolveImageLayout()
+							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
+							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
+							.setClearValue(vk::ClearDepthStencilValue(
+								currAttachment.depth_clear_value(),
+								currAttachment.stencil_clear_value()));
+					}
+				}
+			}
+			auto const renderingInfo = vk::RenderingInfoKHR{}
+				.setRenderArea(vk::Rect2D(aRenderAreaOffset, aRenderAreaExtent.value()))
+				.setLayerCount(aLayerCount)
+				.setViewMask(0) //TODO(msakmary) this is for multiview - do we want to support it?
+				.setColorAttachmentCount(static_cast<uint32_t>(colorAttachments.size()))
+				.setPColorAttachments(colorAttachments.data())
+				.setPDepthAttachment(depthAttachment.has_value() ? &depthAttachment.value() : nullptr)
+				.setPStencilAttachment(stencilAttachment.has_value() ? &stencilAttachment.value() : nullptr);
+
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[renderingInfo](avk::command_buffer_t& cb) {
+					cb.handle().beginRenderingKHR(renderingInfo, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+		}
+		
+		action_type_command end_dynamic_rendering()
+		{
+			return action_type_command
+			{
+				// TODO(msakmary) I'm copying end renderpass here but I'm not sure this is correct?
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+						vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[](avk::command_buffer_t& cb){
+					cb.handle().endRenderingKHR(cb.root_ptr()->dispatch_loader_ext());	
+				}
+			};
+		}
+
 		action_type_command begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
 		{
 			return action_type_command{
