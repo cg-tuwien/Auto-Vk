@@ -8388,7 +8388,7 @@ namespace avk
 				}
 			}
 #endif //_DEBUG
-			const bool detectExtent = aRenderAreaExtent.has_value();
+			const bool detectExtent = !aRenderAreaExtent.has_value();
 			std::vector<vk::RenderingAttachmentInfoKHR> colorAttachments = {};
 			std::optional<vk::RenderingAttachmentInfoKHR> depthAttachment = {};
 			std::optional<vk::RenderingAttachmentInfoKHR> stencilAttachment = {};
@@ -8480,14 +8480,6 @@ namespace avk
 					}
 				}
 			}
-			auto const renderingInfo = vk::RenderingInfoKHR{}
-				.setRenderArea(vk::Rect2D(aRenderAreaOffset, aRenderAreaExtent.value()))
-				.setLayerCount(aLayerCount)
-				.setViewMask(0) //TODO(msakmary) this is for multiview - do we want to support it?
-				.setColorAttachmentCount(static_cast<uint32_t>(colorAttachments.size()))
-				.setPColorAttachments(colorAttachments.data())
-				.setPDepthAttachment(depthAttachment.has_value() ? &depthAttachment.value() : nullptr)
-				.setPStencilAttachment(stencilAttachment.has_value() ? &stencilAttachment.value() : nullptr);
 
 			return action_type_command{
 				avk::sync::sync_hint {
@@ -8501,7 +8493,22 @@ namespace avk
 					}}
 				},
 				{},
-				[renderingInfo](avk::command_buffer_t& cb) {
+				[
+					colorAttachments,
+					depthAttachment,
+					stencilAttachment,
+					aLayerCount,
+					aRenderAreaOffset,
+					aRenderAreaExtent
+				](avk::command_buffer_t& cb) {
+					auto const renderingInfo = vk::RenderingInfoKHR{}
+						.setRenderArea(vk::Rect2D(aRenderAreaOffset, aRenderAreaExtent.value()))
+						.setLayerCount(aLayerCount)
+						.setViewMask(0) //TODO(msakmary) this is for multiview - do we want to support it?
+						.setColorAttachmentCount(static_cast<uint32_t>(colorAttachments.size()))
+						.setPColorAttachments(colorAttachments.data())
+						.setPDepthAttachment(depthAttachment.has_value() ? &depthAttachment.value() : nullptr)
+						.setPStencilAttachment(stencilAttachment.has_value() ? &stencilAttachment.value() : nullptr);
 					cb.handle().beginRenderingKHR(renderingInfo, cb.root_ptr()->dispatch_loader_ext());
 				}
 			};
