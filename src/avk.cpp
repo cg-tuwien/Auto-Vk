@@ -4485,7 +4485,8 @@ namespace avk
 		graphics_pipeline_t result;
 
 		// 0. Own the renderpass - if one is required
-		const bool dynamic_rendering_enabled = aConfig.mDynamicRendering == avk::cfg::dynamic_rendering::enabled;
+		const bool dynamicRenderingEnabled = aConfig.mDynamicRendering == avk::cfg::dynamic_rendering::enabled;
+
 		{
 			if(!dynamic_rendering_enabled)
 			{
@@ -4695,7 +4696,8 @@ namespace avk
 			// Instead we read size of the dynamic_rendering_attachments provided
 			else 
 			{
-				blending_config_num = 0;
+				blendingConfigNum = 0;
+
 				for(const auto & dyn_rendering_attachment : aConfig.mDynamicRenderingAttachments.value())
 				{
 					if(!is_depth_format(dyn_rendering_attachment.format()))
