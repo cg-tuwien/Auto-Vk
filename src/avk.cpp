@@ -7196,6 +7196,8 @@ namespace avk
 		mSemaphore.getOwner().waitSemaphores(info, aTimeout.value_or(UINT64_MAX));
 	}
 
+	semaphore_value_info owning_resource<semaphore_t>::operator=(uint64_t aValue) { return semaphore_value_info{get(), aValue}; }
+	semaphore_value_info resource_argument<semaphore_t>::operator=(uint64_t aValue) { return semaphore_value_info{get(), aValue}; }
 #pragma endregion
 
 #pragma region shader definitions

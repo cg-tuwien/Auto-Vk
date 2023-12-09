@@ -1235,53 +1235,129 @@ namespace avk
 #endif
 	}
 
-	/** Helper struct to specify a semaphore and a signal value for it.
-	 *  This is used for timeline semaphores.
+	/** Helper struct to specify a semaphore and a value for it.
+	 *  This is used when waiting for / signaling timeline semaphores.
+	 * 
+	 * Can be created in the following ways:
+	 * 1) sem = val
+	 * 2) sem >= val
+	 * 
+	 * Case 1) makes sense when signaling semaphores, while case 2) makes sense when waiting for semaphores.
 	 */
 	struct semaphore_value_info
 	{
 		avk::resource_argument<avk::semaphore_t> mSemaphore;
 		uint64_t mValue;
 	};
-	inline semaphore_value_info operator,(avk::resource_argument<avk::semaphore_t> aSemaphore, uint64_t aValue) {
-		return semaphore_value_info{std::move(aSemaphore), aValue};
+
+	inline auto operator>=(avk::resource_argument<avk::semaphore_t> aSemaphore, uint64_t aValue) -> semaphore_value_info {
+		return semaphore_value_info{ std::move(aSemaphore), aValue };
 	}
 
+	/**
+	 * @brief Info struct that defines blocking behavior on the gpu at specific pipeline stages for a specific semaphore
+	 * 
+	 * Can be created in the following ways:
+	 * 1) sem >> pipelineFlags
+	 * 2) sem >= val >> pipelineFlags
+	 * 3) (sem >= val) >> pipelineFlags
+	 * 
+	 * sem... the semaphore to wait for
+	 * val... which semaphore value to wait on (timeline semaphores only)
+	 * pipelineFlags... defines which pipeline stages should wait for the semaphore
+	 */
 	struct semaphore_wait_info
 	{
 		avk::resource_argument<avk::semaphore_t> mWaitSemaphore;
 		avk::stage::pipeline_stage_flags mDstStage;
 		uint64_t mValue;
-
-		semaphore_wait_info& at_value(uint64_t aValue) {
-			mValue = aValue;
-			return *this;
-		}
 	};
 
-	inline semaphore_wait_info operator>> (avk::resource_argument<avk::semaphore_t> aSemaphore, avk::stage::pipeline_stage_flags aStageFlags)
+	inline auto operator>> (avk::resource_argument<avk::semaphore_t> aSemaphore, avk::stage::pipeline_stage_flags aStageFlags) -> semaphore_wait_info
 	{
 		return semaphore_wait_info{ std::move(aSemaphore), aStageFlags, 0 };
 	}
 
-	inline semaphore_wait_info operator>> (semaphore_value_info aSemaphoreValueInfo, avk::stage::pipeline_stage_flags aStageFlags)
+	inline auto operator>> (semaphore_value_info aSemaphoreValueInfo, avk::stage::pipeline_stage_flags aStageFlags) -> semaphore_wait_info
 	{
 		return semaphore_wait_info{ std::move(aSemaphoreValueInfo.mSemaphore), aStageFlags, aSemaphoreValueInfo.mValue };
 	}
 
+	/**
+	 *  Allows `waitSemaphore >= waitValue >> pipelineStageFlags` without parentheses around `>=`.
+	 *  Requires `operator>>(uint64_t, avk::stage::pipeline_stage_flags) -> semaphore_wait_info` to work
+	 *
+	 *  Unwanted side effect: `waitValue >> pipelineStageFlags` compiles but produces an invalid semaphore_wait_info
+	 */
+	inline auto operator>=(avk::resource_argument<avk::semaphore_t> aSemaphore, semaphore_wait_info aSemWaitInfo) -> semaphore_wait_info {
+		aSemWaitInfo.mWaitSemaphore = std::move(aSemaphore);
+		return aSemWaitInfo;
+	}
+
+	/**
+	 *  Allows `waitSemaphore >= waitValue >> pipelineStageFlags` without parentheses around `>=`
+	 *  Requires `operator>>(uint64_t, avk::stage::pipeline_stage_flags) -> semaphore_wait_info` to work
+	 *
+	 *  Unwanted side effect: `waitValue >> pipelineStageFlags` compiles but produces an invalid semaphore_wait_info
+	 */
+	inline auto operator>=(avk::owning_resource<avk::semaphore_t> aSemaphore, semaphore_wait_info aSemWaitInfo)->semaphore_wait_info {
+		aSemWaitInfo.mWaitSemaphore = std::move(aSemaphore);
+		return aSemWaitInfo;
+	}
+	} // namespace avk
+
+	/**
+	 *  Allows `waitSemaphore >= waitValue >> pipelineStageFlags` without parentheses around `>=`
+	 *  Requires `operator>=(avk::resource_argument<avk::semaphore_t>, semaphore_wait_info) -> semaphore_wait_info` to work
+	 * 
+	 *  Unwanted side effect: `waitValue >> pipelineStageFlags` compiles but produces an invalid semaphore_wait_info
+	 *  @note This operator overload is defined in global scope because it weirdly wasn't found by auto_vk_toolkit applications otherwise.
+	 */
+	inline auto operator>>(uint64_t aValue, avk::stage::pipeline_stage_flags aStageFlags) -> avk::semaphore_wait_info {
+		return avk::semaphore_wait_info{ avk::owning_resource<avk::semaphore_t>(), aStageFlags, aValue};
+	}
+
+	namespace avk {
+
+	/**
+	 * @brief Info struct that defines semaphore signaling bahavior after specific pipeline stages have concluded
+	 *
+	 * Can be created in the following ways:
+	 * 1) pipelineFlags >> sem
+	 * 2) pipelineFlags >> sem = val
+	 * 3) pipelineFlags >> (sem = val)
+	 *
+	 * pipelineFlags... defines which pipeline stages must be cleared before the semaphore may be signaled
+	 * sem... the semaphore to signal
+	 * val... the value to signal the semaphore to (timeline semaphores only)
+	 */
 	struct semaphore_signal_info
 	{
 		avk::stage::pipeline_stage_flags mSrcStage;
 		avk::resource_argument<avk::semaphore_t> mSignalSemaphore;
 		uint64_t mValue;
+
+		/**
+			* @brief Allows `pipelineFlags >> sem = val`
+			*
+			* Due to right associativity of operator= shouldn't cause unwanted side-effects.
+			*
+			* @note This does not cover the case `pipelineFlags >> (sem = val)`.
+			*       To allow this ^, explicit template specializations of owning_resource and resource_argument for semaphore_t are defined in semaphore.hpp
+			*
+			*/
+		auto operator=(uint64_t aValue) -> semaphore_signal_info& {
+			mValue = aValue;
+			return *this;
+		}
 	};
 
-	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags aStageFlags, avk::resource_argument<avk::semaphore_t> aSemaphore)
+	inline auto operator>> (avk::stage::pipeline_stage_flags aStageFlags, avk::resource_argument<avk::semaphore_t> aSemaphore) -> semaphore_signal_info
 	{
 		return semaphore_signal_info{ aStageFlags, std::move(aSemaphore), 0 };
 	}
 
-	inline semaphore_signal_info operator>> (avk::stage::pipeline_stage_flags aStageFlags, semaphore_value_info aSemaphoreValueInfo)
+	inline auto operator>> (avk::stage::pipeline_stage_flags aStageFlags, semaphore_value_info aSemaphoreValueInfo) -> semaphore_signal_info
 	{
 		return semaphore_signal_info{ aStageFlags, std::move(aSemaphoreValueInfo.mSemaphore), aSemaphoreValueInfo.mValue };
 	}

@@ -340,6 +340,12 @@ namespace avk
 		std::end(x);
 	};
 	
+	class semaphore_t; // defined in semaphore.hpp
+	template<typename T> requires non_const<T>
+	class owning_resource;
+	template<>
+	class owning_resource<semaphore_t>;	// defined in semaphore.hpp
+
 	// This class represents a/the owner of a specific resource T.
 	//
 	// The resource is either held locally on the stack, or -- as an additional features -- moved onto
@@ -578,6 +584,12 @@ namespace avk
 			return &get();
 		}
 	};
+
+	
+	template<typename T>
+	class resource_argument;
+	template<>
+	class resource_argument<semaphore_t>; // defined in semaphore.hpp
 
 	// A type for passing resources as arguments. Can be used to express that
 	// ownership shall be passed along with it, or only a reference to it.
