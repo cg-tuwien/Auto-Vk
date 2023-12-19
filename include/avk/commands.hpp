@@ -938,6 +938,14 @@ namespace avk
          */
         extern action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
 
+        /**
+         * @brief Perform an indirect dispatch call, i.e., invoke a compute shader with dispatch parameters read from a buffer
+         * @param aCountBuffer			Buffer containing the draw count in form of a VkDispatchIndirectCommand record. See Vulkan specification: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDispatchIndirectCommand.html
+         * @param aCountBufferOffset	Byte offset into countBuffer to the beginning of such a VkDispatchIndirectCommand record.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command dispatch_indirect(avk::buffer aCountBuffer, uint32_t aCountBufferOffset);
+
 		/**
 		 * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_NV_mesh_shader.
 		 * @param aTaskCount The number of local workgroups to dispatch in the X dimension. Y and Z dimension are implicitly set to one.
@@ -954,7 +962,6 @@ namespace avk
          * @param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
          * @return An action_type_command instance which you must submit to a queue.
          */
-
         extern action_type_command draw_mesh_tasks_ext(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
 
         /**
@@ -1318,8 +1325,10 @@ namespace avk
 		inline static void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, std::vector<avk::recorded_commands_t>& aManyMoreCommands, Ts&... aRest)
 		{
 			// Use std::insert with std::make_move_iterator as suggested here: https://stackoverflow.com/questions/15004517/moving-elements-from-stdvector-to-another-one
-			aGatheredCommands.insert(std::end(aGatheredCommands), std::make_move_iterator(std::begin(aManyMoreCommands)),
-				std::make_move_iterator(std::end(aManyMoreCommands)));
+			aGatheredCommands.insert(
+				std::end(aGatheredCommands), 
+				std::make_move_iterator(std::begin(aManyMoreCommands)), std::make_move_iterator(std::end(aManyMoreCommands))
+			);
 			add_commands(aGatheredCommands, aRest...);
 		}
 
