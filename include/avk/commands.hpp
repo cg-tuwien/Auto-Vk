@@ -703,12 +703,11 @@ namespace avk
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
-		 *	@param	aIndexBufferAndOffset	One const-reference to an index buffer, or a tuple of a const-reference and an offset.
-		 *									First case:   Pass a const buffer_t&
-		 *									Second case:  Pass a tuple of type std::tuple<const buffer_t&, size_t>!
+		 *	@param	aIndexBufferAndOffsetAndNumElements	Tuple of a const-reference and an offset and a number of elements to draw
+		 *												Pass a tuple of type std::tuple<const buffer_t&, size_t, uint32_t>!
 		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
 		 *												  Example: avk::buffer myIndexBuffer;
-		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0});
+		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0}, uint32_t{1});
 		 *	@param	aNumberOfInstances		Number of instances to draw
 		 *	@param	aFirstIndex				Offset to the first index
 		 *	@param	aVertexOffset			Offset to the first vertex
@@ -721,14 +720,14 @@ namespace avk
 		 *												           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t>& aIndexBufferAndOffset, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
+		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t, uint32_t>& aIndexBufferAndOffsetAndNumElements, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
 			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
 
-			const auto& indexMeta = std::get<const buffer_t&>(aIndexBufferAndOffset).template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = std::get<const buffer_t&>(aIndexBufferAndOffsetAndNumElements).template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t) : indexType = vk::IndexType::eUint16; break;
@@ -749,11 +748,11 @@ namespace avk
 				},
 				{}, // no resource-specific sync hints
 				[
-					indexBufferOffset = std::get<size_t>(aIndexBufferAndOffset),
+					indexBufferOffset = std::get<size_t>(aIndexBufferAndOffsetAndNumElements),
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
-					lNumElemments = static_cast<uint32_t>(indexMeta.num_elements()),
-					lIndexBufferHandle = std::get<const buffer_t&>(aIndexBufferAndOffset).handle(),
+					lNumElemments = std::get<uint32_t>(aIndexBufferAndOffsetAndNumElements),
+					lIndexBufferHandle = std::get<const buffer_t&>(aIndexBufferAndOffsetAndNumElements).handle(),
 					aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance
 				](avk::command_buffer_t& cb) {
 					cb.handle().bindVertexBuffers(
@@ -785,7 +784,8 @@ namespace avk
 		template <typename... Bfrs>
 		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
-            return draw_indexed(std::forward_as_tuple(aIndexBuffer, size_t{0}), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance, aVertexBuffers...);
+			const auto& indexMeta = aIndexBuffer.meta<avk::index_buffer_meta>();
+            return draw_indexed(std::forward_as_tuple(aIndexBuffer, size_t{0}, indexMeta.num_elements()), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance, aVertexBuffers...);
 		}
 
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -795,12 +795,11 @@ namespace avk
 		 *	The first index is set to 0.
 		 *	The vertex offset is set to 0.
 		 *	The ID of the first instance is set to 0.
-		 *	@param	aIndexBufferAndOffset	One const-reference to an index buffer, or a tuple of a const-reference and an offset.
-		 *									First case:   Pass a const buffer_t&
-		 *									Second case:  Pass a tuple of type std::tuple<const buffer_t&, size_t>!
+		 *	@param	aIndexBufferAndOffsetAndNumElements	Tuple of a const-reference and an offset and a number of elements to draw
+		 *												Pass a tuple of type std::tuple<const buffer_t&, size_t, uint32_t>!
 		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
 		 *												  Example: avk::buffer myIndexBuffer;
-		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0});
+		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0}, uint32_t{1});
 		 *	@param	aVertexBuffers			Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
 		 *									First case:   Pass const buffer_t& types!
 		 *									Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
@@ -809,9 +808,9 @@ namespace avk
 		 *												           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t>& aIndexBufferAndOffset, const Bfrs&... aVertexBuffers)
+		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t, uint32_t>& aIndexBufferAndOffsetAndNumElements, const Bfrs&... aVertexBuffers)
 		{
-			return draw_indexed(aIndexBufferAndOffset, 1u, 0u, 0u, 0u, aVertexBuffers...);
+			return draw_indexed(aIndexBufferAndOffsetAndNumElements, 1u, 0u, 0u, 0u, aVertexBuffers...);
 		}
 
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
