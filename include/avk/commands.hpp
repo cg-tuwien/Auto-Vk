@@ -585,6 +585,9 @@ namespace avk
 			// stop this reCURSEion!
 		}
 
+	    template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const std::tuple<const buffer_t&, size_t>& aVertexBufferAndOffset, const Rest&... aRest);
+
 		template <typename... Rest>
 		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const buffer_t& aVertexBuffer, const Rest&... aRest)
 		{
@@ -610,8 +613,12 @@ namespace avk
 		 *	@param	aNumberOfInstances	Number of instances to draw
 		 *	@param	aFirstVertex		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
-		 *	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
@@ -658,9 +665,11 @@ namespace avk
 		 *	@param	aFirstVertex		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
 		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
@@ -679,9 +688,11 @@ namespace avk
 		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
 		 *								to get the number of vertices to draw.
 		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_vertices(const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
@@ -692,25 +703,32 @@ namespace avk
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
-		 *	@param	aIndexBuffer		Reference to an index buffer
-		 *	@param	aNumberOfInstances	Number of instances to draw
-		 *	@param	aFirstIndex			Offset to the first index
-		 *	@param	aVertexOffset		Offset to the first vertex
-		 *	@param	aFirstInstance		The ID of the first instance
-		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *	@param	aIndexBufferAndOffset	One const-reference to an index buffer, or a tuple of a const-reference and an offset.
+		 *									First case:   Pass a const buffer_t&
+		 *									Second case:  Pass a tuple of type std::tuple<const buffer_t&, size_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myIndexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0});
+		 *	@param	aNumberOfInstances		Number of instances to draw
+		 *	@param	aFirstIndex				Offset to the first index
+		 *	@param	aVertexOffset			Offset to the first vertex
+		 *	@param	aFirstInstance			The ID of the first instance
+		 *	@param	aVertexBuffers			Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *									First case:   Pass const buffer_t& types!
+		 *									Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myVertexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
+		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t>& aIndexBufferAndOffset, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
 			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
 
-			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = std::get<const buffer_t&>(aIndexBufferAndOffset).template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t) : indexType = vk::IndexType::eUint16; break;
@@ -731,20 +749,69 @@ namespace avk
 				},
 				{}, // no resource-specific sync hints
 				[
+					indexBufferOffset = std::get<size_t>(aIndexBufferAndOffset),
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
 					lNumElemments = static_cast<uint32_t>(indexMeta.num_elements()),
-					lIndexBufferHandle = aIndexBuffer.handle(),
+					lIndexBufferHandle = std::get<const buffer_t&>(aIndexBufferAndOffset).handle(),
 					aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance
 				](avk::command_buffer_t& cb) {
 					cb.handle().bindVertexBuffers(
 						0u, // TODO: Should the first binding really always be 0?
 						lBindingCount, handles.data(), offsets.data()
 					);
-					cb.handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb.handle().bindIndexBuffer(lIndexBufferHandle, indexBufferOffset, indexType);
 					cb.handle().drawIndexed(lNumElemments, aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 				}
 			};
+		}
+
+		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	Offset into the index buffer is 0.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfInstances	Number of instances to draw
+		 *	@param	aFirstIndex			Offset to the first index
+		 *	@param	aVertexOffset		Offset to the first vertex
+		 *	@param	aFirstInstance		The ID of the first instance
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
+		{
+            return draw_indexed(std::forward_as_tuple(aIndexBuffer, size_t{0}), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance, aVertexBuffers...);
+		}
+
+		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	Number of instances is set to 1.
+		 *	The first index is set to 0.
+		 *	The vertex offset is set to 0.
+		 *	The ID of the first instance is set to 0.
+		 *	@param	aIndexBufferAndOffset	One const-reference to an index buffer, or a tuple of a const-reference and an offset.
+		 *									First case:   Pass a const buffer_t&
+		 *									Second case:  Pass a tuple of type std::tuple<const buffer_t&, size_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myIndexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0});
+		 *	@param	aVertexBuffers			Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *									First case:   Pass const buffer_t& types!
+		 *									Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myVertexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t>& aIndexBufferAndOffset, const Bfrs&... aVertexBuffers)
+		{
+			return draw_indexed(aIndexBufferAndOffset, 1u, 0u, 0u, 0u, aVertexBuffers...);
 		}
 
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -755,8 +822,12 @@ namespace avk
 		 *	The vertex offset is set to 0.
 		 *	The ID of the first instance is set to 0.
 		 *	@param	aIndexBuffer		Reference to an index buffer
-		 *	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_indexed(const buffer_t& aIndexBuffer, const Bfrs&... aVertexBuffers)
@@ -773,9 +844,11 @@ namespace avk
 		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
 		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 *
 		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
 		 */
@@ -833,9 +906,11 @@ namespace avk
 		 *	@param	aIndexBuffer		Reference to an index buffer
 		 *	@param	aNumberOfDraws		Number of draws to execute
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, const Bfrs&... aVertexBuffers)
@@ -854,9 +929,11 @@ namespace avk
 		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
 		 *	@param	aDrawCountOffset	Byte offset into the draw count buffer where the actual draw count is located
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 *
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
@@ -917,9 +994,11 @@ namespace avk
 		 *	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
 		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 *
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
