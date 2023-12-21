@@ -2626,7 +2626,7 @@ namespace avk
 				//cb.handle().copyBuffer2KHR(&copyBufferInfo);
 				// TODO: No idea why copyBuffer2KHR fails with an access violation
 
-				const auto copyRegion = vk::BufferCopy{ 0u, 0u, dataSize };
+				const auto copyRegion = vk::BufferCopy{ 0u, dstOffset, dataSize };
 				cb.handle().copyBuffer(lOwnedStagingBuffer->handle(), lDstBufferHandle, 1u, &copyRegion, lRoot->dispatch_loader_core());
 
 				// Take care of the lifetime handling of the stagingBuffer, it might still be in use when this method returns:
