@@ -1445,7 +1445,13 @@ namespace avk
 			return result;
 		}
 
-		// TODO: Comment
+		/**	Convenience function for gathering recorded commands---one avk::command for each entry of a given collection.
+		 *	@aCollection	Collection to iterate over
+		 *	@aGenerator		Callback function which must return exactly one command (i.e. must be assignable to avk::recorded_commands_t).
+		 *					@example std::vector<int> numbers = {1, 2, 3};
+		 *							 avk::command::one_for_each(numbers, [](const int& aNumber) {  return ... };
+		 *	@return A vector of recorded commands
+		 */
 		template <typename T, typename F>
 		inline static std::vector<avk::recorded_commands_t> one_for_each(const T& aCollection, F aGenerator)
 		{
@@ -1456,13 +1462,54 @@ namespace avk
 			return result;
 		}
 
-		// TODO: Comment
+		/**	Convenience function for gathering recorded commands---a collection of commands for each entry of a given collection.
+		 *	@aCollection	Collection to iterate over
+		 *	@aGenerator		Callback function which must return a vector of commands (i.e. must be assignable to std::vector<avk::recorded_commands_t>).
+		 *					@example std::vector<int> numbers = {1, 2, 3};
+		 *							 avk::command::one_for_each(numbers, [](const int& aNumber) { return avk::command::gather( ... ); };
+		 *	@return A vector of recorded commands
+		 */
 		template <typename T, typename F>
 		inline static std::vector<avk::recorded_commands_t> many_for_each(const T& aCollection, F aGenerator)
 		{
 			std::vector<avk::recorded_commands_t> result;
 			for (const auto& element : aCollection) {
 				auto commands = aGenerator(element);
+				for (auto& command : commands) {
+					result.push_back(std::move(command));
+				}
+			}
+			return result;
+		}
+
+		/**	Convenience function for gathering recorded commands, namely a total number of aN.
+		 *	@aN	Collection to iterate over
+		 *	@aGenerator		Callback function which must return exactly one command (i.e. must be assignable to avk::recorded_commands_t).
+		 *					@example avk::command::one_n_times(5, [](int aIndex) { return ... };
+		 *	@return A vector of recorded commands
+		 */
+		template <typename I, typename F>
+		inline static std::vector<avk::recorded_commands_t> one_n_times(I aN, F aGenerator)
+		{
+			std::vector<avk::recorded_commands_t> result;
+			for (I i = 0; i < aN; ++i) {
+				result.push_back(aGenerator(i));
+			}
+			return result;
+		}
+
+		/**	Convenience function for gathering recorded commands, namely a total number of aN.
+		 *	@aN	Collection to iterate over
+		 *	@aGenerator		Callback function which must return exactly one command (i.e. must be assignable to avk::recorded_commands_t).
+		 *					@example avk::command::many_n_times(5, [](int aIndex) { return avk::command::gather( ... ); };
+		 *	@return A vector of recorded commands
+		 */
+		template <typename I, typename F>
+		inline static std::vector<avk::recorded_commands_t> many_n_times(I aN, F aGenerator)
+		{
+			std::vector<avk::recorded_commands_t> result;
+			for (I i = 0; i < aN; ++i) {
+				auto commands = aGenerator(i);
 				for (auto& command : commands) {
 					result.push_back(std::move(command));
 				}
