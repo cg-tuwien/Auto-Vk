@@ -608,8 +608,6 @@ namespace avk
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
 		 *  @param  aNumberOfVertices   Number of vertices to draw
-		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
-		 *								to get the number of vertices to draw.
 		 *	@param	aNumberOfInstances	Number of instances to draw
 		 *	@param	aFirstVertex		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
@@ -621,38 +619,60 @@ namespace avk
 		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
+		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const Bfrs&... aFurtherBuffers)
 		{
+			constexpr size_t N = sizeof...(aFurtherBuffers);
 
-			constexpr size_t N = 1 + sizeof...(aFurtherBuffers);
-			std::array<vk::Buffer, N> handles;
-			std::array<vk::DeviceSize, N> offsets;
-			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffer, aFurtherBuffers...);
+			if constexpr (N == 0) {
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+						aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
+					](avk::command_buffer_t& cb) {
+						cb.handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
+					}
+				};
+ 			}
+ 			else {
+				std::array<vk::Buffer, N> handles;
+				std::array<vk::DeviceSize, N> offsets;
+				bind_vertex_buffer(&handles[0], &offsets[0], aFurtherBuffers...);
 
-			return action_type_command{
-				avk::sync::sync_hint {
-					{{ // DESTINATION dependencies for previous commands:
-						vk::PipelineStageFlagBits2KHR::eAllGraphics,
-						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
-					}},
-					{{ // SOURCE dependencies for subsequent commands:
-						vk::PipelineStageFlagBits2KHR::eAllGraphics,
-						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
-					}}
-				},
-				{}, // no resource-specific sync hints
-				[
-					lBindingCount = static_cast<uint32_t>(N),
-					handles, offsets, 
-					aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
-				](avk::command_buffer_t& cb) {
-					cb.handle().bindVertexBuffers(
-						0u, // TODO: Should the first binding really always be 0?
-						static_cast<uint32_t>(N), handles.data(), offsets.data()
-					);
-					cb.handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
-				}
-			};
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+						lBindingCount = static_cast<uint32_t>(N),
+						handles, offsets, 
+						aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
+				    ](avk::command_buffer_t& cb) {
+						cb.handle().bindVertexBuffers(
+							0u, // TODO: Should the first binding really always be 0?
+							static_cast<uint32_t>(N), handles.data(), offsets.data()
+						);
+						cb.handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
+					}
+				};
+			}
 		}
 
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
