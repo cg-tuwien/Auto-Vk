@@ -43,7 +43,7 @@ namespace avk
 			return *this;
 		}
 
-		semaphore_t& handle_lifetime_of(any_owning_resource_t aResource);
+		semaphore_t& handle_lifetime_of(any_owning_resource_t aResource, uint64_t aDeleteResourceAtValue = std::numeric_limits<uint64_t>::max());
 
 		const auto& create_info() const	{ return mCreateInfo; }
 		auto& create_info()				{ return mCreateInfo; }
@@ -51,6 +51,10 @@ namespace avk
 		const auto* handle_addr() const { return &mSemaphore.get(); }
 
 		// timeline semaphore specific functions
+
+		/** @brief Destroys outdated resources which are handled by this timeline semaphore.
+		 */
+		void cleanup_expired_resources();
 
 		/** @brief returns the current value of the timeline semaphore */
 		const uint64_t query_current_value() const;
@@ -72,7 +76,7 @@ namespace avk
 		/** A custom deleter function called upon destruction of this semaphore */
 		std::optional<avk::unique_function<void()>> mCustomDeleter;
 
-		std::vector<any_owning_resource_t> mLifetimeHandledResources;
+		std::forward_list<std::tuple<any_owning_resource_t, uint64_t>> mLifetimeHandledResources;
 	};
 
 	/**

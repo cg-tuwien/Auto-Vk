@@ -7166,10 +7166,14 @@ namespace avk
 		return device.waitSemaphores(info, aTimeout.value_or(UINT64_MAX));
 	}
 
-	semaphore_t& semaphore_t::handle_lifetime_of(any_owning_resource_t aResource)
+	semaphore_t& semaphore_t::handle_lifetime_of(any_owning_resource_t aResource, uint64_t aDeleteResourceAtValue)
 	{
-		mLifetimeHandledResources.push_back(std::move(aResource));
+		mLifetimeHandledResources.push_front(std::make_tuple(std::move(aResource), aDeleteResourceAtValue));
 		return *this;
+	}
+	void semaphore_t::cleanup_expired_resources() {
+		uint64_t val = query_current_value();
+		mLifetimeHandledResources.remove_if([val](auto& r) {return std::get<1>(r) <= val; });
 	}
 
 	const uint64_t semaphore_t::query_current_value() const {
