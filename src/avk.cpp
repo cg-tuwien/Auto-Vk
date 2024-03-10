@@ -2662,7 +2662,7 @@ namespace avk
 				//cb.handle().copyBuffer2KHR(&copyBufferInfo);
 				// TODO: No idea why copyBuffer2KHR fails with an access violation
 
-				const auto copyRegion = vk::BufferCopy{ 0u, 0u, dataSize };
+				const auto copyRegion = vk::BufferCopy{ 0u, dstOffset, dataSize };
 				cb.handle().copyBuffer(lOwnedStagingBuffer->handle(), lDstBufferHandle, 1u, &copyRegion, lRoot->dispatch_loader_core());
 
 				// Take care of the lifetime handling of the stagingBuffer, it might still be in use when this method returns:
@@ -8788,6 +8788,28 @@ namespace avk
 					cb.handle().dispatch(aGroupCountX, aGroupCountY, aGroupCountZ, cb.root_ptr()->dispatch_loader_core());
 				}
 			};
+		}
+		
+		action_type_command dispatch_indirect(avk::buffer aCountBuffer, uint32_t aCountBufferOffset)
+		{
+			auto actionTypeCmd = action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderSampledRead | vk::AccessFlagBits2KHR::eShaderStorageRead | vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}}
+				},
+				{},
+				[lCountBufferHandle = aCountBuffer->handle(), aCountBufferOffset](avk::command_buffer_t& cb) {
+					cb.handle().dispatchIndirect(lCountBufferHandle, aCountBufferOffset, cb.root_ptr()->dispatch_loader_core());
+				}
+			};
+			actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aCountBuffer));
+			return actionTypeCmd;
 		}
 		
 		action_type_command draw_mesh_tasks_nv(uint32_t aTaskCount, uint32_t aFirstTask)
