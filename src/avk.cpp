@@ -1418,25 +1418,6 @@ namespace avk
 #pragma endregion
 
 #pragma region dynamic rendering attachment definitions
-	dynamic_rendering_attachment dynamic_rendering_attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples)
-	{
-		return dynamic_rendering_attachment{
-			std::get<vk::Format>(aFormatAndSamples),
-			std::get<vk::SampleCountFlagBits>(aFormatAndSamples),
-		};
-	}
-
-	dynamic_rendering_attachment dynamic_rendering_attachment::declare(vk::Format aFormat)
-	{
-		return declare({aFormat, vk::SampleCountFlagBits::e1});
-	}
-
-	dynamic_rendering_attachment dynamic_rendering_attachment::declare_for(const image_view_t& aImageView)
-	{
-		const auto& imageConfig = aImageView.get_image().create_info();
-		const auto format = imageConfig.format;
-		return declare(format);
-	}
 #pragma endregion
 
 #pragma region attachment definitions
@@ -1449,7 +1430,8 @@ namespace avk
 			{},      {},
 			std::move(aUsageInSubpasses),
 			{ 0.0, 0.0, 0.0, 0.0 },
-			1.0f, 0u
+			1.0f, 0u,
+			false
 		};
 	}
 
@@ -1464,6 +1446,28 @@ namespace avk
 		const auto format = imageConfig.format;
 		auto result = declare({format, imageConfig.samples}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
 		return result;
+	}
+
+	attachment attachment::declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples)
+	{
+		return attachment{
+			.mFormat = std::get<vk::Format>(aFormatAndSamples),
+			.mSampleCount = std::get<vk::SampleCountFlagBits>(aFormatAndSamples),
+			.mSubpassUsages = subpass_usages(subpass_usage_type::create_unused()),
+			.mDynamicRenderingAttachment = true
+		};
+	}
+
+	attachment attachment::declare_dynamic(vk::Format aFormat)
+	{
+		return declare_dynamic({aFormat, vk::SampleCountFlagBits::e1});
+	}
+
+	attachment attachment::declare_dynamic_for(const image_view_t& aImageView)
+	{
+		const auto& imageConfig = aImageView.get_image().create_info();
+		const auto format = imageConfig.format;
+		return declare_dynamic(format);
 	}
 #pragma endregion
 
@@ -4378,7 +4382,7 @@ namespace avk
 		{
 			aPreparedPipeline.mMultisampleStateCreateInfo
 				.setRasterizationSamples(
-					aPreparedPipeline.renderpass_pointer().value()->num_samples_for_subpass(aPreparedPipeline.subpass_id().value()))
+					aPreparedPipeline.renderpass_reference().value().get().num_samples_for_subpass(aPreparedPipeline.subpass_id().value()))
 				.setPSampleMask(nullptr);
 		}
 
@@ -4393,7 +4397,7 @@ namespace avk
 		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
 
 		const void * pNext = dynamicRenderingEnabled ? &(aPreparedPipeline.mRenderingCreateInfo.value()) : nullptr;
-		VkRenderPass render_pass{};
+		VkRenderPass render_pass = VK_NULL_HANDLE;
 		if(!dynamicRenderingEnabled)
 		{
 			render_pass = (aPreparedPipeline.mRenderPass.value())->handle();
@@ -4488,7 +4492,7 @@ namespace avk
 		const bool dynamicRenderingEnabled = aConfig.mDynamicRendering == avk::cfg::dynamic_rendering::enabled;
 
 		{
-			if(!dynamic_rendering_enabled)
+			if(!dynamicRenderingEnabled)
 			{
 				assert(aConfig.mRenderPassSubpass.has_value());
 				auto [rp, sp] = std::move(aConfig.mRenderPassSubpass.value());
@@ -4678,8 +4682,8 @@ namespace avk
 			}
 
 			// Iterate over all color target attachments and set a color blending config 
-			size_t blending_config_num;
-			if (!dynamic_rendering_enabled)
+			size_t blendingConfigNum;
+			if (!dynamicRenderingEnabled)
 			{
 				const auto & renderPassVal = result.mRenderPass.value();
 				if (result.subpass_id() >= renderPassVal->attachment_descriptions().size()) {
@@ -4690,7 +4694,7 @@ namespace avk
 						+ std::to_string(result.subpass_id().value()) +
 						") indicates. I.e. the subpass index is out of bounds.");
 				}
-				blending_config_num = renderPassVal->color_attachments_for_subpass(result.subpass_id().value()).size(); /////////////////// TODO: (doublecheck or) FIX this section (after renderpass refactoring)
+				blendingConfigNum = renderPassVal->color_attachments_for_subpass(result.subpass_id().value()).size(); /////////////////// TODO: (doublecheck or) FIX this section (after renderpass refactoring)
 			} 
 			// Renderpasses and Subpasses are not supported when dynamic rendering is enabled
 			// Instead we read size of the dynamic_rendering_attachments provided
@@ -4698,16 +4702,16 @@ namespace avk
 			{
 				blendingConfigNum = 0;
 
-				for(const auto & dyn_rendering_attachment : aConfig.mDynamicRenderingAttachments.value())
+				for(const auto & dynRenderingAttachment : aConfig.mDynamicRenderingAttachments.value())
 				{
-					if(!is_depth_format(dyn_rendering_attachment.format()))
+					if(!is_depth_format(dynRenderingAttachment.format()))
 					{
-						blending_config_num++;
+						blendingConfigNum++;
 					}
 				}
 			}
-			result.mBlendingConfigsForColorAttachments.reserve(blending_config_num); // Important! Otherwise the vector might realloc and .data() will become invalid!
-			for (size_t i = 0; i < blending_config_num; ++i) {
+			result.mBlendingConfigsForColorAttachments.reserve(blendingConfigNum); // Important! Otherwise the vector might realloc and .data() will become invalid!
+			for (size_t i = 0; i < blendingConfigNum; ++i) {
 				// Do we have a specific blending config for color attachment i?
 #if defined(_MSC_VER) && _MSC_VER < 1930
 				auto configForI = aConfig.mColorBlendingPerAttachment
@@ -4755,7 +4759,7 @@ namespace avk
 		// TODO: Can the settings be inferred from the renderpass' color attachments (as they are right now)? If they can't, how to handle this situation?
 		{ /////////////////// TODO: FIX this section (after renderpass refactoring)
 			vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
-			if(!dynamic_rendering_enabled)
+			if(!dynamicRenderingEnabled)
 			{
 				numSamples = result.mRenderPass.value()->num_samples_for_subpass(result.subpass_id().value());
 			} else {
@@ -4865,19 +4869,19 @@ namespace avk
 			.setPPushConstantRanges(result.mPushConstantRanges.data());
 
 		// 15. Set Rendering info if dynamic rendering is enabled
-		if(dynamic_rendering_enabled)
+		if(dynamicRenderingEnabled)
 		{
 			std::vector<vk::Format> depth_attachments;
 			std::vector<vk::Format> stencil_attachments;
-			for(const auto & dynamic_rendering_attachment : aConfig.mDynamicRenderingAttachments.value())
+			for(const auto & dynamicRenderingAttachment : aConfig.mDynamicRenderingAttachments.value())
 			{
-				if(is_depth_format(dynamic_rendering_attachment.format()))
+				if(is_depth_format(dynamicRenderingAttachment.format()))
 				{
-					depth_attachments.push_back(dynamic_rendering_attachment.format());
-				} else if (is_stencil_format(dynamic_rendering_attachment.format())) {
-					stencil_attachments.push_back(dynamic_rendering_attachment.format());
+					depth_attachments.push_back(dynamicRenderingAttachment.format());
+				} else if (is_stencil_format(dynamicRenderingAttachment.format())) {
+					stencil_attachments.push_back(dynamicRenderingAttachment.format());
 				} else {
-					result.mDynamicRenderingColorFormats.push_back(dynamic_rendering_attachment.format());
+					result.mDynamicRenderingColorFormats.push_back(dynamicRenderingAttachment.format());
 				}
 			}
 			if(depth_attachments.size() > 1)   { throw avk::runtime_error("Provided multiple depth attachments! Only one is supported!"); }
@@ -4895,7 +4899,7 @@ namespace avk
 			aAlterConfigBeforeCreation(result);
 		}
 
-		assert (aConfig.mRenderPassSubpass.has_value() || dynamic_rendering_enabled);
+		assert (aConfig.mRenderPassSubpass.has_value() || dynamicRenderingEnabled);
 		rewire_config_and_create_graphics_pipeline(result);
 		return result;
 	}

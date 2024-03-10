@@ -615,8 +615,8 @@ namespace avk
 		~graphics_pipeline_config() = default;
 
 		cfg::pipeline_settings mPipelineSettings; // TODO: Handle settings!
-		std::optional<std::vector<avk::dynamic_rendering_attachment>> mDynamicRenderingAttachments;
 		std::optional<std::tuple<renderpass, uint32_t>> mRenderPassSubpass;
+		std::optional<std::vector<avk::attachment>> mDynamicRenderingAttachments;
 		std::vector<input_binding_to_location_mapping> mInputBindingLocations;
 		cfg::primitive_topology mPrimitiveTopology;
 		std::vector<shader_info> mShaderInfos;
@@ -678,19 +678,6 @@ namespace avk
 			std::get<uint32_t>(*aConfig.mRenderPassSubpass) = 0u; // Default to the first subpass if none is specified
 		}
 		std::get<renderpass>(*aConfig.mRenderPassSubpass) = std::move(aRenderPass);
-		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
-	}
-
-	// Add a dynamic rendering attachment which are used when dynamic_rendering is enabled for this pipeline
-	template <typename... Ts>
-	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, avk::dynamic_rendering_attachment aDynAttachment, Ts... args)
-	{
-		if(aConfig.mDynamicRenderingAttachments.has_value())
-		{
-			aConfig.mDynamicRenderingAttachments.value().push_back(aDynAttachment);
-		} else {
-			aConfig.mDynamicRenderingAttachments = std::vector{aDynAttachment};
-		}
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 

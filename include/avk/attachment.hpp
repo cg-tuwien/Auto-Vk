@@ -3,39 +3,6 @@
 
 namespace avk
 {
-
-	/** Describes a dynamic rendering attachment. It can only be used with pipeline that has dynamic rendering enabled.
-	 *  It has fewever parameters than regular attachment since some of its values (load/store ops etc...) are set
-	 *  when starting the dynamic render pass as opposed to being declared beforehand.
-	 *	It can describe color attachments as well as depth/stencil attachments
-	 *	and holds some additional config parameters for these attachments.
-	 */
-	struct dynamic_rendering_attachment
-	{
-		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline
-		 *	@param	aFormatAndSamples	Multisampled format definition: A tuple with the format of the attachment in its first element, and with the number of samples in its second element.
-		 */
-		static dynamic_rendering_attachment declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples);
-		/**	Declare format of an attachment for a dynamic rendering pipeline
-		 *	@param	aFormat	 The format of the attachment
-		 */
-		static dynamic_rendering_attachment declare(vk::Format aFormat);
-
-		/**	Declare format of an attachment for a dynamic rendering pipeline
-		 *	@param	aImageView			The format of the attachment is copied from the given image view.
-		 */
-		static dynamic_rendering_attachment declare_for(const image_view_t& aImageView);
-
-		/** The color/depth/stencil format of the attachment */
-		auto format() const { return mFormat; }
-		/** True if the sample count is greater than 1 */
-		bool is_multisampled() const { return mSampleCount != vk::SampleCountFlagBits::e1; }
-		/** The sample count for this attachment. */
-		auto sample_count() const { return mSampleCount; }
-
-		vk::Format mFormat;
-		vk::SampleCountFlagBits mSampleCount;
-	};
 	/** Describes an attachment to a framebuffer or a renderpass.
 	 *	It can describe color attachments as well as depth/stencil attachments
 	 *	and holds some additional config parameters for these attachments.
@@ -93,6 +60,27 @@ namespace avk
 		 */
 		static attachment declare_for(const image_view_t& aImageView, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp);
 
+		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
+	 	 *  It has fewever parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+		 *  as opposed to being declared beforehand..
+		 *	@param	aFormatAndSamples	Multisampled format definition: A tuple with the format of the attachment in its first element, and with the number of samples in its second element.
+		 */
+		static attachment declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples);
+
+		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
+	 	 *  It has fewever parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+		 *  as opposed to being declared beforehand..
+		 *	@param	aFormat	 The format of the attachment
+		 */
+		static attachment declare_dynamic(vk::Format aFormat);
+
+		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
+	 	 *  It has fewever parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+		 *  as opposed to being declared beforehand..
+		 *	@param	aImageView			The format of the attachment is copied from the given image view.
+		 */
+		static attachment declare_dynamic_for(const image_view_t& aImageView);
+
 		attachment& set_clear_color(std::array<float, 4> aColor) { mColorClearValue = aColor; return *this; }
 		attachment& set_depth_clear_value(float aDepthClear) { mDepthClearValue = aDepthClear; return *this; }
 		attachment& set_stencil_clear_value(uint32_t aStencilClear) { mStencilClearValue = aStencilClear; return *this; }
@@ -121,6 +109,8 @@ namespace avk
 		auto sample_count() const { return mSampleCount; }
 		/** True if a multisample resolve pass shall be set up. */
 		auto is_to_be_resolved() const { return mSubpassUsages.contains_resolve(); }
+		/** True if this attachment is declared for dynamic rendering pipelines ie. using one of the dynamic declare functions*/
+		bool is_for_dynamic_rendering() const { return mDynamicRenderingAttachment; }
 
 		/** Returns the stencil load operation */
 		auto get_stencil_load_op() const { return mStencilLoadOperation.value_or(mLoadOperation); }
@@ -141,5 +131,6 @@ namespace avk
 		std::array<float, 4> mColorClearValue;
 		float mDepthClearValue;
 		uint32_t mStencilClearValue;
+		bool mDynamicRenderingAttachment;
 	};
 }

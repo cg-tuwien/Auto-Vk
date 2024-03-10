@@ -1,5 +1,6 @@
 #pragma once
 #include "avk/avk.hpp"
+#include <functional>
 
 namespace avk
 {
@@ -17,10 +18,9 @@ namespace avk
 		~graphics_pipeline_t() = default;
 
 		[[nodiscard]] auto renderpass() const { return mRenderPass; }
-		// TODO(msakmary) I can also keep the consistent naming aka renderpass_reference() return std::optional<std::reference_wrapper>> I feel like this is way cleaner?
-		[[nodiscard]] auto renderpass_pointer() const -> std::optional<const avk::renderpass_t *>
+		[[nodiscard]] auto renderpass_reference() const -> std::optional<std::reference_wrapper<const avk::renderpass_t>>
 		{
-			if(mRenderPass.has_value()) { return &(mRenderPass.value().get()); }
+			if(mRenderPass.has_value()) { return std::cref(mRenderPass.value().get()); }
 			else 						{ return std::nullopt; }
 		} 
 		// TODO(msakmary) Perhaps I just return std::optional<vk::RenderPass> here? It would probably be more readable then declval

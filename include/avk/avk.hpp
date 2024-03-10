@@ -762,18 +762,26 @@ namespace avk
 			std::function<void(graphics_pipeline_t&)> alterConfigFunction;
 			graphics_pipeline_config config;
 			add_config(config, renderPassAttachments, alterConfigFunction, std::move(args)...);
+			bool hasRenderPassAttachments = false;
+			bool hasDynamicRenderingAttachments = false;
+			for(const auto & attachment : renderPassAttachments)
+			{
+				if(attachment.is_for_dynamic_rendering())
+				{
+					hasDynamicRenderingAttachments = true;
+				} else {
+					hasRenderPassAttachments = true;
+				}
+			}
 
 			const bool hasValidRenderPass = config.mRenderPassSubpass.has_value() && static_cast<bool>(std::get<renderpass>(*config.mRenderPassSubpass)->handle());
-			const bool hasRenderPassAttachments = renderPassAttachments.size() > 0;
 			const bool isDynamicRenderingSet = config.mDynamicRendering == avk::cfg::dynamic_rendering::enabled;
-			// .has_value() should be enough since I don't fill in the optional unless there was dynamic_rendering_attachment provided
-			const bool hasDynamicRenderingAttachments = config.mDynamicRenderingAttachments.has_value();
 			// Check all invalid configurations when dynamic rendering is set
 			if (isDynamicRenderingSet )
 			{
 				if(hasValidRenderPass) 		 		{ throw avk::runtime_error("Dynamic rendering does not accept renderpasses! They are set dynamically during rendering!"); }
-				if(hasRenderPassAttachments) 		{ throw avk::runtime_error("Usage of avk::attachment is not allowed when dynamic rendering is enabled! Use avk::dynamic_rendering_attachment instead!"); }
-				if(!hasDynamicRenderingAttachments) { throw avk::runtime_error("Dynamic rendering enabled but no avk::dynamic_rendering_attachments provided! Please provide at least one attachment!"); }
+				if(hasRenderPassAttachments) 		{ throw avk::runtime_error("Only avk::attachments created by declare_dynamic(_for) functions are allowed when dynamic rendering is enabled!"); }
+				if(!hasDynamicRenderingAttachments) { throw avk::runtime_error("Dynamic rendering enabled but no avk::attachmenst created by declare_dynamic(_for) functions provided! Please provide at least one attachment!"); }
 			} 
 			// Check all invalid configurations when normal rendering (with renderpasses) is used
 			else 
@@ -785,6 +793,8 @@ namespace avk
 			// ^ that was the sanity check. See if we have to build the renderpass from the attachments:
 			if (hasRenderPassAttachments) {
 				add_config(config, renderPassAttachments, alterConfigFunction, create_renderpass(std::move(renderPassAttachments)));
+			} else {
+				config.mDynamicRenderingAttachments = std::move(renderPassAttachments);
 			}
 
 			// 2. CREATE PIPELINE according to the config
