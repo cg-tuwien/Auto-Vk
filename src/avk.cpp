@@ -2856,12 +2856,15 @@ namespace avk
 	void command_buffer_t::prepare_for_reuse()
 	{
 		if (mPostExecutionHandler.has_value()) {
-			// Clear post-execution handler
+			// If there is a post-execution handler => call it now:
+			invoke_post_execution_handler();
+			// Clear post-execution handler:
 			mPostExecutionHandler.reset();
 		}
 		if (mCustomDeleter.has_value() && *mCustomDeleter) {
-			// If there is a custom deleter => call it now
+			// If there is a custom deleter => call it now:
 			(*mCustomDeleter)();
+			// Clear custom deleter:
 			mCustomDeleter.reset();
 		}
 		mLifetimeHandledResources.clear();
