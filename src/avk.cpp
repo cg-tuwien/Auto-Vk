@@ -1448,26 +1448,27 @@ namespace avk
 		return result;
 	}
 
-	attachment attachment::declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples)
+	attachment attachment::declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, subpass_usage_type aUsage)
 	{
 		return attachment{
 			.mFormat = std::get<vk::Format>(aFormatAndSamples),
 			.mSampleCount = std::get<vk::SampleCountFlagBits>(aFormatAndSamples),
-			.mSubpassUsages = subpass_usages(subpass_usage_type::create_unused()),
+			.mSubpassUsages = subpass_usages(aUsage),
 			.mDynamicRenderingAttachment = true
 		};
 	}
 
-	attachment attachment::declare_dynamic(vk::Format aFormat)
+	attachment attachment::declare_dynamic(vk::Format aFormat, subpass_usage_type aUsage)
 	{
-		return declare_dynamic({aFormat, vk::SampleCountFlagBits::e1});
+		return declare_dynamic({aFormat, vk::SampleCountFlagBits::e1}, aUsage);
 	}
 
-	attachment attachment::declare_dynamic_for(const image_view_t& aImageView)
+	attachment attachment::declare_dynamic_for(const image_view_t& aImageView, subpass_usage_type aUsage)
 	{
 		const auto& imageConfig = aImageView.get_image().create_info();
 		const auto format = imageConfig.format;
-		return declare_dynamic(format);
+		const auto samples = imageConfig.samples;
+		return declare_dynamic({format, samples}, aUsage);
 	}
 #pragma endregion
 
@@ -4763,18 +4764,18 @@ namespace avk
 			{
 				numSamples = result.mRenderPass.value()->num_samples_for_subpass(result.subpass_id().value());
 			} else {
-				const auto & dynamicRenderingAttachments = aConfig.mDynamicRenderingAttachments.value();
-				numSamples = dynamicRenderingAttachments.at(0).sample_count();
-#if defined(_DEBUG)
-				for(int attachment_idx = 1; attachment_idx < dynamicRenderingAttachments.size(); attachment_idx++)
+				for(const auto & attachment : aConfig.mDynamicRenderingAttachments.value())
 				{
-					if(numSamples != dynamicRenderingAttachments.at(attachment_idx).sample_count())
+					if(attachment.is_multisampled())
 					{
-						//TODO(msakmary) This may be possible with some extension I'm not 100% sure...
-						throw avk::runtime_error("Cannot have different sample counts for attachments in the same renderpass");
+						if(numSamples != vk::SampleCountFlagBits::e1 && numSamples != attachment.sample_count())
+						{
+							//NOTE(msakmary) This may be possible with some extension I'm not 100% sure...
+							throw avk::runtime_error("Cannot have different sample counts for attachments in the same renderpass");
+						}
+						numSamples = attachment.sample_count();
 					}
 				}
-#endif
 			}
 			
 			// Evaluate and set the PER SAMPLE shading configuration:
@@ -8382,15 +8383,19 @@ namespace avk
 			uint32_t aLayerCount)
 		{
 #ifdef _DEBUG
-			if (aAttachments.size() != aImageViews.size()) {
-				throw avk::runtime_error("Incomplete config for begin dynamic rendering: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
-			}
+			// if (aAttachments.size() != aImageViews.size()) {
+			// 	throw avk::runtime_error("Incomplete config for begin dynamic rendering: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
+			// }
 			auto n = aAttachments.size();
 			for (size_t i = 0; i < n; ++i) {
 				auto& a = aAttachments[i];
 				auto& v = aImageViews[i];
 				if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
 					AVK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
+				}
+				if(!a.is_for_dynamic_rendering())
+				{
+					AVK_LOG_WARNING("Provided attachment which was not created compatible with dynamic rendering. Please provide an attachment created with one of the declare_dynamic_* functions");
 				}
 			}
 #endif //_DEBUG
@@ -8427,14 +8432,15 @@ namespace avk
 #endif //_DEBUG
 				if(currAttachment.is_used_as_color_attachment())
 				{
+					const auto & usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
 					colorAttachments.push_back(
 						vk::RenderingAttachmentInfoKHR{}
 							.setImageView(currImageView->handle())
 							.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-							// TODO(msakmary) add support for resolve and MSAA
-							// .setResolveMode()
-							// .setResolveImageView()
-							// .setResolveImageLayout()
+							.setResolveMode(usage.mResolve ? vk::ResolveModeFlagBits::eAverage : vk::ResolveModeFlagBits::eNone)
+							.setResolveImageView(usage.mResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
+							// TODO(msakmary) What here?? 
+							.setResolveImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
 							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
 							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
 							.setClearValue(vk::ClearColorValue(currAttachment.clear_color()))
@@ -8442,7 +8448,7 @@ namespace avk
 				} 
 				else // currAttachment is either used as depth or as stencil
 				{
-					// TODO(msakmary): This will brake if we want depth image and stencil both D24S8 but separate images (so two D24S8 images 
+					// NOTE(msakmary): This will brake if we want depth image and stencil both D24S8 but separate images (so two D24S8 images 
 					//                 one used as depth one as stencil) probably should have this info in a custom attachment type.
 					//                 I think something like begin_rendering_attachment should be added which would have an explicit field 
 					//                 which would denote how to use the attachment - use this attachment as stencil, depth or color
@@ -8524,7 +8530,6 @@ namespace avk
 		{
 			return action_type_command
 			{
-				// TODO(msakmary) I'm copying end renderpass here but I'm not sure this is correct?
 				avk::sync::sync_hint {
 					{{ // What previous commands must synchronize with:
 						vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!

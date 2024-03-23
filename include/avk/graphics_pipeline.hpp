@@ -23,8 +23,7 @@ namespace avk
 			if(mRenderPass.has_value()) { return std::cref(mRenderPass.value().get()); }
 			else 						{ return std::nullopt; }
 		} 
-		// TODO(msakmary) Perhaps I just return std::optional<vk::RenderPass> here? It would probably be more readable then declval
-		auto renderpass_handle() const -> std::optional<decltype(std::declval<avk::renderpass_t>().handle())>
+		auto renderpass_handle() const -> std::optional<vk::RenderPass>
 		{
 			if(mRenderPass.has_value()) {return mRenderPass.value()->handle();}
 			else 						{return std::nullopt;}
@@ -32,8 +31,7 @@ namespace avk
 		auto subpass_id() const -> std::optional<uint32_t> 
 		{
 			if(mRenderPass.has_value()) {return mSubpassIndex;}
-			// TODO(msakmary) change subpass index to int and make -1 invalid value or perhaps add on optional here?
-			else 						{return -1;}
+			else 						{return std::nullopt;}
 		};
 		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }
 		auto& vertex_input_attribute_descriptions() { return mVertexInputAttributeDescriptions; }

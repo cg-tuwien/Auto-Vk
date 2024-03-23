@@ -61,25 +61,26 @@ namespace avk
 		static attachment declare_for(const image_view_t& aImageView, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp);
 
 		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
-	 	 *  It has fewever parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+	 	 *  It has fewer parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
 		 *  as opposed to being declared beforehand..
 		 *	@param	aFormatAndSamples	Multisampled format definition: A tuple with the format of the attachment in its first element, and with the number of samples in its second element.
 		 */
-		static attachment declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples);
+		static attachment declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, subpass_usage_type aUsage);
 
 		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
-	 	 *  It has fewever parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+	 	 *  It has fewer parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
 		 *  as opposed to being declared beforehand..
 		 *	@param	aFormat	 The format of the attachment
 		 */
-		static attachment declare_dynamic(vk::Format aFormat);
+		static attachment declare_dynamic(vk::Format aFormat, subpass_usage_type aUsage);
 
 		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
-	 	 *  It has fewever parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+	 	 *  It has fewer parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
 		 *  as opposed to being declared beforehand..
 		 *	@param	aImageView			The format of the attachment is copied from the given image view.
 		 */
-		static attachment declare_dynamic_for(const image_view_t& aImageView);
+		static attachment declare_dynamic_for(const image_view_t& aImageView, subpass_usage_type aUsage);
+
 
 		attachment& set_clear_color(std::array<float, 4> aColor) { mColorClearValue = aColor; return *this; }
 		attachment& set_depth_clear_value(float aDepthClear) { mDepthClearValue = aDepthClear; return *this; }
