@@ -514,7 +514,7 @@ namespace avk
 		 *	@param aRenderAreaExtent Render area extent (default is full extent inferred from images passed in aImageViews)
 		 *  @param aLayerCount number of layers that will be used for rendering (default is 1)
 		 */
-		extern action_type_command begin_dynamic_rendering(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, uint32_t aLayerCount = 1);
+		extern action_type_command begin_dynamic_rendering(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, uint32_t aLayerCount = 1, uint32_t aViewMask = 0);
 		
 		/** Ends dynamic rendering scope
 		*/

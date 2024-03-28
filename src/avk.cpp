@@ -8383,7 +8383,8 @@ namespace avk
 			std::vector<image_view> aImageViews,
 			vk::Offset2D aRenderAreaOffset,
 			std::optional<vk::Extent2D> aRenderAreaExtent,
-			uint32_t aLayerCount)
+			uint32_t aLayerCount,
+			uint32_t aViewMask)
 		{
 #ifdef _DEBUG
 			if (aAttachments.size() != aImageViews.size()) {
@@ -8526,13 +8527,14 @@ namespace avk
 					depthAttachment,
 					stencilAttachment,
 					aLayerCount,
+					aViewMask,
 					aRenderAreaOffset,
 					aRenderAreaExtent
 				](avk::command_buffer_t& cb) {
 					auto const renderingInfo = vk::RenderingInfoKHR{}
 						.setRenderArea(vk::Rect2D(aRenderAreaOffset, aRenderAreaExtent.value()))
 						.setLayerCount(aLayerCount)
-						.setViewMask(0) //TODO(msakmary) this is for multiview - do we want to support it?
+						.setViewMask(aViewMask) 
 						.setColorAttachmentCount(static_cast<uint32_t>(colorAttachments.size()))
 						.setPColorAttachments(colorAttachments.data())
 						.setPDepthAttachment(depthAttachment.has_value() ? &depthAttachment.value() : nullptr)
