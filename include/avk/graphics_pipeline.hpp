@@ -1,5 +1,6 @@
 #pragma once
 #include "avk/avk.hpp"
+#include <functional>
 
 namespace avk
 {
@@ -16,10 +17,22 @@ namespace avk
 		graphics_pipeline_t& operator=(const graphics_pipeline_t&) = delete;
 		~graphics_pipeline_t() = default;
 
-		[[nodiscard]] avk::renderpass renderpass() const { return mRenderPass; }
-		[[nodiscard]] const avk::renderpass_t& renderpass_reference() const { return mRenderPass.get(); }
-		auto renderpass_handle() const { return mRenderPass->handle(); }
-		auto subpass_id() const { return mSubpassIndex; }
+		[[nodiscard]] auto renderpass() const { return mRenderPass; }
+		[[nodiscard]] auto renderpass_reference() const -> std::optional<std::reference_wrapper<const avk::renderpass_t>>
+		{
+			if(mRenderPass.has_value()) { return std::cref(mRenderPass.value().get()); }
+			else 						{ return std::nullopt; }
+		} 
+		auto renderpass_handle() const -> std::optional<vk::RenderPass>
+		{
+			if(mRenderPass.has_value()) {return mRenderPass.value()->handle();}
+			else 						{return std::nullopt;}
+		}
+		auto subpass_id() const -> std::optional<uint32_t> 
+		{
+			if(mRenderPass.has_value()) {return mSubpassIndex;}
+			else 						{return std::nullopt;}
+		};
 		auto& vertex_input_binding_descriptions() { return mOrderedVertexInputBindingDescriptions; }
 		auto& vertex_input_attribute_descriptions() { return mVertexInputAttributeDescriptions; }
 		auto& vertex_input_state_create_info() { return mPipelineVertexInputStateCreateInfo; }
@@ -69,7 +82,7 @@ namespace avk
 		const auto& handle() const { return mPipeline.get(); }
 		
 	private:
-		avk::renderpass mRenderPass;
+		std::optional<avk::renderpass> mRenderPass;
 		uint32_t mSubpassIndex;
 		// The vertex input data:
 		std::vector<vk::VertexInputBindingDescription> mOrderedVertexInputBindingDescriptions;
@@ -85,6 +98,9 @@ namespace avk
 		std::vector<vk::Viewport> mViewports;
 		std::vector<vk::Rect2D> mScissors;
 		vk::PipelineViewportStateCreateInfo mViewportStateCreateInfo;
+		// Dynamic rendering state
+		std::vector<vk::Format> mDynamicRenderingColorFormats;
+		std::optional<vk::PipelineRenderingCreateInfoKHR> mRenderingCreateInfo;
 		// Rasterization state:
 		vk::PipelineRasterizationStateCreateInfo mRasterizationStateCreateInfo;
 		// Depth stencil config:

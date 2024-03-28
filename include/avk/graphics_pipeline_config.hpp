@@ -164,6 +164,13 @@ namespace avk
 			bool mDynamicScissorEnabled;
 		};
 
+		/** Dyanmic rendering*/
+		enum struct dynamic_rendering
+		{
+			disabled,
+			enabled
+		};
+
 		/** Pipeline configuration data: Culling Mode */
 		enum struct culling_mode
 		{
@@ -609,6 +616,7 @@ namespace avk
 
 		cfg::pipeline_settings mPipelineSettings; // TODO: Handle settings!
 		std::optional<std::tuple<renderpass, uint32_t>> mRenderPassSubpass;
+		std::optional<std::vector<avk::attachment>> mDynamicRenderingAttachments;
 		std::vector<input_binding_to_location_mapping> mInputBindingLocations;
 		cfg::primitive_topology mPrimitiveTopology;
 		std::vector<shader_info> mShaderInfos;
@@ -616,6 +624,7 @@ namespace avk
 		cfg::rasterizer_geometry_mode mRasterizerGeometryMode;
 		cfg::polygon_drawing mPolygonDrawingModeAndConfig;
 		cfg::culling_mode mCullingMode;
+		cfg::dynamic_rendering mDynamicRendering;
 		cfg::front_face mFrontFaceWindingOrder;
 		cfg::depth_clamp_bias mDepthClampBiasConfig;
 		cfg::depth_test mDepthTestConfig;
@@ -672,7 +681,7 @@ namespace avk
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 
-	// Add a renderpass attachment to the (temporary) attachments vector and build renderpass afterwards
+	// Add a renderpass attachment to the (temporary) attachments vector and later build renderpass from them
 	template <typename... Ts>
 	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, avk::attachment aAttachment, Ts... args)
 	{
@@ -749,6 +758,14 @@ namespace avk
 	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::culling_mode aCullingMode, Ts... args)
 	{
 		aConfig.mCullingMode = aCullingMode;
+		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
+	}
+
+	// Set dynamic rendering
+	template <typename... Ts>
+	void add_config(graphics_pipeline_config& aConfig, std::vector<avk::attachment>& aAttachments, std::function<void(graphics_pipeline_t&)>& aFunc, cfg::dynamic_rendering aDynamicRendering, Ts... args)
+	{
+		aConfig.mDynamicRendering = aDynamicRendering;
 		add_config(aConfig, aAttachments, aFunc, std::move(args)...);
 	}
 

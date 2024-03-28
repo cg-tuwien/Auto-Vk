@@ -3,6 +3,7 @@
 
 #include "buffer.hpp"
 #include "image.hpp"
+#include <vulkan/vulkan_structs.hpp>
 
 namespace avk
 {
@@ -506,6 +507,19 @@ namespace avk
 			};
 		}
 
+		/** Begins dynamic rendering scope 
+		 *  @param aAttachemnts attachments used in during this dynamic rendering pass
+		 *  @param aImageViews image views bound for each attachment
+		 *  @param aRenderAreaOffset Render area offset (default is (0,0), i.e., no offset)
+		 *	@param aRenderAreaExtent Render area extent (default is full extent inferred from images passed in aImageViews)
+		 *  @param aLayerCount number of layers that will be used for rendering (default is 1)
+		 */
+		extern action_type_command begin_dynamic_rendering(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, uint32_t aLayerCount = 1, uint32_t aViewMask = 0);
+		
+		/** Ends dynamic rendering scope
+		*/
+		extern action_type_command end_dynamic_rendering();
+
 		/**	Begins a render pass for a given framebuffer
 		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command)
 		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
@@ -514,6 +528,7 @@ namespace avk
 		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
 		 */
 		extern action_type_command begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+
 
 		/**	Ends a render pass
 		 */
@@ -535,6 +550,17 @@ namespace avk
 			std::optional<vk::Extent2D> aRenderAreaExtent = {}, 
 			bool aSubpassesInline = true
 		);
+
+		/** Begins dynamic rendering and supports nested commands in between
+		 * @param aNestedCommands Nested commands to be recorded between begin and end
+		 * @param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 * @param	aRenderAreaExtent	Render area extent (default is full extent)
+		*/
+		// extern action_type_command dynamic_renderpass(
+		// 	std::vector<recorded_commands_t> aNestedCommands = {},
+		// 	vk::Offset2D aRenderAreaOffset = {0, 0},
+		// 	std::optional<vk::Extent2D> aRenderAreaExtent = {}
+		// );
 
 		/** Advances to the next subpass within a render pass.
 		 */
