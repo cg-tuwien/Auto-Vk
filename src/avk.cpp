@@ -1448,8 +1448,12 @@ namespace avk
 		return result;
 	}
 
-	attachment attachment::declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, subpass_usage_type aUsage)
+	attachment attachment::declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, subpass_usages aUsage)
 	{
+		if(aUsage.num_subpasses() != 1)
+		{
+			throw avk::runtime_error("Dynamic rendering does not support multiple subpasses, please only provide usage with a single subpass");
+		}
 		return attachment{
 			.mFormat = std::get<vk::Format>(aFormatAndSamples),
 			.mSampleCount = std::get<vk::SampleCountFlagBits>(aFormatAndSamples),
@@ -1458,12 +1462,12 @@ namespace avk
 		};
 	}
 
-	attachment attachment::declare_dynamic(vk::Format aFormat, subpass_usage_type aUsage)
+	attachment attachment::declare_dynamic(vk::Format aFormat, subpass_usages aUsage)
 	{
 		return declare_dynamic({aFormat, vk::SampleCountFlagBits::e1}, aUsage);
 	}
 
-	attachment attachment::declare_dynamic_for(const image_view_t& aImageView, subpass_usage_type aUsage)
+	attachment attachment::declare_dynamic_for(const image_view_t& aImageView, subpass_usages aUsage)
 	{
 		const auto& imageConfig = aImageView.get_image().create_info();
 		const auto format = imageConfig.format;
@@ -4705,7 +4709,7 @@ namespace avk
 
 				for(const auto & dynRenderingAttachment : aConfig.mDynamicRenderingAttachments.value())
 				{
-					if(!is_depth_format(dynRenderingAttachment.format()))
+					if(dynRenderingAttachment.mSubpassUsages.contains_color())
 					{
 						blendingConfigNum++;
 					}
@@ -4876,12 +4880,11 @@ namespace avk
 			std::vector<vk::Format> stencil_attachments;
 			for(const auto & dynamicRenderingAttachment : aConfig.mDynamicRenderingAttachments.value())
 			{
-				if(is_depth_format(dynamicRenderingAttachment.format()))
-				{
+				if(is_depth_format(dynamicRenderingAttachment.format())) {
 					depth_attachments.push_back(dynamicRenderingAttachment.format());
 				} else if (is_stencil_format(dynamicRenderingAttachment.format())) {
 					stencil_attachments.push_back(dynamicRenderingAttachment.format());
-				} else {
+				} else if (!dynamicRenderingAttachment.mSubpassUsages.get_subpass_usage(0).as_color()) {
 					result.mDynamicRenderingColorFormats.push_back(dynamicRenderingAttachment.format());
 				}
 			}
@@ -8383,9 +8386,9 @@ namespace avk
 			uint32_t aLayerCount)
 		{
 #ifdef _DEBUG
-			// if (aAttachments.size() != aImageViews.size()) {
-			// 	throw avk::runtime_error("Incomplete config for begin dynamic rendering: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
-			// }
+			if (aAttachments.size() != aImageViews.size()) {
+				throw avk::runtime_error("Incomplete config for begin dynamic rendering: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
+			}
 			auto n = aAttachments.size();
 			for (size_t i = 0; i < n; ++i) {
 				auto& a = aAttachments[i];
@@ -8400,13 +8403,16 @@ namespace avk
 			}
 #endif //_DEBUG
 			const bool detectExtent = !aRenderAreaExtent.has_value();
-			std::vector<vk::RenderingAttachmentInfoKHR> colorAttachments = {};
+			std::vector<std::pair<vk::RenderingAttachmentInfoKHR, int>> unsortedColorAttachments = {};
 			std::optional<vk::RenderingAttachmentInfoKHR> depthAttachment = {};
 			std::optional<vk::RenderingAttachmentInfoKHR> stencilAttachment = {};
 			// First parse all the attachments into vulkan structs
 			for(uint32_t attachmentIndex = 0; attachmentIndex < aAttachments.size(); attachmentIndex++)
 			{
 				const auto & currAttachment = aAttachments.at(attachmentIndex);
+				// Unused attachments should not contribute to any rendering
+				if(currAttachment.mSubpassUsages.contains_unused()) { continue; }
+
 				const auto & currImageView = aImageViews.at(attachmentIndex);
 				if(detectExtent && !aRenderAreaExtent.has_value())
 				{
@@ -8432,18 +8438,20 @@ namespace avk
 #endif //_DEBUG
 				if(currAttachment.is_used_as_color_attachment())
 				{
-					const auto & usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
-					colorAttachments.push_back(
-						vk::RenderingAttachmentInfoKHR{}
-							.setImageView(currImageView->handle())
-							.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-							.setResolveMode(usage.mResolve ? vk::ResolveModeFlagBits::eAverage : vk::ResolveModeFlagBits::eNone)
-							.setResolveImageView(usage.mResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
-							// TODO(msakmary) What here?? 
-							.setResolveImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
-							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
-							.setClearValue(vk::ClearColorValue(currAttachment.clear_color()))
+					const auto usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
+					const bool shouldResolve = currAttachment.is_to_be_resolved();
+					unsortedColorAttachments.push_back({
+							vk::RenderingAttachmentInfoKHR{}
+								.setImageView(currImageView->handle())
+								.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+								.setResolveMode(shouldResolve ? vk::ResolveModeFlagBits::eAverage : vk::ResolveModeFlagBits::eNone)
+								.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
+								.setResolveImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+								.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
+								.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
+								.setClearValue(vk::ClearColorValue(currAttachment.clear_color())),
+							usage.color_location()
+						}
 					);
 				} 
 				else // currAttachment is either used as depth or as stencil
@@ -8458,13 +8466,14 @@ namespace avk
 						{
 							throw avk::runtime_error("Multiple depth attachments provided! Please provide only a single depth attachment");
 						}
+						const auto usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
+						const bool shouldResolve = currAttachment.is_to_be_resolved();
 						depthAttachment = vk::RenderingAttachmentInfoKHR{}
 							.setImageView(currImageView->handle())
 							.setImageLayout(vk::ImageLayout::eAttachmentOptimal)
-							// TODO(msakmary) add support for resolve and MSAA
-							// .setResolveMode()
-							// .setResolveImageView()
-							// .setResolveImageLayout()
+							.setResolveMode(shouldResolve ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(usage.mResolveModeDepth)) : vk::ResolveModeFlagBits::eNone)
+							.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
+							.setResolveImageLayout(vk::ImageLayout::eAttachmentOptimal)
 							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
 							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
 							.setClearValue(vk::ClearDepthStencilValue(
@@ -8477,13 +8486,14 @@ namespace avk
 						{
 							throw avk::runtime_error("Multiple stencil attachments provided! Please provide only a single stencil attachment");
 						}
+						const auto usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
+						const bool shouldResolve = currAttachment.is_to_be_resolved();
 						stencilAttachment = vk::RenderingAttachmentInfoKHR{}
 							.setImageView(currImageView->handle())
 							.setImageLayout(vk::ImageLayout::eAttachmentOptimal)
-							// TODO(msakmary) add support for resolve and MSAA
-							// .setResolveMode()
-							// .setResolveImageView()
-							// .setResolveImageLayout()
+							.setResolveMode(shouldResolve ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(usage.mResolveModeStencil)) : vk::ResolveModeFlagBits::eNone)
+							.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
+							.setResolveImageLayout(vk::ImageLayout::eAttachmentOptimal)
 							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
 							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
 							.setClearValue(vk::ClearDepthStencilValue(
@@ -8492,6 +8502,12 @@ namespace avk
 					}
 				}
 			}
+			std::sort(unsortedColorAttachments.begin(), unsortedColorAttachments.end(), 
+				[](const auto & a, const auto & b) -> bool { return a.second < b.second; }
+			);
+			std::vector<vk::RenderingAttachmentInfoKHR> colorAttachments = {};
+			colorAttachments.reserve(unsortedColorAttachments.size());
+			for(const auto & attachmentPair : unsortedColorAttachments) { colorAttachments.push_back(attachmentPair.first); }
 
 			return action_type_command{
 				avk::sync::sync_hint {
