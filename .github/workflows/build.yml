@@ -33,10 +33,10 @@ jobs:
           }
         # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
         # (not that ubuntu-latest (20.04) only supports >= v1.2.148 via apt)
-        vulkan-sdk: ["latest", "1.3.216"]
+        vulkan-sdk: ["latest", "1.3.216", "1.2.198"]
         vma: ["ON", "OFF"]
         exclude: # exclude combinations that are known to fail
-          - vulkan-sdk: "1.2.176"
+          - vulkan-sdk: "1.3.204"
             vma: "ON"
 
     steps:
@@ -91,7 +91,7 @@ jobs:
         shell: bash
         working-directory: ${{ runner.workspace }}/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cmake --build .
+        run: cmake --build . --config $BUILD_TYPE
 
   windows:
     name: ${{ matrix.config.name }}, windows-2019, VulkanSDK ${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
@@ -151,6 +151,9 @@ jobs:
           $env:CC="${{ matrix.config.cc }}"
           $env:CXX="${{ matrix.config.cxx }}"
           $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
+          $env:VULKAN_SDK="${{ env.vulkan_sdk }}"
+          $env:Vulkan_LIBRARY="${{ env.vulkan_sdk }}/Bin"
+          $env:Vulkan_INCLUDE_DIR="${{ env.vulkan_sdk }}/Include"
 
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC ${{ runner.workspace }}/${{ github.event.repository.name }} -Davk_UseVMA=${{ matrix.vma }} -G "Visual Studio 16 2019" -A x64
@@ -160,7 +163,7 @@ jobs:
         # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
         working-directory: ${{ runner.workspace }}/${{ github.event.repository.name }}/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cmake --build .
+        run: cmake --build . --config $BUILD_TYPE
 
   windows-latest:
     name: ${{ matrix.config.name }}, windows-latest, VulkanSDK ${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
@@ -176,8 +179,8 @@ jobs:
             cc: "cl",
             cxx: "cl"
           }
-        # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
-        vulkan-sdk: ["latest", "1.3.216.0", "1.2.198.1"]
+        # note: if a specific vulkan version needs testing, you can add it here:
+        vulkan-sdk: ["latest", "1.3.204.1", "1.3.216.0"]
         vma: ["ON", "OFF"]
         exclude: # exclude combinations that are known to fail
           - vulkan-sdk: "1.2.198"
@@ -223,6 +226,9 @@ jobs:
           $env:Vulkan_LIBRARY="${{ env.vulkan_sdk }}/Bin"
           $env:Vulkan_INCLUDE_DIR="${{ env.vulkan_sdk }}/Include"
           $env:Path += ";${{ env.vulkan_sdk }}\;${{ env.vulkan_sdk }}\Bin\"
+          $env:VULKAN_SDK="${{ env.vulkan_sdk }}"
+          $env:Vulkan_LIBRARY="${{ env.vulkan_sdk }}/Bin"
+          $env:Vulkan_INCLUDE_DIR="${{ env.vulkan_sdk }}/Include"
 
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC ${{ runner.workspace }}/${{ github.event.repository.name }} -Davk_UseVMA=${{ matrix.vma }} -G "Visual Studio 17 2022" -A x64
@@ -232,4 +238,4 @@ jobs:
         # apparently checkout@v3 pulls to Auto-Vk/Auto-Vk on windows
         working-directory: ${{ runner.workspace }}/${{ github.event.repository.name }}/build
         # Execute the build.  You can specify a specific target with "--target <NAME>"
-        run: cmake --build .
+        run: cmake --build . --config $BUILD_TYPE

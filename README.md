@@ -13,7 +13,7 @@ I.e., the big, important concepts, which make Vulkan as performant as it can be-
 # Setup
 
 _Auto-Vk_ requires
-* A Vulkan 1.2 SDK or a Vulkan 1.3 SDK
+* A Vulkan 1.3 SDK
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 * A C++20 compiler
 
