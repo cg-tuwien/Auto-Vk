@@ -711,11 +711,12 @@ namespace avk
 		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the new pipeline's config right before it is being created on the device.
 		 *	@return A new graphics pipeline instance.
 		 */
-		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, renderpass aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex = {}, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
+		graphics_pipeline create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::optional<renderpass> aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex = {}, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation = {});
 
-		/**	Creates a graphics pipeline based on another graphics pipeline, which serves as a template,
-		 *	which either uses the same renderpass (if it has shared ownership enabled) or creates a new
-		 *	renderpass internally using create_renderpass_from_template with the template's renderpass.
+		/**	Creates a graphics pipeline based on another graphics pipeline, which serves as a template, which either:
+		 *  	- uses the same renderpass (if it has shared ownership enabled)
+		 *      - creates a new renderpass internally using create_renderpass_from_template with the template's renderpass
+		 *      - uses dynamic rendering and thus does not need to create new renderpass
 		 *	@param	aTemplate					Another, already existing graphics pipeline, which serves as a template for the newly created graphics pipeline.
 		 *	@param	aAlterConfigBeforeCreation	Optional custom callback function which can be used to alter the new pipeline's config right before it is being created on the device.
 		 *	@return A new graphics pipeline instance.
@@ -728,6 +729,7 @@ namespace avk
 		 *   - cfg::pipeline_settings (flags)
 		 *   - renderpass
 		 *   - avk::attachment (use either attachments or renderpass!)
+		 *   - avk::dynamic_rendering_attachment (only use if dynamic_rendering::enabled)
 		 *   - input_binding_location_data (vertex input)
 		 *   - cfg::primitive_topology
 		 *   - shader_info
@@ -736,6 +738,7 @@ namespace avk
 		 *   - cfg::depth_write
 		 *   - cfg::viewport_depth_scissors_config
 		 *   - cfg::culling_mode
+		 *   - cfg::dynamic_rendering
 		 *   - cfg::front_face
 		 *   - cfg::polygon_drawing
 		 *   - cfg::rasterizer_geometry_mode
@@ -759,17 +762,39 @@ namespace avk
 			std::function<void(graphics_pipeline_t&)> alterConfigFunction;
 			graphics_pipeline_config config;
 			add_config(config, renderPassAttachments, alterConfigFunction, std::move(args)...);
-
-			// Check if render pass attachments are in renderPassAttachments XOR config => only in that case, it is clear how to proceed, fail in other cases
-			if (renderPassAttachments.size() > 0 == (config.mRenderPassSubpass.has_value() && static_cast<bool>(std::get<renderpass>(*config.mRenderPassSubpass)->handle()))) {
-				if (renderPassAttachments.size() == 0) {
-					throw avk::runtime_error("No renderpass config provided! Please provide a renderpass or attachments!");
+			bool hasRenderPassAttachments = false;
+			bool hasDynamicRenderingAttachments = false;
+			for(const auto & attachment : renderPassAttachments)
+			{
+				if(attachment.is_for_dynamic_rendering())
+				{
+					hasDynamicRenderingAttachments = true;
+				} else {
+					hasRenderPassAttachments = true;
 				}
-				throw avk::runtime_error("Ambiguous renderpass config! Either set a renderpass XOR provide attachments!");
 			}
+
+			const bool hasValidRenderPass = config.mRenderPassSubpass.has_value() && static_cast<bool>(std::get<renderpass>(*config.mRenderPassSubpass)->handle());
+			const bool isDynamicRenderingSet = config.mDynamicRendering == avk::cfg::dynamic_rendering::enabled;
+			// Check all invalid configurations when dynamic rendering is set
+			if (isDynamicRenderingSet )
+			{
+				if(hasValidRenderPass) 		 		{ throw avk::runtime_error("Dynamic rendering does not accept renderpasses! They are set dynamically during rendering!"); }
+				if(hasRenderPassAttachments) 		{ throw avk::runtime_error("Only avk::attachments created by declare_dynamic(_for) functions are allowed when dynamic rendering is enabled!"); }
+				if(!hasDynamicRenderingAttachments) { throw avk::runtime_error("Dynamic rendering enabled but no avk::attachmenst created by declare_dynamic(_for) functions provided! Please provide at least one attachment!"); }
+			} 
+			// Check all invalid configurations when normal rendering (with renderpasses) is used
+			else 
+			{
+				if(hasValidRenderPass && hasRenderPassAttachments) 	{ throw avk::runtime_error("Ambiguous renderpass config! Either set a renderpass OR provide attachments but not both at the same time!"); }
+				if(!(hasValidRenderPass || hasRenderPassAttachments)) { throw avk::runtime_error("No renderpass config provided! Please provide a renderpass or attachments!"); }
+			}
+
 			// ^ that was the sanity check. See if we have to build the renderpass from the attachments:
-			if (renderPassAttachments.size() > 0) {
+			if (hasRenderPassAttachments) {
 				add_config(config, renderPassAttachments, alterConfigFunction, create_renderpass(std::move(renderPassAttachments)));
+			} else {
+				config.mDynamicRenderingAttachments = std::move(renderPassAttachments);
 			}
 
 			// 2. CREATE PIPELINE according to the config

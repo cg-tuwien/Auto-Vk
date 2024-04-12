@@ -60,6 +60,35 @@ namespace avk
 		 */
 		static attachment declare_for(const image_view_t& aImageView, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp);
 
+		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
+	 	 *  It has fewer parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+		 *  as opposed to being declared beforehand..
+		 *	@param	aFormatAndSamples	Multisampled format definition: A tuple with the format of the attachment in its first element, and with the number of samples in its second element.
+		 *	@param	aUsage				How is this attachment being used in the renderpass? In contrast to non-dynamic attachments, this usage can only contain a single subpass as such 
+		 *                              Possible values in namespace avk::usage::
+		 *                              Usages for different subpasses can be defined by concatenating them using operator>>.
+		 *                              Example 1: avk::usage::color(0) 					   // Indicates that this attachment is used as color attachment at location=0 in the renderpass
+		 *                              Example 2: avk::usage::color(2) + usage::resolve_to(3) // Indicates that this attachment is used as color attachment at location=2 in the renderpass
+		 *                                                                                     // Additionally, at the end of renderpass, its contents are resolved into the attachment at index 3.
+		 *                              Example 3: usage::unused // Indicates that this attachment is unused in the renderpass (it will only be used as a resolve target for example)
+		 */
+		static attachment declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, subpass_usages aUsage);
+
+		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
+	 	 *  It has fewer parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+		 *  as opposed to being declared beforehand..
+		 *	@param	aFormat	 The format of the attachment
+		 */
+		static attachment declare_dynamic(vk::Format aFormat, subpass_usages aUsage);
+
+		/**	Declare multisampled format of an attachment for a dynamic rendering pipeline. This attachment can only be used with pipeline that has dynamic rendering enabled.
+	 	 *  It has fewer parameters than regular attachment since some of its values (load/store ops etc...) are set when starting the dynamic render pass
+		 *  as opposed to being declared beforehand..
+		 *	@param	aImageView			The format of the attachment is copied from the given image view.
+		 */
+		static attachment declare_dynamic_for(const image_view_t& aImageView, subpass_usages aUsage);
+
+
 		attachment& set_clear_color(std::array<float, 4> aColor) { mColorClearValue = aColor; return *this; }
 		attachment& set_depth_clear_value(float aDepthClear) { mDepthClearValue = aDepthClear; return *this; }
 		attachment& set_stencil_clear_value(uint32_t aStencilClear) { mStencilClearValue = aStencilClear; return *this; }
@@ -88,6 +117,8 @@ namespace avk
 		auto sample_count() const { return mSampleCount; }
 		/** True if a multisample resolve pass shall be set up. */
 		auto is_to_be_resolved() const { return mSubpassUsages.contains_resolve(); }
+		/** True if this attachment is declared for dynamic rendering pipelines ie. using one of the dynamic declare functions*/
+		bool is_for_dynamic_rendering() const { return mDynamicRenderingAttachment; }
 
 		/** Returns the stencil load operation */
 		auto get_stencil_load_op() const { return mStencilLoadOperation.value_or(mLoadOperation); }
@@ -108,5 +139,6 @@ namespace avk
 		std::array<float, 4> mColorClearValue;
 		float mDepthClearValue;
 		uint32_t mStencilClearValue;
+		bool mDynamicRenderingAttachment;
 	};
 }
