@@ -1,5 +1,3 @@
-#include <vulkan/vulkan_enums.hpp>
-#include <vulkan/vulkan_structs.hpp>
 #define NOMINMAX
 #include <avk/avk_log.hpp>
 #include "avk/avk.hpp"
@@ -12,6 +10,9 @@
 #include <vk_mem_alloc.h>
 #endif
 #endif
+
+#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 namespace avk
 {
