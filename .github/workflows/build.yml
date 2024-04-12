@@ -127,13 +127,13 @@ jobs:
         run: |
           If ('${{ matrix.vulkan-sdk }}' -eq 'latest') {
             # the download URL for the latest SDK version changes sometimes (every four months or so?)...
-            Invoke-WebRequest -Uri https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe -OutFile vulkan-sdk.exe
+            curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
           } Else {
-            Invoke-WebRequest -Uri https://sdk.lunarg.com/sdk/download/${{ matrix.vulkan-sdk }}/windows/VulkanSDK-${{ matrix.vulkan-sdk }}-Installer.exe -OutFile vulkan-sdk.exe
+            curl -LS -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/${{ matrix.vulkan-sdk }}/windows/VulkanSDK-${{ matrix.vulkan-sdk }}-Installer.exe
           }
           7z x vulkan-sdk.exe -o"${{ env.vulkan_sdk }}"
           mkdir "${{ env.vulkan_sdk }}Include/vma/"
-          Invoke-WebRequest -Uri https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/blob/master/include/vk_mem_alloc.h?raw=true -OutFile "${{ env.vulkan_sdk }}Include/vma/vk_mem_alloc.h"
+          curl -LS -o "${{ env.vulkan_sdk }}Include/vma/vk_mem_alloc.h" https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/blob/master/include/vk_mem_alloc.h?raw=true
         
           # apparently checkout@v2 pulls to Auto-Vk/Auto-Vk on windows
           cmake -E make_directory ${{ runner.workspace }}/${{ github.event.repository.name }}/build
