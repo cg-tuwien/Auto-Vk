@@ -8475,10 +8475,10 @@ namespace avk
 						const bool shouldResolve = currAttachment.is_to_be_resolved();
 						depthAttachment = vk::RenderingAttachmentInfoKHR{}
 							.setImageView(currImageView->handle())
-							.setImageLayout(vk::ImageLayout::eAttachmentOptimal)
+							.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
 							.setResolveMode(shouldResolve ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(usage.mResolveModeDepth)) : vk::ResolveModeFlagBits::eNone)
 							.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
-							.setResolveImageLayout(vk::ImageLayout::eAttachmentOptimal)
+							.setResolveImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
 							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
 							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
 							.setClearValue(vk::ClearDepthStencilValue(
@@ -8495,10 +8495,10 @@ namespace avk
 						const bool shouldResolve = currAttachment.is_to_be_resolved();
 						stencilAttachment = vk::RenderingAttachmentInfoKHR{}
 							.setImageView(currImageView->handle())
-							.setImageLayout(vk::ImageLayout::eAttachmentOptimal)
+							.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
 							.setResolveMode(shouldResolve ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(usage.mResolveModeStencil)) : vk::ResolveModeFlagBits::eNone)
 							.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
-							.setResolveImageLayout(vk::ImageLayout::eAttachmentOptimal)
+							.setResolveImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
 							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
 							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
 							.setClearValue(vk::ClearDepthStencilValue(
