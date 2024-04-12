@@ -551,6 +551,26 @@ namespace avk
 			bool aSubpassesInline = true
 		);
 
+
+		/**	Begins and ends a render pass for a given framebuffer, and supports some nested commands to be recorded in between
+		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command).
+		 *								Optional parameter serves as a convenience-overload for the changes introduced during dynamic rendering pull request,
+		 *								namely the change of the return type of graphics_pipeline_t::renderpass_reference(), which returns an optional now.
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
+		 *	@param	aNestedCommands		Nested commands to be recorded between begin and end
+		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
+		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
+		 */
+		extern action_type_command render_pass(
+			std::optional<std::reference_wrapper<const avk::renderpass_t>> aRenderpass,
+			const framebuffer_t& aFramebuffer,
+			std::vector<recorded_commands_t> aNestedCommands = {},
+			vk::Offset2D aRenderAreaOffset = { 0, 0 }, 
+			std::optional<vk::Extent2D> aRenderAreaExtent = {}, 
+			bool aSubpassesInline = true
+		);
+
 		/** Begins dynamic rendering and supports nested commands in between
 		 * @param aNestedCommands Nested commands to be recorded between begin and end
 		 * @param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
