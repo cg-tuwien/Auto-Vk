@@ -529,6 +529,17 @@ namespace avk
 		 */
 		extern action_type_command begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
 
+		/**	Begins a render pass for a given framebuffer
+		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command).
+		 *								Optional parameter serves as a convenience-overload for the changes introduced during dynamic rendering pull request,
+		 *								namely the change of the return type of graphics_pipeline_t::renderpass_reference(), which returns an optional now.
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
+		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
+		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
+		 */
+		extern action_type_command begin_render_pass_for_framebuffer(std::optional<std::reference_wrapper<const avk::renderpass_t>> aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+
 
 		/**	Ends a render pass
 		 */

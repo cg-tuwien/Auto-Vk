@@ -8625,6 +8625,19 @@ namespace avk
 			};
 		}
 
+		action_type_command begin_render_pass_for_framebuffer(std::optional<std::reference_wrapper<const avk::renderpass_t>> aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
+		{
+			auto result = action_type_command{};
+
+			if (!aRenderpass.has_value()) {
+				AVK_LOG_ERROR("The renderpass passed to command::render_pass via the std::optional parameter does not conatin a value, i.e., no Vulkan render pass handle.");
+			}
+
+			result = begin_render_pass_for_framebuffer(aRenderpass.value().get(), aFramebuffer, aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline);
+
+			return result;
+		}
+
 		action_type_command end_render_pass()
 		{
 			return action_type_command{
