@@ -2683,60 +2683,22 @@ namespace avk
 		}
 	}
 
-	//std::optional<commands> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex)
-	//{
-	//	return commands{ pipeline_stage::transfer, memory_access::transfer_read_access, [this](command_buffer_t& aCmdBfr) {
-	//		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-	//		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
-	//		auto memProps = memory_properties();
-
-	//		// #1: Is our memory accessible from the CPU-SIDE?
-	//		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-	//			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
-	//			memcpy(mapped.get(), aDataPtr, bufferSize);
-	//			return {};
-	//		}
-
-	//		// #2: Otherwise, it must be on the GPU-SIDE!
-	//		else {
-	//			assert(avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
-
-	//			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
-	//			// "somewhat temporary" means that it can not be deleted in this function, but only
-	//			//						after the transfer operation has completed => handle via sync
-	//			auto stagingBuffer = root::create_buffer(
-	//				mPhysicalDevice, mDevice, mBuffer.allocator(),
-	//				AVK_STAGING_BUFFER_MEMORY_USAGE,
-	//				vk::BufferUsageFlagBits::eTransferSrc,
-	//				generic_buffer_meta::create_from_size(bufferSize)
-	//			);
-	//			stagingBuffer->fill(aDataPtr, 0, old_sync::wait_idle()); // Recurse into the other if-branch
-
-	//			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-	//			// Sync before:
-	//			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-	//			// Operation:
-	//			auto copyRegion = vk::BufferCopy{}
-	//				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
-	//				.setDstOffset(0u)
-	//				.setSize(bufferSize);
-	//			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
-
-	//			// Sync after:
-	//			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-	//			// Take care of the lifetime handling of the stagingBuffer, it might still be in use:
-	//			commandBuffer.set_custom_deleter([
-	//				lOwnedStagingBuffer{ std::move(stagingBuffer) }
-	//			]() { /* Nothing to do here, the buffers' destructors will do the cleanup, the lambda is just storing it. */ });
-	//
-	//			// Finish him:
-	//			return aSyncHandler.submit_and_sync();
-	//		}
-	//	}, pipeline_stage::transfer, memory_access::transfer_write_access);
-	//}
-
+	/*	Reads values from a buffer back into some host-side memory.
+	 *	@param	aDataPtr		Where to store the read-back memory into.
+	 *	@param	aMetaDataIndex	Which meta data index shall be used to determine the data size to be read back.
+	 *	@return	An avk::command is returned which you, generally, must send to a queue to be executed.
+	 *			It could be that the returned command is empty. This will happen if the buffer's memory
+	 *			is stored in a host visible memory region.
+	 *
+	 *	@example	Read an uint64_t back to host memory from a buffer that is backed by device-local memory, 
+	 *				and wait with a fence until the operation has completed:
+	 *
+	 *		avk::buffer mMyBuffer = ...;
+	 *		uint32_t mMyReadBackData;
+	 *		context().record_and_submit_with_fence({
+	 *			mMyBuffer->read_into(&mMyReadBackData, 0)
+	 *		}, *mQueue)->wait_until_signalled();
+	 */
 	avk::command::action_type_command buffer_t::read_into(void* aDataPtr, size_t aMetaDataIndex) const
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
