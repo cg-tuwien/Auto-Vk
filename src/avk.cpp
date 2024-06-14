@@ -7235,11 +7235,81 @@ namespace avk
 		return create_semaphore(device(), dispatch_loader_core(), std::move(aAlterConfigBeforeCreation));
 	}
 
-	semaphore_t& semaphore_t::handle_lifetime_of(any_owning_resource_t aResource)
+	semaphore root::create_timeline_semaphore(uint64_t aPayload, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation)
 	{
-		mLifetimeHandledResources.push_back(std::move(aResource));
+		auto typeInfo = std::make_unique<vk::SemaphoreTypeCreateInfo>();
+		typeInfo->semaphoreType = vk::SemaphoreType::eTimeline;
+		typeInfo->initialValue = aPayload;
+
+		return create_semaphore(device(), dispatch_loader_core(), [otherAlterations = move(aAlterConfigBeforeCreation), &typeInfo](semaphore_t& aSem) {
+			aSem.create_info().pNext = typeInfo.get();
+
+			if (otherAlterations) {
+				otherAlterations(aSem);
+			}
+		});
+	}
+
+	vk::Result root::wait_until_signaled(std::span<avk::semaphore_value_info> aSemaphoreValueInfos, bool aWaitOnAll, std::optional<uint64_t> aTimeout) {
+		if (aSemaphoreValueInfos.empty()) {
+			return vk::Result::eSuccess;
+		}
+
+		const vk::Device& device = aSemaphoreValueInfos.front().mSemaphore->mSemaphore.getOwner();
+		std::vector<vk::Semaphore> semHandles;
+		std::vector<uint64_t> timestampValues;
+		for (const auto& svi : aSemaphoreValueInfos) {
+			assert(device == svi.mSemaphore->mSemaphore.getOwner());
+			semHandles.push_back(svi.mSemaphore->handle());
+			timestampValues.push_back(svi.mValue);
+		}
+
+		vk::SemaphoreWaitInfo info(
+			aWaitOnAll ? vk::SemaphoreWaitFlags{} : vk::SemaphoreWaitFlagBits::eAny,
+			static_cast<uint32_t>(semHandles.size()),
+			semHandles.data(),
+			timestampValues.data()
+		);
+
+		return device.waitSemaphores(info, aTimeout.value_or(UINT64_MAX));
+	}
+
+	semaphore_t& semaphore_t::handle_lifetime_of(any_owning_resource_t aResource, uint64_t aDeleteResourceAtValue)
+	{
+		mLifetimeHandledResources.push_front(std::make_tuple(std::move(aResource), aDeleteResourceAtValue));
 		return *this;
 	}
+	void semaphore_t::cleanup_expired_resources() {
+		uint64_t val = query_current_value();
+		mLifetimeHandledResources.remove_if([val](auto& r) {return std::get<1>(r) <= val; });
+	}
+
+	const uint64_t semaphore_t::query_current_value() const {
+		uint64_t value;
+		auto result = mSemaphore.getOwner().getSemaphoreCounterValue(mSemaphore.get(), &value);
+		assert(static_cast<VkResult>(result) >= 0);
+		return value;
+	}
+
+	void semaphore_t::signal(uint64_t aNewValue) const {
+		auto info = vk::SemaphoreSignalInfo{}
+			.setSemaphore(mSemaphore.get())
+			.setValue(aNewValue);
+		mSemaphore.getOwner().signalSemaphore(info);
+	}
+
+	void semaphore_t::wait_until_signaled(uint64_t aSignalValue, std::optional<uint64_t> aTimeout) const {
+		vk::SemaphoreWaitInfo info{
+			vk::SemaphoreWaitFlags{},
+			1u,
+			handle_addr(),
+			&aSignalValue
+		};
+		mSemaphore.getOwner().waitSemaphores(info, aTimeout.value_or(UINT64_MAX));
+	}
+
+	semaphore_value_info owning_resource<semaphore_t>::operator=(uint64_t aValue) { return semaphore_value_info{get(), aValue}; }
+	semaphore_value_info resource_argument<semaphore_t>::operator=(uint64_t aValue) { return semaphore_value_info{get(), aValue}; }
 #pragma endregion
 
 #pragma region shader definitions
@@ -9065,7 +9135,7 @@ namespace avk
 		// Gather config for wait semaphores:
 		std::vector<vk::SemaphoreSubmitInfoKHR> waitSem;
 		for (auto& semWait : mSemaphoreWaits) {
-			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			auto& subInfo = waitSem.emplace_back(semWait.mWaitSemaphore->handle(), semWait.mValue);
 			std::visit(lambda_overload{
 				[&subInfo](const std::monostate&) {
 					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);
@@ -9098,7 +9168,7 @@ namespace avk
 		// Gather config for signal semaphores:
 		std::vector<vk::SemaphoreSubmitInfoKHR> signalSem;
 		for (auto& semSig : mSemaphoreSignals) {
-			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle()); // TODO: What about timeline semaphores? (see 'value' param!)
+			auto& subInfo = signalSem.emplace_back(semSig.mSignalSemaphore->handle(), semSig.mValue);
 			std::visit(lambda_overload{
 				[&subInfo](const std::monostate&) {
 					subInfo.setStageMask(vk::PipelineStageFlagBits2KHR::eNone);

@@ -17,6 +17,7 @@
 #include <queue>
 #include <set>
 #include <unordered_set>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -1000,6 +1001,22 @@ namespace avk
 #pragma region semaphore
 		static semaphore create_semaphore(vk::Device aDevice, const DISPATCH_LOADER_CORE_TYPE& aDispatchLoader, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
 		semaphore create_semaphore(std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+		/** 
+		* @brief Creates a timeline semaphore
+		* @param aPayload                   (optional) The initial value of the payload. Defaults to 0.
+		* @param aAlterConfigBeforeCreation (optional) Use it to alter the timeline semaphore configuration before it is actually being created.
+		* @return The created semaphore.
+		*/
+		semaphore create_timeline_semaphore(uint64_t aPayload = 0, std::function<void(semaphore_t&)> aAlterConfigBeforeCreation = {});
+
+		/** 
+		* @brief Waits on host until the condition specified with the parameters is met.
+		* @param aSemaphoreValueInfos Span of semaphore_value_info structs, each containing a semaphore and a payload value to wait on. All semaphores are required to be owned by the same logical device.
+		* @param aWaitOnAll (optional) If true, waits until ALL semaphores have reached their target timestamps. If false, waits until ANY semaphore has reached its target timestamp.
+		* @param aTimeout (optional) Defines a timeout (in nanoseconds) after which the function returns regardless of the semaphore state.
+		* @return Value of type vk::Result containing information about whether the wait operation succeeded, or the timeout has been triggered.
+		*/
+		static vk::Result wait_until_signaled(std::span<avk::semaphore_value_info> aSemaphoreValueInfos, bool aWaitOnAll = true, std::optional<uint64_t> aTimeout = {});
 #pragma endregion
 
 #pragma region shader
