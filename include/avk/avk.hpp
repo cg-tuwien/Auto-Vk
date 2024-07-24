@@ -239,7 +239,6 @@ namespace avk
 #include "avk/input_description.hpp"
 #include "avk/push_constants.hpp"
 
-
 #include "avk/buffer_view.hpp"
 #include "avk/vertex_index_buffer_pair.hpp"
 #include "avk/subpass_dependency.hpp"
@@ -271,6 +270,7 @@ namespace avk
 #include "avk/commands.hpp"
 #include "avk/queue.hpp"
 
+// Provide the implementation of buffer_t::read (declared in buffer.hpp)
 namespace avk {
 	template<typename Ret>
 	[[nodiscard]] Ret buffer_t::read(size_t aMetaDataIndex) {
