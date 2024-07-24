@@ -33,7 +33,7 @@ jobs:
           }
         # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
         # (not that ubuntu-latest (20.04) only supports >= v1.2.148 via apt)
-        vulkan-sdk: ["latest", "1.3.243", "1.2.198"]
+        vulkan-sdk: ["latest", "1.3.243"]
         vma: ["ON", "OFF"]
         exclude: # exclude combinations that are known to fail
           - vulkan-sdk: "1.2.198"
@@ -56,6 +56,83 @@ jobs:
           else
             sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${{ matrix.vulkan-sdk }}-jammy.list https://packages.lunarg.com/vulkan/${{ matrix.vulkan-sdk }}/lunarg-vulkan-${{ matrix.vulkan-sdk }}-jammy.list
           fi
+
+          # For GCC-13
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+
+          # Update package lists
+          sudo apt-get update -qq
+
+          # Install dependencies
+          sudo apt-get install -y \
+            vulkan-sdk \
+            g++-13 \
+            gcc-13
+
+          # clang does not yet (<= 12) support "Down with typename" (P0634R3), which is used in libstdc++ >= 11 in the ranges-header
+          if [ "${{ matrix.config.cc }}" = "clang" ]; then
+            sudo apt remove libgcc-11-dev gcc-11
+          fi
+
+          cmake -E make_directory ${{ runner.workspace }}/build
+
+      - name: Configure CMake
+        # Use a bash shell so we can use the same syntax for environment variable
+        # access regardless of the host operating system
+        shell: bash
+        working-directory: ${{ runner.workspace }}/build
+        # Note the current convention is to use the -S and -B options here to specify source
+        # and build directories, but this is only available with CMake 3.13 and higher.
+        # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
+        run: |
+          export CC=${{ matrix.config.cc }}
+          export CXX=${{ matrix.config.cxx }}
+          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -Davk_LibraryType=STATIC $GITHUB_WORKSPACE -Davk_UseVMA=${{ matrix.vma }}
+
+      - name: Build
+        shell: bash
+        working-directory: ${{ runner.workspace }}/build
+        # Execute the build.  You can specify a specific target with "--target <NAME>"
+        run: cmake --build .
+
+  linux-old:
+    name: ${{ matrix.config.name }}, VulkanSDK ${{ matrix.vulkan-sdk }}, VMA=${{ matrix.vma }}
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          #- {
+          #  name: "linux: clang",
+          #  cc: "clang",
+          #  cxx: "clang++"
+          #}
+          - {
+            name: "linux: gcc",
+            cc: "gcc-13",
+            cxx: "g++-13"
+          }
+        # note: if a specific vulkan version (e.g. 1.1.x, or < 1.2.135) needs testing, you can add it here:
+        # (not that ubuntu-latest (20.04) only supports >= v1.2.148 via apt)
+        vulkan-sdk: ["1.2.198"]
+        vma: ["ON", "OFF"]
+        exclude: # exclude combinations that are known to fail
+          - vulkan-sdk: "1.2.198"
+            vma: "ON"
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create Build Environment
+        shell: bash
+        # Some projects don't allow in-source building, so create a separate build directory
+        # We'll use this as our working directory for all subsequent commands
+        run: |
+          # Add lunarg apt sources
+          sudo sed -i -e 's|disco|focal|g' /etc/apt/sources.list
+          sudo apt update
+          wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list https://packages.lunarg.com/vulkan/${{ matrix.vulkan-sdk }}/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list
 
           # For GCC-13
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
