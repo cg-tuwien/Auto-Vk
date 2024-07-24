@@ -48,13 +48,13 @@ jobs:
         # We'll use this as our working directory for all subsequent commands
         run: |
           # Add lunarg apt sources
-          sudo sed -i -e 's|disco|focal|g' /etc/apt/sources.list
+          sudo sed -i -e 's|disco|jammy|g' /etc/apt/sources.list
           sudo apt update
           wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
           if [ "${{ matrix.vulkan-sdk }}" = "latest" ]; then          
-            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
           else
-            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list https://packages.lunarg.com/vulkan/${{ matrix.vulkan-sdk }}/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list
+            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${{ matrix.vulkan-sdk }}-jammy.list https://packages.lunarg.com/vulkan/${{ matrix.vulkan-sdk }}/lunarg-vulkan-${{ matrix.vulkan-sdk }}-jammy.list
           fi
 
           # For GCC-13
