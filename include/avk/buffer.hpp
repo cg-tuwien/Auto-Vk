@@ -273,12 +273,7 @@ namespace avk
 		 * // ^ given that mMyBuffer is a buffer backed by host visible memory and hence, does not require commands to be executed.
 		 */
 		template<typename Ret>
-		[[nodiscard]] Ret read(size_t aMetaDataIndex) {
-			auto memProps = memory_properties();
-			Ret result;
-			read_into(static_cast<void*>(&result), aMetaDataIndex);
-			return result;
-		}
+		[[nodiscard]] Ret read(size_t aMetaDataIndex);
 
 		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
 

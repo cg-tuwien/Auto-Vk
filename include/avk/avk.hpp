@@ -271,6 +271,16 @@ namespace avk
 #include "avk/commands.hpp"
 #include "avk/queue.hpp"
 
+namespace avk {
+	template<typename Ret>
+	[[nodiscard]] Ret buffer_t::read(size_t aMetaDataIndex) {
+		auto memProps = memory_properties();
+		Ret result;
+		read_into(static_cast<void*>(&result), aMetaDataIndex);
+		return result;
+	}
+}
+
 namespace avk
 {
 	// T must provide:
