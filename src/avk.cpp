@@ -2657,7 +2657,8 @@ namespace avk
 			stagingBuffer.enable_shared_ownership(); // TODO: Why does it not work WITHOUT shared_ownership? (Fails when assigning it to mBeginFun)
 			stagingBuffer->fill(aDataPtr, 0); // Recurse into the other if-branch
 
-			// Whatever comes after must synchronize with the device-local copy:
+			// Whatever comes before/after must synchronize with the device-local copy:
+			std::get<avk::sync::sync_hint>(actionTypeCommand.mResourceSpecificSyncHints.front()).mDstForPreviousCmds = stage::copy + (access::transfer_read | access::transfer_write);
 			std::get<avk::sync::sync_hint>(actionTypeCommand.mResourceSpecificSyncHints.front()).mSrcForSubsequentCmds = stage::copy + access::transfer_write;
 			actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 						
