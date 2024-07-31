@@ -1,4 +1,4 @@
-# Auto-Vk v0.98.1
+# Auto-Vk v0.99
 
 _Auto-Vk_ is a low-level convenience and productivity layer for the best graphics API there is, namely
 <p align="center">
