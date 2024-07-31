@@ -69,38 +69,27 @@ namespace avk
 	}
 
 	/**	Load a binary file into memory.
-	 *	Adapted from: http://www.cplusplus.com/reference/istream/istream/read/
+	 *	Adapted from: https://coniferproductions.com/posts/2022/10/25/reading-binary-files-cpp/
 	 */
 	static std::vector<char> load_binary_file(std::string path)
 	{
-		std::vector<char> buffer;
-		std::ifstream is(path.c_str(), std::ifstream::binary);
-		if (!is) {
-			throw avk::runtime_error("Couldn't load file '" + path + "'");
+		try {
+			std::filesystem::path inputFilePath{path};
+			auto length = std::filesystem::file_size(inputFilePath);
+			if (length == 0) {
+			    throw avk::runtime_error("Couldn't load file '" + path + "'. It appears to be empty.");
+			}
+			std::vector<char> buffer(((length + 3) / 4) * 4);
+			std::ifstream inputFile(path, std::ios_base::binary);
+			inputFile.read(reinterpret_cast<char*>(buffer.data()), length);
+			inputFile.close();
+	    	return buffer;
 		}
-
-		// get length of file:
-		is.seekg(0, is.end);
-		size_t length = is.tellg();
-		is.seekg(0, is.beg);
-
-		buffer.resize(length);
-
-		// read data as a block:
-		is.read(buffer.data(), length);
-
-		if (!is) {
-			is.close();
-			throw avk::runtime_error(
-				"Couldn't read file '" + path + "' into buffer. " +
-				"load_binary_file could only read " + std::to_string(is.gcount()) + " bytes instead of " + std::to_string(length)
-			);
+		catch (std::filesystem::filesystem_error& e)
+		{
+			throw avk::runtime_error("Couldn't load file '" + path + "'. Reason: " + e.what());
 		}
-
-		is.close();
-		return buffer;
 	}
-
 
 	static std::string trim_spaces(std::string_view s)
 	{

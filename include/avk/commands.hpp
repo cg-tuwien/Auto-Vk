@@ -3,6 +3,7 @@
 
 #include "buffer.hpp"
 #include "image.hpp"
+#include <vulkan/vulkan_structs.hpp>
 
 namespace avk
 {
@@ -506,6 +507,19 @@ namespace avk
 			};
 		}
 
+		/** Begins dynamic rendering scope 
+		 *  @param aAttachemnts attachments used in during this dynamic rendering pass
+		 *  @param aImageViews image views bound for each attachment
+		 *  @param aRenderAreaOffset Render area offset (default is (0,0), i.e., no offset)
+		 *	@param aRenderAreaExtent Render area extent (default is full extent inferred from images passed in aImageViews)
+		 *  @param aLayerCount number of layers that will be used for rendering (default is 1)
+		 */
+		extern action_type_command begin_dynamic_rendering(std::vector<attachment> aAttachments, std::vector<image_view> aImageViews, vk::Offset2D aRenderAreaOffset = {0, 0}, std::optional<vk::Extent2D> aRenderAreaExtent = {}, uint32_t aLayerCount = 1, uint32_t aViewMask = 0);
+		
+		/** Ends dynamic rendering scope
+		*/
+		extern action_type_command end_dynamic_rendering();
+
 		/**	Begins a render pass for a given framebuffer
 		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command)
 		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
@@ -514,6 +528,18 @@ namespace avk
 		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
 		 */
 		extern action_type_command begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+
+		/**	Begins a render pass for a given framebuffer
+		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command).
+		 *								Optional parameter serves as a convenience-overload for the changes introduced during dynamic rendering pull request,
+		 *								namely the change of the return type of graphics_pipeline_t::renderpass_reference(), which returns an optional now.
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
+		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
+		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
+		 */
+		extern action_type_command begin_render_pass_for_framebuffer(std::optional<std::reference_wrapper<const avk::renderpass_t>> aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset = { 0, 0 }, std::optional<vk::Extent2D> aRenderAreaExtent = {}, bool aSubpassesInline = true);
+
 
 		/**	Ends a render pass
 		 */
@@ -535,6 +561,37 @@ namespace avk
 			std::optional<vk::Extent2D> aRenderAreaExtent = {}, 
 			bool aSubpassesInline = true
 		);
+
+
+		/**	Begins and ends a render pass for a given framebuffer, and supports some nested commands to be recorded in between
+		 *	@param	aRenderpass			Renderpass which shall begin (auto lifetime handling not supported by this command).
+		 *								Optional parameter serves as a convenience-overload for the changes introduced during dynamic rendering pull request,
+		 *								namely the change of the return type of graphics_pipeline_t::renderpass_reference(), which returns an optional now.
+		 *	@param	aFramebuffer		Framebuffer to use with the renderpass (auto lifetime handling not supported by this command)
+		 *	@param	aNestedCommands		Nested commands to be recorded between begin and end
+		 *	@param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 *	@param	aRenderAreaExtent	Render area extent (default is full extent)
+		 *	@param	aSubpassesInline	Whether or not subpasses are inline (default is true)
+		 */
+		extern action_type_command render_pass(
+			std::optional<std::reference_wrapper<const avk::renderpass_t>> aRenderpass,
+			const framebuffer_t& aFramebuffer,
+			std::vector<recorded_commands_t> aNestedCommands = {},
+			vk::Offset2D aRenderAreaOffset = { 0, 0 }, 
+			std::optional<vk::Extent2D> aRenderAreaExtent = {}, 
+			bool aSubpassesInline = true
+		);
+
+		/** Begins dynamic rendering and supports nested commands in between
+		 * @param aNestedCommands Nested commands to be recorded between begin and end
+		 * @param	aRenderAreaOffset	Render area offset (default is (0,0), i.e., no offset)
+		 * @param	aRenderAreaExtent	Render area extent (default is full extent)
+		*/
+		// extern action_type_command dynamic_renderpass(
+		// 	std::vector<recorded_commands_t> aNestedCommands = {},
+		// 	vk::Offset2D aRenderAreaOffset = {0, 0},
+		// 	std::optional<vk::Extent2D> aRenderAreaExtent = {}
+		// );
 
 		/** Advances to the next subpass within a render pass.
 		 */
@@ -585,6 +642,9 @@ namespace avk
 			// stop this reCURSEion!
 		}
 
+	    template <typename... Rest>
+		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const std::tuple<const buffer_t&, size_t>& aVertexBufferAndOffset, const Rest&... aRest);
+
 		template <typename... Rest>
 		void bind_vertex_buffer(vk::Buffer* aHandlePtr, vk::DeviceSize* aOffsetPtr, const buffer_t& aVertexBuffer, const Rest&... aRest)
 		{
@@ -604,48 +664,208 @@ namespace avk
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_vertices_indirect(const buffer_t& aParametersBuffer, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, uint32_t aDrawCount, const Bfrs&... aFurtherBuffers)
+		{
+			constexpr size_t N = sizeof...(aFurtherBuffers);
+
+			if constexpr (N == 0) {
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+					    lParametersBufferHandle = aParametersBuffer.handle(), aParametersOffset, aParametersStride, aDrawCount
+					](avk::command_buffer_t& cb) {
+						cb.handle().drawIndirect(lParametersBufferHandle, aParametersOffset, aDrawCount, aParametersStride);
+					}
+				};
+ 			}
+ 			else {
+				std::array<vk::Buffer, N> handles;
+				std::array<vk::DeviceSize, N> offsets;
+				bind_vertex_buffer(&handles[0], &offsets[0], aFurtherBuffers...);
+
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+						lBindingCount = static_cast<uint32_t>(N),
+					    lParametersBufferHandle = aParametersBuffer.handle(), aParametersOffset, aParametersStride, aDrawCount,
+						handles, offsets
+					](avk::command_buffer_t& cb) {
+						cb.handle().bindVertexBuffers(
+							0u, // TODO: Should the first binding really always be 0?
+							static_cast<uint32_t>(N), handles.data(), offsets.data()
+						);
+						cb.handle().drawIndirect(lParametersBufferHandle, aParametersOffset, aDrawCount, aParametersStride);
+					}
+				};
+			}
+		}
+
+		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_vertices_indirect_count(const buffer_t& aParametersBuffer, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const buffer_t& aDrawCountBuffer, vk::DeviceSize aDrawCountOffset, uint32_t aMaxNumberOfDraws, const Bfrs&... aFurtherBuffers)
+		{
+			constexpr size_t N = sizeof...(aFurtherBuffers);
+
+			if constexpr (N == 0) {
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+					    lParametersBufferHandle = aParametersBuffer.handle(), aParametersOffset, aParametersStride,
+					    lDrawCountBufferHandle = aDrawCountBuffer.handle(),   aDrawCountOffset,  aMaxNumberOfDraws
+					](avk::command_buffer_t& cb) {
+						cb.handle().drawIndirectCount(lParametersBufferHandle, aParametersOffset, lDrawCountBufferHandle, aDrawCountOffset, aMaxNumberOfDraws, aParametersStride);
+					}
+				};
+ 			}
+ 			else {
+				std::array<vk::Buffer, N> handles;
+				std::array<vk::DeviceSize, N> offsets;
+				bind_vertex_buffer(&handles[0], &offsets[0], aFurtherBuffers...);
+
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+						lBindingCount = static_cast<uint32_t>(N),
+					    lParametersBufferHandle = aParametersBuffer.handle(), aParametersOffset, aParametersStride,
+					    lDrawCountBufferHandle = aDrawCountBuffer.handle(),   aDrawCountOffset,  aMaxNumberOfDraws,
+						handles, offsets
+					](avk::command_buffer_t& cb) {
+						cb.handle().bindVertexBuffers(
+							0u, // TODO: Should the first binding really always be 0?
+							static_cast<uint32_t>(N), handles.data(), offsets.data()
+						);
+						cb.handle().drawIndirectCount(lParametersBufferHandle, aParametersOffset, lDrawCountBufferHandle, aDrawCountOffset, aMaxNumberOfDraws, aParametersStride);
+					}
+				};
+			}
+		}
+
+		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
 		 *  @param  aNumberOfVertices   Number of vertices to draw
-		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
-		 *								to get the number of vertices to draw.
 		 *	@param	aNumberOfInstances	Number of instances to draw
 		 *	@param	aFirstVertex		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
-		 *	@param	aFurtherBuffers		And optionally, there can be further references to vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
+		action_type_command draw_vertices(uint32_t aNumberOfVertices, uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const Bfrs&... aFurtherBuffers)
 		{
+			constexpr size_t N = sizeof...(aFurtherBuffers);
 
-			constexpr size_t N = 1 + sizeof...(aFurtherBuffers);
-			std::array<vk::Buffer, N> handles;
-			std::array<vk::DeviceSize, N> offsets;
-			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffer, aFurtherBuffers...);
+			if constexpr (N == 0) {
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+						aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
+					](avk::command_buffer_t& cb) {
+						cb.handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
+					}
+				};
+ 			}
+ 			else {
+				std::array<vk::Buffer, N> handles;
+				std::array<vk::DeviceSize, N> offsets;
+				bind_vertex_buffer(&handles[0], &offsets[0], aFurtherBuffers...);
 
-			return action_type_command{
-				avk::sync::sync_hint {
-					{{ // DESTINATION dependencies for previous commands:
-						vk::PipelineStageFlagBits2KHR::eAllGraphics,
-						vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
-					}},
-					{{ // SOURCE dependencies for subsequent commands:
-						vk::PipelineStageFlagBits2KHR::eAllGraphics,
-						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
-					}}
-				},
-				{}, // no resource-specific sync hints
-				[
-					lBindingCount = static_cast<uint32_t>(N),
-					handles, offsets, 
-					aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
-				](avk::command_buffer_t& cb) {
-					cb.handle().bindVertexBuffers(
-						0u, // TODO: Should the first binding really always be 0?
-						static_cast<uint32_t>(N), handles.data(), offsets.data()
-					);
-					cb.handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
-				}
-			};
+				return action_type_command{
+					avk::sync::sync_hint {
+						{{ // DESTINATION dependencies for previous commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eInputAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}},
+						{{ // SOURCE dependencies for subsequent commands:
+							vk::PipelineStageFlagBits2KHR::eAllGraphics,
+							vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						}}
+					},
+					{}, // no resource-specific sync hints
+					[
+						lBindingCount = static_cast<uint32_t>(N),
+						handles, offsets, 
+						aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance
+				    ](avk::command_buffer_t& cb) {
+						cb.handle().bindVertexBuffers(
+							0u, // TODO: Should the first binding really always be 0?
+							static_cast<uint32_t>(N), handles.data(), offsets.data()
+						);
+						cb.handle().draw(aNumberOfVertices, aNumberOfInstances, aFirstVertex, aFirstInstance);
+					}
+				};
+			}
 		}
 
 		/**	Draw vertices with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total buffers passed -1.
@@ -658,9 +878,11 @@ namespace avk
 		 *	@param	aFirstVertex		Offset to the first vertex
 		 *	@param	aFirstInstance		The ID of the first instance
 		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_vertices(uint32_t aNumberOfInstances, uint32_t aFirstVertex, uint32_t aFirstInstance, const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
@@ -679,9 +901,11 @@ namespace avk
 		 *	@param	aVertexBuffer		There must be at least one vertex buffer, the meta data of which will be used
 		 *								to get the number of vertices to draw.
 		 *	@param	aFurtherBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_vertices(const buffer_t& aVertexBuffer, const Bfrs&... aFurtherBuffers)
@@ -692,25 +916,31 @@ namespace avk
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
-		 *	@param	aIndexBuffer		Reference to an index buffer
-		 *	@param	aNumberOfInstances	Number of instances to draw
-		 *	@param	aFirstIndex			Offset to the first index
-		 *	@param	aVertexOffset		Offset to the first vertex
-		 *	@param	aFirstInstance		The ID of the first instance
-		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *	@param	aIndexBufferAndOffsetAndNumElements	Tuple of a const-reference and an offset and a number of elements to draw
+		 *												Pass a tuple of type std::tuple<const buffer_t&, size_t, uint32_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myIndexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0}, uint32_t{1});
+		 *	@param	aNumberOfInstances		Number of instances to draw
+		 *	@param	aFirstIndex				Offset to the first index
+		 *	@param	aVertexOffset			Offset to the first vertex
+		 *	@param	aFirstInstance			The ID of the first instance
+		 *	@param	aVertexBuffers			Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *									First case:   Pass const buffer_t& types!
+		 *									Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myVertexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
+		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t, uint32_t>& aIndexBufferAndOffsetAndNumElements, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
 			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
 
-			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = std::get<const buffer_t&>(aIndexBufferAndOffsetAndNumElements).template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t) : indexType = vk::IndexType::eUint16; break;
@@ -731,20 +961,69 @@ namespace avk
 				},
 				{}, // no resource-specific sync hints
 				[
+					indexBufferOffset = std::get<size_t>(aIndexBufferAndOffsetAndNumElements),
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
-					lNumElemments = static_cast<uint32_t>(indexMeta.num_elements()),
-					lIndexBufferHandle = aIndexBuffer.handle(),
+					lNumElemments = std::get<uint32_t>(aIndexBufferAndOffsetAndNumElements),
+					lIndexBufferHandle = std::get<const buffer_t&>(aIndexBufferAndOffsetAndNumElements).handle(),
 					aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance
 				](avk::command_buffer_t& cb) {
 					cb.handle().bindVertexBuffers(
 						0u, // TODO: Should the first binding really always be 0?
 						lBindingCount, handles.data(), offsets.data()
 					);
-					cb.handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb.handle().bindIndexBuffer(lIndexBufferHandle, indexBufferOffset, indexType);
 					cb.handle().drawIndexed(lNumElemments, aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 				}
 			};
+		}
+
+		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	Offset into the index buffer is 0.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfInstances	Number of instances to draw
+		 *	@param	aFirstIndex			Offset to the first index
+		 *	@param	aVertexOffset		Offset to the first vertex
+		 *	@param	aFirstInstance		The ID of the first instance
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed(const buffer_t& aIndexBuffer, uint32_t aNumberOfInstances, uint32_t aFirstIndex, uint32_t aVertexOffset, uint32_t aFirstInstance, const Bfrs&... aVertexBuffers)
+		{
+			const auto& indexMeta = aIndexBuffer.meta<avk::index_buffer_meta>();
+            return draw_indexed(std::forward_as_tuple(aIndexBuffer, size_t{0}, indexMeta.num_elements()), aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance, aVertexBuffers...);
+		}
+
+		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	Number of instances is set to 1.
+		 *	The first index is set to 0.
+		 *	The vertex offset is set to 0.
+		 *	The ID of the first instance is set to 0.
+		 *	@param	aIndexBufferAndOffsetAndNumElements	Tuple of a const-reference and an offset and a number of elements to draw
+		 *												Pass a tuple of type std::tuple<const buffer_t&, size_t, uint32_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myIndexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0}, uint32_t{1});
+		 *	@param	aVertexBuffers			Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *									First case:   Pass const buffer_t& types!
+		 *									Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *												  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *												  Example: avk::buffer myVertexBuffer;
+		 *												           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed(const std::tuple<const buffer_t&, size_t, uint32_t>& aIndexBufferAndOffsetAndNumElements, const Bfrs&... aVertexBuffers)
+		{
+			return draw_indexed(aIndexBufferAndOffsetAndNumElements, 1u, 0u, 0u, 0u, aVertexBuffers...);
 		}
 
 		/**	Perform an indexed draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
@@ -755,8 +1034,12 @@ namespace avk
 		 *	The vertex offset is set to 0.
 		 *	The ID of the first instance is set to 0.
 		 *	@param	aIndexBuffer		Reference to an index buffer
-		 *	@param	aVertexBuffers		References to one or multiple vertex buffers, i.e. you MUST manually convert
-		 *								to avk::resource_reference, either via avk::referenced or via avk::const_referenced
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_indexed(const buffer_t& aIndexBuffer, const Bfrs&... aVertexBuffers)
@@ -773,9 +1056,11 @@ namespace avk
 		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
 		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 *
 		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
 		 */
@@ -833,9 +1118,11 @@ namespace avk
 		 *	@param	aIndexBuffer		Reference to an index buffer
 		 *	@param	aNumberOfDraws		Number of draws to execute
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 */
 		template <typename... Bfrs>
 		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, const Bfrs&... aVertexBuffers)
@@ -854,9 +1141,11 @@ namespace avk
 		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
 		 *	@param	aDrawCountOffset	Byte offset into the draw count buffer where the actual draw count is located
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 *
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
@@ -917,9 +1206,11 @@ namespace avk
 		 *	@param	aMaxNumberOfDraws	Maximum number of draws to execute (the actual number of draws is the minimum of aMaxNumberOfDraws and the value stored in the draw count buffer)
 		 *  @param  aDrawCountBuffer    Reference to a draw count buffer, containing the number of draws to execute in one uint32_t
 		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
-		 *								First case:   Pass resource_reference<const buffer_t> types!
-		 *								Second case:  Pass tuples of type std::tuple<resource_reference<const buffer_t>, size_t>!
-		 *								Note:         You MUST manually convert to avk::resource_reference via avk::const_referenced!
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
 		 *
 		 *   See vkCmdDrawIndexedIndirectCount in the Vulkan specification for more details.
 		 */
@@ -930,31 +1221,61 @@ namespace avk
 		}
 
         /**
-         * \brief Perform a dispatch call, i.e., invoke a compute shader
-         * \param aGroupCountX The number of local workgroups to dispatch in the X dimension.
-         * \param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
-         * \param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
-         * \return An action_type_command instance which you must submit to a queue.
+         * @brief Perform a dispatch call, i.e., invoke a compute shader
+         * @param aGroupCountX The number of local workgroups to dispatch in the X dimension.
+         * @param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
+         * @param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
+         * @return An action_type_command instance which you must submit to a queue.
          */
         extern action_type_command dispatch(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
 
+        /**
+         * @brief Perform an indirect dispatch call, i.e., invoke a compute shader with dispatch parameters read from a buffer
+         * @param aCountBuffer			Buffer containing the draw count in form of a VkDispatchIndirectCommand record. See Vulkan specification: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDispatchIndirectCommand.html
+         * @param aCountBufferOffset	Byte offset into countBuffer to the beginning of such a VkDispatchIndirectCommand record.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command dispatch_indirect(avk::buffer aCountBuffer, uint32_t aCountBufferOffset);
+
 		/**
-		 * \brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_NV_mesh_shader.
-		 * \param aTaskCount The number of local workgroups to dispatch in the X dimension. Y and Z dimension are implicitly set to one.
-		 * \param aFirstTask The X component of the first workgroup ID
-		 * \return An action_type_command instance which you must submit to a queue.
+		 * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_NV_mesh_shader.
+		 * @param aTaskCount The number of local workgroups to dispatch in the X dimension. Y and Z dimension are implicitly set to one.
+		 * @param aFirstTask The X component of the first workgroup ID
+		 * @return An action_type_command instance which you must submit to a queue.
 		 */
 		extern action_type_command draw_mesh_tasks_nv(uint32_t aTaskCount, uint32_t aFirstTask);
 
 #if VK_HEADER_VERSION >= 239
-		/**
-		 * \brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
-		 * \param aGroupCountX The number of local workgroups to dispatch in the X dimension.
-		 * \param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
-		 * \param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
-		 * \return An action_type_command instance which you must submit to a queue.
-		 */
-		extern action_type_command draw_mesh_tasks_ext(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
+        /**
+         * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
+         * @param aGroupCountX The number of local workgroups to dispatch in the X dimension.
+         * @param aGroupCountY The number of local workgroups to dispatch in the Y dimension.
+         * @param aGroupCountZ The number of local workgroups to dispatch in the Z dimension.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command draw_mesh_tasks_ext(uint32_t aGroupCountX, uint32_t aGroupCountY, uint32_t aGroupCountZ);
+
+        /**
+         * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
+         * @param aDrawBuffer			buffer containing draw parameters.
+         * @param aDrawBufferOffset		byte offset into buffer where parameters begin.
+         * @param aDrawCount			number of draws to execute, and can be zero.
+         * @param aStride				byte stride between successive sets of draw parameters.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command draw_mesh_tasks_indirect_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, uint32_t aDrawCount, uint32_t aStride);
+
+        /**
+         * @brief Invoke a graphics mesh pipeline-type draw call using an API function provided by VK_EXT_mesh_shader.
+         * @param aDrawBuffer			buffer containing draw parameters.
+         * @param aDrawBufferOffset		byte offset into buffer where parameters begin.
+         * @param aCountBuffer			buffer containing the draw count.
+         * @param aCountBufferOffset	byte offset into countBuffer where the draw count begins.
+         * @param aMaxDrawCount			number of draws to execute, and can be zero.
+         * @param aStride				byte stride between successive sets of draw parameters.
+         * @return An action_type_command instance which you must submit to a queue.
+         */
+        extern action_type_command draw_mesh_tasks_indirect_count_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, avk::buffer aCountBuffer, uint32_t aCountBufferOffset, uint32_t aMaxDrawCount, uint32_t aStride);
 #endif
 
 #if VK_HEADER_VERSION >= 135
@@ -1295,8 +1616,10 @@ namespace avk
 		inline static void add_commands(std::vector<avk::recorded_commands_t>& aGatheredCommands, std::vector<avk::recorded_commands_t>& aManyMoreCommands, Ts&... aRest)
 		{
 			// Use std::insert with std::make_move_iterator as suggested here: https://stackoverflow.com/questions/15004517/moving-elements-from-stdvector-to-another-one
-			aGatheredCommands.insert(std::end(aGatheredCommands), std::make_move_iterator(std::begin(aManyMoreCommands)),
-				std::make_move_iterator(std::end(aManyMoreCommands)));
+			aGatheredCommands.insert(
+				std::end(aGatheredCommands), 
+				std::make_move_iterator(std::begin(aManyMoreCommands)), std::make_move_iterator(std::end(aManyMoreCommands))
+			);
 			add_commands(aGatheredCommands, aRest...);
 		}
 
@@ -1315,7 +1638,13 @@ namespace avk
 			return result;
 		}
 
-		// TODO: Comment
+		/**	Convenience function for gathering recorded commands---one avk::command for each entry of a given collection.
+		 *	@aCollection	Collection to iterate over
+		 *	@aGenerator		Callback function which must return exactly one command (i.e. must be assignable to avk::recorded_commands_t).
+		 *					@example std::vector<int> numbers = {1, 2, 3};
+		 *							 avk::command::one_for_each(numbers, [](const int& aNumber) {  return ... };
+		 *	@return A vector of recorded commands
+		 */
 		template <typename T, typename F>
 		inline static std::vector<avk::recorded_commands_t> one_for_each(const T& aCollection, F aGenerator)
 		{
@@ -1326,13 +1655,54 @@ namespace avk
 			return result;
 		}
 
-		// TODO: Comment
+		/**	Convenience function for gathering recorded commands---a collection of commands for each entry of a given collection.
+		 *	@aCollection	Collection to iterate over
+		 *	@aGenerator		Callback function which must return a vector of commands (i.e. must be assignable to std::vector<avk::recorded_commands_t>).
+		 *					@example std::vector<int> numbers = {1, 2, 3};
+		 *							 avk::command::one_for_each(numbers, [](const int& aNumber) { return avk::command::gather( ... ); };
+		 *	@return A vector of recorded commands
+		 */
 		template <typename T, typename F>
 		inline static std::vector<avk::recorded_commands_t> many_for_each(const T& aCollection, F aGenerator)
 		{
 			std::vector<avk::recorded_commands_t> result;
 			for (const auto& element : aCollection) {
 				auto commands = aGenerator(element);
+				for (auto& command : commands) {
+					result.push_back(std::move(command));
+				}
+			}
+			return result;
+		}
+
+		/**	Convenience function for gathering recorded commands, namely a total number of aN.
+		 *	@aN	Collection to iterate over
+		 *	@aGenerator		Callback function which must return exactly one command (i.e. must be assignable to avk::recorded_commands_t).
+		 *					@example avk::command::one_n_times(5, [](int aIndex) { return ... };
+		 *	@return A vector of recorded commands
+		 */
+		template <typename I, typename F>
+		inline static std::vector<avk::recorded_commands_t> one_n_times(I aN, F aGenerator)
+		{
+			std::vector<avk::recorded_commands_t> result;
+			for (I i = 0; i < aN; ++i) {
+				result.push_back(aGenerator(i));
+			}
+			return result;
+		}
+
+		/**	Convenience function for gathering recorded commands, namely a total number of aN.
+		 *	@aN	Collection to iterate over
+		 *	@aGenerator		Callback function which must return exactly one command (i.e. must be assignable to avk::recorded_commands_t).
+		 *					@example avk::command::many_n_times(5, [](int aIndex) { return avk::command::gather( ... ); };
+		 *	@return A vector of recorded commands
+		 */
+		template <typename I, typename F>
+		inline static std::vector<avk::recorded_commands_t> many_n_times(I aN, F aGenerator)
+		{
+			std::vector<avk::recorded_commands_t> result;
+			for (I i = 0; i < aN; ++i) {
+				auto commands = aGenerator(i);
 				for (auto& command : commands) {
 					result.push_back(std::move(command));
 				}

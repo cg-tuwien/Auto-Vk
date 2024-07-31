@@ -11,6 +11,9 @@
 #endif
 #endif
 
+#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_structs.hpp>
+
 namespace avk
 {
 #pragma region root definitions
@@ -577,6 +580,18 @@ namespace avk
 		};
 		auto it = std::find(std::begin(depthFormats), std::end(depthFormats), aImageFormat);
 		return it != depthFormats.end();
+	}
+
+	bool is_stencil_format(const vk::Format& aImageFormat)
+	{
+		static std::set<vk::Format> stencilFormats = {
+			vk::Format::eD16UnormS8Uint,
+			vk::Format::eD24UnormS8Uint,
+			vk::Format::eD32SfloatS8Uint,
+			vk::Format::eS8Uint,
+		};
+		auto it = std::find(std::begin(stencilFormats), std::end(stencilFormats), aImageFormat);
+		return it != stencilFormats.end();
 	}
 
 	bool is_1component_format(const vk::Format& aImageFormat)
@@ -1403,6 +1418,9 @@ namespace avk
 
 #pragma endregion
 
+#pragma region dynamic rendering attachment definitions
+#pragma endregion
+
 #pragma region attachment definitions
 	attachment attachment::declare(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, attachment_load_config aLoadOp, subpass_usages aUsageInSubpasses, attachment_store_config aStoreOp)
 	{
@@ -1413,7 +1431,8 @@ namespace avk
 			{},      {},
 			std::move(aUsageInSubpasses),
 			{ 0.0, 0.0, 0.0, 0.0 },
-			1.0f, 0u
+			1.0f, 0u,
+			false
 		};
 	}
 
@@ -1428,6 +1447,33 @@ namespace avk
 		const auto format = imageConfig.format;
 		auto result = declare({format, imageConfig.samples}, aLoadOp, std::move(aUsageInSubpasses), aStoreOp);
 		return result;
+	}
+
+	attachment attachment::declare_dynamic(std::tuple<vk::Format, vk::SampleCountFlagBits> aFormatAndSamples, subpass_usages aUsage)
+	{
+		if(aUsage.num_subpasses() != 1)
+		{
+			throw avk::runtime_error("Dynamic rendering does not support multiple subpasses, please only provide usage with a single subpass");
+		}
+		return attachment{
+			.mFormat = std::get<vk::Format>(aFormatAndSamples),
+			.mSampleCount = std::get<vk::SampleCountFlagBits>(aFormatAndSamples),
+			.mSubpassUsages = subpass_usages(aUsage),
+			.mDynamicRenderingAttachment = true
+		};
+	}
+
+	attachment attachment::declare_dynamic(vk::Format aFormat, subpass_usages aUsage)
+	{
+		return declare_dynamic({aFormat, vk::SampleCountFlagBits::e1}, aUsage);
+	}
+
+	attachment attachment::declare_dynamic_for(const image_view_t& aImageView, subpass_usages aUsage)
+	{
+		const auto& imageConfig = aImageView.get_image().create_info();
+		const auto format = imageConfig.format;
+		const auto samples = imageConfig.samples;
+		return declare_dynamic({format, samples}, aUsage);
 	}
 #pragma endregion
 
@@ -1661,8 +1707,8 @@ namespace avk
 			// Create sync hint for each one of the buffers
 			// As the specification has it:
 			//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stageand an access type of VK_ACCESS_SHADER_READ_BIT:
-			resSpecificSyncHints.push_back(std::make_tuple(vertexBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
-			resSpecificSyncHints.push_back(std::make_tuple(indexBuffer->handle(),  avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+			resSpecificSyncHints.push_back(std::make_tuple(vertexBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
+			resSpecificSyncHints.push_back(std::make_tuple(indexBuffer->handle(),  avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
 
 			// See if we must handle the lifetime of the two buffers:
 			if (vertexBuffer.is_ownership()) {
@@ -1786,7 +1832,7 @@ namespace avk
 		// Let's additionally also fill the dependencies for the geometries buffer:
 		// As the specification has it:
 		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
-		resSpecificSyncHints.push_back(std::make_tuple(aGeometriesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometriesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
 
 		const auto& aabbMeta = aGeometriesBuffer->meta<aabb_buffer_meta>();
 		auto startAddress = aGeometriesBuffer->device_address();
@@ -2048,7 +2094,7 @@ namespace avk
 		// Let's additionally also fill the dependencies for the geometries buffer:
 		// As the specification has it:
 		//   Accesses to other input buffers [...] must be synchronized with the VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR pipeline stage and an access type of VK_ACCESS_SHADER_READ_BIT:
-		resSpecificSyncHints.push_back(std::make_tuple(aGeometryInstancesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::shader_read, stage::acceleration_structure_build + access::none }));
+		resSpecificSyncHints.push_back(std::make_tuple(aGeometryInstancesBuffer->handle(), avk::sync::sync_hint{ stage::acceleration_structure_build + access::acceleration_structure_read, stage::acceleration_structure_build + access::none }));
 
 		const auto& metaData = aGeometryInstancesBuffer->meta<geometry_instance_buffer_meta>();
 		auto startAddress = aGeometryInstancesBuffer->device_address();
@@ -2611,7 +2657,8 @@ namespace avk
 			stagingBuffer.enable_shared_ownership(); // TODO: Why does it not work WITHOUT shared_ownership? (Fails when assigning it to mBeginFun)
 			stagingBuffer->fill(aDataPtr, 0); // Recurse into the other if-branch
 
-			// Whatever comes after must synchronize with the device-local copy:
+			// Whatever comes before/after must synchronize with the device-local copy:
+			std::get<avk::sync::sync_hint>(actionTypeCommand.mResourceSpecificSyncHints.front()).mDstForPreviousCmds = stage::copy + (access::transfer_read | access::transfer_write);
 			std::get<avk::sync::sync_hint>(actionTypeCommand.mResourceSpecificSyncHints.front()).mSrcForSubsequentCmds = stage::copy + access::transfer_write;
 			actionTypeCommand.infer_sync_hint_from_resource_sync_hints();
 						
@@ -2626,7 +2673,7 @@ namespace avk
 				//cb.handle().copyBuffer2KHR(&copyBufferInfo);
 				// TODO: No idea why copyBuffer2KHR fails with an access violation
 
-				const auto copyRegion = vk::BufferCopy{ 0u, 0u, dataSize };
+				const auto copyRegion = vk::BufferCopy{ 0u, dstOffset, dataSize };
 				cb.handle().copyBuffer(lOwnedStagingBuffer->handle(), lDstBufferHandle, 1u, &copyRegion, lRoot->dispatch_loader_core());
 
 				// Take care of the lifetime handling of the stagingBuffer, it might still be in use when this method returns:
@@ -2637,60 +2684,22 @@ namespace avk
 		}
 	}
 
-	//std::optional<commands> buffer_t::fill(const void* aDataPtr, size_t aMetaDataIndex)
-	//{
-	//	return commands{ pipeline_stage::transfer, memory_access::transfer_read_access, [this](command_buffer_t& aCmdBfr) {
-	//		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
-	//		auto bufferSize = static_cast<vk::DeviceSize>(metaData.total_size());
-	//		auto memProps = memory_properties();
-
-	//		// #1: Is our memory accessible from the CPU-SIDE?
-	//		if (avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eHostVisible)) {
-	//			auto mapped = scoped_mapping{mBuffer, mapping_access::write};
-	//			memcpy(mapped.get(), aDataPtr, bufferSize);
-	//			return {};
-	//		}
-
-	//		// #2: Otherwise, it must be on the GPU-SIDE!
-	//		else {
-	//			assert(avk::has_flag(memProps, vk::MemoryPropertyFlagBits::eDeviceLocal));
-
-	//			// We have to create a (somewhat temporary) staging buffer and transfer it to the GPU
-	//			// "somewhat temporary" means that it can not be deleted in this function, but only
-	//			//						after the transfer operation has completed => handle via sync
-	//			auto stagingBuffer = root::create_buffer(
-	//				mPhysicalDevice, mDevice, mBuffer.allocator(),
-	//				AVK_STAGING_BUFFER_MEMORY_USAGE,
-	//				vk::BufferUsageFlagBits::eTransferSrc,
-	//				generic_buffer_meta::create_from_size(bufferSize)
-	//			);
-	//			stagingBuffer->fill(aDataPtr, 0, old_sync::wait_idle()); // Recurse into the other if-branch
-
-	//			auto& commandBuffer = aSyncHandler.get_or_create_command_buffer();
-	//			// Sync before:
-	//			aSyncHandler.establish_barrier_before_the_operation(pipeline_stage::transfer, read_memory_access{memory_access::transfer_read_access});
-
-	//			// Operation:
-	//			auto copyRegion = vk::BufferCopy{}
-	//				.setSrcOffset(0u) // TODO: Support different offsets or whatever?!
-	//				.setDstOffset(0u)
-	//				.setSize(bufferSize);
-	//			commandBuffer.handle().copyBuffer(stagingBuffer->handle(), handle(), { copyRegion });
-
-	//			// Sync after:
-	//			aSyncHandler.establish_barrier_after_the_operation(pipeline_stage::transfer, write_memory_access{memory_access::transfer_write_access});
-
-	//			// Take care of the lifetime handling of the stagingBuffer, it might still be in use:
-	//			commandBuffer.set_custom_deleter([
-	//				lOwnedStagingBuffer{ std::move(stagingBuffer) }
-	//			]() { /* Nothing to do here, the buffers' destructors will do the cleanup, the lambda is just storing it. */ });
-	//
-	//			// Finish him:
-	//			return aSyncHandler.submit_and_sync();
-	//		}
-	//	}, pipeline_stage::transfer, memory_access::transfer_write_access);
-	//}
-
+	/*	Reads values from a buffer back into some host-side memory.
+	 *	@param	aDataPtr		Where to store the read-back memory into.
+	 *	@param	aMetaDataIndex	Which meta data index shall be used to determine the data size to be read back.
+	 *	@return	An avk::command is returned which you, generally, must send to a queue to be executed.
+	 *			It could be that the returned command is empty. This will happen if the buffer's memory
+	 *			is stored in a host visible memory region.
+	 *
+	 *	@example	Read an uint64_t back to host memory from a buffer that is backed by device-local memory, 
+	 *				and wait with a fence until the operation has completed:
+	 *
+	 *		avk::buffer mMyBuffer = ...;
+	 *		uint32_t mMyReadBackData;
+	 *		context().record_and_submit_with_fence({
+	 *			mMyBuffer->read_into(&mMyReadBackData, 0)
+	 *		}, *mQueue)->wait_until_signalled();
+	 */
 	avk::command::action_type_command buffer_t::read_into(void* aDataPtr, size_t aMetaDataIndex) const
 	{
 		auto metaData = meta_at_index<buffer_meta>(aMetaDataIndex);
@@ -2856,12 +2865,15 @@ namespace avk
 	void command_buffer_t::prepare_for_reuse()
 	{
 		if (mPostExecutionHandler.has_value()) {
-			// Clear post-execution handler
+			// If there is a post-execution handler => call it now:
+			invoke_post_execution_handler();
+			// Clear post-execution handler:
 			mPostExecutionHandler.reset();
 		}
 		if (mCustomDeleter.has_value() && *mCustomDeleter) {
-			// If there is a custom deleter => call it now
+			// If there is a custom deleter => call it now:
 			(*mCustomDeleter)();
+			// Clear custom deleter:
 			mCustomDeleter.reset();
 		}
 		mLifetimeHandledResources.clear();
@@ -2887,8 +2899,6 @@ namespace avk
 
 	command_buffer_t& command_buffer_t::handle_lifetime_of(any_owning_resource_t aResource)
 	{
-
-
 		mLifetimeHandledResources.push_back(std::move(aResource));
 		return *this;
 	}
@@ -4268,11 +4278,13 @@ namespace avk
 	// Set sensible defaults:
 	graphics_pipeline_config::graphics_pipeline_config()
 		: mPipelineSettings{ cfg::pipeline_settings::nothing }
+		, mDynamicRenderingAttachments {}
 		, mRenderPassSubpass {} // not set by default
 		, mPrimitiveTopology{ cfg::primitive_topology::triangles } // triangles after one another
 		, mRasterizerGeometryMode{ cfg::rasterizer_geometry_mode::rasterize_geometry } // don't discard, but rasterize!
 		, mPolygonDrawingModeAndConfig{ cfg::polygon_drawing::config_for_filling() } // Fill triangles
 		, mCullingMode{ cfg::culling_mode::cull_back_faces } // Cull back faces
+		, mDynamicRendering {cfg::dynamic_rendering::disabled }
 		, mFrontFaceWindingOrder{ cfg::front_face::define_front_faces_to_be_counter_clockwise() } // CCW == front face
 		, mDepthClampBiasConfig{ cfg::depth_clamp_bias::config_nothing_special() } // no clamp, no bias, no factors
 		, mDepthTestConfig{ cfg::depth_test::enabled() } // enable depth testing
@@ -4334,9 +4346,17 @@ namespace avk
 			.setAttachmentCount(static_cast<uint32_t>(aPreparedPipeline.mBlendingConfigsForColorAttachments.size()))
 			.setPAttachments(aPreparedPipeline.mBlendingConfigsForColorAttachments.data());
 
-		aPreparedPipeline.mMultisampleStateCreateInfo
-			.setRasterizationSamples(aPreparedPipeline.renderpass_reference().num_samples_for_subpass(aPreparedPipeline.subpass_id()))
-			.setPSampleMask(nullptr);
+		
+		// NOTE(msakmary) Not really sure why we set the samples again when they were previously set in root::create_graphics_pipeline
+		//                (ask for clarification) - but if dynamic rendering is enabled there is no renderpass...
+		const bool dynamicRenderingEnabled = aPreparedPipeline.mRenderingCreateInfo.has_value();
+		if(!dynamicRenderingEnabled)
+		{
+			aPreparedPipeline.mMultisampleStateCreateInfo
+				.setRasterizationSamples(
+					aPreparedPipeline.renderpass_reference().value().get().num_samples_for_subpass(aPreparedPipeline.subpass_id().value()))
+				.setPSampleMask(nullptr);
+		}
 
 		aPreparedPipeline.mDynamicStateCreateInfo
 			.setDynamicStateCount(static_cast<uint32_t>(aPreparedPipeline.mDynamicStateEntries.size()))
@@ -4348,10 +4368,17 @@ namespace avk
 		aPreparedPipeline.mPipelineLayout = device().createPipelineLayoutUnique(aPreparedPipeline.mPipelineLayoutCreateInfo, nullptr, dispatch_loader_core());
 		assert(static_cast<bool>(aPreparedPipeline.layout_handle()));
 
+		const void * pNext = dynamicRenderingEnabled ? &(aPreparedPipeline.mRenderingCreateInfo.value()) : nullptr;
+		VkRenderPass render_pass = VK_NULL_HANDLE;
+		if(!dynamicRenderingEnabled)
+		{
+			render_pass = (aPreparedPipeline.mRenderPass.value())->handle();
+		}
 		// Create the PIPELINE, a.k.a. putting it all together:
 		auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
 			// 0. Render Pass
-			.setRenderPass((*aPreparedPipeline.mRenderPass).handle())
+			.setPNext(pNext)
+			.setRenderPass(render_pass)
 			.setSubpass(aPreparedPipeline.mSubpassIndex)
 			// 1., 2., and 3.
 			.setPVertexInputState(&aPreparedPipeline.mPipelineVertexInputStateCreateInfo)
@@ -4433,12 +4460,17 @@ namespace avk
 
 		graphics_pipeline_t result;
 
-		// 0. Own the renderpass
+		// 0. Own the renderpass - if one is required
+		const bool dynamicRenderingEnabled = aConfig.mDynamicRendering == avk::cfg::dynamic_rendering::enabled;
+
 		{
-			assert(aConfig.mRenderPassSubpass.has_value());
-			auto [rp, sp] = std::move(aConfig.mRenderPassSubpass.value());
-			result.mRenderPass = std::move(rp);
-			result.mSubpassIndex = sp;
+			if(!dynamicRenderingEnabled)
+			{
+				assert(aConfig.mRenderPassSubpass.has_value());
+				auto [rp, sp] = std::move(aConfig.mRenderPassSubpass.value());
+				result.mRenderPass = std::move(rp);
+				result.mSubpassIndex = sp;
+			}
 		}
 
 		// 1. Compile the array of vertex input binding descriptions
@@ -4621,18 +4653,37 @@ namespace avk
 					"config (which is not attached to a specific color target) or assign them to specific color target attachment ids.");
 			}
 
-			// Iterate over all color target attachments and set a color blending config
-			if (result.subpass_id() >= result.mRenderPass->attachment_descriptions().size()) {
-				throw avk::runtime_error(
-					"There are fewer subpasses in the renderpass ("
-					+ std::to_string(result.mRenderPass->attachment_descriptions().size()) +
-					") than the subpass index ("
-					+ std::to_string(result.subpass_id()) +
-					") indicates. I.e. the subpass index is out of bounds.");
+			// Iterate over all color target attachments and set a color blending config 
+			size_t blendingConfigNum;
+			if (!dynamicRenderingEnabled)
+			{
+				const auto & renderPassVal = result.mRenderPass.value();
+				if (result.subpass_id() >= renderPassVal->attachment_descriptions().size()) {
+					throw avk::runtime_error(
+						"There are fewer subpasses in the renderpass ("
+						+ std::to_string(renderPassVal->attachment_descriptions().size()) +
+						") than the subpass index ("
+						+ std::to_string(result.subpass_id().value()) +
+						") indicates. I.e. the subpass index is out of bounds.");
+				}
+				blendingConfigNum = renderPassVal->color_attachments_for_subpass(result.subpass_id().value()).size(); /////////////////// TODO: (doublecheck or) FIX this section (after renderpass refactoring)
+			} 
+			// Renderpasses and Subpasses are not supported when dynamic rendering is enabled
+			// Instead we read size of the dynamic_rendering_attachments provided
+			else 
+			{
+				blendingConfigNum = 0;
+
+				for(const auto & dynRenderingAttachment : aConfig.mDynamicRenderingAttachments.value())
+				{
+					if(dynRenderingAttachment.mSubpassUsages.contains_color())
+					{
+						blendingConfigNum++;
+					}
+				}
 			}
-			const auto n = result.mRenderPass->color_attachments_for_subpass(result.subpass_id()).size(); /////////////////// TODO: (doublecheck or) FIX this section (after renderpass refactoring)
-			result.mBlendingConfigsForColorAttachments.reserve(n); // Important! Otherwise the vector might realloc and .data() will become invalid!
-			for (size_t i = 0; i < n; ++i) {
+			result.mBlendingConfigsForColorAttachments.reserve(blendingConfigNum); // Important! Otherwise the vector might realloc and .data() will become invalid!
+			for (size_t i = 0; i < blendingConfigNum; ++i) {
 				// Do we have a specific blending config for color attachment i?
 #if defined(_MSC_VER) && _MSC_VER < 1930
 				auto configForI = aConfig.mColorBlendingPerAttachment
@@ -4679,7 +4730,24 @@ namespace avk
 		// 10. Multisample state
 		// TODO: Can the settings be inferred from the renderpass' color attachments (as they are right now)? If they can't, how to handle this situation?
 		{ /////////////////// TODO: FIX this section (after renderpass refactoring)
-			vk::SampleCountFlagBits numSamples = (*result.mRenderPass).num_samples_for_subpass(result.subpass_id());
+			vk::SampleCountFlagBits numSamples = vk::SampleCountFlagBits::e1;
+			if(!dynamicRenderingEnabled)
+			{
+				numSamples = result.mRenderPass.value()->num_samples_for_subpass(result.subpass_id().value());
+			} else {
+				for(const auto & attachment : aConfig.mDynamicRenderingAttachments.value())
+				{
+					if(attachment.is_multisampled())
+					{
+						if(numSamples != vk::SampleCountFlagBits::e1 && numSamples != attachment.sample_count())
+						{
+							//NOTE(msakmary) This may be possible with some extension I'm not 100% sure...
+							throw avk::runtime_error("Cannot have different sample counts for attachments in the same renderpass");
+						}
+						numSamples = attachment.sample_count();
+					}
+				}
+			}
 			
 			// Evaluate and set the PER SAMPLE shading configuration:
 			auto perSample = aConfig.mPerSampleShading.value_or(per_sample_shading_config{ false, 1.0f });
@@ -4772,19 +4840,48 @@ namespace avk
 			.setPushConstantRangeCount(static_cast<uint32_t>(result.mPushConstantRanges.size()))
 			.setPPushConstantRanges(result.mPushConstantRanges.data());
 
-		// 15. Maybe alter the config?!
+		// 15. Set Rendering info if dynamic rendering is enabled
+		if(dynamicRenderingEnabled)
+		{
+			std::vector<vk::Format> depth_attachments;
+			std::vector<vk::Format> stencil_attachments;
+			for(const auto & dynamicRenderingAttachment : aConfig.mDynamicRenderingAttachments.value())
+			{
+				if(is_depth_format(dynamicRenderingAttachment.format())) {
+					depth_attachments.push_back(dynamicRenderingAttachment.format());
+				} else if (is_stencil_format(dynamicRenderingAttachment.format())) {
+					stencil_attachments.push_back(dynamicRenderingAttachment.format());
+				} else if (!dynamicRenderingAttachment.mSubpassUsages.get_subpass_usage(0).as_color()) {
+					result.mDynamicRenderingColorFormats.push_back(dynamicRenderingAttachment.format());
+				}
+			}
+			if(depth_attachments.size() > 1)   { throw avk::runtime_error("Provided multiple depth attachments! Only one is supported!"); }
+			if(stencil_attachments.size() > 1) { throw avk::runtime_error("Provided multiple stencil attachments! Only one is supported!"); }
+
+			result.mRenderingCreateInfo = vk::PipelineRenderingCreateInfoKHR{}
+				.setColorAttachmentCount(static_cast<uint32_t>(result.mDynamicRenderingColorFormats.size()))
+				.setPColorAttachmentFormats(result.mDynamicRenderingColorFormats.data())
+				.setDepthAttachmentFormat(depth_attachments.size() == 1 ? depth_attachments.at(0) : vk::Format{})
+				.setStencilAttachmentFormat(stencil_attachments.size() == 1 ? stencil_attachments.at(0) : vk::Format{});
+		}
+
+		// 16. Maybe alter the config?!
 		if (aAlterConfigBeforeCreation) {
 			aAlterConfigBeforeCreation(result);
 		}
 
-		assert (aConfig.mRenderPassSubpass.has_value());
+		assert (aConfig.mRenderPassSubpass.has_value() || dynamicRenderingEnabled);
 		rewire_config_and_create_graphics_pipeline(result);
 		return result;
 	}
 
-	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, renderpass aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
+	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::optional<renderpass> aNewRenderpass, std::optional<cfg::subpass_index> aSubpassIndex, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
 		graphics_pipeline_t result;
+		if(aTemplate.mRenderingCreateInfo.has_value() && aNewRenderpass.has_value())
+		{
+			throw avk::runtime_error("Attempting to create pipeline using renderpass from a template pipeline using dynamic rendering (which has no renderpasses) is not valid!");
+		}
 		result.mRenderPass = std::move(aNewRenderpass);
 		result.mSubpassIndex = aSubpassIndex.value_or(cfg::subpass_index{ aTemplate.mSubpassIndex }).mSubpassIndex;
 
@@ -4834,26 +4931,36 @@ namespace avk
 
 	graphics_pipeline root::create_graphics_pipeline_from_template(const graphics_pipeline_t& aTemplate, std::function<void(graphics_pipeline_t&)> aAlterConfigBeforeCreation)
 	{
-		renderpass renderpassForPipeline;
-		if (aTemplate.mRenderPass.is_shared_ownership_enabled()) {
+		// If dynamic rendering is enabled we don't want to create new renderpass
+		if(aTemplate.mRenderingCreateInfo.has_value())
+		{
+			return create_graphics_pipeline_from_template(aTemplate, std::nullopt, std::nullopt, std::move(aAlterConfigBeforeCreation));
+		}
+		std::optional<avk::renderpass> renderpassForPipeline;
+		if (aTemplate.mRenderPass.value().is_shared_ownership_enabled()) {
 			renderpassForPipeline = aTemplate.mRenderPass;
 		}
 		else {
-			renderpassForPipeline = create_renderpass_from_template(*aTemplate.mRenderPass, {});
+			renderpassForPipeline = create_renderpass_from_template(*(aTemplate.mRenderPass.value()), {});
 		}
 		return create_graphics_pipeline_from_template(aTemplate, std::move(renderpassForPipeline), std::nullopt, std::move(aAlterConfigBeforeCreation));
 	}
 
 	renderpass root::replace_render_pass_for_pipeline(graphics_pipeline& aPipeline, renderpass aNewRenderPass)
 	{
-		if (aPipeline->mRenderPass.is_shared_ownership_enabled()) {
+		if(aPipeline.get().mRenderingCreateInfo.has_value())
+		{
+			throw avk::runtime_error("Attempting to replace renderpass of pipeline using dynamic rendering (which has no renderpasses) is not valid!");
+		}
+
+		if (aPipeline->mRenderPass.value().is_shared_ownership_enabled()) {
 			aNewRenderPass.enable_shared_ownership();
 		}
 
 		auto oldRenderPass = std::move(aPipeline->mRenderPass);
 		aPipeline->mRenderPass = std::move(aNewRenderPass);
 
-		return oldRenderPass;
+		return oldRenderPass.value();
 	}
 #pragma endregion
 
@@ -8237,6 +8344,194 @@ namespace avk
 
 	namespace command
 	{
+
+		action_type_command begin_dynamic_rendering(
+			std::vector<attachment> aAttachments,
+			std::vector<image_view> aImageViews,
+			vk::Offset2D aRenderAreaOffset,
+			std::optional<vk::Extent2D> aRenderAreaExtent,
+			uint32_t aLayerCount,
+			uint32_t aViewMask)
+		{
+#ifdef _DEBUG
+			if (aAttachments.size() != aImageViews.size()) {
+				throw avk::runtime_error("Incomplete config for begin dynamic rendering: number of attachments (" + std::to_string(aAttachments.size()) + ") does not equal the number of image views (" + std::to_string(aImageViews.size()) + ")");
+			}
+			auto n = aAttachments.size();
+			for (size_t i = 0; i < n; ++i) {
+				auto& a = aAttachments[i];
+				auto& v = aImageViews[i];
+				if ((is_depth_format(v->get_image().format()) || has_stencil_component(v->get_image().format())) && !a.is_used_as_depth_stencil_attachment()) {
+					AVK_LOG_WARNING("Possibly misconfigured framebuffer: image[" + std::to_string(i) + "] is a depth/stencil format, but it is never indicated to be used as such in the attachment-description[" + std::to_string(i) + "].");
+				}
+				if(!a.is_for_dynamic_rendering())
+				{
+					AVK_LOG_WARNING("Provided attachment which was not created compatible with dynamic rendering. Please provide an attachment created with one of the declare_dynamic_* functions");
+				}
+			}
+#endif //_DEBUG
+			const bool detectExtent = !aRenderAreaExtent.has_value();
+			std::vector<std::pair<vk::RenderingAttachmentInfoKHR, int>> unsortedColorAttachments = {};
+			std::optional<vk::RenderingAttachmentInfoKHR> depthAttachment = {};
+			std::optional<vk::RenderingAttachmentInfoKHR> stencilAttachment = {};
+			// First parse all the attachments into vulkan structs
+			for(uint32_t attachmentIndex = 0; attachmentIndex < aAttachments.size(); attachmentIndex++)
+			{
+				const auto & currAttachment = aAttachments.at(attachmentIndex);
+				// Unused attachments should not contribute to any rendering
+				if(currAttachment.mSubpassUsages.contains_unused()) { continue; }
+
+				const auto & currImageView = aImageViews.at(attachmentIndex);
+				if(detectExtent && !aRenderAreaExtent.has_value())
+				{
+					const auto imageExtent = currImageView->get_image().create_info().extent;
+					aRenderAreaExtent = vk::Extent2D{
+						imageExtent.width - static_cast<uint32_t>(aRenderAreaOffset.x),
+						imageExtent.height - static_cast<uint32_t>(aRenderAreaOffset.y)
+					};
+				}
+#ifdef _DEBUG
+				else if(detectExtent)
+				{
+					const auto imageExtent = currImageView->get_image().create_info().extent;
+					const auto currAreaExtent = vk::Extent2D{
+						imageExtent.width - static_cast<uint32_t>(aRenderAreaOffset.x),
+						imageExtent.height - static_cast<uint32_t>(aRenderAreaOffset.y)
+					};
+					if(currAreaExtent != aRenderAreaExtent.value())
+					{
+						throw avk::runtime_error("Autodetect extent failed because the images passed in image views have differing extents");
+					}
+				}
+#endif //_DEBUG
+				if(currAttachment.is_used_as_color_attachment())
+				{
+					const auto usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
+					const bool shouldResolve = currAttachment.is_to_be_resolved();
+					unsortedColorAttachments.push_back({
+							vk::RenderingAttachmentInfoKHR{}
+								.setImageView(currImageView->handle())
+								.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+								.setResolveMode(shouldResolve ? vk::ResolveModeFlagBits::eAverage : vk::ResolveModeFlagBits::eNone)
+								.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
+								.setResolveImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+								.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
+								.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
+								.setClearValue(vk::ClearColorValue(currAttachment.clear_color())),
+							usage.color_location()
+						}
+					);
+				} 
+				else // currAttachment is either used as depth or as stencil
+				{
+					// NOTE(msakmary): This will brake if we want depth image and stencil both D24S8 but separate images (so two D24S8 images 
+					//                 one used as depth one as stencil) probably should have this info in a custom attachment type.
+					//                 I think something like begin_rendering_attachment should be added which would have an explicit field 
+					//                 which would denote how to use the attachment - use this attachment as stencil, depth or color
+					if(is_depth_format(currAttachment.format()))
+					{
+						if(depthAttachment.has_value())
+						{
+							throw avk::runtime_error("Multiple depth attachments provided! Please provide only a single depth attachment");
+						}
+						const auto usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
+						const bool shouldResolve = currAttachment.is_to_be_resolved();
+						depthAttachment = vk::RenderingAttachmentInfoKHR{}
+							.setImageView(currImageView->handle())
+							.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+							.setResolveMode(shouldResolve ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(usage.mResolveModeDepth)) : vk::ResolveModeFlagBits::eNone)
+							.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
+							.setResolveImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
+							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
+							.setClearValue(vk::ClearDepthStencilValue(
+								currAttachment.depth_clear_value(),
+								currAttachment.stencil_clear_value()));
+					} 
+					if(is_stencil_format(currAttachment.format()))
+					{
+						if(stencilAttachment.has_value())
+						{
+							throw avk::runtime_error("Multiple stencil attachments provided! Please provide only a single stencil attachment");
+						}
+						const auto usage = currAttachment.mSubpassUsages.get_subpass_usage(0);
+						const bool shouldResolve = currAttachment.is_to_be_resolved();
+						stencilAttachment = vk::RenderingAttachmentInfoKHR{}
+							.setImageView(currImageView->handle())
+							.setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+							.setResolveMode(shouldResolve ? static_cast<vk::ResolveModeFlagBits>(static_cast<vk::ResolveModeFlags::MaskType>(usage.mResolveModeStencil)) : vk::ResolveModeFlagBits::eNone)
+							.setResolveImageView(shouldResolve ? aImageViews.at(usage.mResolveAttachmentIndex)->handle() : VK_NULL_HANDLE)
+							.setResolveImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+							.setLoadOp(to_vk_load_op(currAttachment.mLoadOperation.mLoadBehavior))
+							.setStoreOp(to_vk_store_op(currAttachment.mStoreOperation.mStoreBehavior))
+							.setClearValue(vk::ClearDepthStencilValue(
+								currAttachment.depth_clear_value(),
+								currAttachment.stencil_clear_value()));
+					}
+				}
+			}
+			std::sort(unsortedColorAttachments.begin(), unsortedColorAttachments.end(), 
+				[](const auto & a, const auto & b) -> bool { return a.second < b.second; }
+			);
+			std::vector<vk::RenderingAttachmentInfoKHR> colorAttachments = {};
+			colorAttachments.reserve(unsortedColorAttachments.size());
+			for(const auto & attachmentPair : unsortedColorAttachments) { colorAttachments.push_back(attachmentPair.first); }
+
+			return action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[
+					colorAttachments,
+					depthAttachment,
+					stencilAttachment,
+					aLayerCount,
+					aViewMask,
+					aRenderAreaOffset,
+					aRenderAreaExtent
+				](avk::command_buffer_t& cb) {
+					auto const renderingInfo = vk::RenderingInfoKHR{}
+						.setRenderArea(vk::Rect2D(aRenderAreaOffset, aRenderAreaExtent.value()))
+						.setLayerCount(aLayerCount)
+						.setViewMask(aViewMask) 
+						.setColorAttachmentCount(static_cast<uint32_t>(colorAttachments.size()))
+						.setPColorAttachments(colorAttachments.data())
+						.setPDepthAttachment(depthAttachment.has_value() ? &depthAttachment.value() : nullptr)
+						.setPStencilAttachment(stencilAttachment.has_value() ? &stencilAttachment.value() : nullptr);
+					cb.handle().beginRenderingKHR(renderingInfo, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+		}
+		
+		action_type_command end_dynamic_rendering()
+		{
+			return action_type_command
+			{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // eAllGraphics does not include new stages or ext-stages. Therefore, eAllCommands!
+						vk::AccessFlagBits2KHR::eColorAttachmentRead | vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllCommands, // Same comment as above regarding eAllCommands vs. eAllGraphics
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+				{},
+				[](avk::command_buffer_t& cb){
+					cb.handle().endRenderingKHR(cb.root_ptr()->dispatch_loader_ext());	
+				}
+			};
+		}
+
 		action_type_command begin_render_pass_for_framebuffer(const renderpass_t& aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
 		{
 			return action_type_command{
@@ -8293,6 +8588,19 @@ namespace avk
 			};
 		}
 
+		action_type_command begin_render_pass_for_framebuffer(std::optional<std::reference_wrapper<const avk::renderpass_t>> aRenderpass, const framebuffer_t& aFramebuffer, vk::Offset2D aRenderAreaOffset, std::optional<vk::Extent2D> aRenderAreaExtent, bool aSubpassesInline)
+		{
+			auto result = action_type_command{};
+
+			if (!aRenderpass.has_value()) {
+				AVK_LOG_ERROR("The renderpass passed to command::render_pass via the std::optional parameter does not conatin a value, i.e., no Vulkan render pass handle.");
+			}
+
+			result = begin_render_pass_for_framebuffer(aRenderpass.value().get(), aFramebuffer, aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline);
+
+			return result;
+		}
+
 		action_type_command end_render_pass()
 		{
 			return action_type_command{
@@ -8340,6 +8648,25 @@ namespace avk
 				std::move(aNestedCommands),
 				std::move(tmpEndRenderPass.mBeginFun)
 			};
+		}
+
+		action_type_command render_pass(
+			std::optional<std::reference_wrapper<const avk::renderpass_t>> aRenderpass,
+			const framebuffer_t& aFramebuffer,
+			std::vector<recorded_commands_t> aNestedCommands,
+			vk::Offset2D aRenderAreaOffset,
+			std::optional<vk::Extent2D> aRenderAreaExtent,
+			bool aSubpassesInline)
+		{
+			auto result = action_type_command{};
+
+			if (!aRenderpass.has_value()) {
+				AVK_LOG_ERROR("The renderpass passed to command::render_pass via the std::optional parameter does not conatin a value, i.e., no Vulkan render pass handle.");
+			}
+
+			result = render_pass(aRenderpass.value().get(), aFramebuffer, std::move(aNestedCommands), aRenderAreaOffset, aRenderAreaExtent, aSubpassesInline);
+
+			return result;
 		}
 
 		action_type_command next_subpass(bool aSubpassesInline)
@@ -8489,6 +8816,28 @@ namespace avk
 			};
 		}
 		
+		action_type_command dispatch_indirect(avk::buffer aCountBuffer, uint32_t aCountBufferOffset)
+		{
+			auto actionTypeCmd = action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderSampledRead | vk::AccessFlagBits2KHR::eShaderStorageRead | vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eComputeShader,
+						vk::AccessFlagBits2KHR::eShaderStorageWrite
+					}}
+				},
+				{},
+				[lCountBufferHandle = aCountBuffer->handle(), aCountBufferOffset](avk::command_buffer_t& cb) {
+					cb.handle().dispatchIndirect(lCountBufferHandle, aCountBufferOffset, cb.root_ptr()->dispatch_loader_core());
+				}
+			};
+			actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aCountBuffer));
+			return actionTypeCmd;
+		}
+		
 		action_type_command draw_mesh_tasks_nv(uint32_t aTaskCount, uint32_t aFirstTask)
 		{
 			return action_type_command{
@@ -8538,6 +8887,59 @@ namespace avk
 					cb.handle().drawMeshTasksEXT(aGroupCountX, aGroupCountY, aGroupCountZ, cb.root_ptr()->dispatch_loader_ext());
 				}
 			};
+		}
+
+		action_type_command draw_mesh_tasks_indirect_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, uint32_t aDrawCount, uint32_t aStride)
+		{
+			auto actionTypeCmd = action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentWrite
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						| vk::AccessFlagBits2KHR::eShaderStorageRead // Because we must expect to read data from buffers
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+                {}, [lBufferHandle = aDrawBuffer->handle(), aDrawBufferOffset, aDrawCount, aStride](avk::command_buffer_t& cb) {
+                    cb.handle().drawMeshTasksIndirectEXT(lBufferHandle, aDrawBufferOffset, aDrawCount, aStride, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+            actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aDrawBuffer));
+			return actionTypeCmd;
+		}
+
+		action_type_command draw_mesh_tasks_indirect_count_ext(avk::buffer aDrawBuffer, vk::DeviceSize aDrawBufferOffset, avk::buffer aCountBuffer, uint32_t aCountBufferOffset, uint32_t aMaxDrawCount, uint32_t aStride)
+		{
+			auto actionTypeCmd = action_type_command{
+				avk::sync::sync_hint {
+					{{ // What previous commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eInputAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentRead
+						| vk::AccessFlagBits2KHR::eColorAttachmentWrite
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead
+						| vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+						| vk::AccessFlagBits2KHR::eShaderStorageRead // Because we must expect to read data from buffers
+					}},
+					{{ // What subsequent commands must synchronize with:
+						vk::PipelineStageFlagBits2KHR::eAllGraphics,
+						vk::AccessFlagBits2KHR::eColorAttachmentWrite | vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite
+					}}
+				},
+                {}, [lDrawBufferHandle = aDrawBuffer->handle(), aDrawBufferOffset, lCountBufferHandle = aCountBuffer->handle(), aCountBufferOffset, aMaxDrawCount, aStride](avk::command_buffer_t& cb) {
+                    cb.handle().drawMeshTasksIndirectCountEXT(lDrawBufferHandle, aDrawBufferOffset, lCountBufferHandle, aCountBufferOffset, aMaxDrawCount, aStride, cb.root_ptr()->dispatch_loader_ext());
+				}
+			};
+            actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aDrawBuffer));
+            actionTypeCmd.mLifetimeHandledResources.push_back(std::move(aCountBuffer));
+			return actionTypeCmd;
 		}
 #endif
 

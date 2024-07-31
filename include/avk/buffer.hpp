@@ -226,19 +226,6 @@ namespace avk
 		 */
 		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex) const;
 
-		// TODO: Maybe the following overload could be re-enabled after command/commands refactoring?!
-		///** Fill buffer with data according to the meta data of the given type Meta.
-		// *  The buffer's size is determined from its metadata
-		// *  @param aDataPtr			Pointer to the data to copy to the buffer. MUST point to at least enough data to fill the buffer entirely.
-		// *  @param aMetaDataSkip	How often a meta data of type Meta shall be skipped. I.e. values != 0 only make sense if there ar multiple meta data entries of type Meta.
-		// */
-		//template <typename Meta>
-		//std::optional<command_buffer> fill(const void* aDataPtr, size_t aMetaDataSkip, old_sync aSyncHandler)
-		//{
-		//	assert(has_meta<Meta>(aMetaDataSkip));
-		//	return fill(aDataPtr, index_of_meta<Meta>(aMetaDataSkip), std::move(aSyncHandler));
-		//}
-
 		/** Fill buffer partially with data.
 		*
 		*  @param aDataPtr			Pointer to the data to copy to the buffer
@@ -248,31 +235,45 @@ namespace avk
 		*/
 		command::action_type_command fill(const void* aDataPtr, size_t aMetaDataIndex, size_t aOffsetInBytes, size_t aDataSizeInBytes) const;
 
-		/** Read data from buffer back to the CPU-side, into some given memory.
-		 *	@param	aDataPtr		Target memory where to write read-back data into
-		 *	@param	aMetaDataIndex	Index of the meta data index which is used for the buffer's read-back data (size and stuff)
-		 */	
+		/**	Reads values from a buffer back into some host-side memory.
+		 *	@param	aDataPtr		Where to store the read-back memory into.
+		 *	@param	aMetaDataIndex	Which meta data index shall be used to determine the data size to be read back.
+		 *	@return	An avk::command is returned which you, generally, must send to a queue to be executed.
+		 *			It could be that the returned command is empty. This will happen if the buffer's memory
+		 *			is stored in a host visible memory region.
+		 *
+		 *	@example	Read an uint64_t back to host memory from a buffer that is backed by device-local memory, 
+		 *				and wait with a fence until the operation has completed:
+		 *
+		 *		avk::buffer mMyBuffer = ...;
+		 *		uint32_t mMyReadBackData;
+		 *		context().record_and_submit_with_fence({
+		 *			mMyBuffer->read_into(&mMyReadBackData, 0)
+		 *		}, *mQueue)->wait_until_signalled();
+		 */
 		avk::command::action_type_command read_into(void* aDataPtr, size_t aMetaDataIndex) const;
 
 		/**
-		 * Read back data from a buffer.
+		 * Read back data from a buffer that is backed by host-visible memory.
+		 * This is a convenience overload to avk::read, and is mostly intended to be used for small amounts of data,
+		 * because the data container is allocated on the stack and returned to the caller.
+		 * Technically, every data type that can be copy-constructed is fine.
+		 * Attention: This does not support read backs from buffers backed by device-local memory, since the 
+		 *            result of avk::read_into is discarded.
 		 *
-		 * This is a convenience overload to avk::read.
-		 *
-		 * Example usage:
-		 * uint32_t readData = avk::read<uint32_t>(mMySsbo, avk::old_sync::not_required());
-		 * // ^ given that mMySsbo is a host-coherent buffer. If it is not, sync is required.
-		 *
-		 * @tparam	Ret			Specify the type of data that shall be read from the buffer (this is `uint32_t` in the example above).
-		 * @returns				A value of type `Ret` which is returned by value.
+		 * @tparam	Ret				Specify the type of data that shall be read from the buffer
+		 * @param	aMetaDataIndex	Which meta data index shall be used to determine the data size to be read back.
+		 * @return	The value that has been read back from the buffer's host visible memory.
+		 *			The value's size is of size `Ret` and is returned by value.
+		 * 
+		 * @example	Read back one uint32_t value:
+		 * 
+		 * avk::buffer mMyBuffer = ...;
+		 * uint32_t myData = mMyBuffer->read<uint32_t>(0);
+		 * // ^ given that mMyBuffer is a buffer backed by host visible memory and hence, does not require commands to be executed.
 		 */
 		template<typename Ret>
-		[[nodiscard]] Ret read(size_t aMetaDataIndex) {
-			auto memProps = memory_properties();
-			Ret result;
-			read_into(static_cast<void*>(&result), aMetaDataIndex);
-			return result;
-		}
+		[[nodiscard]] Ret read(size_t aMetaDataIndex);
 
 		[[nodiscard]] const auto* root_ptr() const { return mRoot; }
 

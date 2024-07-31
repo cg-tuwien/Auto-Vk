@@ -1,10 +1,9 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16)
 project(avk)
 
 if (MSVC)
     # <ranges> support requires /std:c++latest on MSVC
-    set(CMAKE_CXX_STANDARD 23)
-    add_compile_options(/bigobj)
+    set(CMAKE_CXX_STANDARD 20)
 else (MSVC)
     set(CMAKE_CXX_STANDARD 20)
 endif (MSVC)

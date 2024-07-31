@@ -1,4 +1,4 @@
-# Auto-Vk v0.98.1
+# Auto-Vk v0.99
 
 _Auto-Vk_ is a low-level convenience and productivity layer for the best graphics API there is, namely
 <p align="center">
@@ -13,7 +13,7 @@ I.e., the big, important concepts, which make Vulkan as performant as it can be-
 # Setup
 
 _Auto-Vk_ requires
-* A Vulkan 1.2 SDK or a Vulkan 1.3 SDK
+* A Vulkan 1.3 SDK
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 * A C++20 compiler
 
@@ -79,7 +79,7 @@ avk::framebuffer framebuffer = myRoot.create_framebuffer(...);
 avk::semaphore imageAvailableSemaphore = ...;
 
 mRoot.record({
-      avk::command::render_pass(graphicsPipeline->renderpass_reference(), framebuffer.as_reference(), {
+      avk::command::render_pass(graphicsPipeline->renderpass_reference().value(), framebuffer.as_reference(), {
           avk::command::bind_pipeline(graphicsPipeline.as_reference()),
           avk::command::draw(3u, 1u, 0u, 0u)
       })
