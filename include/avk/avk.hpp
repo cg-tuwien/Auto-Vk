@@ -106,17 +106,25 @@ namespace avk
  *	Please note that you are expected to provide this type without reference.
  */
 #if !defined(DISPATCH_LOADER_CORE_TYPE)
+#if VK_HEADER_VERSION >= 302
+#define DISPATCH_LOADER_CORE_TYPE vk::detail::DispatchLoaderStatic
+#else 
 #define DISPATCH_LOADER_CORE_TYPE vk::DispatchLoaderStatic
+#endif
 #endif
 
 /** CONFIG SETTING: DISPATCH_LOADER_EXT_TYPE
  *
  *	Define the macro DISPATCH_LOADER_CORE_TYPE to to the type of dispatch loader you would
- *	like to use for extension functionality (i.e., probably doesn't work with vk::DispatchLoaderStatic)!
+ *	like to use for extension functionality (i.e., probably doesn't work with DispatchLoaderStatic)!
  *	Please note that you are expected to provide this type without reference.
  */
 #if !defined(DISPATCH_LOADER_EXT_TYPE)
+#if VK_HEADER_VERSION >= 302
+#define DISPATCH_LOADER_EXT_TYPE vk::detail::DispatchLoaderDynamic
+#else 
 #define DISPATCH_LOADER_EXT_TYPE vk::DispatchLoaderDynamic
+#endif
 #endif
 
 /** CONFIG SETTING: AVK_USE_VMA
