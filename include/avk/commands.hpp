@@ -964,7 +964,7 @@ namespace avk
 					indexBufferOffset = std::get<size_t>(aIndexBufferAndOffsetAndNumElements),
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
-					lNumElemments = std::get<uint32_t>(aIndexBufferAndOffsetAndNumElements),
+					lNumElements = std::get<uint32_t>(aIndexBufferAndOffsetAndNumElements),
 					lIndexBufferHandle = std::get<const buffer_t&>(aIndexBufferAndOffsetAndNumElements).handle(),
 					aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance
 				](avk::command_buffer_t& cb) {
@@ -973,7 +973,7 @@ namespace avk
 						lBindingCount, handles.data(), offsets.data()
 					);
 					cb.handle().bindIndexBuffer(lIndexBufferHandle, indexBufferOffset, indexType);
-					cb.handle().drawIndexed(lNumElemments, aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
+					cb.handle().drawIndexed(lNumElements, aNumberOfInstances, aFirstIndex, aVertexOffset, aFirstInstance);
 				}
 			};
 		}
@@ -1051,7 +1051,11 @@ namespace avk
 		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
 		 *	There can be no gaps between buffer bindings.
 		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
-		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aIndexBufferAndOffset	Tuple of a const-reference and an offset and a number of elements to draw
+		 *									Pass a tuple of type std::tuple<const buffer_t&, size_t>!
+		 *									  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myIndexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myIndexBuffer.get(), size_t{0});
 		 *	@param	aNumberOfDraws		Number of draws to execute
 		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
 		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
@@ -1065,14 +1069,14 @@ namespace avk
 		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
 		 */
 		template <typename... Bfrs>
-		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const Bfrs&... aVertexBuffers)
+		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const std::tuple<const buffer_t&, size_t>& aIndexBufferAndOffset, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const Bfrs&... aVertexBuffers)
 		{
 			constexpr size_t N = sizeof...(aVertexBuffers);
 			std::array<vk::Buffer, N> handles;
 			std::array<vk::DeviceSize, N> offsets;
 			bind_vertex_buffer(&handles[0], &offsets[0], aVertexBuffers...);
 
-			const auto& indexMeta = aIndexBuffer.template meta<avk::index_buffer_meta>();
+			const auto& indexMeta = std::get<const buffer_t&>(aIndexBufferAndOffset).template meta<avk::index_buffer_meta>();
 			vk::IndexType indexType;
 			switch (indexMeta.sizeof_one_element()) {
 				case sizeof(uint16_t): indexType = vk::IndexType::eUint16; break;
@@ -1093,20 +1097,45 @@ namespace avk
 				},
 				{}, // no resource-specific sync hints
 				[
+					indexBufferOffset = std::get<size_t>(aIndexBufferAndOffset),
 					lBindingCount = static_cast<uint32_t>(N),
 					handles, offsets, indexType,
 					lParametersBufferHandle = aParametersBuffer.handle(),
-					lIndexBufferHandle = aIndexBuffer.handle(),
+					lIndexBufferHandle = std::get<const buffer_t&>(aIndexBufferAndOffset).handle(),
 					aNumberOfDraws, aParametersOffset, aParametersStride
 				](avk::command_buffer_t& cb) {
 					cb.handle().bindVertexBuffers(
 						0u, // TODO: Should the first binding really always be 0?
 						lBindingCount, handles.data(), offsets.data()
 					);
-					cb.handle().bindIndexBuffer(lIndexBufferHandle, 0u, indexType);
+					cb.handle().bindIndexBuffer(lIndexBufferHandle, indexBufferOffset, indexType);
 					cb.handle().drawIndexedIndirect(lParametersBufferHandle, aParametersOffset, aNumberOfDraws, aParametersStride);
 				}
 			};
+		}
+
+		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.
+		 *	"BUFFER-BINDING" means that it corresponds to the binding specified in `input_binding_location_data::from_buffer_at_binding`.
+		 *	There can be no gaps between buffer bindings.
+		 *	@param	aParametersBuffer	Reference to an draw parameters buffer, containing a list of vk::DrawIndexedIndirectCommand structures
+		 *	@param	aIndexBuffer		Reference to an index buffer
+		 *	@param	aNumberOfDraws		Number of draws to execute
+		 *	@param	aParametersOffset	Byte offset into the parameters buffer where the actual draw parameters begin
+		 *	@param	aParametersStride	Byte stride between successive sets of draw parameters in the parameters buffer
+		 *	@param	aVertexBuffers		Multiple const-references to buffers, or tuples of const-references to buffers + offsets.
+		 *								First case:   Pass const buffer_t& types!
+		 *								Second case:  Pass tuples of type std::tuple<const buffer_t&, size_t>!
+		 *											  Hint:    std::forward_as_tuple might be useful to get that reference into a std::tuple.
+		 *											  Example: avk::buffer myVertexBuffer;
+		 *											           auto myTuple = std::forward_as_tuple(myVertexBuffer.get(), size_t{0});
+		 *
+		 *  NOTE: Make sure the _exact_ types are used for aParametersOffset (vk::DeviceSize) and aParametersStride (uint32_t) to avoid compile errors.
+		 */
+		template <typename... Bfrs>
+		action_type_command draw_indexed_indirect(const buffer_t& aParametersBuffer, const buffer_t& aIndexBuffer, uint32_t aNumberOfDraws, vk::DeviceSize aParametersOffset, uint32_t aParametersStride, const Bfrs&... aVertexBuffers)
+		{
+			const auto& indexMeta = aIndexBuffer.meta<avk::index_buffer_meta>();
+            return draw_indexed_indirect(aParametersBuffer, std::forward_as_tuple(aIndexBuffer, size_t{0}, indexMeta.num_elements()), aNumberOfDraws, aParametersOffset, aParametersStride, aVertexBuffers...);
 		}
 
 		/**	Perform an indexed indirect draw call with vertex buffer bindings starting at BUFFER-BINDING #0 top to the number of total vertex buffers passed -1.

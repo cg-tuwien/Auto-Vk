@@ -1,4 +1,4 @@
-# Auto-Vk v0.99
+# Auto-Vk v0.99.1
 
 _Auto-Vk_ is a low-level convenience and productivity layer for the best graphics API there is, namely
 <p align="center">
@@ -13,7 +13,7 @@ I.e., the big, important concepts, which make Vulkan as performant as it can be-
 # Setup
 
 _Auto-Vk_ requires
-* A Vulkan 1.3 SDK
+* A Vulkan 1.3 or 1.4 SDK
 * [Vulkan-Hpp](https://github.com/KhronosGroup/Vulkan-Hpp)
 * A C++20 compiler
 
