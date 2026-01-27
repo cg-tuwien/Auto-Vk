@@ -4858,7 +4858,7 @@ namespace avk
 					depth_attachments.push_back(dynamicRenderingAttachment.format());
 				} else if (is_stencil_format(dynamicRenderingAttachment.format())) {
 					stencil_attachments.push_back(dynamicRenderingAttachment.format());
-				} else if (!dynamicRenderingAttachment.mSubpassUsages.get_subpass_usage(0).as_color()) {
+				} else if (dynamicRenderingAttachment.mSubpassUsages.get_subpass_usage(0).as_color()) {
 					result.mDynamicRenderingColorFormats.push_back(dynamicRenderingAttachment.format());
 				}
 			}
